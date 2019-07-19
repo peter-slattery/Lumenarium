@@ -1,0 +1,222 @@
+TODO FOLDHAUS
+
+Pick Up Where You Left Off
+- In a node, you aren't filling in all the LED lists. Some of them (the outputs) are empty 
+when you reach the pattern proc because theyre outputs. 
+SOLUTION: Probably want to take the led lists out of each set of colors and just pass them in
+once per data struct.
+
+
+
+
+Name
+x lumen lab
+- Splash screen (like blender) (thisll be fun)
+-  x Create Image
+-  - Image importer (stb image? or find a png > bmp converter for the image you have)
+-  - Display on startup
+
+/Debug
+x There's an extra tri/quad sometimes when the renderer starts
+x Something is still happening when I reload a dll, it sometimes has an error.
+x    Fixing the debug system seems to have solved this too. Keep an eye out tho
+x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 
+x    Keep an eye out.
+
+Application
+x File Browsing to load sculptures
+x Different Memory Layouts
+-  x General Purpose - ideally growable but shouldn't exhibit any size change outside of like 1000x sculptures, for assets etc.
+-  x SACN - growable, in its own memory. This is a central system.
+-  x Sculpture - per scultpure, monolithic memory allocation
+-              x track each sculpture in general purpose memory, linked list
+-              x need to move the assemblies structs back up the list when I remove an earlier one (ie. remove 0, shift 1 to 0, etc.);
+- More efficient HSV <-> RGB
+
+x Load/Unload sculptures
+-  x Load Function
+-  x Unload Function
+-  x Call From Interface
+-  - Make sure that we offload unloading until after all jobs are completed. Otherwise they'll try and write
+-    to data that doesn't exist
+- Save and load a session
+-  - Serialize Channels
+-  - Serialize Patterns
+- Don't render if the window isn't visible
+
+Development
+x Reloadable DLL
+x Make sure Debug Info Isn't Lost When We Reload the DLL
+- Fix your scope time tracker to account for threads.
+- Nest scope times so you can see totals/dig in
+x Darken the area behind debug text so you can see it.
+- Log memory allocations
+
+Data Output
+x output the data (check but I think we're doing this)
+x Universe view - pannable grid of universes with labels
+
+Interface
+x pattern controls
+- fullscreen
+- In world interface elements
+-   - Handles for Patterns
+-   - UI Popups
+-   - Value modifiers
+- Scroll view
+- Update the text system - use system fonts
+
+Switch To Nodes
+x basic node elements
+-   x ports (expected value) (in/out)
+-   x display value
+-   x connections
+-   - evaluation nodes (nodes that we start evaluation from)
+-   - evaluation step (one node at a time)
+-   - process to execute
+x reflection
+-   x look at struct members and figure out how to draw it (see notes at bottom)
+-   x associate with a process
+x draw nodes on canvas
+x interact
+-   x move around
+-   x reconnect
+-   x move connections handles (see casey)
+- serialize
+- delete nodes
+- need a way to add a timer to the nodes system (oscillators)
+- probably want to build some build-in nodes so they can have custom behavior
+-   - static value: color, float, int etc
+-   - oscillators
+-   - hue range 
+
+
+Patterns
+x arbitrary assemblies
+
+x reload at runtime
+- load patterns from a separate dll
+x pattern initialization
+- multiple active patterns
+-  - pattern blending
+-  - only update active patterns
+- Parameters
+
+Structure
+x load structure from a file
+x generate arbitrary assemblies
+- multiple assemblies
+- motion
+x reasses if control boxes are even a necessary structure
+
+Renderer
+x Push Buffer Renderer
+x Get Headers out of the command structs
+x Render Text Batch Command
+x Render Quads Batch Command
+x vertex buffer
+x depth sorting
+- Mouse Picking - point at a led and see info about it
+x Camera: tumble controls
+- Camera: pan
+- Camera: zoom
+- Camera: leds always face camera
+
+Resource Management
+x Manually Load/Unload Textures
+- TODO: Need to figure out which textures are currently in graphics memory and which need to be resubmitted
+- Icons
+
+Animation
+- timeline
+- create clips that play
+- clips can have parameters that drive them?
+- clips should have prerequesites
+-  - channels active
+-  - patterns active in the channel
+-  - when a clip is playing, it should just take over the whole structure
+
+Command Line
+- select a channel/pattern
+- Channel: Add/remove pattern by name
+- Channel: Set Blend Mode
+- Channel: Set Current Pattern
+- Pattern: Edit parameter values
+
+Optimization
+- patterns are asking to be multithreaded
+- probably want to convert as much color functions to use u32 Packed Colors
+-  - Probably want to think about this more. What about supporting different color depths
+-    for different output devices?
+
+
+
+NOTES
+
+Reflection for Nodes
+
+// These used for the reflection system
+#define CANVAS_STRUCT(name) struct name
+#define CANVAS_INPUT(type, name) type name
+#define CANVAS_OUTPUT(type, name) type name
+
+CANVAS_STRUCT(multiply_data)
+{
+    CANVAS_INPUT(r32, A);
+        CANVAS_INPUT(r32, B);
+        CANVAS_OUTPUT(r32, C);
+}
+
+CANVAS_PROC(multiply_proc)
+{
+    multiply_data* Data = (multiply_data*)Data;
+        Data->C = Data->A * Data->B;
+}
+
+node
+{
+    InputCount 2
+        node_port_values* Inputs;
+    
+        OutputCount 1
+        node_port_values* Outputs;
+}
+
+node_port_value
+{
+    type NodeInputType_r32
+        s32 MemoryOffsetFromHead;
+        s32 DataSize;
+    
+        r32 UnconnectedValue;
+        r32* ConnectedValue; // Overrides Unconnected
+}
+
+u8* GetValueAddress (node_port_value* Port)
+{
+    u8* Result = &Port->UnconnectedValue;
+        if (Port->ConnectedValue)
+    {
+        Result = Port->ConnectedValue;
+    }
+    return Result;
+}
+
+void UpdateCanvasElement (u8* Data, s32 DataSize, node* Node)
+{
+    for (s32 i = 0; i < Node->InputCount; i++)
+    {
+        GSMemCopy(GetValueAddress(&Node->Input[i]), 
+            Data + Node->Input[i].MemoryOffsetFromHead, 
+            Node->Input[i].DataSize);
+    }
+}
+
+void InitializeMultiplyNode ()
+{
+    node Multiply = {};
+        Multiply.InputCount = 2;
+        Alloc Inputs
+    
+        Input[0].
+}
