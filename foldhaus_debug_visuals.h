@@ -3,7 +3,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
 {
     DEBUG_TRACK_SCOPE(DrawDebugInterface);
     
-    v2 TopOfDebugView = v2{StartX, WindowHeight - (Interface.Font->NewLineYOffset + 5)};
+    v2 TopOfDebugView = v2{StartX, WindowHeight - (NewLineYOffset(*Interface.Font) + 5)};
     v2 TopOfScreenLinePos = TopOfDebugView;
     
     arena_snapshot StartTempMemory = TakeSnapshotOfArena(*Transient);
@@ -24,7 +24,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
            (u32)FramesPerSecond);
     DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, WhiteV4);
     
-    v2 ButtonDim = v2{200, Interface.Font->NewLineYOffset + 10};
+    v2 ButtonDim = v2{200, (r32)NewLineYOffset(*Interface.Font) + 10};
     TopOfScreenLinePos.y -= ButtonDim.y + 10;
     v2 ButtonPos = TopOfScreenLinePos;
     button_result CameraBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim, 
@@ -52,7 +52,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     button_result SendSACNDataBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
                                                    SACNButtonString, Interface, Input);
     
-    TopOfScreenLinePos.y -= Interface.Font->NewLineYOffset + 10;
+    TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font) + 10;
     
     if (CameraBtn.Pressed)
     {
@@ -85,7 +85,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
                3, Camera.LookAt.y,
                3, Camera.LookAt.z);
         DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, v4{1.0f, 1.0f, 1.0f, 1.0f});
-        TopOfScreenLinePos.y -= Interface.Font->NewLineYOffset;
+        TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
     }
     
     if (GlobalDebugServices->Interface.ShowTrackedScopes)
@@ -127,7 +127,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
                                          Register, WhiteV4).x;
             Register.x += GSMax(ColumnFourX - Register.x, 200.f);
             
-            TopOfScreenLinePos.y -= Interface.Font->NewLineYOffset;
+            TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
             
             
         }

@@ -1,12 +1,12 @@
 #include <Winsock2.h>
 #include <ws2tcpip.h>
 #include <intrin.h>
+#include <windowsx.h>
+#include <gl/gl.h>
 
 #include "foldhaus_platform.h"
 
-#include "gs_win32.h"
-
-#include "gs_opengl.h"
+#include "gs_win32.cpp"
 #include "foldhaus_renderer.cpp"
 
 global_variable b32 Running = false;
@@ -16,7 +16,7 @@ char DLLName[] = "foldhaus.dll";
 char WorkingDLLName[] = "foldhaus_temp.dll";
 char DLLLockFileName[] = "lock.tmp";
 
-win32_window MainWindow;
+window MainWindow;
 
 struct worker_thread_entry
 {
@@ -116,7 +116,7 @@ WorkerThreadProc (LPVOID InputThreadInfo)
 
 PLATFORM_GET_GPU_TEXTURE_HANDLE(Win32GetGPUTextureHandle)
 {
-    s32 Handle = SubmitTexture(Width, Height, Memory);
+    s32 Handle = SubmitTexture(Memory, Width, Height);
     return Handle;
 }
 
@@ -186,7 +186,7 @@ PLATFORM_GET_SEND_ADDRESS_HANDLE(Win32GetSendAddress)
     Assert(Win32NetworkAddressHandleCount < Win32NetworkAddressHandleMax);
     s32 NewAddressIndex = Win32NetworkAddressHandleCount++;
     
-    NetworkAddressValues[NewAddressIndex].sin_family = Family;
+    NetworkAddressValues[NewAddressIndex].sin_family = AddressFamily;
     NetworkAddressValues[NewAddressIndex].sin_port = HostToNetU16(Port);
     NetworkAddressValues[NewAddressIndex].sin_addr.s_addr = HostToNetU32(Address);
     
@@ -231,6 +231,50 @@ PLATFORM_CLOSE_SOCKET(Win32CloseSocket)
     Assert(SocketIndex < Win32SocketHandleCount);
     
     closesocket(SocketValues[SocketIndex].Socket);
+}
+
+GET_FONT_INFO(Win32GetFontInfo)
+{
+    platform_font_info Result = {};
+    
+    Result.DrawingDC = CreateCompatibleDC(NULL);
+    SetBkColor(Result.DrawingDC, RGB(0, 0, 0));
+    SetTextColor(Result.DrawingDC, RGB(255, 255, 255));
+    Result.Bitmap = CreateCompatibleBitmap(NULL, PixelHeight * 2, PixelHeight * 2);
+    SelectObject(Result.DrawingDC, Result.Bitmap);
+    
+    Result.Font= CreateFont(PixelHeight, 0, 0, 0,
+                            // TODO(Peter): Font weight, need a platform way to request others
+                            FW_NORMAL, 
+                            FALSE, // Italic
+                            FALSE, // Underling
+                            FALSE, // Strikeout,
+                            ANSI_CHARSET,
+                            OUT_OUTLINE_PRECIS,
+                            CLIP_DEFAULT_PRECIS,
+                            PROOF_QUALITY,
+                            FIXED_PITCH,
+                            FontName);
+    SelectFont(Result.DrawingDC, Result.Font);
+    
+    TEXTMETRIC WindowsFontMetrics = {};
+    if (GetTextMetrics(Result.DrawingDC, &WindowsFontMetrics))
+    {
+        Result.PixelHeight = WindowsFontMetrics.tmHeight;
+        Result.Ascent = WindowsFontMetrics.tmAscent;
+        Result.Descent      = WindowsFontMetrics.tmDescent;
+        Result.Leading      = WindowsFontMetrics.tmExternalLeading;
+        Result.MaxCharWidth = WindowsFontMetrics.tmMaxCharWidth;
+        Result.CodepointStart = WindowsFontMetrics.tmFirstChar;
+        Result.CodepointOnePastLast = WindowsFontMetrics.tmLastChar + 1;
+    }
+    
+    return Result;
+}
+
+DRAW_FONT_CODEPOINT(Win32DrawFontCodepoint)
+{
+    
 }
 
 LRESULT CALLBACK
@@ -281,14 +325,13 @@ HandleWindowEvents (HWND WindowHandle, UINT Msg, WPARAM WParam, LPARAM LParam)
 }
 
 internal void
-HandleWindowMessage (MSG Message, win32_window* Window, input_frame* InputFrame)
+HandleWindowMessage (MSG Message, window* Window, input_frame* InputFrame)
 {
     switch (Message.message)
     {
         case WM_MOUSEWHEEL:
         {
-            int MouseWheel = GET_WHEEL_DELTA_WPARAM(Message.wParam);
-            InputFrame->MouseScroll = MouseWheel;
+            Win32UpdateInputFrameMouseWheelDelta(InputFrame, Message);
         }break;
         
         case WM_LBUTTONDOWN:
@@ -298,11 +341,7 @@ HandleWindowMessage (MSG Message, win32_window* Window, input_frame* InputFrame)
         case WM_RBUTTONDOWN:
         case WM_RBUTTONUP:
         {
-            InputFrame->KeysDown[KeyCode_MouseLeftButton]   = (GetKeyState(VK_LBUTTON) & (1 << 15)) != 0;
-            InputFrame->KeysDown[KeyCode_MouseMiddleButton] = (GetKeyState(VK_MBUTTON) & (1 << 15)) != 0;
-            InputFrame->KeysDown[KeyCode_MouseRightButton]  = (GetKeyState(VK_RBUTTON) & (1 << 15)) != 0;
-            // NOTE(Peter): If you decide to support extra mouse buttons, on windows the key codes are
-            // VK_XBUTTON1 and VK_XBUTTON2
+            Win32UpdateInputFrameMouseState(InputFrame);
         }break;
         
         case WM_SYSKEYDOWN:
@@ -342,9 +381,10 @@ internal void
 DebugPrint (char* Format, ...)
 {
     char Buffer[256];
+    string StringBuffer = MakeString(Buffer, 256);
     va_list Args;
     va_start(Args, Format);
-    PrintFInternal(Buffer, 256, Format, Args);
+    PrintF(&StringBuffer, Format, Args);
     OutputDebugStringA(Buffer);
     va_end(Args);
 }
@@ -376,14 +416,7 @@ PSTR CmdLineArgs,
 INT NCmdShow
 )
 {
-    win32_window_info MainWindowInfo = {};
-    MainWindowInfo.Name = "Foldhaus";
-    MainWindowInfo.ClassName = "Foldhaus Window Class";
-    MainWindowInfo.Width = 1440;
-    MainWindowInfo.Height = 768;
-    MainWindowInfo.WindowEventsHandler = HandleWindowEvents;
-    
-    MainWindow = CreateWin32Window (HInstance, MainWindowInfo);
+    MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
     
     win32_opengl_window_info OpenGLWindowInfo = {};
@@ -393,6 +426,10 @@ INT NCmdShow
     CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
     
     s64 PerformanceCountFrequency = GetPerformanceFrequency();
+    s64 LastFrameEnd = GetWallClock();
+    r32 TargetSecondsPerFrame = 1 / 60.0f;
+    r32 LastFrameSecondsElapsed = 0.0f;
+    
     GlobalDebugServices = (debug_services*)malloc(sizeof(debug_services));
     InitDebugServices(GlobalDebugServices, (u8*)malloc(Megabytes(8)), Megabytes(8), 1000, PerformanceCountFrequency);
     GlobalDebugServices->GetWallClock = GetWallClock;
@@ -431,21 +468,23 @@ INT NCmdShow
     context Context = {};
     Context.MemorySize = InitialMemory.Size;
     Context.MemoryBase = InitialMemory.Base;
-    Context.WindowWidth = MainWindow.Info.Width;
-    Context.WindowHeight = MainWindow.Info.Height;
+    Context.WindowWidth = MainWindow.Width;
+    Context.WindowHeight = MainWindow.Height;
     
     // Platform functions
     Context.GeneralWorkQueue = &WorkQueue;
     Context.PlatformAlloc = Win32Alloc;
     Context.PlatformFree = Win32Free;
-    Context.PlatformReadEntireFile = ReadEntireFile;
-    Context.PlatformWriteEntireFile = WriteEntireFile;
-    Context.PlatformGetFilePath = Win32SystemDialogOpenFile;
+    Context.PlatformReadEntireFile = Win32ReadEntireFile;
+    Context.PlatformWriteEntireFile = Win32WriteEntireFile;
+    Context.PlatformGetFilePath = Win32SystemDialogueOpenFile;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
     Context.PlatformGetSendAddress = Win32GetSendAddress;
     Context.PlatformSetSocketOption = Win32SetSocketOption;
     Context.PlatformCloseSocket = Win32CloseSocket;
+    Context.PlatformGetFontInfo = Win32GetFontInfo;
+    Context.PlatformDrawFontCodepoint = Win32DrawFontCodepoint;
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (HotLoadDLL(&DLLRefresh))
@@ -490,7 +529,7 @@ INT NCmdShow
             GetCursorPos (&MousePos);
             ScreenToClient(MainWindow.Handle, &MousePos);
             Input.New->MouseX = MousePos.x;
-            Input.New->MouseY = MainWindow.Info.Height - MousePos.y;
+            Input.New->MouseY = MainWindow.Height - MousePos.y;
             
             if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton))
             {
@@ -501,8 +540,8 @@ INT NCmdShow
         
         // TODO(Peter): We shouldn't need to do this translation. the platform layer knows about win32_windows. We should just make that the interface
         // to all windows.
-        Context.WindowWidth = MainWindow.Info.Width;
-        Context.WindowHeight = MainWindow.Info.Height;
+        Context.WindowWidth = MainWindow.Width;
+        Context.WindowHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
         
         Context.UpdateAndRender(Context, Input, &RenderBuffer);

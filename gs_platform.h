@@ -1,5 +1,51 @@
 #ifndef GS_PLATFORM_H
 
+#ifndef GS_LANGUAGE_H
+// Types
+typedef signed char    b8;
+typedef short int      b16;
+typedef int            b32;
+typedef long long int  b64;
+
+typedef unsigned char          u8;
+typedef unsigned short int     u16;
+typedef unsigned int           u32;
+typedef unsigned long long int u64;
+
+typedef signed char   s8;
+typedef short int     s16;
+typedef int           s32;
+typedef long long int s64;
+
+typedef float  r32;
+typedef double r64;
+
+#define internal static
+#define local_persist static
+#define global_variable static
+
+#ifdef DEBUG
+#define Assert(condition) if(!(condition)) { *((int *)0) = 5; }
+#define InvalidCodePath Assert(0)
+#define InvalidDefaultCase default: { InvalidCodePath; }
+#endif
+
+#endif
+
+#ifdef PLATFORM_WINDOWS
+#include "gs_win32.h"
+#endif
+
+struct window_info
+{
+    char* Name;
+    s32 Width;
+    s32 Height;
+};
+
+typedef struct window window;
+
+#define PLATFORM_MEMORY_NO_ERROR 0
 struct platform_memory_result
 {
     u8* Base;
@@ -7,7 +53,21 @@ struct platform_memory_result
     s32 Error;
 };
 
-#define PLATFORM_MEMORY_NO_ERROR 0
+struct texture_buffer
+{
+    u8* Memory;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+    s32 BytesPerPixel;
+};
+
+struct system_path
+{
+    char* Path;
+    s32 PathLength;
+    s32 IndexOfLastSlash;
+};
 
 #define PLATFORM_ALLOC(name) platform_memory_result name(s32 Size)
 typedef PLATFORM_ALLOC(platform_alloc);
@@ -21,28 +81,32 @@ typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 #define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(char* Path, u8* Contents, s32 Size)
 typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 
-#define PLATFORM_GET_FILE_PATH(name) 
+#define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength)
 typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
 
-#define PLATFORM_GET_GPU_TEXTURE_HANDLE(name)
+#define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
 typedef PLATFORM_GET_GPU_TEXTURE_HANDLE(platform_get_gpu_texture_handle);
 
-#define PLATFORM_GET_SOCKET_HANDLE(name)
+typedef s32 platform_socket_handle;
+typedef s32 platform_network_address_handle;
+
+#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 AddressFamily, s32 Type, s32 Protocol) 
 typedef PLATFORM_GET_SOCKET_HANDLE(platform_get_socket_handle);
 
-#define PLATFORM_GET_SEND_ADDRESS(name)
-typedef PLATFORM_GET_SEND_ADDRESS(platform_get_send_address);
+#define PLATFORM_GET_SEND_ADDRESS_HANDLE(name) platform_network_address_handle name(s32 AddressFamily, u16 Port, u32 Address)
+typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
 
-#define PLATFORM_SET_SOCKET_OPTION(name)
+#define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength) 
 typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
 
-#define PLATFORM_SEND_TO(name)
+#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, platform_network_address_handle AddressHandle, const char* Buffer, s32 BufferLength, s32 Flags)
 typedef PLATFORM_SEND_TO(platform_send_to);
 
-#define PLATFORM_CLOSE_SOCKET(name)
+#define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)
 typedef PLATFORM_CLOSE_SOCKET(platform_close_socket);
 
-
+#ifndef GS_INPUT
+#define GS_INPUT
 enum key_code
 {
     KeyCode_Invalid,
@@ -119,6 +183,7 @@ struct input_frame
     b32 KeysDown[(int)KeyCode_Count];
     s32 StringInputUsed;
     char StringInput[INPUT_FRAME_STRING_LENGTH];
+    s32 MouseX, MouseY, MouseScroll;
 };
 
 struct input
@@ -126,6 +191,7 @@ struct input
     input_frame Frames[2];
     input_frame* New;
     input_frame* Old;
+    s32 MouseDownX, MouseDownY;
 };
 
 internal void InitializeInput (input* Input);
@@ -167,5 +233,19 @@ KeyTransitionedUp (input Input, key_code Key)
 {
     return !Input.New->KeysDown[Key] && Input.Old->KeysDown[Key];
 }
+#endif // GS_INPUT
+
+internal window PlatformCreateWindow (char* Name, s32 Width, s32 Height);
+
+
+// Time
+
+internal r32
+GetSecondsElapsed (s64 Start, s64 End, s64 PerformanceCountFrequency)
+{
+    r32 Result = ((r32)(End - Start) / (r32) PerformanceCountFrequency);
+    return Result;
+}
+
 #define GS_PLATFORM_H
 #endif // GS_PLATFORM_H

@@ -243,9 +243,8 @@ static s32   IntToString (s32 Int, char* String, s32 Length, s32 Offset);
 static float ParseFloat (char* String, s32 Length);
 static s32   FloatToString(float Float, char *String, s32 Length, s32 AfterPoint);
 
-// Print F
-
-#define PrintString(str, format, ...) snprintf(str.Memory, str.Max, format, __VA_ARGS__); str.Length = CharArrayLength(str.Memory);
+// PrintF
+static s32   PrintF(string* String, char* Format, ...);
 
 ////////////////////////////////////////////////////////////////
 //        String Memory Function Declarations
@@ -1278,11 +1277,12 @@ FloatToString(float Float, char *String, s32 Length, s32 AfterPoint)
 
 
 internal s32
-PrintStringF(char* Format, char* Destination, s32 DestLength, ...)
+PrintF (string* String, char* Format, ...)
 {
     va_list Args;
-    va_start(Args, DestLength);
+    va_start(Args, Format);
     
+#if 0
     s32 LengthPrinted = 0;
     char* DestChar = Destination;
     
@@ -1334,9 +1334,10 @@ PrintStringF(char* Format, char* Destination, s32 DestLength, ...)
     }
     *(Destination + LengthPrinted) = 0;
     
-    va_end(Args);
+#endif
     
-    return LengthPrinted;
+    va_end(Args);
+    return 0;
 }
 
 

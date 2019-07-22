@@ -249,8 +249,8 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
         v4 P2 = ModelMatrix * P2_In;
         v4 P3 = ModelMatrix * P3_In;
         
-        PushTri3DOnBatch(Data->Batch, P0, P1, P2, UV0, UV1, UV2, Color);
-        PushTri3DOnBatch(Data->Batch, P0, P2, P3, UV0, UV2, UV3, Color);
+        PushTri3DOnBatch(Data->Batch, P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
+        PushTri3DOnBatch(Data->Batch, P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
         
         LED++;
     }
@@ -418,11 +418,49 @@ INITIALIZE_APPLICATION(InitializeApplication)
             if (stbtt_InitFont(&StbFont, FontFile.Base, stbtt_GetFontOffsetForIndex(FontFile.Base, 0)))
             {
                 bitmap_font* Font = PushStruct(State->Permanent, bitmap_font);
-                Font->Atlas = PushTexture(State);
-                RenderStbttToBitmapFont(Font, StbFont, FontSize, 512, State->Permanent, State->Transient );
+                
+                
+                Font->BitmapWidth = 512;
+                Font->BitmapHeight = 512;
+                Font->BitmapBytesPerPixel = 4;
+                Font->BitmapMemory = PushArray(State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);;
+                Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
+                
+                platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", 14);
+                Font->PixelHeight = FontInfo.PixelHeight;
+                Font->Ascent = FontInfo.Ascent;
+                Font->Descent = FontInfo.Descent;
+                Font->Leading = FontInfo.Leading;
+                Font->MaxCharWidth = FontInfo.MaxCharWidth;
+                
+                Font->CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
+                Font->CodepointDictionaryCount = 0;
+                Font->CodepointKeys = PushArray(State->Permanent, char, Font->CodepointDictionarySize);
+                Font->CodepointValues = PushArray(State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
+                
+                for (s32 Codepoint = FontInfo.CodepointStart;
+                     Codepoint < FontInfo.CodepointOnePastLast;
+                     Codepoint++)
+                {
+                    u32 CodepointX, CodepointY;
+                    GetNextCodepointOffset(Font, &CodepointX, &CodepointY);
+                    
+                    u32 CodepointW, CodepointH;
+                    Context.PlatformDrawFontCodepoint(
+                        Font->BitmapMemory,
+                        Font->BitmapWidth, 
+                        Font->BitmapHeight,
+                        CodepointX, CodepointY, 
+                        (char)Codepoint, FontInfo,
+                        &CodepointW, &CodepointH);
+                    
+                    AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
+                }
+                
                 State->Interface.Font = Font;
                 State->Font = Font;
-                Font->Atlas->Handle = Context.PlatformGetGPUTextureHandle(Font->Atlas->Memory, Font->Atlas->Width, Font->Atlas->Height);
+                Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
+                                                                                Font->BitmapWidth, Font->BitmapHeight);
             }
         } else {}
     }
@@ -570,12 +608,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
         m44 ModelViewMatrix = GetCameraModelViewMatrix(State->Camera);
         m44 ProjectionMatrix = GetCameraPerspectiveProjectionMatrix(State->Camera);
         
-        RenderBuffer->ViewWidth = Context.WindowWidth;
-        RenderBuffer->ViewHeight = Context.WindowHeight;
-        
         r32 LEDHalfWidth = .5f;
         
-        PushRenderPerspective(RenderBuffer, Context.WindowWidth, Context.WindowHeight, State->Camera);
+        PushRenderPerspective(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight, State->Camera);
         PushRenderClearScreen(RenderBuffer);
         
         DEBUG_IF(GlobalDebugServices->Interface.RenderSculpture) // DebugServices RenderSculpture Toggle
@@ -634,7 +669,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         DEBUG_TRACK_SCOPE(DrawInterface);
         
-        PushRenderOrthographic(RenderBuffer, Context.WindowWidth, Context.WindowHeight);
+        PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight);
         
         // Universe Data View
         if (State->DrawUniverseOutputDisplay)
@@ -698,7 +733,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                      v2{Context.WindowWidth, Context.WindowHeight},
                                                      0, State->Interface, Input);
             
-            v2 ButtonDim = v2{200, State->Interface.Font->NewLineYOffset + 10};
+            v2 ButtonDim = v2{200, (r32)NewLineYOffset(*State->Interface.Font) + 10};
             v2 ButtonPos = v2{State->Interface.Margin.x, Context.WindowHeight - (ButtonDim.y + 10)};
             button_result LoadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim, 
                                                            MakeStringLiteral("Load Assembly"), 

@@ -66,6 +66,15 @@ union v4
     r32 E[4];
 };
 
+#define WhiteV4 v4{1, 1, 1, 1}
+#define BlackV4 v4{0, 0, 0, 1}
+#define RedV4 v4{1, 0, 0, 1}
+#define GreenV4 v4{0, 1, 0, 1}
+#define BlueV4 v4{0, 0, 1, 1}
+#define YellowV4 v4{1, 1, 0, 1}
+#define TealV4 v4{0, 1, 1, 1}
+#define PinkV4 v4{1, 0, 1, 1}
+
 //////////////////////////////////////
 //          MATRIX
 /////////////////////////////////////
@@ -99,8 +108,8 @@ union m44
 
 struct rect
 {
-    v2 LowerLeft;
-    v2 UpperRight;
+    v2 Min;
+    v2 Max;
 };
 
 
@@ -187,6 +196,19 @@ V4OpV4Def(*)
 #undef V3OpV3Def
 #undef V4OpV4Def
 
+#define V2RefOpV2Def(op) v2 operator##op (v2& A, v2 B) { return v2{ A.x op B.x, A.y op B.y };}
+#define V3RefOpV3Def(op) v3 operator##op (v3& A, v3 B) { return v3{ A.x op B.x, A.y op B.y, A.z op B.z };}
+#define V4RefOpScalarDef(op) v4 operator##op (v4& A, v4 B) { return v4{ A.x op B.x, A.y op B.y, A.z op B.z, A.w op B.w };}
+V2RefOpV2Def(+=)
+V2RefOpV2Def(-=)
+V3RefOpV3Def(+=)
+V3RefOpV3Def(-=)
+V4RefOpScalarDef(+=)
+V4RefOpScalarDef(-=)
+#undef V2RefOpV2Def
+#undef V3RefOpV3Def
+#undef V4RefOpV4Def
+
 #define V2OpScalarDef(op) v2 operator##op (v2 A, r32 B) { return v2{ A.x op B, A.y op B };}
 #define V3OpScalarDef(op) v3 operator##op (v3 A, r32 B) { return v3{ A.x op B, A.y op B, A.z op B };}
 #define V4OpScalarDef(op) v4 operator##op (v4 A, r32 B) { return v4{ A.x op B, A.y op B, A.z op B, A.w op B };}
@@ -201,9 +223,9 @@ V4OpScalarDef(/)
 #undef V4POpScalarDef
 
 
-#define V2POpScalarDef(op) v2 operator##op (v2* A, r32 B) { return v2{ A->x op B, A->y op B };}
-#define V3POpScalarDef(op) v3 operator##op (v3* A, r32 B) { return v3{ A->x op B, A->y op B, A->z op B };}
-#define V4POpScalarDef(op) v4 operator##op (v4* A, r32 B) { return v4{ A->x op B, A->y op B, A->z op B, A->w op B };}
+#define V2POpScalarDef(op) v2 operator##op (v2& A, r32 B) { return v2{ A->x op B, A->y op B };}
+#define V3POpScalarDef(op) v3 operator##op (v3& A, r32 B) { return v3{ A->x op B, A->y op B, A->z op B };}
+#define V4POpScalarDef(op) v4 operator##op (v4& A, r32 B) { return v4{ A->x op B, A->y op B, A->z op B, A->w op B };}
 V2OpScalarDef(*=)
 V2OpScalarDef(/=)
 V3OpScalarDef(*=)
@@ -614,6 +636,39 @@ PointToPercentRange (v2 P, v2 Min, v2 Max)
 }
 
 //////////////////////////////////////
+//       RECT
+//////////////////////////////////////
+
+inline r32
+Width (rect Rect)
+{
+    s32 Result = Rect.Max.x - Rect.Min.x;
+    return Result;
+}
+
+inline r32
+Height (rect Rect)
+{
+    s32 Result = Rect.Max.y - Rect.Min.y;
+    return Result;
+}
+
+inline v2
+CalculateRectCenter (rect Rect)
+{
+    v2 Result = (Rect.Min + Rect.Max) / 2.0f;
+    return Result;
+}
+
+inline b32
+PointIsInRect (v2 Point, rect Rect)
+{
+    b32 Result = ((Point.x >= Rect.Min.x && Point.x <= Rect.Max.x) &&
+                  (Point.y >= Rect.Min.y && Point.y <= Rect.Max.y));
+    return Result;
+}
+
+//////////////////////////////////////
 //       MATRIX
 //////////////////////////////////////
 
@@ -778,8 +833,6 @@ Transpose (m44 M)
 static m44
 GetPositionM44 (v4 Position)
 {
-    DEBUG_TRACK_SCOPE(GetPositionM44);
-    
 #if 1
     return m44{
         1, 0, 0, 0,

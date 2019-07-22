@@ -30,6 +30,14 @@ typedef CLEANUP_APPLICATION(cleanup_application);
 
 // Platform Functions
 
+typedef struct platform_font_info platform_font_info;
+
+#define GET_FONT_INFO(name) platform_font_info name(char* FontName, s32 PixelHeight)
+typedef GET_FONT_INFO(platform_get_font_info);
+
+#define DRAW_FONT_CODEPOINT(name) void name(u8* DestBuffer, s32 DestBufferWidth, s32 DestBufferHeight, u32 XOffset, u32 YOffset, char Codepoint, platform_font_info FontInfo, u32* OutWidth, u32* OutHeight)
+typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
+
 // Worker Threads
 
 #define THREADED_WORK_PROC(name) void name(s32 ThreadID, void* Data)
@@ -106,7 +114,8 @@ struct context
     platform_write_entire_file* PlatformWriteEntireFile;
     platform_get_file_path* PlatformGetFilePath;
     platform_get_gpu_texture_handle* PlatformGetGPUTextureHandle;
-    
+    platform_get_font_info* PlatformGetFontInfo;
+    platform_draw_font_codepoint* PlatformDrawFontCodepoint;
     platform_get_socket_handle* PlatformGetSocketHandle;
     platform_get_send_address* PlatformGetSendAddress;
     platform_set_socket_option* PlatformSetSocketOption;

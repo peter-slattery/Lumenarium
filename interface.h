@@ -110,24 +110,31 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
     v2 LowerRight = Position;
     
     render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer, String.Length,
-                                                                              *Font->Atlas);
+                                                                              Font->BitmapMemory,
+                                                                              Font->BitmapTextureHandle,
+                                                                              Font->BitmapWidth,
+                                                                              Font->BitmapHeight,
+                                                                              Font->BitmapBytesPerPixel,
+                                                                              Font->BitmapStride);
     
     r32 FontScale = (r32)PointSize / Font->PixelHeight;
     v2 RegisterPosition = Position;
     char* C = String.Memory;
     for (s32 i = 0; i < String.Length; i++)
     {
-        s32 GlyphDataIndex = GetCharacterIndexInFont(*C, Font);
-        character_data Data = Font->CharacterLUT_Values[GlyphDataIndex];
+        s32 GlyphDataIndex = GetIndexForCodepoint(*Font, *C);
+        codepoint_bitmap CodepointInfo = Font->CodepointValues[GlyphDataIndex];
         
-        r32 MinX = RegisterPosition.x + Data.RegisterXOffset * FontScale;
-        r32 MinY = RegisterPosition.y + Data.BaselineYOffset * FontScale;
-        r32 MaxX = MinX + (Data.X1 - Data.X0) * FontScale;
-        r32 MaxY = MinY + (Data.Y1 - Data.Y0) * FontScale;
+        r32 MinX = RegisterPosition.x + CodepointInfo.XOffset * FontScale;
+        r32 MinY = RegisterPosition.y + CodepointInfo.YOffset * FontScale;
+        r32 MaxX = MinX + (CodepointInfo.Width) * FontScale;
+        r32 MaxY = MinY + (CodepointInfo.Height) * FontScale;
         
-        PushQuad2DOnBatch(&BatchConstructor, v2{MinX, MinY}, v2{MaxX, MinY}, v2{MaxX, MaxY}, v2{MinX, MaxY},  Data.AtlasMinUV, Data.AtlasMaxUV, Color);
+        v2 MinUV = v2{(r32)CodepointInfo.BitmapX, (r32)CodepointInfo.BitmapY};
+        v2 MaxUV = MinUV + v2{(r32)CodepointInfo.Width, (r32)CodepointInfo.Height};
+        PushQuad2DOnBatch(&BatchConstructor, v2{MinX, MinY}, v2{MaxX, MinY}, v2{MaxX, MaxY}, v2{MinX, MaxY},  MinUV, MaxUV, Color);
         
-        RegisterPosition.x += Data.Advance * Font->FontScale * FontScale;
+        RegisterPosition.x += CodepointInfo.Width * FontScale;
         C++;
     }
     
@@ -352,7 +359,7 @@ EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label
     
     v2 TextPos = v2{
         Min.x + Config.Margin.x,
-        Max.y - (Config.Font->NewLineYOffset + Config.Margin.y)
+        Max.y - ((r32)NewLineYOffset(*Config.Font) + Config.Margin.y)
     };
     DrawString(RenderBuffer, Label, Config.Font, 14, TextPos, Config.TextColor);
     Result.ChildMax = v2{Max.x, TextPos.y} - Config.Margin;
@@ -396,7 +403,7 @@ DrawOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max,
     Result.StartIndex = Start;
     Result.Selection = Selection_None;
     
-    r32 OptionHeight = Config.Font->NewLineYOffset + (2 * Config.Margin.y);
+    r32 OptionHeight = NewLineYOffset(*Config.Font) + (2 * Config.Margin.y);
     r32 OptionOffset = OptionHeight + Config.Margin.y;
     
     s32 OptionsToDisplay = ((Max.y - Min.y) / OptionHeight) - 2;
@@ -453,7 +460,7 @@ DrawSelectableOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max,
     Result.StartIndex = Start;
     Result.Selection = Selection_None;
     
-    r32 OptionHeight = Config.Font->NewLineYOffset + (2 * Config.Margin.y);
+    r32 OptionHeight = NewLineYOffset(*Config.Font) + (2 * Config.Margin.y);
     r32 OptionOffset = OptionHeight + Config.Margin.y;
     
     s32 OptionsToDisplay = ((Max.y - Min.y) / OptionHeight) - 2;

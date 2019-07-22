@@ -181,6 +181,7 @@ struct render_command_set_render_mode
 {
     m44 ModelView;
     m44 Projection;
+    r32 ViewOffsetX, ViewOffsetY;
     r32 ViewWidth, ViewHeight;
     b32 UseDepthBuffer;
 };
@@ -280,7 +281,10 @@ ThreadSafeIncrementQuadConstructorCount (render_quad_batch_constructor* Construc
 }
 
 inline void
-PushTri3DOnBatch (render_quad_batch_constructor* Constructor,  v4 P0, v4 P1, v4 P2, v2 UV0, v2 UV1, v2 UV2, v4 Color)
+PushTri3DOnBatch (render_quad_batch_constructor* Constructor,  
+                  v4 P0, v4 P1, v4 P2, 
+                  v2 UV0, v2 UV1, v2 UV2, 
+                  v4 C0, v4 C1, v4 C2)
 {
     s32 Tri = ThreadSafeIncrementQuadConstructorCount(Constructor);
     // Vertecies
@@ -292,17 +296,28 @@ PushTri3DOnBatch (render_quad_batch_constructor* Constructor,  v4 P0, v4 P1, v4 
     Constructor->UVs[BATCH_3D_UV_INDEX(Tri, 1)] = UV1;
     Constructor->UVs[BATCH_3D_UV_INDEX(Tri, 2)] = UV1;
     // Color V0
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 0)] = Color;
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 1)] = Color;
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 2)] = Color;
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 0)] = C0;
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 1)] = C1;
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 2)] = C2;
 };
 
 internal void
 PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 P2, v4 P3, v2 UVMin, v2 UVMax, v4 Color)
 {
     Assert(Constructor->Count < Constructor->Max);
-    PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, v2{UVMax.x, UVMin.y}, UVMax, Color);
-    PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, v2{UVMin.x, UVMax.y}, Color);
+    PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, v2{UVMax.x, UVMin.y}, UVMax, Color, Color, Color);
+    PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, v2{UVMin.x, UVMax.y}, Color, Color, Color);
+}
+
+internal void
+PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, 
+                   v4 P0, v4 P1, v4 P2, v4 P3, 
+                   v2 UV0, v2 UV1, v2 UV2, v2 UV3, 
+                   v4 C0, v4 C1, v4 C2, v4 C3)
+{
+    Assert(Constructor->Count < Constructor->Max);
+    PushTri3DOnBatch(Constructor, P0, P1, P2, UV0, UV1, UV2, C0, C1, C2);
+    PushTri3DOnBatch(Constructor, P0, P2, P3, UV0, UV2, UV3, C0, C2, C3);
 }
 
 internal void
@@ -418,19 +433,26 @@ PushRenderCommand_ (render_command_buffer* CommandBuffer, render_command_type Co
     return Result;
 }
 
-internal void
-PushRenderPerspective (render_command_buffer* Buffer, s32 ViewWidth, s32 ViewHeight, camera Camera)
+internal render_command_set_render_mode*
+PushRenderPerspective (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY, s32 ViewWidth, s32 ViewHeight, camera Camera)
 {
     render_command_set_render_mode* Command = PushRenderCommand(Buffer, render_command_set_render_mode);
+    
     Command->ModelView = GetCameraModelViewMatrix(Camera);
     Command->Projection = GetCameraPerspectiveProjectionMatrix(Camera);
-    Command->ViewWidth;
-    Command->ViewHeight;
+    
+    Command->ViewOffsetX = (r32)OffsetX;
+    Command->ViewOffsetY = (r32)OffsetY;
+    Command->ViewWidth = (r32)ViewWidth;
+    Command->ViewHeight = (r32)ViewHeight;
+    
     Command->UseDepthBuffer = true;
+    
+    return Command;
 }
 
 internal void
-PushRenderOrthographic (render_command_buffer* Buffer, s32 ViewWidth, s32 ViewHeight)
+PushRenderOrthographic (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY, s32 ViewWidth, s32 ViewHeight)
 {
     render_command_set_render_mode* Command = PushRenderCommand(Buffer, render_command_set_render_mode);
     Command->ModelView = m44{
@@ -448,8 +470,12 @@ PushRenderOrthographic (render_command_buffer* Buffer, s32 ViewWidth, s32 ViewHe
         0,   0,  1, 0,
         -1, -1,  0, 1
     };
-    Command->ViewWidth;
-    Command->ViewHeight;
+    
+    Command->ViewOffsetX = (r32)OffsetX;
+    Command->ViewOffsetY = (r32)OffsetY;
+    Command->ViewWidth = ViewWidth;
+    Command->ViewHeight = ViewHeight;
+    
     Command->UseDepthBuffer = false;;
 }
 
@@ -529,6 +555,21 @@ PushRenderTexture2DBatch(render_command_buffer* Buffer, s32 QuadCount,
     Command->Texture = Texture;
     
     return Result;
+}
+
+internal render_quad_batch_constructor
+PushRenderTexture2DBatch (render_command_buffer* Buffer, s32 QuadCount, 
+                          u8* TextureMemory, s32 TextureHandle, s32 TextureWidth, s32 TextureHeight,
+                          s32 TextureBytesPerPixel, s32 TextureStride)
+{
+    render_texture Texture = render_texture{
+        TextureMemory, 
+        TextureHandle, 
+        TextureWidth, 
+        TextureHeight, 
+        TextureBytesPerPixel,
+        TextureStride};
+    return PushRenderTexture2DBatch(Buffer, QuadCount, Texture);
 }
 
 internal void

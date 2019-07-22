@@ -18,7 +18,7 @@ Render3DQuadBatch (u8* CommandData, s32 TriCount)
     v4* Colors = (v4*)(CommandData + BATCH_3D_COLORS_OFFSET(TriCount));
     
 #if IMMEDIATE_MODE_RENDERING
-    glBegin(GL_TRIANGLES);
+    
     for (s32 Tri = 0; Tri < TriCount; Tri++)
     {
         v4 P0 = Vertecies[BATCH_3D_VERTEX_INDEX(Tri, 0)];
@@ -33,9 +33,8 @@ Render3DQuadBatch (u8* CommandData, s32 TriCount)
         
         OpenGLDraw3DTri(P0, P1, P2, UV0, UV1, UV2, C0, C1, C2);
     }
-    glEnd();
 #else
-    OpenGLRenderTriBuffer((u8*)Vertecies, 4, UVs, 2, Colors, 4, TriCount * 3);
+    OpenGLRenderTriBuffer((u8*)Vertecies, 4, (u8*)UVs, 2, (u8*)Colors, 4, TriCount * 3);
 #endif
 }
 
@@ -67,7 +66,7 @@ Render2DQuadBatch (u8* CommandData, s32 QuadCount)
         }
     }
 #else
-    OpenGLRenderTriBuffer((u8*)Vertecies, 2, UVs, 2, Colors, 4, QuadCount * 2 * 3);
+    OpenGLRenderTriBuffer((u8*)Vertecies, 2, (u8*)UVs, 2, (u8*)Colors, 4, QuadCount * 2 * 3);
 #endif
 }
 
@@ -75,8 +74,6 @@ internal void
 RenderCommandBuffer (render_command_buffer CommandBuffer)
 {
     DEBUG_TRACK_FUNCTION;
-    
-    glViewport(0, 0, CommandBuffer.ViewWidth, CommandBuffer.ViewHeight);
     
     glMatrixMode(GL_TEXTURE_2D);
     glLoadIdentity();
@@ -99,6 +96,9 @@ RenderCommandBuffer (render_command_buffer CommandBuffer)
             case RenderCommand_render_command_set_render_mode:
             {
                 render_command_set_render_mode* Command = (render_command_set_render_mode*)(CommandHeader + 1);
+                
+                glViewport(Command->ViewOffsetX, Command->ViewOffsetY, 
+                           Command->ViewWidth, Command->ViewHeight);
                 
                 LoadModelView(Command->ModelView.E);
                 LoadProjection(Command->Projection.E);
