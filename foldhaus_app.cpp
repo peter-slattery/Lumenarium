@@ -414,54 +414,55 @@ INITIALIZE_APPLICATION(InitializeApplication)
         platform_memory_result FontFile = Context.PlatformReadEntireFile("Anonymous Pro.ttf");
         if (FontFile.Size)
         {
-            stbtt_fontinfo StbFont;
-            if (stbtt_InitFont(&StbFont, FontFile.Base, stbtt_GetFontOffsetForIndex(FontFile.Base, 0)))
+            bitmap_font* Font = PushStruct(State->Permanent, bitmap_font);
+            
+            Font->BitmapWidth = 512;
+            Font->BitmapHeight = 512;
+            Font->BitmapBytesPerPixel = 4;
+            Font->BitmapMemory = PushArray(State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
+            Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
+            GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
+            
+            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", 14);
+            Font->PixelHeight = FontInfo.PixelHeight;
+            Font->Ascent = FontInfo.Ascent;
+            Font->Descent = FontInfo.Descent;
+            Font->Leading = FontInfo.Leading;
+            Font->MaxCharWidth = FontInfo.MaxCharWidth;
+            
+            Font->CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
+            Font->CodepointDictionaryCount = 0;
+            Font->CodepointKeys = PushArray(State->Permanent, char, Font->CodepointDictionarySize);
+            Font->CodepointValues = PushArray(State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
+            
+            char CodepointValues[] = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()-_=+{}[];':\",./<>?`~";
+            for (s32 CodepointIdx = 0; //FontInfo.CodepointStart;
+                 CodepointIdx < sizeof(CodepointValues) / sizeof(CodepointValues[0]); //FontInfo.CodepointOnePastLast;
+                 CodepointIdx++)
             {
-                bitmap_font* Font = PushStruct(State->Permanent, bitmap_font);
+                char Codepoint = CodepointValues[CodepointIdx];
                 
+                u32 CodepointX, CodepointY;
+                GetNextCodepointOffset(Font, &CodepointX, &CodepointY);
                 
-                Font->BitmapWidth = 512;
-                Font->BitmapHeight = 512;
-                Font->BitmapBytesPerPixel = 4;
-                Font->BitmapMemory = PushArray(State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);;
-                Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
+                u32 CodepointW, CodepointH;
+                Context.PlatformDrawFontCodepoint(
+                    Font->BitmapMemory,
+                    Font->BitmapWidth, 
+                    Font->BitmapHeight,
+                    CodepointX, CodepointY, 
+                    Codepoint, FontInfo,
+                    &CodepointW, &CodepointH);
                 
-                platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", 14);
-                Font->PixelHeight = FontInfo.PixelHeight;
-                Font->Ascent = FontInfo.Ascent;
-                Font->Descent = FontInfo.Descent;
-                Font->Leading = FontInfo.Leading;
-                Font->MaxCharWidth = FontInfo.MaxCharWidth;
-                
-                Font->CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
-                Font->CodepointDictionaryCount = 0;
-                Font->CodepointKeys = PushArray(State->Permanent, char, Font->CodepointDictionarySize);
-                Font->CodepointValues = PushArray(State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
-                
-                for (s32 Codepoint = FontInfo.CodepointStart;
-                     Codepoint < FontInfo.CodepointOnePastLast;
-                     Codepoint++)
-                {
-                    u32 CodepointX, CodepointY;
-                    GetNextCodepointOffset(Font, &CodepointX, &CodepointY);
-                    
-                    u32 CodepointW, CodepointH;
-                    Context.PlatformDrawFontCodepoint(
-                        Font->BitmapMemory,
-                        Font->BitmapWidth, 
-                        Font->BitmapHeight,
-                        CodepointX, CodepointY, 
-                        (char)Codepoint, FontInfo,
-                        &CodepointW, &CodepointH);
-                    
-                    AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
-                }
-                
-                State->Interface.Font = Font;
-                State->Font = Font;
-                Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
-                                                                                Font->BitmapWidth, Font->BitmapHeight);
+                AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
             }
+            
+            State->Interface.Font = Font;
+            State->Font = Font;
+            
+            Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
+                                                                            Font->BitmapWidth, Font->BitmapHeight);
+            
         } else {}
     }
     
@@ -536,9 +537,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     /*
     patterns_update_list Temp_PatternsNeedUpdate = UpdateAllChannels(&State->ChannelSystem,
-                                                                     Context.DeltaTime,
-                                                                     State->Transient);
-                                                                     
+    Context.DeltaTime,
+    State->Transient);
+    
     UpdateAllPatterns(&Temp_PatternsNeedUpdate, &State->PatternSystem, State->LEDBufferList, Context.DeltaTime, State->Transient);
     */
     
@@ -907,6 +908,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
                            Context.DeltaTime, State->Camera, Input, State->Transient);
     }
+    
+    render_texture FontTexture = {};
+    FontTexture.Memory = State->Font->BitmapMemory;
+    FontTexture.Handle = State->Font->BitmapTextureHandle;
+    FontTexture.Width = State->Font->BitmapWidth;
+    FontTexture.Height = State->Font->BitmapHeight;
+    FontTexture.BytesPerPixel = State->Font->BitmapBytesPerPixel;
+    FontTexture.Stride = State->Font->BitmapStride;
+    
+    PushRenderTexture2D(RenderBuffer, v2{200, 200}, 
+                        v2{200 + (r32)FontTexture.Width, 200 + (r32)FontTexture.Height},
+                        v4{1, 1, 1, 1}, v2{0, 0}, v2{1, 1}, &FontTexture);
     
     ClearArena(State->Transient);
     EndDebugFrame(GlobalDebugServices);

@@ -960,7 +960,22 @@ SubmitTexture (u8* Memory, s32 Width, s32 Height)
 {
     s32 TextureHandle = NextTextureHandle++;
     glBindTexture(GL_TEXTURE_2D, TextureHandle);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Memory);
+    glTexImage2D(GL_TEXTURE_2D, 
+                 0, // mip map level
+                 GL_RGBA8, 
+                 Width, 
+                 Height, 
+                 0, // border
+                 GL_RGBA, 
+                 GL_UNSIGNED_BYTE, 
+                 Memory);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
     return TextureHandle;
 }
 

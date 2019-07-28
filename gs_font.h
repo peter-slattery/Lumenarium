@@ -5,6 +5,7 @@ struct codepoint_bitmap
     s32 XOffset, YOffset;
     s32 Width, Height;
     s32 BitmapX, BitmapY;
+    v2 UVMin, UVMax;
 };
 
 struct bitmap_font
@@ -49,13 +50,18 @@ GetNextCodepointOffset (bitmap_font* Font, u32* X, u32* Y)
     if (LastCodepointIndex >= 0)
     {
         codepoint_bitmap BitmapInfo = Font->CodepointValues[LastCodepointIndex];
-        u32 TempX = BitmapInfo.XOffset + BitmapInfo.Width + GLYPH_SKIRT;
-        u32 TempY = BitmapInfo.YOffset;
+        
+        u32 TempX = BitmapInfo.BitmapX + BitmapInfo.Width + GLYPH_SKIRT;
+        u32 TempY = BitmapInfo.BitmapY;
         if (TempX + Font->MaxCharWidth > Font->BitmapWidth)
         {
             TempX = 0;
-            TempY -= BitmapInfo.Height + GLYPH_SKIRT;
+            TempY += BitmapInfo.Height + GLYPH_SKIRT;
         }
+        
+        Assert(TempX >= 0 && TempX < (u32)Font->BitmapWidth);
+        Assert(TempY >= 0 && TempY < (u32)Font->BitmapHeight);
+        
         *X = TempX;
         *Y = TempY;
     }
@@ -78,7 +84,15 @@ AddCodepointToFont (bitmap_font* Font, char Codepoint,
     Font->CodepointDictionaryCount++;
     
     *Key = Codepoint;
-    *Value = {XOffset, YOffset, Width, Height, BitmapX, BitmapY};
+    Value->XOffset = XOffset;
+    Value->YOffset = YOffset;
+    Value->Width = Width;
+    Value->Height = Height;
+    Value->BitmapX = BitmapX;
+    Value->BitmapY = BitmapY;
+    Value->UVMin = v2{(r32)BitmapX / (r32)Font->BitmapWidth, (r32)BitmapY / (r32)Font->BitmapHeight};
+    Value->UVMax = 
+        Value->UVMin + v2{(r32)Width / (r32)Font->BitmapWidth, (r32)Height / (r32)Font->BitmapHeight};
 }
 
 internal s32

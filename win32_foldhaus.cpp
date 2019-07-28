@@ -233,32 +233,37 @@ PLATFORM_CLOSE_SOCKET(Win32CloseSocket)
     closesocket(SocketValues[SocketIndex].Socket);
 }
 
+
+HDC FontDrawingDC;
+HBITMAP FontBitmap;
+HFONT CurrentFont;
+
 GET_FONT_INFO(Win32GetFontInfo)
 {
     platform_font_info Result = {};
     
-    Result.DrawingDC = CreateCompatibleDC(NULL);
-    SetBkColor(Result.DrawingDC, RGB(0, 0, 0));
-    SetTextColor(Result.DrawingDC, RGB(255, 255, 255));
-    Result.Bitmap = CreateCompatibleBitmap(NULL, PixelHeight * 2, PixelHeight * 2);
-    SelectObject(Result.DrawingDC, Result.Bitmap);
+    FontDrawingDC = CreateCompatibleDC(NULL);
+    SetBkColor(FontDrawingDC, RGB(0, 0, 0));
+    SetTextColor(FontDrawingDC, RGB(255, 255, 255));
+    FontBitmap = CreateCompatibleBitmap(FontDrawingDC, PixelHeight * 2, PixelHeight * 2);
+    HGDIOBJ SelectObjectResult = SelectObject(FontDrawingDC, FontBitmap);
     
-    Result.Font= CreateFont(PixelHeight, 0, 0, 0,
-                            // TODO(Peter): Font weight, need a platform way to request others
-                            FW_NORMAL, 
-                            FALSE, // Italic
-                            FALSE, // Underling
-                            FALSE, // Strikeout,
-                            ANSI_CHARSET,
-                            OUT_OUTLINE_PRECIS,
-                            CLIP_DEFAULT_PRECIS,
-                            PROOF_QUALITY,
-                            FIXED_PITCH,
-                            FontName);
-    SelectFont(Result.DrawingDC, Result.Font);
+    CurrentFont = CreateFont(PixelHeight, 0, 0, 0,
+                             // TODO(Peter): Font weight, need a platform way to request others
+                             FW_NORMAL, 
+                             FALSE, // Italic
+                             FALSE, // Underling
+                             FALSE, // Strikeout,
+                             ANSI_CHARSET,
+                             OUT_OUTLINE_PRECIS,
+                             CLIP_DEFAULT_PRECIS,
+                             PROOF_QUALITY,
+                             FIXED_PITCH,
+                             FontName);
+    SelectFont(FontDrawingDC, CurrentFont);
     
     TEXTMETRIC WindowsFontMetrics = {};
-    if (GetTextMetrics(Result.DrawingDC, &WindowsFontMetrics))
+    if (GetTextMetrics(FontDrawingDC, &WindowsFontMetrics))
     {
         Result.PixelHeight = WindowsFontMetrics.tmHeight;
         Result.Ascent = WindowsFontMetrics.tmAscent;
@@ -272,9 +277,47 @@ GET_FONT_INFO(Win32GetFontInfo)
     return Result;
 }
 
+/*
+u8* DestBuffer, s32 DestBufferWidth, s32 DestBufferHeight, u32 XOffset, u32 YOffset, char Codepoint, platform_font_info FontInfo, u32* OutWidth, u32* OutHeight
+*/
+
 DRAW_FONT_CODEPOINT(Win32DrawFontCodepoint)
 {
-    
+    SIZE CodepointSize = {};
+    if (GetTextExtentPoint32(FontDrawingDC, &Codepoint, 1, &CodepointSize))
+    {
+        *OutWidth = CodepointSize.cx;
+        *OutHeight = CodepointSize.cy;
+        
+        RECT TextRect = {};
+        TextRect.left = 0;
+        TextRect.right = *OutWidth;
+        TextRect.top = 0;
+        TextRect.bottom = *OutHeight;
+        
+        int Error = DrawText(FontDrawingDC, &Codepoint, 1, &TextRect, DT_LEFT | DT_NOCLIP | DT_TOP);
+        
+        u8* Row = DestBuffer + (YOffset * (DestBufferWidth * 4));
+        COLORREF PixelColor;
+        for (u32 Y = 0; Y < *OutHeight; Y++)
+        {
+            // TODO(Peter): * 4 b/c its 4 bytes per pixel. Switch to our bitmap_texture struct for clarity
+            // and fewer fields to this function
+            u8* Channel = (u8*)Row + (XOffset * 4);
+            for (u32 X = 0; X < *OutWidth; X++)
+            {
+                PixelColor = GetPixel(FontDrawingDC, X + TextRect.left, TextRect.bottom - Y);
+                Assert(PixelColor != CLR_INVALID);
+                u8 RValue = GetRValue(PixelColor);
+                *Channel++ = RValue;
+                *Channel++ = RValue;
+                *Channel++ = RValue;
+                *Channel++ = RValue;
+            }
+            Row += DestBufferWidth * 4;
+        }
+        
+    }
 }
 
 LRESULT CALLBACK

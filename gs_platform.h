@@ -212,7 +212,7 @@ SwapInputBuffers (input* Input)
     Input->New = Input->Old;
     Input->Old = NowOld;
     
-    for (s32 Key = 0; Key < KeyCode_Count; Key++) { Input->New->KeysDown[Key] = false; }
+    for (s32 Key = 0; Key < KeyCode_Count; Key++) { Input->New->KeysDown[Key] = Input->Old->KeysDown[Key]; }
     Input->New->StringInputUsed = 0;
 }
 

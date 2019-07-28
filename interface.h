@@ -130,9 +130,11 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
         r32 MaxX = MinX + (CodepointInfo.Width) * FontScale;
         r32 MaxY = MinY + (CodepointInfo.Height) * FontScale;
         
-        v2 MinUV = v2{(r32)CodepointInfo.BitmapX, (r32)CodepointInfo.BitmapY};
-        v2 MaxUV = MinUV + v2{(r32)CodepointInfo.Width, (r32)CodepointInfo.Height};
-        PushQuad2DOnBatch(&BatchConstructor, v2{MinX, MinY}, v2{MaxX, MinY}, v2{MaxX, MaxY}, v2{MinX, MaxY},  MinUV, MaxUV, Color);
+        PushQuad2DOnBatch(&BatchConstructor, 
+                          v2{MinX, MinY}, v2{MaxX, MinY}, 
+                          v2{MaxX, MaxY}, v2{MinX, MaxY},  
+                          CodepointInfo.UVMin, CodepointInfo.UVMax, 
+                          Color);
         
         RegisterPosition.x += CodepointInfo.Width * FontScale;
         C++;
