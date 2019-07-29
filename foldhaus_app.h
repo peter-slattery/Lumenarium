@@ -1,6 +1,3 @@
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb/stb_truetype.h"
-
 #include "../meta/gs_meta_lexer.h"
 
 #include "gs_font.h"
