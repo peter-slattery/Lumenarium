@@ -214,6 +214,7 @@ static void    SetStringToCharArray (string* Dest, char* Source);
 
 static void    ConcatString (string* Dest, string Source);
 static void    ConcatString (string* Dest, string Source, s32 Length);
+static void    ConcatCharToString(string* Dest, char C);
 static void    ConcatCharArrayToString (string* Dest, char* Source);
 static void    ConcatCharArrayToString (string* Dest, char* Source, s32 SourceLength);
 
@@ -235,16 +236,41 @@ static void    NullTerminate (string* String);
 
 
 // Parsing
-static u32   ParseUnsignedInt (char* String, s32 Length);
-static s32   UIntToString (u32 Int, char* String, s32 Length);
-static s32   ParseSignedInt (char* String, s32 Length);
-static s32   IntToString (s32 Int, char* String, s32 Length);
-static s32   IntToString (s32 Int, char* String, s32 Length, s32 Offset);
-static float ParseFloat (char* String, s32 Length);
-static s32   FloatToString(float Float, char *String, s32 Length, s32 AfterPoint);
+enum parse_type
+{
+    ParseType_UnsignedInt,
+    ParseType_SignedInt,
+    ParseType_Float,
+};
+
+struct parse_result
+{
+    parse_type Type;
+    char* OnePastLast;
+    union
+    {
+        u32 UnsignedIntValue;
+        s32 SignedIntValue;
+        r32 FloatValue;
+    };
+};
+
+enum format_flags
+{
+    FormatFlags_LeftJustify = 0x1,
+    FormatFlags_ForceSign = 0x2,
+    FormatFlags_ForceSpaceInsteadOfSign = 0x4,
+    FormatFlags_ForceDecimalOrPrependOx = 0x8,
+    FormatFlags_PadWithZeroesInsteadOfSpaces = 0x16,
+};
+
+static parse_result ParseUnsignedInt (char* String, s32 Length);
+static parse_result ParseSignedInt (char* String, s32 Length);
+static parse_result ParseFloat (char* String, s32 Length);
 
 // PrintF
-static s32   PrintF(string* String, char* Format, ...);
+static void PrintFArgList(char* Dest, s32 DestMax, char* Format, va_list Args);
+static void  PrintF(string* String, char* Format, ...);
 
 ////////////////////////////////////////////////////////////////
 //        String Memory Function Declarations
@@ -880,6 +906,16 @@ ConcatString (string* Dest, string Source, s32 Length)
     }
 }
 
+static void
+ConcatCharToString (string* Dest, char C)
+{
+    Assert(Dest->Length + 1 <= Dest->Max);
+    
+    char* Dst = Dest->Memory + Dest->Length;
+    *Dst = C;
+    Dest->Length++;
+}
+
 static void    
 ConcatCharArrayToString (string* Dest, char* Source)
 {
@@ -1082,52 +1118,44 @@ InsertStringAt (string* Dest, string Source, s32 At)
 //        String Parsing
 ////////////////////////////////////////////////////////////////
 
-static u32
+static parse_result
 ParseUnsignedInt (char* String, s32 Length)
 {
     Assert(IsNumeric(*String));
+    parse_result Result = {};
+    Result.Type = ParseType_UnsignedInt;
     
     char* Iter = String;
-    u32 Result = 0;
+    u32 ResultValue = 0;
     for (s32 i = 0; i < Length; i++)
     {
-        Result = CharToUInt(*Iter++) + (Result * 10);
+        ResultValue = CharToUInt(*Iter++) + (ResultValue * 10);
     }
+    
+    Result.UnsignedIntValue = ResultValue;
+    Result.OnePastLast = Iter;
+    
     return Result;
 }
 
-static u32
-ParseUnisgnedIntUnsafe (char* String)
+static parse_result
+ParseUnsignedIntUnsafe (char* String)
 {
     char* Start = String;
     char* End = EatNumber(String + 1);
     return ParseUnsignedInt(String, End - Start);
 }
 
-static s32
-UIntToString (u32 Int, char* String, s32 Length)
-{
-    s32 Remaining = Int;
-    s32 CharsCopied = 0;
-    char* Iter = String;
-    while (Remaining > 0 && CharsCopied < Length)
-    {
-        *Iter++ = '0' + (Remaining % 10);
-        Remaining /= 10;
-        CharsCopied++;
-    }
-    ReverseCharArray(String, CharsCopied);
-    return CharsCopied;
-}
-
-static s32
+static parse_result
 ParseSignedInt (char* String, s32 Length)
 {
     Assert(Length > 0);
+    parse_result Result = {};
+    Result.Type = ParseType_SignedInt;
     
     s32 Negative = 1;
     s32 LengthRemaining = Length;
-    s32 Result = 0;
+    s32 ResultValue = 0;
     char* Iter = String;
     
     if (*Iter == '-') { 
@@ -1138,15 +1166,18 @@ ParseSignedInt (char* String, s32 Length)
     
     for (s32 i = 0; i < LengthRemaining; i++)
     {
-        Result = CharToUInt(*Iter++) + (Result * 10);
+        ResultValue = CharToUInt(*Iter++) + (ResultValue * 10);
     }
     
-    Result *= Negative;
+    ResultValue *= Negative;
+    
+    Result.SignedIntValue = ResultValue;
+    Result.OnePastLast = Iter;
     
     return Result;
 }
 
-static s32
+static parse_result
 ParseSignedIntUnsafe (char* String)
 {
     char* Start = String;
@@ -1154,47 +1185,15 @@ ParseSignedIntUnsafe (char* String)
     return ParseSignedInt(String, End - Start);
 }
 
-static s32
-IntToString (s32 Int, char* String, s32 Length)
-{
-    s32 Remaining = Int;
-    s32 CharsCopied = 0;
-    char* Iter = String;
-    
-    bool Negative = Remaining < 0;
-    Remaining = GSAbs(Remaining);
-    
-    while (Remaining > 0 && CharsCopied < Length)
-    {
-        *Iter++ = '0' + (Remaining % 10);
-        Remaining /= 10;
-        CharsCopied++;
-    }
-    
-    if (Negative)
-    {
-        *Iter++ = '-';
-        CharsCopied++;
-    }
-    
-    ReverseCharArray(String, CharsCopied);
-    return CharsCopied;
-}
-
-static s32 
-IntToString (s32 Int, char* String, s32 Length, s32 Offset)
-{
-    char* StringStart = String + Offset;
-    s32 LengthWritten = IntToString(Int, StringStart, Length - Offset);
-    return LengthWritten;
-}
-
-static float
+static parse_result
 ParseFloat (char* String, s32 Length)
 {
+    parse_result Result = {};
+    Result.Type = ParseType_Float;
+    
     s32 Negative = 1;
     s32 LengthRemaining = Length;
-    float Result = 0;
+    float ResultValue = 0;
     char* Iter = String;
     
     if (*Iter == '-') { 
@@ -1207,7 +1206,7 @@ ParseFloat (char* String, s32 Length)
     {
         if (IsNumeric(*Iter))
         {
-            Result = (float)CharToUInt(*Iter++) + (Result * 10);
+            ResultValue = (float)CharToUInt(*Iter++) + (ResultValue * 10);
         }
         else if (*Iter == '.' || *Iter == 0) 
         { 
@@ -1236,15 +1235,18 @@ ParseFloat (char* String, s32 Length)
         }
         
         AfterPoint = AfterPoint / GSPow(10, PlacesAfterPoint);
-        Result += AfterPoint;
+        ResultValue += AfterPoint;
     }
     
-    Result *= Negative;
+    ResultValue *= Negative;
+    
+    Result.FloatValue = ResultValue;
+    Result.OnePastLast = Iter;
     
     return Result;
 }
 
-static float
+static parse_result
 ParseFloatUnsafe (char* String)
 {
     char* Start = String;
@@ -1253,19 +1255,77 @@ ParseFloatUnsafe (char* String)
 }
 
 static s32
-FloatToString(float Float, char *String, s32 Length, s32 AfterPoint)
+UIntToString (u32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 MinimumLength = 0)
+{
+    s32 Remaining = Int;
+    char* Iter = String;
+    while (Remaining > 0 && (Iter - String) < MaxLength)
+    {
+        *Iter++ = '0' + (Remaining % 10);
+        Remaining /= 10;
+    }
+    s32 CharsCopied = Iter - String;
+    ReverseCharArray(String, CharsCopied);
+    return CharsCopied;
+}
+
+static s32
+IntToString (s32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 MinimumLength = 0)
+{
+    s32 Remaining = Int;
+    s32 CharsCopied = 0;
+    
+    char* Iter = String;
+    
+    bool Negative = Remaining < 0;
+    Remaining = GSAbs(Remaining);
+    
+    if (Remaining > 0)
+    {
+        while (Remaining > 0 && CharsCopied < MaxLength)
+        {
+            *Iter++ = '0' + (Remaining % 10);
+            Remaining /= 10;
+            CharsCopied++;
+        }
+    }
+    else if (Remaining == 0)
+    {
+        *Iter++ = '0';
+    }
+    
+    if (Negative)
+    {
+        *Iter++ = '-';
+        CharsCopied++;
+    }
+    
+    ReverseCharArray(String, CharsCopied);
+    return CharsCopied;
+}
+
+static s32 
+IntToString (s32 Int, char* String, s32 MaxLength, s32 Offset, b32 FormatFlags = 0, s32 MinimumWidth = 0)
+{
+    char* StringStart = String + Offset;
+    s32 LengthWritten = IntToString(Int, StringStart, MaxLength - Offset);
+    return LengthWritten;
+}
+
+static s32
+FloatToString(float Float, char *String, s32 MaxLength, s32 AfterPoint = 0, b32 FormatFlags = 0, s32 MinimumWidth = 0)
 {
     s32 IPart = (s32)Float;
     float FPart = GSAbs(Float - (float)IPart);
     
-    s32 i = IntToString(IPart, String, Length);
+    s32 i = IntToString(IPart, String, MaxLength);
     
     if (AfterPoint > 1)
     {
         String[i++] = '.';
         
         s32 FPartInt = FPart * GSPow(10, AfterPoint);
-        i += IntToString(FPartInt, String, Length, i);
+        i += IntToString(FPartInt, String, MaxLength, i, 0, 0);
     }
     
     return i;
@@ -1275,69 +1335,333 @@ FloatToString(float Float, char *String, s32 Length, s32 AfterPoint)
 //        PrintF
 ////////////////////////////////////////////////////////////////
 
+static void
+OutChar (string* String, char C)
+{
+    if (String->Length < String->Max)
+    {
+        String->Memory[String->Length] = C;
+        String->Length++;
+    }
+}
+
+char OctalDigits[] = "01234567";
+char DecimalDigits[] = "0123456789";
+char HexDigits[] = "0123456789ABCDEF";
+
+static void
+U64ToASCII (string* String, u64 Value, s32 Base, char* Digits)
+{
+    u64 ValueRemaining = Value;
+    char* Start = String->Memory + String->Length;
+    do {
+        s32 DigitsIndex = ValueRemaining % Base;
+        char Digit = Digits[DigitsIndex];
+        OutChar(String, Digit);
+        ValueRemaining /= Base;
+    }while (ValueRemaining);
+    char* End = String->Memory + String->Length;
+    
+    while (Start < End)
+    {
+        End--;
+        char Temp = *End;
+        *End = *Start;
+        *Start = Temp;
+        *Start++;
+    }
+}
+
+static void
+F64ToASCII (string* String, r64 Value, s32 Precision)
+{
+    if (Value < 0)
+    {
+        OutChar(String, '-');
+        Value = -Value;
+    }
+    
+    u64 IntegerPart = (u64)Value;
+    Value -= IntegerPart;
+    
+    U64ToASCII(String, IntegerPart, 10, DecimalDigits);
+    
+    OutChar(String, '.');
+    
+    for (s32 i = 0; i < Precision; i++)
+    {
+        Value *= 10.f;
+        u32 DecimalPlace = Value;
+        Value -= DecimalPlace;
+        OutChar(String, DecimalDigits[DecimalPlace]);
+    }
+}
+
+internal s64
+ReadVarArgsSignedInteger (s32 Width, va_list* Args)
+{
+    s64 Result = 0;
+    switch (Width)
+    {
+        case 1: { Result = (s64)va_arg(*Args, s8); } break;
+        case 2: { Result = (s64)va_arg(*Args, s16); } break;
+        case 4: { Result = (s64)va_arg(*Args, s32); } break;
+        case 8: { Result = (s64)va_arg(*Args, s64); } break;
+        InvalidDefaultCase;
+    }
+    return Result;
+}
+
+internal r64
+ReadVarArgsUnsignedInteger (s32 Width, va_list* Args)
+{
+    u64 Result = 0;
+    switch (Width)
+    {
+        case 1: { Result = (u64)va_arg(*Args, u8); } break;
+        case 2: { Result = (u64)va_arg(*Args, u16); } break;
+        case 4: { Result = (u64)va_arg(*Args, u32); } break;
+        case 8: { Result = (u64)va_arg(*Args, u64); } break;
+        InvalidDefaultCase;
+    }
+    return Result;
+}
+
+internal r64
+ReadVarArgsFloat (s32 Width, va_list* Args)
+{
+    r64 Result = 0;
+    switch (Width)
+    {
+        case 4: { Result = (r64)va_arg(*Args, r64); } break;
+        case 8: { Result = (r64)va_arg(*Args, r64); } break;
+        InvalidDefaultCase;
+    }
+    return Result;
+}
 
 internal s32
+PrintFArgsList (char* Dest, s32 DestMax, char* Format, va_list Args)
+{
+    char* DestAt = Dest;
+    
+    char* FormatAt = Format;
+    while (*FormatAt)
+    {
+        if (FormatAt[0] != '%')
+        {
+            *DestAt++ = *FormatAt++;
+        }
+        else if (FormatAt[0] == '%' && FormatAt[1] == '%')  // Print the % symbol
+        { 
+            *DestAt++ = *FormatAt++; 
+        }
+        else
+        {
+            FormatAt++;
+            
+            // Flags
+            if (FormatAt[0] == '-')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == '+')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == ' ')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == '#')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == '0')
+            {
+                FormatAt++;
+            }
+            
+            // Width
+            b32 WidthSpecified = false;
+            s32 Width = 0;
+            
+            if (IsNumeric(FormatAt[0]))
+            {
+                WidthSpecified = true;
+                parse_result Parse = ParseSignedIntUnsafe(FormatAt);
+                FormatAt = Parse.OnePastLast;
+                Width = Parse.SignedIntValue;
+            }
+            else if (FormatAt[0] == '*')
+            {
+                WidthSpecified = true;
+                Width = va_arg(Args, s32);
+                Assert(Width >= 0);
+                FormatAt++;
+            }
+            
+            // Precision
+            b32 PrecisionSpecified = false;
+            s32 Precision = 0;
+            
+            if (FormatAt[0] == '.')
+            {
+                FormatAt++;
+                if (IsNumeric(FormatAt[0]))
+                {
+                    PrecisionSpecified = true;
+                    parse_result Parse = ParseSignedIntUnsafe(FormatAt);
+                    FormatAt = Parse.OnePastLast;
+                    Precision = Parse.SignedIntValue;
+                }
+                else if (FormatAt[0] == '*')
+                {
+                    PrecisionSpecified = true;
+                    Precision = va_arg(Args, s32);
+                    Assert(Precision >= 0);
+                    FormatAt++;
+                }
+            }
+            
+            // Length
+            b32 LengthSpecified = false;
+            s32 Length = 4;
+            
+            if (FormatAt[0] == 'h' && FormatAt[1] == 'h')
+            {
+                LengthSpecified = true;
+                LengthSpecified = 1;
+                FormatAt += 2;
+            }
+            else if (FormatAt[0] == 'h')
+            {
+                LengthSpecified = true;
+                LengthSpecified = 2;
+                FormatAt++;
+            }
+            else if (FormatAt[0] == 'l' && FormatAt[1] == 'l')
+            {
+                LengthSpecified = true;
+                LengthSpecified = 8;
+                FormatAt += 2;
+            }
+            else if (FormatAt[0] == 'l')
+            {
+                LengthSpecified = true;
+                LengthSpecified = 4;
+                FormatAt++;
+            }
+            else if (FormatAt[0] == 'j')
+            {
+                LengthSpecified = true;
+                LengthSpecified = 8;
+                FormatAt++;
+            }
+            else if (FormatAt[0] == 'z')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == 't')
+            {
+                FormatAt++;
+            }
+            else if (FormatAt[0] == 'L')
+            {
+                FormatAt++;
+            }
+            
+            // Format Specifier
+            s32 DestLengthRemaining = DestMax - (DestAt - Dest);
+            
+            char Temp[64];
+            string TempDest = MakeString(Temp, 0, 64);
+            
+            if (FormatAt[0] == 'd' || FormatAt[0] == 'i')
+            {
+                s64 SignedInt = ReadVarArgsSignedInteger(Length, &Args);
+                if (SignedInt < 0)
+                {
+                    OutChar(&TempDest, '-');
+                }
+                U64ToASCII(&TempDest, (u64)SignedInt, 10, DecimalDigits);
+            }
+            else if (FormatAt[0] == 'u')
+            {
+                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                U64ToASCII(&TempDest, UnsignedInt, 10, DecimalDigits);
+            } 
+            else if (FormatAt[0] == 'o')
+            {
+                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                U64ToASCII(&TempDest, UnsignedInt, 8, OctalDigits);
+            } 
+            else if (FormatAt[0] == 'x' || FormatAt[0] == 'X')
+            {
+                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                U64ToASCII(&TempDest, UnsignedInt, 16, HexDigits);
+            } 
+            else if (FormatAt[0] == 'f' || FormatAt[0] == 'F')
+            {
+                r64 Float = ReadVarArgsFloat(Length, &Args);
+                s32 AfterPoint = 6;
+                if (PrecisionSpecified)
+                {
+                    AfterPoint = Precision;
+                }
+                F64ToASCII(&TempDest, Float, AfterPoint);
+            } 
+            else if (FormatAt[0] == 'c')
+            {
+                char InsertChar = va_arg(Args, char);
+                OutChar(&TempDest, InsertChar);
+            } 
+            else if (FormatAt[0] == 's')
+            {
+                char* InsertString = va_arg(Args, char*);
+                
+                s32 InsertStringLength = CharArrayLength(InsertString);
+                if (PrecisionSpecified)
+                {
+                    InsertStringLength = GSMin(InsertStringLength, Precision);
+                }
+                InsertStringLength = GSMin(DestLengthRemaining, InsertStringLength);
+                
+                for (s32 c = 0; c < InsertStringLength; c++)
+                {
+                    OutChar(&TempDest, *InsertString++);
+                }
+            } 
+            else if (FormatAt[0] == 'p')
+            {
+                // TODO(Peter): Pointer Address
+            }
+            else
+            {
+                // NOTE(Peter): Non-specifier character found
+                InvalidCodePath;
+            }
+            
+            for (s32 i = 0; i < TempDest.Length; i++)
+            {
+                *DestAt++ = TempDest.Memory[i];
+            }
+            
+            *FormatAt++;
+        }
+    }
+    
+    s32 FormattedLength = DestAt - Dest;
+    return FormattedLength;
+}
+
+internal void
 PrintF (string* String, char* Format, ...)
 {
     va_list Args;
     va_start(Args, Format);
-    
-#if 0
-    s32 LengthPrinted = 0;
-    char* DestChar = Destination;
-    
-    char* C = Format;
-    while(*C)
-    {
-        if (*C == '%')
-        {
-            C++;
-            if (*C == 's') // string
-            {
-                C++;
-                char* InsertString = va_arg(Args, char*);
-                s32 LengthCopied = CopyCharArray(InsertString, DestChar, DestLength - LengthPrinted);
-                DestChar += LengthCopied;
-                LengthPrinted += LengthCopied;
-            }
-            else if(*C == 'd') // integer
-            {
-                C++;
-                s32 Integer = va_arg(Args, s32);
-                
-                s32 IntLength = IntToString(Integer, DestChar, DestLength - LengthPrinted);
-                DestChar += IntLength;
-                LengthPrinted += IntLength;
-            }
-            else if (*C == 'f')
-            {
-                C++;
-                r32 Float = va_arg(Args, r32);
-                s32 FloatLength = FloatToString(Float, DestChar, DestLength - LengthPrinted, 5);
-                DestChar += FloatLength;
-                LengthPrinted += FloatLength;
-            }
-            else
-            {
-                *DestChar++ = *C++;
-            }
-        }
-        else
-        {
-            *DestChar++ = *C++;
-        }
-    }
-    
-    if (LengthPrinted >= DestLength)
-    {
-        LengthPrinted = DestLength - 1;
-    }
-    *(Destination + LengthPrinted) = 0;
-    
-#endif
-    
+    String->Length = PrintFArgsList(String->Memory, String->Max, Format, Args);
     va_end(Args);
-    return 0;
 }
 
 

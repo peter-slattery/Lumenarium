@@ -423,7 +423,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
             Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
             GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
             
-            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", 14);
+            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize);
             Font->PixelHeight = FontInfo.PixelHeight;
             Font->Ascent = FontInfo.Ascent;
             Font->Descent = FontInfo.Descent;
@@ -435,12 +435,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
             Font->CodepointKeys = PushArray(State->Permanent, char, Font->CodepointDictionarySize);
             Font->CodepointValues = PushArray(State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
             
-            char CodepointValues[] = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()-_=+{}[];':\",./<>?`~";
-            for (s32 CodepointIdx = 0; //FontInfo.CodepointStart;
-                 CodepointIdx < sizeof(CodepointValues) / sizeof(CodepointValues[0]); //FontInfo.CodepointOnePastLast;
-                 CodepointIdx++)
+            for (s32 Codepoint = FontInfo.CodepointStart;
+                 Codepoint < FontInfo.CodepointOnePastLast;
+                 Codepoint++)
             {
-                char Codepoint = CodepointValues[CodepointIdx];
                 
                 u32 CodepointX, CodepointY;
                 GetNextCodepointOffset(Font, &CodepointX, &CodepointY);
@@ -908,18 +906,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
                            Context.DeltaTime, State->Camera, Input, State->Transient);
     }
-    
-    render_texture FontTexture = {};
-    FontTexture.Memory = State->Font->BitmapMemory;
-    FontTexture.Handle = State->Font->BitmapTextureHandle;
-    FontTexture.Width = State->Font->BitmapWidth;
-    FontTexture.Height = State->Font->BitmapHeight;
-    FontTexture.BytesPerPixel = State->Font->BitmapBytesPerPixel;
-    FontTexture.Stride = State->Font->BitmapStride;
-    
-    PushRenderTexture2D(RenderBuffer, v2{200, 200}, 
-                        v2{200 + (r32)FontTexture.Width, 200 + (r32)FontTexture.Height},
-                        v4{1, 1, 1, 1}, v2{0, 0}, v2{1, 1}, &FontTexture);
     
     ClearArena(State->Transient);
     EndDebugFrame(GlobalDebugServices);

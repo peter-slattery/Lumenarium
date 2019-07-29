@@ -113,7 +113,7 @@ GetIndexForCodepoint (bitmap_font Font, char Codepoint)
 inline s32
 NewLineYOffset (bitmap_font Font)
 {
-    s32 Result = Font.Ascent - Font.Descent;
+    s32 Result = Font.Ascent + Font.Descent;
     return Result;
 }
 

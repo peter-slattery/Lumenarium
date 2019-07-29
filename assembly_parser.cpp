@@ -62,15 +62,15 @@ ParseAssemblyVector (char* String)
     Tokenizer.At = String;
     
     EatWhitespace(&Tokenizer);
-    Result.x = ParseFloatUnsafe(Tokenizer.At);
+    Result.x = ParseFloatUnsafe(Tokenizer.At).FloatValue;
     EatPastCharacter(&Tokenizer, ',');
     
     EatWhitespace(&Tokenizer);
-    Result.y = ParseFloatUnsafe(Tokenizer.At);
+    Result.y = ParseFloatUnsafe(Tokenizer.At).FloatValue;
     EatPastCharacter(&Tokenizer, ',');
     
     EatWhitespace(&Tokenizer);
-    Result.z = ParseFloatUnsafe(Tokenizer.At);
+    Result.z = ParseFloatUnsafe(Tokenizer.At).FloatValue;
     EatPastCharacter(&Tokenizer, ',');
     
     return Result;
@@ -86,7 +86,7 @@ ParseAssemblyFileHeader (tokenizer* Tokenizer, assembly_definition* Definition)
         assembly_token CountToken = ParseToken(Tokenizer);
         if (CountToken.Type == AssemblyToken_Number)
         {
-            Definition->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token);
+            Definition->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token).SignedIntValue;
         }
         else
         {
@@ -112,21 +112,21 @@ ParseLEDStrip (tokenizer* Tokenizer, assembly_definition* Assembly)
     while (*Tokenizer->At && !IsNumericExtended(*Tokenizer->At)) { Tokenizer->At++; }
     assembly_token BoxIDToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token);
+    LEDStripDef->ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token).SignedIntValue;
     
     // Start Universe
     EatPastCharacter(Tokenizer, ',');
     EatWhitespace(Tokenizer);
     assembly_token StartUniverseToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->StartUniverse = ParseSignedIntUnsafe(StartUniverseToken.Token);
+    LEDStripDef->StartUniverse = ParseSignedIntUnsafe(StartUniverseToken.Token).SignedIntValue;
     
     // Start Channel
     EatPastCharacter(Tokenizer, ',');
     EatWhitespace(Tokenizer);
     assembly_token StartChannelToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token);
+    LEDStripDef->StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token).SignedIntValue;
     
     // Strip Type
     // TODO(Peter): This is unused for now, and would be a branch point for parsing 
@@ -156,7 +156,7 @@ ParseLEDStrip (tokenizer* Tokenizer, assembly_definition* Assembly)
         EatWhitespace(Tokenizer);
         assembly_token LEDsPerStripToken = ParseToken(Tokenizer);
         Assert(BoxIDToken.Type == AssemblyToken_Number);
-        LEDStripDef->LEDsPerStrip = ParseSignedIntUnsafe(LEDsPerStripToken.Token);
+        LEDStripDef->LEDsPerStrip = ParseSignedIntUnsafe(LEDsPerStripToken.Token).SignedIntValue;
     }
     
     EatPastCharacter(Tokenizer, '}');
