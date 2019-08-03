@@ -77,7 +77,7 @@ ParseAssemblyVector (char* String)
 }
 
 internal void
-ParseAssemblyFileHeader (tokenizer* Tokenizer, assembly_definition* Definition)
+ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
 {
     if (CharArraysEqualUpToLength(Tokenizer->At, LED_STRIP_COUNT_IDENTIFIER, CharArrayLength(LED_STRIP_COUNT_IDENTIFIER)))
     {
@@ -86,7 +86,7 @@ ParseAssemblyFileHeader (tokenizer* Tokenizer, assembly_definition* Definition)
         assembly_token CountToken = ParseToken(Tokenizer);
         if (CountToken.Type == AssemblyToken_Number)
         {
-            Definition->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token).SignedIntValue;
+            Assembly->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token).SignedIntValue;
         }
         else
         {
@@ -103,9 +103,11 @@ ParseAssemblyFileHeader (tokenizer* Tokenizer, assembly_definition* Definition)
 }
 
 internal void 
-ParseLEDStrip (tokenizer* Tokenizer, assembly_definition* Assembly)
+ParseLEDStrip (assembly_definition* Assembly, tokenizer* Tokenizer)
 {
     led_strip_definition* LEDStripDef = Assembly->LEDStrips + Assembly->LEDStripCount;
+    Assert(Assembly->LEDStripCount < Assembly->LEDStripSize);
+    
     Assembly->LEDStripCount++;
     
     // Control Box Index
@@ -163,24 +165,15 @@ ParseLEDStrip (tokenizer* Tokenizer, assembly_definition* Assembly)
     EatWhitespace(Tokenizer);
 }
 
-internal assembly_definition
-ParseAssemblyFile (char* File, memory_arena* Storage)
+internal void
+ParseAssemblyFileBody (assembly_definition* Assembly, tokenizer* Tokenizer)
 {
-    assembly_definition Result = {};
+    EatWhitespace(Tokenizer);
     
-    tokenizer Tokenizer = {};
-    Tokenizer.At = File;
-    
-    ParseAssemblyFileHeader(&Tokenizer, &Result);
-    
-    Result.LEDStrips = PushArray(Storage, led_strip_definition,
-                                 Result.LEDStripSize);
-    EatWhitespace(&Tokenizer);
-    
-    while(*Tokenizer.At)
+    while(*Tokenizer->At)
     {
-        EatWhitespace(&Tokenizer);
-        assembly_token Token = ParseToken(&Tokenizer);
+        EatWhitespace(Tokenizer);
+        assembly_token Token = ParseToken(Tokenizer);
         
         if (Token.Type != AssemblyToken_EndOfFile)
         {
@@ -188,13 +181,12 @@ ParseAssemblyFile (char* File, memory_arena* Storage)
             {
                 case AssemblyToken_LEDStrip:
                 {
-                    ParseLEDStrip(&Tokenizer, &Result);
+                    ParseLEDStrip(Assembly, Tokenizer);
                 } break;
                 
-                default:
-                {
-                    InvalidCodePath;
-                } break;
+                // TODO(Peter): Other cases? What else would need to be in the assembly body?
+                
+                InvalidDefaultCase;
             }
         }
         else
@@ -202,5 +194,9 @@ ParseAssemblyFile (char* File, memory_arena* Storage)
             break;
         }
     }
-    return Result;
+    
+    // NOTE(Peter): Ensure the validity of the assembly file. We probably don't want an assert here,
+    // more likely we want to load a valid assembly anyways, and just raise this as an error to the user
+    // so they can fix it.
+    Assert(Assembly->LEDStripCount == Assembly->LEDStripSize);
 }

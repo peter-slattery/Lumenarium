@@ -47,9 +47,22 @@ NODE_PROC(MultiplyPatterns, multiply_patterns_data)
     {
         Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
         
-        Data->ResultColors[LED->Index].R = (Data->AColors[LED->Index].R + Data->BColors[LED->Index].R) / 2;
-        Data->ResultColors[LED->Index].G = (Data->AColors[LED->Index].G + Data->BColors[LED->Index].G) / 2;
-        Data->ResultColors[LED->Index].B = (Data->AColors[LED->Index].B + Data->BColors[LED->Index].B) / 2;
+        r32 AR = (r32)Data->AColors[LED->Index].R / 255.f;
+        r32 AG = (r32)Data->AColors[LED->Index].G / 255.f;
+        r32 AB = (r32)Data->AColors[LED->Index].B / 255.f;
+        
+        r32 BR = (r32)Data->BColors[LED->Index].R / 255.f;
+        r32 BG = (r32)Data->BColors[LED->Index].G / 255.f;
+        r32 BB = (r32)Data->BColors[LED->Index].B / 255.f;
+        
+        r32 RCombined = AR * BR;
+        r32 GCombined = AG * BG;
+        r32 BCombined = AB * BB;
+        
+        Data->ResultColors[LED->Index].R = (u8)(GSClamp01(RCombined) * 255);
+        Data->ResultColors[LED->Index].G = (u8)(GSClamp01(GCombined) * 255);
+        Data->ResultColors[LED->Index].B = (u8)(GSClamp01(BCombined) * 255);
+        
         LED++;
     }
 }

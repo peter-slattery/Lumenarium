@@ -156,7 +156,7 @@ PushOutputNodeOnList (node_list* List, v2 Min, memory_arena* Storage)
                                           OutputNodeName.Length,
                                           1,
                                           Min,
-                                          v2{125, 150},
+                                          DEFAULT_NODE_DIMENSION,
                                           Storage);
     Node->Type = NodeType_OutputNode;
     CopyStringTo(OutputNodeName, &Node->Name);
@@ -841,45 +841,44 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
     
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
-        node_connection* Connection = 0;
+        node_connection Connection = Node->Connections[ConnectionIdx];
         
         // TODO(Peter): We're currently passing in a pointer to the leds array for every single
         // NODE_COLOR_BUFFER. We shouldn't do that, and just require each data structure that
         // needs the leds to request that as its own member/parameter.
-        if (ConnectionIsInput(Node->Connections[ConnectionIdx]) ||
-            Connection->Type == MemberType_NODE_COLOR_BUFFER)
+        if (Connection.Type == MemberType_NODE_COLOR_BUFFER)
         {
-            Connection = Node->Connections + ConnectionIdx;
-            switch (Connection->Type)
+            node_led_color_connection* ColorConnection = (node_led_color_connection*)(NodeData + MemberList[ConnectionIdx].Offset);
+            
+            ColorConnection->LEDs = LEDs;
+            ColorConnection->LEDCount = LEDCount;
+            ColorConnection->Colors = Connection.LEDsValue.Colors;
+            
+            if (!ColorConnection->Colors)
+            {
+                sacn_pixel* ColorsCopy = PushArray(Transient, sacn_pixel, LEDCount);
+                GSMemSet((u8*)ColorsCopy, 0, sizeof(sacn_pixel) * LEDCount);
+                ColorConnection->Colors = ColorsCopy;
+            }
+        }
+        else if (ConnectionIsInput(Connection))
+        {
+            Assert(Connection.Type != MemberType_NODE_COLOR_BUFFER);
+            switch (Connection.Type)
             {
                 case MemberType_s32:
                 {
-                    GSMemCopy(&Connection->S32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(s32));
+                    GSMemCopy(&Connection.S32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(s32));
                 }break;
                 
                 case MemberType_r32:
                 {
-                    GSMemCopy(&Connection->R32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(r32));
+                    GSMemCopy(&Connection.R32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(r32));
                 }break;
                 
                 case MemberType_v4:
                 {
-                    GSMemCopy(&Connection->V4Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(v4));
-                }break;
-                
-                case MemberType_NODE_COLOR_BUFFER:
-                {
-                    Connection->LEDsValue.LEDs = LEDs;
-                    Connection->LEDsValue.LEDCount = LEDCount;
-                    
-                    if (Connection->LEDsValue.Colors == 0)
-                    {
-                        sacn_pixel* ColorsCopy = PushArray(Transient, sacn_pixel, LEDCount);
-                        GSMemCopy(ColorsInit, ColorsCopy, sizeof(sacn_pixel) * LEDCount);
-                        Connection->LEDsValue.Colors = ColorsCopy;
-                    }
-                    
-                    GSMemCopy(&Connection->LEDsValue, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(node_led_color_connection));
+                    GSMemCopy(&Connection.V4Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(v4));
                 }break;
                 
                 InvalidDefaultCase;
@@ -921,6 +920,7 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
             case MemberType_NODE_COLOR_BUFFER:
             {
                 node_led_color_connection* Value = (node_led_color_connection*)(NodeData + MemberList[ConnectionIdx].Offset);
+                Connection->LEDsValue.Colors = Value->Colors;
             }break;
             
             InvalidDefaultCase;
@@ -937,7 +937,12 @@ UpdateOutputNodeCalculations (interface_node* OutputNode, node_list* NodeList, m
     node_connection ColorsConnection = OutputNode->Connections[0];
     if (ColorsConnection.LEDsValue.Colors)
     {
-        GSMemCopy(ColorsConnection.LEDsValue.Colors, Colors, sizeof(sacn_pixel) * LEDCount);
+        sacn_pixel* DestPixel = Colors;
+        sacn_pixel* SourcePixel = ColorsConnection.LEDsValue.Colors;
+        for (s32 i = 0; i < LEDCount; i++)
+        {
+            *DestPixel++ = *SourcePixel++;
+        }
     }
 }
 
@@ -951,6 +956,25 @@ UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Transient, led* LE
         if (!Node->UpdatedThisFrame)
         {
             UpdateNodeCalculation(Node, NodeList, Transient, LEDs, Colors, LEDCount);
+        }
+        Next(&NodeIter);
+    }
+}
+
+internal void
+ClearTransientNodeColorBuffers (node_list* NodeList)
+{
+    node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
+    while (NodeIteratorIsValid(NodeIter))
+    {
+        interface_node* Node = NodeIter.At;
+        for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
+        {
+            node_connection* Connection = Node->Connections + ConnectionIdx;
+            if (Connection->Type == MemberType_NODE_COLOR_BUFFER)
+            {
+                Connection->LEDsValue.Colors = 0;
+            }
         }
         Next(&NodeIter);
     }

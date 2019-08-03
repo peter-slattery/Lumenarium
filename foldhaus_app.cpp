@@ -283,12 +283,24 @@ SendSACNBufferData (s32 ThreadID, void* JobData)
 internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
+    assembly_definition AssemblyDefinition = {};
+    
+    arena_snapshot TempMemorySnapshot = TakeSnapshotOfArena(*State->Transient);
+    
     platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
-    if (TestAssemblyFile.Size <= 0)
+    Assert(TestAssemblyFile.Size > 0);
     {
-        InvalidCodePath;
+        tokenizer AssemblyFileTokenizer = {};
+        AssemblyFileTokenizer.At = (char*)TestAssemblyFile.Base;
+        AssemblyFileTokenizer.Memory = (char*)TestAssemblyFile.Base;
+        AssemblyFileTokenizer.MemoryLength = TestAssemblyFile.Size;
+        
+        ParseAssemblyFileHeader(&AssemblyDefinition, &AssemblyFileTokenizer);
+        
+        AssemblyDefinition.LEDStrips = PushArray(State->Transient, led_strip_definition, AssemblyDefinition.LEDStripSize);
+        
+        ParseAssemblyFileBody(&AssemblyDefinition, &AssemblyFileTokenizer);
     }
-    assembly_definition AssemblyDefinition = ParseAssemblyFile((char*)TestAssemblyFile.Base, State->Transient);
     Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
     
     string PathString = MakeStringLiteral(Path);
@@ -297,6 +309,8 @@ LoadAssembly (app_state* State, context Context, char* Path)
     
     r32 Scale = 100;
     ConstructAssemblyFromDefinition(AssemblyDefinition, FileName, v3{0, 0, 0}, Scale, Context, State);
+    
+    ClearArenaToSnapshot(State->Transient, TempMemorySnapshot);
 }
 
 internal void
@@ -517,7 +531,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->NodeRenderSettings.PortColors[MemberType_v4] = BlueV4;
     State->NodeRenderSettings.Font = State->Font;
     
-    State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Transient);
+    State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     
     ReloadStaticData(Context, GlobalDebugServices);
 }
@@ -526,6 +540,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
 {
     app_state* State = (app_state*)Context.MemoryBase;
     
+    // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
+    // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
+    // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically 
+    // incorrect to clear the arena, and then access the memory later.
+    ClearArena(State->Transient);
+    
     ExecuteAllRegisteredCommands(&State->InputCommandRegistry, Input, State);
     
     UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, State->Transient, 
@@ -533,13 +553,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                  State->LEDBufferList->Colors, 
                                  State->LEDBufferList->Count);
     
-    /*
-    patterns_update_list Temp_PatternsNeedUpdate = UpdateAllChannels(&State->ChannelSystem,
-    Context.DeltaTime,
-    State->Transient);
-    
-    UpdateAllPatterns(&Temp_PatternsNeedUpdate, &State->PatternSystem, State->LEDBufferList, Context.DeltaTime, State->Transient);
-    */
+    ClearTransientNodeColorBuffers(State->NodeList);
     
     {
         // NOTE(Peter): We know that these two lists should be maintained together. Each element in the list is one sculpture's worth of
@@ -907,7 +921,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                            Context.DeltaTime, State->Camera, Input, State->Transient);
     }
     
-    ClearArena(State->Transient);
     EndDebugFrame(GlobalDebugServices);
 }
 

@@ -187,6 +187,12 @@ AllocateNonGrowableArenaWithSpace(platform_alloc* PlatformAlloc, s32 SizeNeeded)
 static void
 ClearMemoryRegion (memory_region* Region)
 {
+#if 0
+    // NOTE(Peter): Turn this on occasionally. This is a big time sink but it forces us into 
+    // correct memory usage since there's no error reporting for accessing memory the arena thinks
+    // is unused. At least now, it'll be zero's.
+    GSMemSet(Region->Base, 0, Region->Size);
+#endif
     Region->Used = 0;
 }
 

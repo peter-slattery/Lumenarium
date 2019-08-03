@@ -3,6 +3,8 @@ typedef enum node_type node_type;
 #define IsInputMember 1 << 0
 #define IsOutputMember 1 << 1
 
+#define DEFAULT_NODE_DIMENSION v2{125, 150}
+
 #define NODE_COLOR_BUFFER \
 led* LEDs; \
 sacn_pixel* Colors; \

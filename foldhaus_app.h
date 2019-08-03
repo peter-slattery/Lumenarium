@@ -40,7 +40,6 @@ struct assembly
 };
 
 #include "assembly_parser.h"
-//#include "foldhaus_environment.h"
 
 // TODO(Peter): remove this, and get pattern_system.h outta here!!
 typedef struct led_pattern led_pattern;
