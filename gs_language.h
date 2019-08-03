@@ -278,6 +278,24 @@ GSIntDivideRoundUpDef(s32);
 GSIntDivideRoundUpDef(s64);
 #undef GSIntDivideRoundUpDef
 
+#define GSRemapDef(type) \
+static type GSRemap(type Value, type OldMin, type OldMax, type NewMin, type NewMax) { \
+    type Result = (Value - OldMin) / (OldMax - OldMin); \
+    Result = (Result * (NewMax - NewMin)) + NewMin; \
+    return Result; \
+}
+GSRemapDef(u8);
+GSRemapDef(u16);
+GSRemapDef(u32);
+GSRemapDef(u64);
+GSRemapDef(s8);
+GSRemapDef(s16);
+GSRemapDef(s32);
+GSRemapDef(s64);
+GSRemapDef(r32);
+GSRemapDef(r64);
+#undef GSRemapDef
+
 #define GSTrigFunctionDef(name, type, func) static type name(type V) { return func(V); }
 GSTrigFunctionDef(GSSin, r32, sinf);
 GSTrigFunctionDef(GSSin, r64, sin);

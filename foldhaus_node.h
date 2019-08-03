@@ -84,6 +84,8 @@ struct interface_node
     
     node_type Type;
     b32 UpdatedThisFrame;
+    
+    u8* PersistentData;
 };
 
 struct node_list
@@ -174,10 +176,7 @@ struct data_name
 struct data_name
 
 #define NODE_PROC(proc_name, input_type) \
-void proc_name(input_type* Data) 
-
-#define NODE_PATTERN_PROC(proc_name, input_type) \
-void proc_name(input_type* Data, led* LEDs, sacn_pixel* Colors, s32 LEDCount)
+void proc_name(input_type* Data, r32 DeltaTime) 
 
 #define NODE_IN(type, name) type name
 #define NODE_OUT(type, name) type name

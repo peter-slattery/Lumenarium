@@ -767,12 +767,14 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
 }
 
 
-internal void UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* Transient,
-                                     led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount);
+internal void UpdateNodeCalculation (interface_node* Node, node_list* NodeList, 
+                                     memory_arena* Permanent, memory_arena* Transient,
+                                     led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime);
 
 internal void
-UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList, memory_arena* Transient,
-                              led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount)
+UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList, 
+                              memory_arena* Permanent, memory_arena* Transient,
+                              led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
@@ -786,7 +788,7 @@ UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList, memory_
                 interface_node* UpstreamNode = GetNodeAtOffset(NodeList, Connection->UpstreamNodeOffset);
                 if (!UpstreamNode->UpdatedThisFrame)
                 {
-                    UpdateNodeCalculation(UpstreamNode, NodeList, Transient, LEDs, ColorsInit, LEDCount);
+                    UpdateNodeCalculation(UpstreamNode, NodeList, Permanent, Transient, LEDs, ColorsInit, LEDCount, DeltaTime);
                 }
                 switch (Connection->Type)
                 {
@@ -818,8 +820,9 @@ UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList, memory_
 }
 
 internal void
-UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* Transient,
-                       led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount)
+UpdateNodeCalculation (interface_node* Node, node_list* NodeList, 
+                       memory_arena* Permanent, memory_arena* Transient,
+                       led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -835,9 +838,14 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
     Node->UpdatedThisFrame = true;
     
     sacn_pixel* Colors = ColorsInit;
-    u8* NodeData = PushArray(Transient, u8, Spec.DataStructSize);
     
-    UpdateNodesConnectedUpstream(Node, NodeList, Transient, LEDs, Colors, LEDCount);
+    // TODO(Peter): Should do this at node creation time
+    if (Node->PersistentData == 0)
+    {
+        Node->PersistentData = PushArray(Permanent, u8, Spec.DataStructSize);
+    }
+    
+    UpdateNodesConnectedUpstream(Node, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
     
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
@@ -848,7 +856,7 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
         // needs the leds to request that as its own member/parameter.
         if (Connection.Type == MemberType_NODE_COLOR_BUFFER)
         {
-            node_led_color_connection* ColorConnection = (node_led_color_connection*)(NodeData + MemberList[ConnectionIdx].Offset);
+            node_led_color_connection* ColorConnection = (node_led_color_connection*)(Node->PersistentData + MemberList[ConnectionIdx].Offset);
             
             ColorConnection->LEDs = LEDs;
             ColorConnection->LEDCount = LEDCount;
@@ -868,17 +876,17 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
             {
                 case MemberType_s32:
                 {
-                    GSMemCopy(&Connection.S32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(s32));
+                    GSMemCopy(&Connection.S32Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(s32));
                 }break;
                 
                 case MemberType_r32:
                 {
-                    GSMemCopy(&Connection.R32Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(r32));
+                    GSMemCopy(&Connection.R32Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(r32));
                 }break;
                 
                 case MemberType_v4:
                 {
-                    GSMemCopy(&Connection.V4Value, (NodeData + MemberList[ConnectionIdx].Offset), sizeof(v4));
+                    GSMemCopy(&Connection.V4Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(v4));
                 }break;
                 
                 InvalidDefaultCase;
@@ -886,7 +894,7 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
         }
     }
     
-    CallNodeProc(Node, NodeData, LEDs, Colors, LEDCount);
+    CallNodeProc(Node, Node->PersistentData, LEDs, LEDCount, DeltaTime);
     
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
@@ -904,22 +912,22 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
         {
             case MemberType_s32:
             {
-                GSMemCopy((NodeData + MemberList[ConnectionIdx].Offset), &Connection->S32Value, sizeof(s32));
+                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->S32Value, sizeof(s32));
             }break;
             
             case MemberType_r32:
             {
-                GSMemCopy((NodeData + MemberList[ConnectionIdx].Offset), &Connection->R32Value, sizeof(r32));
+                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->R32Value, sizeof(r32));
             }break;
             
             case MemberType_v4:
             {
-                GSMemCopy((NodeData + MemberList[ConnectionIdx].Offset), &Connection->V4Value, sizeof(v4));
+                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->V4Value, sizeof(v4));
             }break;
             
             case MemberType_NODE_COLOR_BUFFER:
             {
-                node_led_color_connection* Value = (node_led_color_connection*)(NodeData + MemberList[ConnectionIdx].Offset);
+                node_led_color_connection* Value = (node_led_color_connection*)(Node->PersistentData + MemberList[ConnectionIdx].Offset);
                 Connection->LEDsValue.Colors = Value->Colors;
             }break;
             
@@ -929,10 +937,12 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList, memory_arena* 
 }
 
 internal void
-UpdateOutputNodeCalculations (interface_node* OutputNode, node_list* NodeList, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount)
+UpdateOutputNodeCalculations (interface_node* OutputNode, node_list* NodeList, 
+                              memory_arena* Permanent, memory_arena* Transient, 
+                              led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     Assert(OutputNode->Type == NodeType_OutputNode);
-    UpdateNodesConnectedUpstream(OutputNode, NodeList, Transient, LEDs, Colors, LEDCount);
+    UpdateNodesConnectedUpstream(OutputNode, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
     
     node_connection ColorsConnection = OutputNode->Connections[0];
     if (ColorsConnection.LEDsValue.Colors)
@@ -947,7 +957,7 @@ UpdateOutputNodeCalculations (interface_node* OutputNode, node_list* NodeList, m
 }
 
 internal void
-UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount)
+UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
@@ -955,7 +965,7 @@ UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Transient, led* LE
         interface_node* Node = NodeIter.At;
         if (!Node->UpdatedThisFrame)
         {
-            UpdateNodeCalculation(Node, NodeList, Transient, LEDs, Colors, LEDCount);
+            UpdateNodeCalculation(Node, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
         }
         Next(&NodeIter);
     }

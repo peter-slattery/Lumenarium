@@ -169,6 +169,7 @@ static bool     IsAlphaNumeric (char C);
 static bool     IsOperator (char C);
 
 // Tokenizing
+static b32      AtValidPosition(tokenizer Tokenizer);
 static b32      AtValidToken(tokenizer Tokenizer);
 static char*    EatToNewLine(char* C);
 static void     EatToNewLine(tokenizer* T);
@@ -189,16 +190,21 @@ static s32      CharArrayLength (char* CharArray);
 static bool     CharArraysEqual (char* A, s32 ALength, char* B, s32 BLength);
 static bool     CharArraysEqualUnsafe (char* A, char* B);
 static void     ReverseCharArray (char* Array, s32 Length);
-#define         FirstIndexOfChar(array, find) IndexOfChar(array, 0, find)
+#define         FirstIndexOfCharInCharArray(array, find) IndexOfChar(array, 0, find)
 static s32      IndexOfChar (char* Array, s32 Start, char Find);
-#define         FastLastIndexOfChar(array, len, find) FastReverseIndexOfChar(array, len, 0, find)
+#define         FastLastIndexOfCharInCharArray(array, len, find) FastReverseIndexOfChar(array, len, 0, find)
 static s32      FastReverseIndexOfChar (char* Array, s32 Length, s32 OffsetFromEnd, char Find);
-#define         LastIndexOfChar(array, find) ReverseIndexOfChar(array, 0, find)
+#define         LastIndexOfCharInCharArray(array, find) ReverseIndexOfChar(array, 0, find)
 static s32      ReverseIndexOfChar (char* Array, s32 OffsetFromEnd, char Find);
 static b32      CharArrayContains(char* Array, char* CheckFor);
 static b32      CharArrayContainsSafe(char* Array, s32 ArrayLength, char* CheckFor, s32 CheckForLength);
 
 // String
+
+#define MakeStringBuffer(name, size) \
+char name##Backbuffer[(size)]; \
+string name = MakeString(name##Backbuffer, size);
+
 static string  MakeString (char* Array, s32 Length, s32 Max);
 static string  MakeString (char* Array, s32 Length);
 static string  MakeString (char* Array);
@@ -212,11 +218,11 @@ static s32     FindFirstChar (string String, char C);
 static void    SetStringToChar (string* Dest, char C, s32 Count);
 static void    SetStringToCharArray (string* Dest, char* Source);
 
-static void    ConcatString (string* Dest, string Source);
-static void    ConcatString (string* Dest, string Source, s32 Length);
+static void    ConcatString (string Source, string* Dest);
+static void    ConcatString (string Source, s32 Length, string* Dest);
 static void    ConcatCharToString(string* Dest, char C);
-static void    ConcatCharArrayToString (string* Dest, char* Source);
-static void    ConcatCharArrayToString (string* Dest, char* Source, s32 SourceLength);
+static void    ConcatCharArrayToString (char* Source, string* Dest);
+static void    ConcatCharArrayToString (char* Source, s32 SourceLength, string* Dest);
 
 static void    CopyStringTo (string Source, string* Dest);
 static s32     CopyStringToCharArray (string Source, char* Dest, s32 DestLength);
@@ -229,6 +235,8 @@ static void    InsertChar (string* String, char Char, s32 Index);
 static void    InsertStringAt (string* Dest, string Source, s32 At);
 static void    RemoveCharAt (string* String, s32 Index);
 
+static s32     IndexOfChar(string String, char C);
+static s32     LastIndexOfChar(string String, char C);
 static string  Substring (string* String, s32 Start, s32 End);
 static string  Substring (string* String, s32 Start);
 
@@ -402,6 +410,13 @@ static bool IsOperator (char C)
 ////////////////////////////////////////////////////////////////
 //        Tokenizing
 ////////////////////////////////////////////////////////////////
+
+static b32
+AtValidPosition (tokenizer Tokenizer)
+{
+    b32 Result = (Tokenizer.At - Tokenizer.Memory) <= Tokenizer.MemoryLength;
+    return Result;
+}
 
 static b32      
 AtValidToken(tokenizer Tokenizer)
@@ -878,7 +893,7 @@ SetStringToCharArray (string* Dest, char* Source)
 }
 
 static void
-ConcatString (string* Dest, string Source)
+ConcatString (string Source, string* Dest)
 {
     Assert((Dest->Length + Source.Length) <= Dest->Max);
     
@@ -892,7 +907,7 @@ ConcatString (string* Dest, string Source)
 }
 
 static void
-ConcatString (string* Dest, string Source, s32 Length)
+ConcatString (string Source, s32 Length, string* Dest)
 {
     Assert(Length < Source.Length);
     Assert((Dest->Length + Length) <= Dest->Max);
@@ -917,7 +932,7 @@ ConcatCharToString (string* Dest, char C)
 }
 
 static void    
-ConcatCharArrayToString (string* Dest, char* Source)
+ConcatCharArrayToString (char* Source, string* Dest)
 {
     Assert(CharArrayLength(Source) + Dest->Length <= Dest->Max);
     
@@ -932,7 +947,7 @@ ConcatCharArrayToString (string* Dest, char* Source)
 }
 
 static void    
-ConcatCharArrayToString (string* Dest, char* Source, s32 SourceLength)
+ConcatCharArrayToString (char* Source, s32 SourceLength, string* Dest)
 {
     Assert(SourceLength + Dest->Length <= Dest->Max);
     
@@ -1059,6 +1074,40 @@ RemoveCharAt (string* String, s32 Index)
     }
     *Dst = 0;
     String->Length--;
+}
+
+static s32     
+IndexOfChar(string String, char C)
+{
+    s32 Result = -1;
+    char* At = String.Memory;
+    for (s32 i = 0; i < String.Length; i++)
+    {
+        if (*At == C)
+        {
+            Result = i;
+            break;
+        }
+        At++;
+    }
+    return Result;
+}
+
+static s32     
+LastIndexOfChar(string String, char C)
+{
+    s32 Result = -1;
+    char* At = String.Memory + String.Length - 1;
+    for (s32 i = 0; i < String.Length; i++)
+    {
+        if (*At == C)
+        {
+            Result = String.Length - i;
+            break;
+        }
+        At--;
+    }
+    return Result;
 }
 
 static string

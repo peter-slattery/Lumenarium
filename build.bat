@@ -21,7 +21,7 @@ del *.pdb > NUL 2> NUL
 REM Compile and Run the Preprocessor
 REM cl %CommonCompilerFlags% ..\meta\foldhaus_meta.cpp /link %CommonLinkerFlags%
 pushd ..\src\
-REM ..\build\foldhaus_meta.exe C:\projects\foldhaus\src\
+..\build\foldhaus_meta.exe C:\projects\foldhaus\src\
 popd
 
 REM cl %CommonCompilerFlags% F:\src\foldhaus_util_radialumia_file_converter.cpp /link %CommonLinkerFlags%

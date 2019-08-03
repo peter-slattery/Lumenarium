@@ -304,7 +304,7 @@ LoadAssembly (app_state* State, context Context, char* Path)
     Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
     
     string PathString = MakeStringLiteral(Path);
-    s32 IndexOfLastSlash = FastLastIndexOfChar(PathString.Memory, PathString.Length, '\\');
+    s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
     string FileName = Substring(PathString, IndexOfLastSlash + 1);
     
     r32 Scale = 100;
@@ -548,10 +548,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     ExecuteAllRegisteredCommands(&State->InputCommandRegistry, Input, State);
     
-    UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, State->Transient, 
+    UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, 
+                                 State->Permanent, State->Transient, 
                                  State->LEDBufferList->LEDs,
                                  State->LEDBufferList->Colors, 
-                                 State->LEDBufferList->Count);
+                                 State->LEDBufferList->Count, 
+                                 Context.DeltaTime);
     
     ClearTransientNodeColorBuffers(State->NodeList);
     

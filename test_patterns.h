@@ -17,9 +17,9 @@ NODE_STRUCT(solid_color_data)
 
 NODE_PROC(SolidColorProc, solid_color_data)
 {
-    u8 R = (u8)(Data->Color.r * 255);
-    u8 G = (u8)(Data->Color.g * 255);
-    u8 B = (u8)(Data->Color.b * 255);
+    u8 R = (u8)GSClamp(0.f, (Data->Color.r * 255), 255.f);
+    u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
+    u8 B = (u8)GSClamp(0.f, (Data->Color.b * 255), 255.f);
     
     led* LED = Data->LEDs;
     for (s32 l = 0; l < Data->LEDCount; l++)
@@ -31,6 +31,51 @@ NODE_PROC(SolidColorProc, solid_color_data)
         Data->Colors[LED->Index].B = B;
         LED++;
     }
+}
+
+NODE_STRUCT(sin_wave_data)
+{
+    NODE_IN(r32, Period);
+    NODE_IN(r32, Min);
+    NODE_IN(r32, Max);
+    NODE_OUT(r32, Result);
+    
+    r32 Accumulator;
+};
+
+NODE_PROC(SinWaveProc, sin_wave_data)
+{
+    Data->Accumulator += DeltaTime;
+    if (Data->Period > 0)
+    {
+        while (Data->Accumulator > Data->Period)
+        {
+            Data->Accumulator -= Data->Period;
+        }
+        
+        r32 ActualMin = GSMin(Data->Min, Data->Max);
+        r32 ActualMax = GSMax(Data->Min, Data->Max);
+        r32 SinResult = GSSin((Data->Accumulator / Data->Period) * PI * 2);
+        Data->Result = GSRemap(SinResult, -1.f, 1.f, ActualMin, ActualMax);
+    }
+    else
+    {
+        Data->Result = 0;
+    }
+}
+
+NODE_STRUCT(vector_data)
+{
+    NODE_IN(r32, X);
+    NODE_IN(r32, Y);
+    NODE_IN(r32, Z);
+    NODE_IN(r32, W);
+    NODE_OUT(v4, Result);
+};
+
+NODE_PROC(VectorProc, vector_data)
+{
+    Data->Result = v4{Data->X, Data->Y, Data->Z, Data->W};
 }
 
 NODE_STRUCT(multiply_patterns_data)
@@ -47,35 +92,35 @@ NODE_PROC(MultiplyPatterns, multiply_patterns_data)
     {
         Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
         
-        r32 AR = (r32)Data->AColors[LED->Index].R / 255.f;
-        r32 AG = (r32)Data->AColors[LED->Index].G / 255.f;
-        r32 AB = (r32)Data->AColors[LED->Index].B / 255.f;
+        s32 AR = Data->AColors[LED->Index].R;
+        s32 AG = Data->AColors[LED->Index].G;
+        s32 AB = Data->AColors[LED->Index].B;
         
-        r32 BR = (r32)Data->BColors[LED->Index].R / 255.f;
-        r32 BG = (r32)Data->BColors[LED->Index].G / 255.f;
-        r32 BB = (r32)Data->BColors[LED->Index].B / 255.f;
+        s32 BR = Data->BColors[LED->Index].R;
+        s32 BG = Data->BColors[LED->Index].G;
+        s32 BB = Data->BColors[LED->Index].B;
         
-        r32 RCombined = AR * BR;
-        r32 GCombined = AG * BG;
-        r32 BCombined = AB * BB;
+        s32 RCombined = (AR * BR) / 255;
+        s32 GCombined = (AG * BG) / 255;
+        s32 BCombined = (AB * BB) / 255;
         
-        Data->ResultColors[LED->Index].R = (u8)(GSClamp01(RCombined) * 255);
-        Data->ResultColors[LED->Index].G = (u8)(GSClamp01(GCombined) * 255);
-        Data->ResultColors[LED->Index].B = (u8)(GSClamp01(BCombined) * 255);
+        Data->ResultColors[LED->Index].R = (u8)RCombined;
+        Data->ResultColors[LED->Index].G = (u8)GCombined;
+        Data->ResultColors[LED->Index].B = (u8)BCombined;
         
         LED++;
     }
 }
 
-
-NODE_PATTERN_STRUCT(vertical_color_fade_data)
+NODE_STRUCT(vertical_color_fade_data)
 {
     NODE_IN(v4, Color);
     NODE_IN(r32, Min);
     NODE_IN(r32, Max);
+    NODE_COLOR_BUFFER_OUT(Result);
 };
 
-NODE_PATTERN_PROC(VerticalColorFadeProc, vertical_color_fade_data)
+NODE_PROC(VerticalColorFadeProc, vertical_color_fade_data)
 {
     r32 R = (Data->Color.r * 255);
     r32 G = (Data->Color.g * 255);
@@ -83,15 +128,17 @@ NODE_PATTERN_PROC(VerticalColorFadeProc, vertical_color_fade_data)
     
     r32 Range = Data->Max - Data->Min;
     
-    led* LED = LEDs;
-    for (s32 l = 0; l < LEDCount; l++)
+    led* LED = Data->ResultLEDs;
+    for (s32 l = 0; l < Data->ResultLEDCount; l++)
     {
+        Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
+        
         r32 Amount = (LED->Position.y - Data->Min) / Range;
         Amount = GSClamp01(1.0f - Amount);
         
-        Colors[LED->Index].R = (u8)(R * Amount);
-        Colors[LED->Index].G = (u8)(G * Amount);
-        Colors[LED->Index].B = (u8)(B * Amount);
+        Data->ResultColors[LED->Index].R = (u8)(R * Amount);
+        Data->ResultColors[LED->Index].G = (u8)(G * Amount);
+        Data->ResultColors[LED->Index].B = (u8)(B * Amount);
         LED++;
     }
 }
