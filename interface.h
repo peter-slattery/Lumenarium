@@ -1,112 +1,27 @@
-// NOTE(Peter): This stuff was all a test to see how I could do panel splitting. Thinking about moving away 
-// from that for now. Might return later if necessary
-// TODO(Peter): Finish this if necessary
-
-struct interface_region
-{ 
-    v2 Min, Max;
-    union
-    {
-        struct
-        {
-            interface_region* A;
-            interface_region* B;
-        };
-        struct
-        {
-            interface_region* Left;
-            interface_region* Right;
-        };
-        struct
-        {
-            interface_region* Top;
-            interface_region* Bottom;
-        };
-    };
-};
-
-struct interface_tracker
+internal v2
+DrawCharacter (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color, r32 FontScale)
 {
-    memory_arena* Storage;
-    interface_region RootRegion;
-};
-
-enum interface_region_split
-{
-    InterfaceRegionSplit_Vertical,
-    InterfaceRegionSplit_Horizontal,
-};
-
-inline s32
-RegionWidth (interface_region Region)
-{
-    s32 Result = Region.Max.x - Region.Min.x;
-    return Result;
-}
-
-inline s32
-RegionHeight (interface_region Region)
-{
-    s32 Result = Region.Max.y - Region.Min.y;
-    return Result;
-}
-
-internal void
-SplitRegion (interface_tracker* Tracker, interface_region* Parent, s32 SplitPosition, interface_region_split SplitDirection)
-{
-    if (!Parent->A)
-    {
-        interface_region* A = PushStruct(Tracker->Storage, interface_region);
-        A->A = 0;
-        A->B = 0;
-        Parent->A = A;
-    }
-    Parent->A->Min = Parent->Min;
-    Parent->A->Max = Parent->Max;
+    s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
+    codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
     
-    if (!Parent->B)
-    {
-        interface_region* B = PushStruct(Tracker->Storage, interface_region);
-        B->A = 0;
-        B->B = 0;
-        Parent->B = B;
-    }
-    Parent->B->Min = Parent->Min;
-    Parent->B->Max = Parent->Max;
+    r32 MinX = Position.x + CodepointInfo.XOffset * FontScale;
+    r32 MinY = Position.y + CodepointInfo.YOffset * FontScale;
+    r32 MaxX = MinX + (CodepointInfo.Width) * FontScale;
+    r32 MaxY = MinY + (CodepointInfo.Height) * FontScale;
     
-    switch (SplitDirection)
-    {
-        case InterfaceRegionSplit_Vertical:
-        {
-            Parent->Left->Max.x = Parent->Min.x + SplitPosition;
-            Parent->Right->Min.x = Parent->Min.x + SplitPosition;
-        }break;
-        
-        case InterfaceRegionSplit_Horizontal:
-        {
-            Parent->Bottom->Max.y = Parent->Min.y + SplitPosition;
-            Parent->Top->Min.y = Parent->Min.y + SplitPosition;
-        }break;
-    }
-}
-
-internal interface_tracker
-CreateInterfaceTracker (memory_arena* Storage, s32 ScreenWidth, s32 ScreenHeight)
-{
-    interface_tracker Result = {};
-    Result.Storage = Storage;
-    Result.RootRegion.A = 0;
-    Result.RootRegion.B = 0;
-    Result.RootRegion.Min = v2{0, 0};
-    Result.RootRegion.Max = v2{(r32)ScreenWidth, (r32)ScreenHeight};
-    return Result;
+    PushQuad2DOnBatch(BatchConstructor, 
+                      v2{MinX, MinY}, v2{MaxX, MinY}, 
+                      v2{MaxX, MaxY}, v2{MinX, MaxY},  
+                      CodepointInfo.UVMin, CodepointInfo.UVMax, 
+                      Color);
+    
+    return v2{Position.x + CodepointInfo.Width * FontScale, Position.y};
 }
 
 internal v2
 DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Font, s32 PointSize, v2 Position, v4 Color)
 {
     DEBUG_TRACK_FUNCTION;
-    
     v2 LowerRight = Position;
     
     render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer, String.Length,
@@ -122,26 +37,61 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
     char* C = String.Memory;
     for (s32 i = 0; i < String.Length; i++)
     {
-        s32 GlyphDataIndex = GetIndexForCodepoint(*Font, *C);
-        codepoint_bitmap CodepointInfo = Font->CodepointValues[GlyphDataIndex];
-        
-        r32 MinX = RegisterPosition.x + CodepointInfo.XOffset * FontScale;
-        r32 MinY = RegisterPosition.y + CodepointInfo.YOffset * FontScale;
-        r32 MaxX = MinX + (CodepointInfo.Width) * FontScale;
-        r32 MaxY = MinY + (CodepointInfo.Height) * FontScale;
-        
-        PushQuad2DOnBatch(&BatchConstructor, 
-                          v2{MinX, MinY}, v2{MaxX, MinY}, 
-                          v2{MaxX, MaxY}, v2{MinX, MaxY},  
-                          CodepointInfo.UVMin, CodepointInfo.UVMax, 
-                          Color);
-        
-        RegisterPosition.x += CodepointInfo.Width * FontScale;
+        v2 PositionAfterCharacter = DrawCharacter(&BatchConstructor, *C, *Font, RegisterPosition, Color, FontScale);
+        RegisterPosition.x = PositionAfterCharacter.x;
         C++;
     }
     
     LowerRight.x = RegisterPosition.x;
     
+    return LowerRight;
+}
+
+internal void
+DrawCursor (render_quad_batch_constructor* BatchConstructor, v2 Position, v4 Color, bitmap_font Font, r32 FontScale)
+{
+    v2 Min = Position;
+    v2 Max = Position + v2{(r32)Font.MaxCharWidth * FontScale, Font.Ascent + Font.Descent * FontScale};
+    PushQuad2DOnBatch(BatchConstructor, Min, Max, Color);
+}
+
+internal v2
+DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 CursorPosition, bitmap_font* Font, s32 PointSize, v2 Position, v4 Color, v4 CursorColor)
+{
+    DEBUG_TRACK_FUNCTION;
+    v2 LowerRight = Position;
+    
+    // NOTE(Peter): We push this on first so that the cursor will be drawn underneath any character it may overlap with
+    render_quad_batch_constructor CursorBatch = PushRenderQuad2DBatch(RenderBuffer, 1);
+    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer, String.Length,
+                                                                              Font->BitmapMemory,
+                                                                              Font->BitmapTextureHandle,
+                                                                              Font->BitmapWidth,
+                                                                              Font->BitmapHeight,
+                                                                              Font->BitmapBytesPerPixel,
+                                                                              Font->BitmapStride);
+    
+    r32 FontScale = (r32)PointSize / Font->PixelHeight;
+    v2 RegisterPosition = Position;
+    char* C = String.Memory;
+    for (s32 i = 0; i < String.Length; i++)
+    {
+        if (i == CursorPosition)
+        {
+            DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font, FontScale);
+        }
+        
+        v2 PositionAfterCharacter = DrawCharacter(&BatchConstructor, *C, *Font, RegisterPosition, Color, FontScale);
+        RegisterPosition.x = PositionAfterCharacter.x;
+        C++;
+    }
+    
+    if (CursorPosition == String.Length)
+    {
+        DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font, FontScale);
+    }
+    
+    LowerRight.x = RegisterPosition.x;
     return LowerRight;
 }
 
@@ -162,10 +112,16 @@ struct button_result
 };
 
 internal button_result
-EvaluateButton_ (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, input Input, v4 BGColor)
+EvaluateButton (render_command_buffer* RenderBuffer, 
+                v2 Min, v2 Max, v2 Margin, string Label,  
+                v4 IdleBGColor, v4 HotBGColor, v4 IdleTextColor, v4 HotTextColor, 
+                bitmap_font* Font, input Input)
 {
     button_result Result = {};
     Result.Pressed = false;
+    
+    v4 BGColor = IdleBGColor;
+    v4 TextColor = IdleTextColor;
     
     v2 MousePos = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
     if (PointIsInRange(MousePos, Min, Max))
@@ -176,21 +132,26 @@ EvaluateButton_ (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Lab
         }
         else
         {
-            BGColor = Config.ButtonColor_Active; 
+            BGColor = HotBGColor; 
+            TextColor = HotTextColor;
         }
     }
     
     PushRenderQuad2D(RenderBuffer, Min, Max, BGColor);
-    DrawString(RenderBuffer, Label, Config.Font, Config.Font->PixelHeight, Min + Config.Margin, Config.TextColor);
+    DrawString(RenderBuffer, Label, Font, Font->PixelHeight, Min + Margin, TextColor);
     
-    Result.Advance = (Max.y - Min.y) + Config.Margin.y;
+    Result.Advance = (Max.y - Min.y) + Margin.y;
     return Result;
 }
 
 internal button_result
 EvaluateButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, input Input)
 {
-    button_result Result = EvaluateButton_(RenderBuffer, Min, Max, Label, Config, Input, Config.ButtonColor_Inactive);
+    button_result Result = EvaluateButton(RenderBuffer, 
+                                          Min, Max, Config.Margin, Label, 
+                                          Config.ButtonColor_Inactive, Config.ButtonColor_Active,
+                                          Config.TextColor, Config.TextColor, 
+                                          Config.Font, Input);
     return Result;
 }
 
@@ -203,7 +164,11 @@ EvaluateSelectableButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, s
         BGColor = Config.ButtonColor_Selected;
     }
     
-    button_result Result = EvaluateButton_(RenderBuffer, Min, Max, Label, Config, Input, BGColor);
+    button_result Result = EvaluateButton(RenderBuffer, 
+                                          Min, Max, Config.Margin, Label, 
+                                          Config.ButtonColor_Inactive, Config.ButtonColor_Active,
+                                          Config.TextColor, Config.TextColor, 
+                                          Config.Font, Input);
     return Result;
 }
 
@@ -592,4 +557,80 @@ EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin
     }
     
     return ShouldClose;
+}
+
+struct search_lister_result
+{
+    s32 HotItem;
+    b32 ShouldRemainOpen;
+};
+
+typedef char* search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, s32 Offset);
+
+internal search_lister_result
+EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimension, string Title, 
+                      s32 ListLength, u8* ListMemory, s32 HotItem, search_lister_get_list_item_at_offset* GetListItem, 
+                      string* SearchString, s32 SearchStringCursorPosition,
+                      bitmap_font* Font, interface_config Config, input Input)
+{
+    Assert(GetListItem != 0);
+    
+    search_lister_result Result = {};
+    Result.ShouldRemainOpen = true;
+    Result.HotItem = HotItem;
+    
+    // NOTE(Peter): These are direction reversed because going up the list in terms of indicies is
+    // visually displayed as going down.
+    if (KeyTransitionedDown(Input, KeyCode_DownArrow))
+    {
+        Result.HotItem = GSMin(Result.HotItem + 1, ListLength - 1);
+    }
+    if (KeyTransitionedDown(Input, KeyCode_UpArrow))
+    {
+        Result.HotItem = GSMax(0, Result.HotItem - 1); 
+    }
+    
+    // Title Bar
+    PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
+    DrawString(RenderBuffer, Title, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
+    TopLeft.y -= 30;
+    
+    // Search Bar
+    PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
+    DrawStringWithCursor(RenderBuffer, *SearchString, SearchStringCursorPosition, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4, GreenV4);
+    TopLeft.y -= 30;
+    
+    s32 VisibleItemIndex = 0;
+    for (s32 i = 0; i < ListLength; i++)
+    {
+        char* ListItemText = GetListItem(ListMemory, ListLength, i);
+        Assert(ListItemText);
+        string ListItemString = MakeStringLiteral(ListItemText);
+        
+        if (SearchString->Length == 0 ||
+            StringContainsStringCaseInsensitive(ListItemString, *SearchString))
+        {
+            v2 Min = v2{TopLeft.x, TopLeft.y - 30};
+            v2 Max = Min + Dimension - v2{0, Config.Margin.y};
+            
+            v4 ButtonColor = Config.ButtonColor_Inactive;
+            if (VisibleItemIndex == HotItem)
+            {
+                ButtonColor = Config.ButtonColor_Active;
+            }
+            
+            button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemString, 
+                                                  ButtonColor, ButtonColor, Config.TextColor, Config.TextColor, 
+                                                  Config.Font, Input);
+            if (Button.Pressed)
+            {
+                Result.HotItem = i;
+            }
+            
+            TopLeft.y -= 30;
+            VisibleItemIndex++;
+        }
+    }
+    
+    return Result;
 }

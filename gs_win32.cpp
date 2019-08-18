@@ -727,6 +727,27 @@ GetFileLastWriteTime(char* Path)
 PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
 {
     b32 Result = false;
+    
+    PathBuffer[0] = 0;
+    
+    OPENFILENAMEA OpenFileName = {};
+    OpenFileName.lStructSize = sizeof(OpenFileName);
+    OpenFileName.hwndOwner = NULL;
+    OpenFileName.lpstrFilter = FilterStrings;
+    OpenFileName.lpstrCustomFilter = NULL; // NOTE(Peter): for preserving last filter string chosen
+    OpenFileName.nMaxCustFilter = 0; // NOTE(Peter): ignored since we left CustomFilter null
+    OpenFileName.nFilterIndex = 1;
+    OpenFileName.lpstrFile = PathBuffer;
+    OpenFileName.nMaxFile = BufferLength;
+    OpenFileName.lpstrFileTitle = NULL;
+    OpenFileName.nMaxFileTitle = 0; // NOTE(Peter): Ignored since fileTitle is null
+    OpenFileName.lpstrInitialDir = NULL;
+    OpenFileName.lpstrTitle = NULL;
+    OpenFileName.Flags = OFN_ENABLESIZING | OFN_FILEMUSTEXIST;
+    OpenFileName.lpstrDefExt = NULL;
+    
+    Result = GetOpenFileNameA (&OpenFileName);
+    
     return Result;
 }
 

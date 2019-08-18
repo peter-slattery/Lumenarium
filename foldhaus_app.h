@@ -40,21 +40,10 @@ struct assembly
 };
 
 #include "assembly_parser.h"
-
-// TODO(Peter): remove this, and get pattern_system.h outta here!!
-typedef struct led_pattern led_pattern;
-
 #include "foldhaus_node.h"
-
-#include "foldhaus_patterns.h"
-#include "foldhaus_channel.h"
-#include "foldhaus_patterns.cpp"
-#include "foldhaus_channel.cpp"
-
 #include "assembly_parser.cpp"
-
 #include "test_patterns.h"
-#include "patterns_registry.h"
+#include "kraftwerks_patterns.h"
 #include "foldhaus_interface.h"
 
 typedef struct app_state app_state;
@@ -62,6 +51,9 @@ typedef struct app_state app_state;
 #include "foldhaus_debug_visuals.h"
 #include "foldhaus_command_dispatch.h"
 
+#include "foldhaus_text_entry.h"
+
+#include "foldhaus_default_nodes.h"
 #include "generated/foldhaus_nodes_generated.cpp"
 
 struct app_state
@@ -70,13 +62,18 @@ struct app_state
     memory_arena* Transient;
     memory_arena  SACNMemory;
     
+    /*
     render_texture* LoadedTextures;
     s32 LoadedTexturesSize;
     s32 LoadedTexturesUsed;
+    */
     
     camera Camera;
     
     input_command_registry InputCommandRegistry;
+    input_command_registry TextEntryCommandRegistry;
+    input_command_registry* ActiveCommands;
+    text_input* ActiveTextEntry;
     
     streaming_acn SACN;
     s32 TotalLEDsCount;
@@ -88,10 +85,6 @@ struct app_state
 #define ASSEMBLY_LIST_LENGTH 32
     assembly AssemblyList[ASSEMBLY_LIST_LENGTH];
     s32 AssembliesUsed;
-    
-    //environment Environment;
-    led_channel_system ChannelSystem;
-    led_pattern_system PatternSystem;
     
     bitmap_font* Font;
     interface_state InterfaceState;
@@ -114,9 +107,14 @@ struct app_state
     interface_node* OutputNode;
     
     v4* ColorPickerEditValue;
+    
+    text_input GeneralPurposeSearch;
+    s32 GeneralPurposeSearchHotItem;
+    
 };
 
 #include "foldhaus_sacn_view.cpp"
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_node.cpp"
+#include "foldhaus_text_entry.cpp"
 #include "foldhaus_interface.cpp"

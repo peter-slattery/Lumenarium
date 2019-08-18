@@ -155,6 +155,7 @@ struct node_render_settings
     r32 PortStep;
     v4 PortColors[MemberTypeCount];
     bitmap_font* Font;
+    b32 Display;
 };
 
 v4 DragButtonColors[] = {

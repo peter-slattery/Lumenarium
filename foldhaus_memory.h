@@ -79,6 +79,7 @@ BootstrapRegionOntoMemory (u8* Memory, s32 Size)
     Result->Base = Memory + sizeof(memory_region);
     Result->Size = Size - sizeof(memory_region);
     Result->Used = 0;
+    Result->PreviousRegion = 0;
     return Result;
 }
 
@@ -161,6 +162,7 @@ BootstrapArenaIntoMemory (u8* Memory, u32 Size)
     // NOTE(Peter): takes in a block of memory, places a memory arena at the head, and gives
     // the arena access to the rest of the block to use.
     memory_arena* Result = (memory_arena*)Memory;
+    *Result = {};
     InitMemoryArena(Result, Memory + sizeof(memory_arena), Size - sizeof(memory_arena), 0);
     return Result;
 }
@@ -249,6 +251,37 @@ ClearArenaToSnapshot (memory_arena* Arena, arena_snapshot Snapshot)
     
     Assert(RegionCursor == Snapshot.CurrentRegion);
     RegionCursor->Used = Snapshot.UsedAtSnapshot;
+}
+
+//
+//  Basic Memory Arena
+//  A no-bookkeeping overhead version of the memory_arena above.
+//
+
+struct static_memory_arena
+{
+    u8* Base;
+    u32 Size;
+    u32 Used;
+};
+
+static static_memory_arena
+CreateMemoryArena (u8* Base, u32 Size)
+{
+    static_memory_arena Result = {};
+    Result.Base = Base;
+    Result.Size = Size;
+    Result.Used = 0;
+    return Result;
+}
+
+static u8* 
+PushSize_ (static_memory_arena* Arena, u32 Size)
+{
+    Assert(Arena->Used + Size <= Arena->Size);
+    u8* Result = Arena->Base + Arena->Used;
+    Arena->Used += Size;
+    return Result;
 }
 
 //

@@ -1,9 +1,15 @@
 TODO FOLDHAUS
 
+Hardening
+- input context changes
+-  x don't type into the search bar when its not open
+-  x don't type into the search bar when you press a to open it
+-  - type into text boxes
+-  - shift drag to 10x drag speed
+- select nodes -> delete nodes
+
 Name
-x lumen lab
 - Splash screen (like blender) (thisll be fun)
--  x Create Image
 -  - Image importer (stb image? or find a png > bmp converter for the image you have)
 -  - Display on startup
 
@@ -14,12 +20,8 @@ x    Keep an eye out.
 Application
 - More efficient HSV <-> RGB
 
-x Load/Unload sculptures
--  - Make sure that we offload unloading until after all jobs are completed. Otherwise they'll try and write
--    to data that doesn't exist
 - Save and load a session
--  - Serialize Channels
--  - Serialize Patterns
+-  - Serialize Nodes
 - Don't render if the window isn't visible
 
 Development
@@ -39,7 +41,6 @@ Interface
 Switch To Nodes
 x basic node elements
 -   - evaluation step (one node at a time)
--   - search nodes by name
 -   - selector node (has a list of connections that it can switch between)
 - serialize
 - delete nodes
@@ -68,10 +69,6 @@ Animation
 
 Command Line
 - select a channel/pattern
-- Channel: Add/remove pattern by name
-- Channel: Set Blend Mode
-- Channel: Set Current Pattern
-- Pattern: Edit parameter values
 
 Optimization
 - patterns are asking to be multithreaded

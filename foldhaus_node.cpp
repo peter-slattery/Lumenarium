@@ -1,3 +1,4 @@
+
 inline s32
 GetNodeMemorySize (interface_node Node)
 {
@@ -125,15 +126,22 @@ InitializeNodeConnection (node_connection* Connection, struct_member_type Type, 
     }
 }
 
-internal void
-PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, memory_arena* Storage)
+internal r32
+CalculateNodeHeight (s32 Members, node_render_settings RenderSettings)
 {
-    // TODO(Peter): Calculate the size of a node;
+    r32 Result = (RenderSettings.PortStep * Members) + NODE_HEADER_HEIGHT;
+    return Result;
+}
+
+internal void
+PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, node_render_settings RenderSettings, memory_arena* Storage)
+{
+    r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength, RenderSettings);
     interface_node* Node = PushNodeOnList(List, 
                                           Spec.NameLength, 
                                           Spec.MemberListLength,
                                           Min, 
-                                          v2{150, 150}, 
+                                          v2{150, NodeHeight}, 
                                           Storage);
     Node->Type = Spec.Type;
     
@@ -146,6 +154,7 @@ PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Mi
         InitializeNodeConnection(Node->Connections + MemberIdx, Member.Type, Member.IsInput);
     }
     
+    Node->PersistentData = PushArray(Storage, u8, Spec.DataStructSize);
 }
 
 internal interface_node*
@@ -180,18 +189,6 @@ GetNodeAtOffset (node_list* List, s32 Offset)
         Node = GetNodeAtOffset(List->Next, Offset - List->Max);
     }
     return Node;
-}
-
-internal node_interaction
-NewNodeInteraction ()
-{
-    node_interaction Result = {};
-    Result.NodeOffset = -1;
-    Result.InputPort = -1;
-    Result.InputValue = -1;
-    Result.OutputPort = -1;
-    Result.OutputValue = -1;
-    return Result;
 }
 
 internal rect
@@ -270,6 +267,18 @@ CalculateNodeDragHandleBounds (rect NodeBounds, s32 Index, node_render_settings 
     v2 HorizontalOffset = v2{Width(NodeBounds) / 3, 0};
     Result.Min = v2{NodeBounds.Min.x, NodeBounds.Max.y - NODE_HEADER_HEIGHT} + (HorizontalOffset * Index);
     Result.Max = Result.Min + v2{HorizontalOffset.x, NODE_HEADER_HEIGHT};
+    return Result;
+}
+
+internal node_interaction
+NewNodeInteraction ()
+{
+    node_interaction Result = {};
+    Result.NodeOffset = -1;
+    Result.InputPort = -1;
+    Result.InputValue = -1;
+    Result.OutputPort = -1;
+    Result.OutputValue = -1;
     return Result;
 }
 
@@ -658,7 +667,7 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all downstream component so it doesn't turn around and try
                 // to move this node again.
-                PlaceNode(NodeList, ConnectedNode, NewPos, Flags & ~NodeInteraction_AllDownstream);
+                PlaceNode(NodeList, ConnectedNode, NewPos, Flags & ~NodeInteraction_AllUpstream);
             }
         }
     }
@@ -677,7 +686,7 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all upstream component so it doesn't turn around and try
                 // to move this node again.
-                PlaceNode(NodeList, ConnectedNode, NewPos, Flags & ~NodeInteraction_AllUpstream);
+                PlaceNode(NodeList, ConnectedNode, NewPos, Flags & ~NodeInteraction_AllDownstream);
             }
         }
     }
@@ -825,6 +834,7 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList,
                        led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
     DEBUG_TRACK_FUNCTION;
+    Assert(Node->PersistentData != 0);
     
     // NOTE(Peter): Have to subtract one here so that we account for the 
     // NodeType_OutputNode entry in the enum
@@ -838,12 +848,6 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList,
     Node->UpdatedThisFrame = true;
     
     sacn_pixel* Colors = ColorsInit;
-    
-    // TODO(Peter): Should do this at node creation time
-    if (Node->PersistentData == 0)
-    {
-        Node->PersistentData = PushArray(Permanent, u8, Spec.DataStructSize);
-    }
     
     UpdateNodesConnectedUpstream(Node, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
     
@@ -1111,3 +1115,11 @@ ResetNodesUpdateState (node_list* NodeList)
     }
 }
 
+
+internal char*
+NodeListerGetNodeName (u8* NodeSpecificationsList, s32 NodeSpecificationsListCount, s32 Offset)
+{
+    node_specification* Specifications = (node_specification*)NodeSpecificationsList + Offset;
+    char* Result = Specifications->Name;
+    return Result;
+}

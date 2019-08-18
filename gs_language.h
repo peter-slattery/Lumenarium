@@ -171,11 +171,16 @@ GSMaxDef(r32)
 GSMaxDef(r64)
 #undef GSMaxDef
 
+inline b32 XOR(b32 A, b32 B)
+{
+    b32 Result = (A == !B);
+    return Result;
+}
 #define GSClampDef(type) static type GSClamp(type Min, type V, type Max) { \
-        type Result = V; \
-        if (V < Min) { Result = Min; } \
-        if (V > Max) { Result = Max; } \
-        return Result; \
+    type Result = V; \
+    if (V < Min) { Result = Min; } \
+    if (V > Max) { Result = Max; } \
+    return Result; \
 }
 GSClampDef(s8)
 GSClampDef(s16)

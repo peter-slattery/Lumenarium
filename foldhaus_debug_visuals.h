@@ -8,7 +8,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     
     arena_snapshot StartTempMemory = TakeSnapshotOfArena(*Transient);
     
-    string DebugString = InitializeString(PushArray(Transient, char, 256), 256);
+    string DebugString = InitializeEmptyString(PushArray(Transient, char, 256), 256);
     
     if (GlobalDebugServices->Interface.ShowCameraMouse || GlobalDebugServices->Interface.ShowTrackedScopes)
     {

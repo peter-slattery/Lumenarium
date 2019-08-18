@@ -18,8 +18,7 @@ pushd build
 
 del *.pdb > NUL 2> NUL
 
-REM Compile and Run the Preprocessor
-REM cl %CommonCompilerFlags% ..\meta\foldhaus_meta.cpp /link %CommonLinkerFlags%
+REM Run the Preprocessor
 pushd ..\src\
 ..\build\foldhaus_meta.exe C:\projects\foldhaus\src\
 popd
@@ -35,5 +34,5 @@ del lock.tmp
 cl %CommonCompilerFlags% ..\src\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib -incremental:no
 
 C:\programs\ctime\ctime.exe -end C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm %LastError%
-C:\programs\ctime\ctime.exe -stats C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm
+REM C:\programs\ctime\ctime.exe -stats C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm
 popd

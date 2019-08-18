@@ -139,6 +139,16 @@ struct sacn_pixel
     u8 B;
 };
 
+internal sacn_pixel
+PackFloatsToSACNPixel (r32 R, r32 G, r32 B)
+{
+    sacn_pixel Result = {};
+    Result.R = (u8)(GSClamp01(R) * 255);
+    Result.G = (u8)(GSClamp01(G) * 255);
+    Result.B = (u8)(GSClamp01(B) * 255);
+    return Result;
+}
+
 //
 
 internal sacn_universe*

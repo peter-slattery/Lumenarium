@@ -81,7 +81,7 @@ typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 #define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(char* Path, u8* Contents, s32 Size)
 typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 
-#define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength)
+#define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength, const char* FilterStrings)
 typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
 
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
@@ -233,6 +233,7 @@ KeyTransitionedUp (input Input, key_code Key)
 {
     return !Input.New->KeysDown[Key] && Input.Old->KeysDown[Key];
 }
+
 #endif // GS_INPUT
 
 internal window PlatformCreateWindow (char* Name, s32 Width, s32 Height);

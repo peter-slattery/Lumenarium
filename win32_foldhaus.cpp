@@ -394,9 +394,12 @@ HandleWindowMessage (MSG Message, window* Window, input_frame* InputFrame)
         {
             int VirtualKey = (int)Message.wParam;
             bool KeyDown = (Message.lParam & (1 << 31)) == 0;
-            int KeyIndex = Win32GetKeyIndex(VirtualKey, true, false);
+            int KeyIndex = Win32GetKeyIndex(VirtualKey, true, true);
             if (KeyIndex == WIN32_SHOULD_TRANSLATE_TO_CHAR)
             {
+                KeyIndex = Win32GetKeyIndex(VirtualKey, true, false);
+                InputFrame->KeysDown[KeyIndex] = KeyDown;
+                
                 TranslateMessage(&Message);
                 DispatchMessage(&Message);
             }

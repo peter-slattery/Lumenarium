@@ -336,57 +336,6 @@ UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 
 ////////////////////////////////////////////////////////////////////////
 
-internal render_texture*
-PushTexture (app_state* State)
-{
-    render_texture* Result = 0;
-    
-    if (State->LoadedTexturesUsed < State->LoadedTexturesSize)
-    {
-        Result = State->LoadedTextures + State->LoadedTexturesUsed++;
-    }
-    else
-    {
-        // TODO(Peter): Be able to grow this array
-        for (s32 i = 0; i < State->LoadedTexturesUsed; i++)
-        {
-            if (State->LoadedTextures[i].Handle == 0)
-            {
-                Result = State->LoadedTextures + i;
-            }
-        }
-    }
-    
-    Assert(Result);
-    return Result;
-}
-
-internal render_texture*
-StoreTexture (app_state* State, u8* Memory, s32 Width, s32 Height, s32 BytesPerPixel, s32 Stride)
-{
-    render_texture* Result = PushTexture(State);
-    Result->Memory = Memory;
-    Result->Handle = 0;
-    Result->Width = Width;
-    Result->Height = Height;
-    Result->BytesPerPixel = BytesPerPixel;
-    Result->Stride = Stride;
-}
-
-internal void
-RemoveTexture (app_state* State, s32 Index)
-{
-    State->LoadedTextures[Index].Handle = 0;
-    // TODO(Peter): Free the memory it was using
-}
-
-internal void
-RemoveTexture (app_state* State, render_texture* Texture)
-{
-    Texture->Handle = 0;
-    // TODO(Peter): Free the memory it was using
-}
-
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     app_state* State = (app_state*)Context.MemoryBase;
@@ -395,13 +344,14 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     
     if (State->InputCommandRegistry.Size > 0)
     {
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Delete, false, KeyCode_Invalid,
-                                DeleteSelectedChannelOrPattern);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_MouseLeftButton, true, KeyCode_Invalid,
                                 CameraMouseControl);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, ToggleUniverseDebugView);
         RegisterMouseWheelCommand(&State->InputCommandRegistry, CameraMouseZoom);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, AddNode);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
+        
+        InitializeTextInputCommands(&State->TextEntryCommandRegistry, State->Permanent);
     }
 }
 
@@ -416,11 +366,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
-    State->LoadedTexturesSize = 8;
-    State->LoadedTextures = PushArray(State->Permanent, render_texture, State->LoadedTexturesSize);
-    State->LoadedTexturesUsed = 0;
-    
     InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
+    InitializeInputCommandRegistry(&State->TextEntryCommandRegistry, 32, State->Permanent);
+    State->ActiveCommands = &State->InputCommandRegistry;
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -498,11 +446,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
     
-    InitLEDPatternSystem(&State->PatternSystem, State->Permanent,
-                         32, Megabytes(4));
-    InitLEDChannelSystem(&State->ChannelSystem, State->Permanent,
-                         sizeof(led_channel) * 32);
-    
 #if 1
     char Path[] = "radialumia.fold";
     LoadAssembly(State, Context, Path);
@@ -533,6 +476,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     
+    State->GeneralPurposeSearch.Backbuffer = PushArray(State->Permanent, char, 256);
+    InitializeEmptyString(&State->GeneralPurposeSearch.Buffer, State->GeneralPurposeSearch.Backbuffer, 256);
+    
     ReloadStaticData(Context, GlobalDebugServices);
 }
 
@@ -546,14 +492,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
     
-    ExecuteAllRegisteredCommands(&State->InputCommandRegistry, Input, State);
+    if (State->ActiveCommands == &State->TextEntryCommandRegistry)
+    {
+        AppendInputToEntryString(State->ActiveTextEntry, Input.New->StringInput, Input.New->StringInputUsed);
+    }
+    ExecuteAllRegisteredCommands(State->ActiveCommands, Input, State);
     
-    UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, 
-                                 State->Permanent, State->Transient, 
-                                 State->LEDBufferList->LEDs,
-                                 State->LEDBufferList->Colors, 
-                                 State->LEDBufferList->Count, 
-                                 Context.DeltaTime);
+    if (State->LEDBufferList)
+    {
+        UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, 
+                                     State->Permanent, State->Transient, 
+                                     State->LEDBufferList->LEDs,
+                                     State->LEDBufferList->Colors, 
+                                     State->LEDBufferList->Count, 
+                                     Context.DeltaTime);
+    }
     
     ClearTransientNodeColorBuffers(State->NodeList);
     
@@ -691,7 +644,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {
             DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);
             
-            string TitleBarString = InitializeString(PushArray(State->Transient, char, 64), 64);
+            string TitleBarString = InitializeEmptyString(PushArray(State->Transient, char, 64), 64);
             
             v2 DisplayArea_Dimension = v2{600, 600};
             v2 DisplayContents_Offset = State->UniverseOutputDisplayOffset;
@@ -772,7 +725,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if (LoadAssemblyBtn.Pressed)
             {
                 char FilePath[256];
-                b32 Success = Context.PlatformGetFilePath(FilePath, 256);
+                b32 Success = Context.PlatformGetFilePath(FilePath, 256, "Foldhaus Files\0*.fold\0\0");
                 if (Success)
                 {
                     LoadAssembly(State, Context, FilePath);
@@ -783,6 +736,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         ///////////////////////////////////////
         //    Figuring Out Nodes
         //////////////////////////////////////
+        if (State->NodeRenderSettings.Display)
         {
             v2 MousePos = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
             v2 LastFrameMousePos = v2{(r32)Input.Old->MouseX, (r32)Input.Old->MouseY};
@@ -817,33 +771,35 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if (State->InterfaceShowNodeList)
             {
                 v2 TopLeft = State->NodeListMenuPosition;
+                v2 Dimension = v2{300, 30};
                 
-                // Title Bar
-                PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, 
-                                 v4{.3f, .3f, .3f, 1.f});
-                DrawString(RenderBuffer, MakeStringLiteral("Nodes List"), State->Font, 14, 
-                           v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
-                TopLeft.y -= 30;
-                
-                for (s32 i = 0; i < NodeSpecificationsCount; i++)
-                {
-                    node_specification Spec = NodeSpecifications[i];
-                    
-                    button_result Button = EvaluateButton(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, 
-                                                          MakeStringLiteral(Spec.Name), State->Interface, Input);
-                    if (Button.Pressed)
-                    {
-                        PushNodeOnListFromSpecification(State->NodeList, Spec, MousePos, State->Permanent);
-                    }
-                    
-                    TopLeft.y -= 30;
-                }
+                search_lister_result NodeListResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
+                                                                            MakeStringLiteral("Nodes List"),
+                                                                            NodeSpecificationsCount, (u8*)NodeSpecifications, 
+                                                                            State->GeneralPurposeSearchHotItem,
+                                                                            NodeListerGetNodeName, 
+                                                                            &State->GeneralPurposeSearch.Buffer,
+                                                                            State->GeneralPurposeSearch.CursorPosition,
+                                                                            State->Font, State->Interface, Input);
+                State->GeneralPurposeSearchHotItem = NodeListResult.HotItem;
                 
                 if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton) ||
                     KeyTransitionedDown(Input, KeyCode_Esc))
                 {
                     State->InterfaceShowNodeList = false;
+                    DeactivateTextEntry(State);
                 }
+                
+                if (KeyTransitionedDown(Input, KeyCode_Enter))
+                {
+                    State->InterfaceShowNodeList = false;
+                    if (NodeListResult.HotItem > 0)
+                    {
+                        PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeListResult.HotItem],
+                                                        MousePos, State->NodeRenderSettings, State->Permanent);
+                    }
+                }
+                
             }
         }
         
@@ -858,65 +814,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 State->ColorPickerEditValue = 0;
             }
         }
-        
-#if 0
-        ///////////////////////////////////////
-        //     Current Patterns Panel
-        //////////////////////////////////////
-        
-        r32 LeftPanelRightEdge = DrawLeftHandInterface(State, Input, Context.WindowHeight - TopBarHeight, RenderBuffer);
-        
-        if (State->InterfaceState.ChannelSelected >= 0)
-        {
-            led_channel* ActiveChannel = GetChannelByIndex(State->InterfaceState.ChannelSelected,
-                                                           State->ChannelSystem);
-            
-            button_result OperationButtonState = EvaluateButton(
-                RenderBuffer,
-                v2{Context.WindowWidth - 150, 500},
-                v2{Context.WindowWidth - 50, 550},
-                MakeStringLiteral(PatternSelectorOperationsText[ActiveChannel->BlendMode]),
-                State->Interface,
-                Input);
-            
-            if (OperationButtonState.Pressed)
-            {
-                State->InterfaceState.ChooseOperationPanelOpen = !State->InterfaceState.ChooseOperationPanelOpen;
-            }
-            
-            if (State->InterfaceState.ChooseOperationPanelOpen)
-            {
-                s32 StringLength = 128;
-                s32 OperationsStart = PatternSelectorCombine_Invalid + 1;
-                s32 OperationsOnePastLast = PatternSelectorCombine_Count;
-                s32 OperationsCount = (OperationsOnePastLast - OperationsStart);
-                string* OperationChoices = PushArray(State->Transient, string, OperationsCount);
-                
-                for (s32 Choice = OperationsStart;
-                     Choice < OperationsOnePastLast;
-                     Choice++)
-                {
-                    s32 Index = Choice - OperationsStart;
-                    PushString(&OperationChoices[Index], State->Transient, StringLength);
-                    CopyCharArrayToString(PatternSelectorOperationsText[Choice],
-                                          &OperationChoices[Index]);
-                }
-                
-                v2 Min = v2{Context.WindowWidth - 250, 250};
-                v2 Max = v2{Context.WindowWidth - 50, 500};
-                
-                scroll_list_result OperationChoice = DrawSelectableOptionsList(RenderBuffer, Min, Max, OperationChoices, OperationsCount,
-                                                                               0, ActiveChannel->BlendMode - 1,
-                                                                               State->Interface, Input);
-                if (OperationChoice.IndexSelected + 1 > (int)ChannelBlend_Invalid &&
-                    OperationChoice.IndexSelected + 1 < (int)ChannelBlend_Count)
-                {
-                    ActiveChannel->BlendMode = (channel_blend_mode)(OperationChoice.IndexSelected + 1);
-                }
-            }
-        }
-        
-#endif
         
         DrawDebugInterface(RenderBuffer, 25,
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,

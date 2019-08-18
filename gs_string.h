@@ -1,3 +1,4 @@
+#ifndef GS_STRING_H
 ////////////////////////////////////////////////////////////////
 //        String 
 ////////////////////////////////////////////////////////////////
@@ -98,9 +99,7 @@ char* TokenNames[] = {
 struct token
 {
     token_type Type;
-    char*      Text;
-    s32        TextLength;
-    
+    string Text;
     token* Next;
 };
 
@@ -150,8 +149,10 @@ static float   GSPowF (float N, s32 Power);
 #define PushString(str, arena, size) (str)->Memory = PushArray(arena, char, size); (str)->Length = 0; (str)->Max = size;
 #endif
 
-static void   InitializeString (string* String, char* Data, s32 DataSize);
-static string InitializeString (char* Data, s32 DataSize);
+static void   InitializeEmptyString (string* String, char* Data, s32 DataSize);
+static void   InitializeString(string* String, char* Data, s32 Used, s32 Max);
+static string InitializeEmptyString (char* Data, s32 DataSize);
+static string InitializeString (char* Data, s32 Used, s32 Max);
 static void   ClearString (string* String);
 
 // Character Values
@@ -161,12 +162,13 @@ static bool     IsWhitespace (char C);
 static bool     IsAlpha (char C);
 static bool     IsUpper (char C);
 static bool     IsLower (char C);
+static char     ToUpper (char C);
+static char     ToLower (char C);
 static bool     IsNumeric (char C);
 static bool     IsNumericExtended (char C);
-static bool     ToUpper (char C);
-static bool     ToLower (char C);
 static bool     IsAlphaNumeric (char C);
 static bool     IsOperator (char C);
+static bool     CharsEqualCaseInsensitive(char A, char B);
 
 // Tokenizing
 static b32      AtValidPosition(tokenizer Tokenizer);
@@ -239,6 +241,11 @@ static s32     IndexOfChar(string String, char C);
 static s32     LastIndexOfChar(string String, char C);
 static string  Substring (string* String, s32 Start, s32 End);
 static string  Substring (string* String, s32 Start);
+
+static b32     StringContainsCharArray(string SearchIn, char* SearchFor, s32 SearchForLength);
+static b32     StringContainsString(string SearchIn, string SearchFor);
+static b32     StringContainsCharArrayCaseInsensitive(string SearchIn, char* SearchFor, s32 SearchForLength);
+static b32     StringContainsStringCaseInsensitive(string SearchIn, string SearchFor);
 
 static void    NullTerminate (string* String);
 
@@ -339,20 +346,38 @@ GSPow (float N, s32 Power)
 ////////////////////////////////////////////////////////////////
 
 static void
-InitializeString (string* String, char* Data, s32 DataSize)
+InitializeEmptyString (string* String, char* Data, s32 DataSize)
 {
     String->Memory = Data;
     String->Max = DataSize;
     String->Length = 0;
 }
 
+static void   
+InitializeString(string* String, char* Data, s32 Used, s32 Max)
+{
+    String->Memory = Data;
+    String->Max = Max;
+    String->Length = Used;
+}
+
 static string
-InitializeString (char* Data, s32 DataSize)
+InitializeEmptyString (char* Data, s32 DataSize)
 {
     string Result = {};
     Result.Memory = Data;
     Result.Max = DataSize;
     Result.Length = 0;
+    return Result;
+}
+
+static string
+InitializeString (char* Data, s32 Used, s32 Max)
+{
+    string Result = {};
+    Result.Memory = Data;
+    Result.Max = Max;
+    Result.Length = Used;
     return Result;
 }
 
@@ -407,6 +432,30 @@ static bool IsOperator (char C)
             (C == '<') ||
             (C == '>'));
 }
+static char ToUpper (char A)
+{
+    char Result = A;
+    if (IsLower(A))
+    {
+        Result += 'A' - 'a';
+    }
+    return Result;
+}
+static char ToLower (char A)
+{
+    char Result = A;
+    if (IsUpper(A))
+    {
+        Result -= 'A' - 'a';
+    }
+    return Result;
+}
+static bool CharsEqualCaseInsensitive (char A, char B)
+{
+    b32 Result = (ToLower(A) == ToLower(B));
+    return Result;
+}
+
 ////////////////////////////////////////////////////////////////
 //        Tokenizing
 ////////////////////////////////////////////////////////////////
@@ -1050,7 +1099,7 @@ InsertChar (string* String, char Char, s32 Index)
     Assert(Index >= 0 && Index < String->Max);
     Assert(String->Length < String->Max);
     
-    char* Src = String->Memory + String->Length;
+    char* Src = String->Memory + String->Length - 1;
     char* Dst = Src + 1;
     for (int i = String->Length - 1; i >= Index; i--)
     {
@@ -1130,6 +1179,74 @@ Substring (string String, s32 Start)
     Result.Memory = String.Memory + Start;
     Result.Length = String.Length - Start;
     return Result;
+}
+
+static b32     
+StringContainsCharArray(string SearchIn, char* SearchFor, s32 SearchForLength)
+{
+    b32 Result = false;
+    
+    char* SearchInAt = SearchIn.Memory;
+    for (s32 i = 0; i < (SearchIn.Length - SearchForLength) + 1; i++)
+    {
+        char* InAt = SearchInAt;
+        char* ForAt = SearchFor;
+        s32 LengthMatch = 0;
+        while (*InAt == *ForAt)
+        {
+            InAt++;
+            ForAt++;
+            LengthMatch++;
+        }
+        if (LengthMatch == SearchForLength)
+        {
+            Result = true;
+            break;
+        }
+        SearchInAt++;
+    }
+    
+    return Result;
+}
+
+static b32     
+StringContainsString(string SearchIn, string SearchFor)
+{
+    return StringContainsCharArray(SearchIn, SearchFor.Memory, SearchFor.Length);
+}
+
+static b32     
+StringContainsCharArrayCaseInsensitive(string SearchIn, char* SearchFor, s32 SearchForLength)
+{
+    b32 Result = false;
+    
+    char* SearchInAt = SearchIn.Memory;
+    for (s32 i = 0; i < (SearchIn.Length - SearchForLength) + 1; i++)
+    {
+        char* InAt = SearchInAt;
+        char* ForAt = SearchFor;
+        s32 LengthMatch = 0;
+        while (CharsEqualCaseInsensitive(*InAt, *ForAt))
+        {
+            InAt++;
+            ForAt++;
+            LengthMatch++;
+        }
+        if (LengthMatch == SearchForLength)
+        {
+            Result = true;
+            break;
+        }
+        SearchInAt++;
+    }
+    
+    return Result;
+}
+
+static b32     
+StringContainsStringCaseInsensitive(string SearchIn, string SearchFor)
+{
+    return StringContainsCharArrayCaseInsensitive(SearchIn, SearchFor.Memory, SearchFor.Length);
 }
 
 static void
@@ -2081,3 +2198,6 @@ TestStrings()
 #endif // DEBUG_GS_STRING
 
 #endif // DEBUG
+
+#define GS_STRING_H
+#endif // GS_STRING_H
