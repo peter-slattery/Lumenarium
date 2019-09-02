@@ -50,11 +50,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(ToggleUniverseDebugView)
 }
 
 
-FOLDHAUS_INPUT_COMMAND_PROC(AddNode)
+FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
 {
     State->InterfaceShowNodeList = true;
     State->NodeListMenuPosition = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
-    ActivateTextEntry(&State->GeneralPurposeSearch, State);
+    SetTextInputDestinationToString(&State->ActiveTextEntry, &State->GeneralPurposeSearchString);
+    State->ActiveCommands = &State->TextEntryCommandRegistry;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(ToggleNodeDisplay)

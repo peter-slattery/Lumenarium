@@ -348,7 +348,7 @@ RELOAD_STATIC_DATA(ReloadStaticData)
                                 CameraMouseControl);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, ToggleUniverseDebugView);
         RegisterMouseWheelCommand(&State->InputCommandRegistry, CameraMouseZoom);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, AddNode);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
         
         InitializeTextInputCommands(&State->TextEntryCommandRegistry, State->Permanent);
@@ -369,6 +369,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
     InitializeInputCommandRegistry(&State->TextEntryCommandRegistry, 32, State->Permanent);
     State->ActiveCommands = &State->InputCommandRegistry;
+    
+    State->ActiveTextEntry.Buffer = MakeString(PushArray(State->Permanent, char, 256), 0, 256);
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -451,10 +453,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     LoadAssembly(State, Context, Path);
 #endif
     
-    State->InterfaceState.AddingPattern = false;
-    State->InterfaceState.PatternSelectorStart = 0;
-    State->InterfaceState.ChannelSelected = -1;
-    
     State->InterfaceYMax = 200;
     State->PixelsToWorldScale = .01f;
     State->Camera_StartDragPos = {};
@@ -466,7 +464,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->NodeList = AllocateNodeList(State->Permanent, Kilobytes(64));
     
-    State->NodeInteraction = NewNodeInteraction(); 
+    State->NodeInteraction = NewEmptyNodeInteraction(); 
     State->NodeRenderSettings.PortDim = v2{20, 15};
     State->NodeRenderSettings.PortStep = State->NodeRenderSettings.PortDim.y + 10;
     State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;
@@ -476,8 +474,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     
-    State->GeneralPurposeSearch.Backbuffer = PushArray(State->Permanent, char, 256);
-    InitializeEmptyString(&State->GeneralPurposeSearch.Buffer, State->GeneralPurposeSearch.Backbuffer, 256);
+    InitializeEmptyString(&State->GeneralPurposeSearchString, PushArray(State->Permanent, char, 256), 256);
     
     ReloadStaticData(Context, GlobalDebugServices);
 }
@@ -494,7 +491,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     if (State->ActiveCommands == &State->TextEntryCommandRegistry)
     {
-        AppendInputToEntryString(State->ActiveTextEntry, Input.New->StringInput, Input.New->StringInputUsed);
+        AppendInputToEntryString(&State->ActiveTextEntry, Input.New->StringInput, Input.New->StringInputUsed);
     }
     ExecuteAllRegisteredCommands(State->ActiveCommands, Input, State);
     
@@ -736,40 +733,78 @@ UPDATE_AND_RENDER(UpdateAndRender)
         ///////////////////////////////////////
         //    Figuring Out Nodes
         //////////////////////////////////////
+        
+        v2 MousePos = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
+        v2 LastFrameMousePos = v2{(r32)Input.Old->MouseX, (r32)Input.Old->MouseY};
+        
+        if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton))
+        {
+            node_offset Node = GetNodeUnderPoint(State->NodeList, MousePos, State->NodeRenderSettings);
+            if (Node.Node)
+            {
+                State->NodeInteraction = GetNodeInteractionType(Node.Node, Node.Offset, MousePos, State->NodeRenderSettings);
+            }
+        }
+        else if (KeyTransitionedUp(Input, KeyCode_MouseLeftButton))
+        {
+            if (IsDraggingNodePort(State->NodeInteraction))
+            {
+                TryConnectNodes(State->NodeInteraction, MousePos, State->NodeList, State->NodeRenderSettings);
+                State->NodeInteraction = NewEmptyNodeInteraction();
+            }
+            else if(IsDraggingNodeValue(State->NodeInteraction))
+            {
+                v2 MouseDelta = MousePos - LastFrameMousePos;
+                
+                // This is just a click
+                if (Mag(MouseDelta) < 10)
+                {
+                    node_interaction Interaction = State->NodeInteraction;
+                    interface_node* Node = GetNodeAtOffset(State->NodeList, Interaction.NodeOffset);
+                    node_connection* Connection = Node->Connections + Interaction.InputValue;
+                    struct_member_type InputType = Connection->Type;
+                    if (InputType == MemberType_r32)
+                    {
+                        SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
+                    }
+                    State->NodeInteraction = NewEmptyNodeInteraction();
+                    State->ActiveCommands = &State->TextEntryCommandRegistry;
+                }
+                else // This is the case where you dragged the value
+                {
+                    State->NodeInteraction = NewEmptyNodeInteraction();
+                }
+            }
+            else
+            {
+                State->NodeInteraction = NewEmptyNodeInteraction();
+            }
+            
+        }
+        
+        UpdateDraggingNode(MousePos, State->NodeInteraction, State->NodeList, 
+                           State->NodeRenderSettings);
+        UpdateDraggingNodePort(MousePos, State->NodeInteraction, State->NodeList, 
+                               State->NodeRenderSettings, RenderBuffer);
+        UpdateDraggingNodeValue(MousePos, LastFrameMousePos, State->NodeInteraction, State->NodeList, State->NodeRenderSettings, State);
+        
+        ResetNodesUpdateState(State->NodeList);
+        
         if (State->NodeRenderSettings.Display)
         {
-            v2 MousePos = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
-            v2 LastFrameMousePos = v2{(r32)Input.Old->MouseX, (r32)Input.Old->MouseY};
-            
-            if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton))
-            {
-                node_offset Node = GetNodeUnderPoint(State->NodeList, MousePos, State->NodeRenderSettings);
-                if (Node.Node)
-                {
-                    State->NodeInteraction = GetNodeInteractionType(Node.Node, Node.Offset, MousePos, State->NodeRenderSettings);
-                }
-            }
-            else if (KeyTransitionedUp(Input, KeyCode_MouseLeftButton))
-            {
-                if (IsDraggingNodePort(State->NodeInteraction))
-                {
-                    TryConnectNodes(State->NodeInteraction, MousePos, State->NodeList, State->NodeRenderSettings);
-                }
-                State->NodeInteraction = NewNodeInteraction();
-            }
-            
-            UpdateDraggingNode(MousePos, State->NodeInteraction, State->NodeList, 
-                               State->NodeRenderSettings);
-            UpdateDraggingNodePort(MousePos, State->NodeInteraction, State->NodeList, 
-                                   State->NodeRenderSettings, RenderBuffer);
-            UpdateDraggingNodeValue(MousePos, LastFrameMousePos, State->NodeInteraction, State->NodeList, State->NodeRenderSettings, State);
-            
             RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
-            
-            ResetNodesUpdateState(State->NodeList);
             
             if (State->InterfaceShowNodeList)
             {
+                if (KeyTransitionedDown(Input, KeyCode_DownArrow))
+                {
+                    SearchListerNextItem(State, Input);
+                }
+                if (KeyTransitionedDown(Input, KeyCode_UpArrow))
+                {
+                    SearchListerPrevItem(State, Input);
+                }
+                
                 v2 TopLeft = State->NodeListMenuPosition;
                 v2 Dimension = v2{300, 30};
                 
@@ -778,28 +813,27 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                                             NodeSpecificationsCount, (u8*)NodeSpecifications, 
                                                                             State->GeneralPurposeSearchHotItem,
                                                                             NodeListerGetNodeName, 
-                                                                            &State->GeneralPurposeSearch.Buffer,
-                                                                            State->GeneralPurposeSearch.CursorPosition,
+                                                                            &State->ActiveTextEntry.Buffer,
+                                                                            State->ActiveTextEntry.CursorPosition,
                                                                             State->Font, State->Interface, Input);
                 State->GeneralPurposeSearchHotItem = NodeListResult.HotItem;
                 
-                if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton) ||
-                    KeyTransitionedDown(Input, KeyCode_Esc))
-                {
-                    State->InterfaceShowNodeList = false;
-                    DeactivateTextEntry(State);
-                }
-                
                 if (KeyTransitionedDown(Input, KeyCode_Enter))
                 {
-                    State->InterfaceShowNodeList = false;
-                    if (NodeListResult.HotItem > 0)
-                    {
-                        PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeListResult.HotItem],
-                                                        MousePos, State->NodeRenderSettings, State->Permanent);
-                    }
+                    NodeListResult.SelectedItem = NodeListResult.HotItem;
                 }
                 
+                if (NodeListResult.SelectedItem >= 0)
+                {
+                    PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeListResult.SelectedItem],
+                                                    MousePos, State->NodeRenderSettings, State->Permanent);
+                    CloseSearchLister(State, Input);
+                }
+                else if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton) ||
+                         KeyTransitionedDown(Input, KeyCode_Esc))
+                {
+                    CloseSearchLister(State, Input);
+                }
             }
         }
         

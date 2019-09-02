@@ -562,6 +562,7 @@ EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin
 struct search_lister_result
 {
     s32 HotItem;
+    s32 SelectedItem;
     b32 ShouldRemainOpen;
 };
 
@@ -578,17 +579,7 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     search_lister_result Result = {};
     Result.ShouldRemainOpen = true;
     Result.HotItem = HotItem;
-    
-    // NOTE(Peter): These are direction reversed because going up the list in terms of indicies is
-    // visually displayed as going down.
-    if (KeyTransitionedDown(Input, KeyCode_DownArrow))
-    {
-        Result.HotItem = GSMin(Result.HotItem + 1, ListLength - 1);
-    }
-    if (KeyTransitionedDown(Input, KeyCode_UpArrow))
-    {
-        Result.HotItem = GSMax(0, Result.HotItem - 1); 
-    }
+    Result.SelectedItem = -1;
     
     // Title Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
@@ -624,7 +615,7 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
                                                   Config.Font, Input);
             if (Button.Pressed)
             {
-                Result.HotItem = i;
+                Result.SelectedItem = i;
             }
             
             TopLeft.y -= 30;

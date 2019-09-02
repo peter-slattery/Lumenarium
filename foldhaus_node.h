@@ -21,10 +21,10 @@ s32 name##LEDCount;
 
 enum mouse_node_interaction
 {
-    MouseNodeInteraction_None,
-    MouseNodeInteraction_DragNode,
-    MouseNodeInteraction_DragInput,
-    
+    NodeInteraction_None,
+    NodeInteraction_MouseDragNode,
+    NodeInteraction_MouseDragInput,
+    NodeInteraction_KeyboardEnterPortValue,
     MouseNodeInteraction_Count,
 };
 
@@ -37,6 +37,7 @@ enum node_port_direction
 // TODO(Peter): Generate this
 enum struct_member_type
 {
+    MemberType_Invalid,
     MemberType_s32,
     MemberType_r32,
     MemberType_v4,
@@ -121,6 +122,8 @@ struct node_interaction
     v2  MouseOffset;
     b32 Flags;
     
+    // TODO(Peter): Inputs and outputs are all stored in the same array. Should this just be flags,
+    // and we store the Port and Value?
     s32 InputPort;
     s32 InputValue;
     s32 OutputPort;

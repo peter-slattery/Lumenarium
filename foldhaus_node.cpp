@@ -271,10 +271,23 @@ CalculateNodeDragHandleBounds (rect NodeBounds, s32 Index, node_render_settings 
 }
 
 internal node_interaction
-NewNodeInteraction ()
+NewEmptyNodeInteraction ()
 {
     node_interaction Result = {};
     Result.NodeOffset = -1;
+    Result.InputPort = -1;
+    Result.InputValue = -1;
+    Result.OutputPort = -1;
+    Result.OutputValue = -1;
+    return Result;
+}
+
+internal node_interaction
+NewNodeInteraction (s32 NodeOffset, v2 MouseOffset)
+{
+    node_interaction Result = {};
+    Result.NodeOffset = NodeOffset;
+    Result.MouseOffset = MouseOffset;
     Result.InputPort = -1;
     Result.InputValue = -1;
     Result.OutputPort = -1;
@@ -431,7 +444,6 @@ ConnectionIsOutput (interface_node* Node, s32 ConnectionIdx)
     return ConnectionIsOutput(Node->Connections[ConnectionIdx]);
 }
 
-
 internal b32
 CheckForRecursion (node_list* NodeList, s32 LookForNode, interface_node* StartNode)
 {
@@ -535,10 +547,7 @@ GetNodeInteractionType (interface_node* ActiveNode, s32 NodeOffset, v2 MousePos,
 {
     DEBUG_TRACK_FUNCTION;
     
-    node_interaction Interaction = NewNodeInteraction();
-    
-    Interaction.NodeOffset = NodeOffset;
-    Interaction.MouseOffset = ActiveNode->Min - MousePos;
+    node_interaction Interaction = NewNodeInteraction(NodeOffset, ActiveNode->Min - MousePos);
     
     rect NodeBounds = CalculateNodeBounds(ActiveNode, RenderSettings);
     

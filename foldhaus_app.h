@@ -51,6 +51,7 @@ typedef struct app_state app_state;
 #include "foldhaus_debug_visuals.h"
 #include "foldhaus_command_dispatch.h"
 
+
 #include "foldhaus_text_entry.h"
 
 #include "foldhaus_default_nodes.h"
@@ -62,18 +63,12 @@ struct app_state
     memory_arena* Transient;
     memory_arena  SACNMemory;
     
-    /*
-    render_texture* LoadedTextures;
-    s32 LoadedTexturesSize;
-    s32 LoadedTexturesUsed;
-    */
-    
     camera Camera;
     
     input_command_registry InputCommandRegistry;
     input_command_registry TextEntryCommandRegistry;
     input_command_registry* ActiveCommands;
-    text_input* ActiveTextEntry;
+    text_input ActiveTextEntry;
     
     streaming_acn SACN;
     s32 TotalLEDsCount;
@@ -87,7 +82,6 @@ struct app_state
     s32 AssembliesUsed;
     
     bitmap_font* Font;
-    interface_state InterfaceState;
     interface_config Interface;
     
     r32 InterfaceYMax;
@@ -108,11 +102,12 @@ struct app_state
     
     v4* ColorPickerEditValue;
     
-    text_input GeneralPurposeSearch;
+    string GeneralPurposeSearchString;
     s32 GeneralPurposeSearchHotItem;
     
 };
 
+#include "foldhaus_search_lister.h"
 #include "foldhaus_sacn_view.cpp"
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_node.cpp"
