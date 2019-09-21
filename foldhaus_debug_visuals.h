@@ -1,5 +1,5 @@
 internal void
-DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, camera Camera, input Input, memory_arena* Transient)
+DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, app_state* State, camera Camera, input Input, memory_arena* Transient)
 {
     DEBUG_TRACK_SCOPE(DrawDebugInterface);
     
@@ -19,9 +19,22 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     }
     
     r32 FramesPerSecond = 1.0f / DeltaTime;
-    PrintF(&DebugString, "Framerate: %.*f s   %d fps",
+    
+    string InputCommands = MakeStringLiteral("Default Input Registry - HI KALAN");
+    string NodeListerCommands = MakeStringLiteral("Node Lister Input Registry - HI KALAN");
+    string ActiveInputRegistry = {};
+    if (State->ActiveCommands == &State->InputCommandRegistry)
+    {
+        ActiveInputRegistry = InputCommands;
+    }
+    else if (State->ActiveCommands == &State->NodeListerCommandRegistry)
+    {
+        ActiveInputRegistry = NodeListerCommands;
+    }
+    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Input: %s",
            5, DeltaTime,
-           (u32)FramesPerSecond);
+           (u32)FramesPerSecond,
+           ActiveInputRegistry.Memory);
     DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, WhiteV4);
     
     v2 ButtonDim = v2{200, (r32)NewLineYOffset(*Interface.Font) + 10};

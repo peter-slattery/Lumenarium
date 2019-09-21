@@ -7,7 +7,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(CameraMouseControl)
         State->Camera_StartDragPos = V4(State->Camera.Position, 1);
     }
     
-    if (Input.MouseDownY > State->InterfaceYMax)
+    if (KeyTransitionedUp(Input, KeyCode_MouseLeftButton))
+    {
+        State->Camera_StartDragPos = V4(State->Camera.Position, 1);
+    }
+    else
     {
         if (!State->DrawUniverseOutputDisplay)
         {
@@ -55,7 +59,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     State->InterfaceShowNodeList = true;
     State->NodeListMenuPosition = v2{(r32)Input.New->MouseX, (r32)Input.New->MouseY};
     SetTextInputDestinationToString(&State->ActiveTextEntry, &State->GeneralPurposeSearchString);
-    State->ActiveCommands = &State->TextEntryCommandRegistry;
+    State->ActiveCommands = &State->NodeListerCommandRegistry;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(ToggleNodeDisplay)

@@ -579,7 +579,6 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     search_lister_result Result = {};
     Result.ShouldRemainOpen = true;
     Result.HotItem = HotItem;
-    Result.SelectedItem = -1;
     
     // Title Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});

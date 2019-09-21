@@ -1,13 +1,14 @@
 TODO FOLDHAUS
 
 Hardening
+- more robust windows input layer
+- memory visualization
+- separate rendering thread
+- cache led positions. Only update if they are moving
 - input context changes
--  x don't type into the search bar when its not open
--  x don't type into the search bar when you press a to open it
--  x type into text boxes
 -  - shift drag to 10x drag speed
 - select nodes -> delete nodes
-- open add node menu, click off to the side, it still adds a node.
+- remove node connections
 
 Name
 - Splash screen (like blender) (thisll be fun)

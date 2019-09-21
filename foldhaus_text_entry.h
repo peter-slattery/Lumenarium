@@ -6,7 +6,7 @@ enum text_translation_type
     TextTranslateTo_U32,
 };
 
-struct text_input_destination
+struct text_entry_destination
 {
     text_translation_type Type;
     union {
@@ -17,10 +17,10 @@ struct text_input_destination
     };
 };
 
-struct text_input
+struct text_entry
 {
     string Buffer;
     s32 CursorPosition;
     
-    text_input_destination Destination;
+    text_entry_destination Destination;
 };

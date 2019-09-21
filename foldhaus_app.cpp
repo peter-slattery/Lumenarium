@@ -351,7 +351,13 @@ RELOAD_STATIC_DATA(ReloadStaticData)
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
         
-        InitializeTextInputCommands(&State->TextEntryCommandRegistry, State->Permanent);
+        // Node Lister
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, false, KeyCode_Invalid, SearchListerNextItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, false, KeyCode_Invalid, SearchListerPrevItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, false, KeyCode_Invalid, SelectAndCloseSearchLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, false, KeyCode_Invalid, CloseSearchLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, false, KeyCode_Invalid, CloseSearchLister);
+        InitializeTextInputCommands(&State->NodeListerCommandRegistry, State->Permanent);
     }
 }
 
@@ -367,7 +373,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
     InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
-    InitializeInputCommandRegistry(&State->TextEntryCommandRegistry, 32, State->Permanent);
+    InitializeInputCommandRegistry(&State->NodeListerCommandRegistry, 32, State->Permanent);
     State->ActiveCommands = &State->InputCommandRegistry;
     
     State->ActiveTextEntry.Buffer = MakeString(PushArray(State->Permanent, char, 256), 0, 256);
@@ -447,15 +453,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Far = 100.0f;
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
+    State->Camera_StartDragPos = V4(State->Camera.Position, 1);
     
 #if 1
     char Path[] = "radialumia.fold";
     LoadAssembly(State, Context, Path);
 #endif
     
-    State->InterfaceYMax = 200;
     State->PixelsToWorldScale = .01f;
-    State->Camera_StartDragPos = {};
     
     State->UniverseOutputDisplayOffset = v2{0, 0};
     State->UniverseOutputDisplayZoom = 1.0f;
@@ -489,7 +494,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
     
-    if (State->ActiveCommands == &State->TextEntryCommandRegistry)
+    if (State->ActiveCommands == &State->NodeListerCommandRegistry)
     {
         AppendInputToEntryString(&State->ActiveTextEntry, Input.New->StringInput, Input.New->StringInputUsed);
     }
@@ -504,7 +509,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                      State->LEDBufferList->Count, 
                                      Context.DeltaTime);
     }
-    
     ClearTransientNodeColorBuffers(State->NodeList);
     
     {
@@ -768,7 +772,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                         SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
                     }
                     State->NodeInteraction = NewEmptyNodeInteraction();
-                    State->ActiveCommands = &State->TextEntryCommandRegistry;
+                    
+                    // TODO(Peter): This is wrong, should be something to do with capturing text input
+                    State->ActiveCommands = &State->NodeListerCommandRegistry;
                 }
                 else // This is the case where you dragged the value
                 {
@@ -796,15 +802,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             if (State->InterfaceShowNodeList)
             {
-                if (KeyTransitionedDown(Input, KeyCode_DownArrow))
-                {
-                    SearchListerNextItem(State, Input);
-                }
-                if (KeyTransitionedDown(Input, KeyCode_UpArrow))
-                {
-                    SearchListerPrevItem(State, Input);
-                }
-                
                 v2 TopLeft = State->NodeListMenuPosition;
                 v2 Dimension = v2{300, 30};
                 
@@ -817,23 +814,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                                             State->ActiveTextEntry.CursorPosition,
                                                                             State->Font, State->Interface, Input);
                 State->GeneralPurposeSearchHotItem = NodeListResult.HotItem;
-                
-                if (KeyTransitionedDown(Input, KeyCode_Enter))
-                {
-                    NodeListResult.SelectedItem = NodeListResult.HotItem;
-                }
-                
-                if (NodeListResult.SelectedItem >= 0)
-                {
-                    PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeListResult.SelectedItem],
-                                                    MousePos, State->NodeRenderSettings, State->Permanent);
-                    CloseSearchLister(State, Input);
-                }
-                else if (KeyTransitionedDown(Input, KeyCode_MouseLeftButton) ||
-                         KeyTransitionedDown(Input, KeyCode_Esc))
-                {
-                    CloseSearchLister(State, Input);
-                }
             }
         }
         
@@ -851,7 +831,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         DrawDebugInterface(RenderBuffer, 25,
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
-                           Context.DeltaTime, State->Camera, Input, State->Transient);
+                           Context.DeltaTime, State, State->Camera, Input, State->Transient);
     }
     
     EndDebugFrame(GlobalDebugServices);

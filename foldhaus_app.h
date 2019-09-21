@@ -48,7 +48,7 @@ struct assembly
 
 typedef struct app_state app_state;
 
-#include "foldhaus_debug_visuals.h"
+
 #include "foldhaus_command_dispatch.h"
 
 
@@ -56,6 +56,7 @@ typedef struct app_state app_state;
 
 #include "foldhaus_default_nodes.h"
 #include "generated/foldhaus_nodes_generated.cpp"
+#include "foldhaus_search_lister.h"
 
 struct app_state
 {
@@ -66,9 +67,9 @@ struct app_state
     camera Camera;
     
     input_command_registry InputCommandRegistry;
-    input_command_registry TextEntryCommandRegistry;
+    input_command_registry NodeListerCommandRegistry;
     input_command_registry* ActiveCommands;
-    text_input ActiveTextEntry;
+    text_entry ActiveTextEntry;
     
     streaming_acn SACN;
     s32 TotalLEDsCount;
@@ -84,7 +85,6 @@ struct app_state
     bitmap_font* Font;
     interface_config Interface;
     
-    r32 InterfaceYMax;
     r32 PixelsToWorldScale;
     v4 Camera_StartDragPos;
     
@@ -107,9 +107,10 @@ struct app_state
     
 };
 
-#include "foldhaus_search_lister.h"
+#include "foldhaus_debug_visuals.h"
 #include "foldhaus_sacn_view.cpp"
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_node.cpp"
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_interface.cpp"
+#include "foldhaus_search_lister.cpp"
