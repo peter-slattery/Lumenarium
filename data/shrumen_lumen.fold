@@ -1,0 +1,20 @@
+led_strip_count 16
+
+led_strip { 0, 1, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (1.0, 0.75, 0.0), 90 }
+led_strip { 0, 2, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.66, 0.75, 0.33), 90 }
+led_strip { 0, 3, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.33, 0.75, 0.66), 90 }
+led_strip { 0, 4, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.0, 0.75, 1.0), 90 }
+led_strip { 0, 5, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (-0.33, 0.75, 0.66), 90 }
+led_strip { 0, 6, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (-0.66, 0.75, 0.33), 90 }
+led_strip { 0, 7, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (-1.0, 0.75, 0.0), 90 }
+led_strip { 0, 8, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (-0.66, 0.75, -0.33), 90 }
+led_strip { 0, 9, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (-0.33, 0.75, -0.66), 90 }
+led_strip { 0, 10, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.0, 0.75, -1.0), 90 }
+led_strip { 0, 11, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.33, 0.75, -0.66), 90 }
+led_strip { 0, 12, 0, INTERPOLATE_POINTS, (0.0, 0.75, 0.0), (0.66, 0.75, -0.33), 90 }
+
+led_strip { 0, 41, 0, INTERPOLATE_POINTS, (0.05, -0.75, 0.0), (0.05, 0.0, 0.0), 170 }
+led_strip { 0, 42, 0, INTERPOLATE_POINTS, (0.05, 0.0, 0.0), (0.05, 0.75, 0.0), 130 }
+led_strip { 0, 43, 0, INTERPOLATE_POINTS, (-0.05, -0.75, 0.0), (-0.05, 0.0, 0.0), 170 }
+led_strip { 0, 44, 0, INTERPOLATE_POINTS, (-0.05, 0.0, 0.0), (-0.05, 0.75, 0.0), 130 }
+END_OF_ASSEMBLY_FILE

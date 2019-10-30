@@ -1,0 +1,78 @@
+TODO FOLDHAUS
+
+Hardening
+- memory visualization
+- separate rendering thread
+- cache led positions. Only update if they are moving
+- input context changes
+-  - shift drag to 10x drag speed
+- select nodes -> delete nodes
+- remove node connections
+
+Name
+- Splash screen (like blender) (thisll be fun)
+-  - Image importer (stb image? or find a png > bmp converter for the image you have)
+-  - Display on startup
+
+/Debug
+x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 
+x    Keep an eye out.
+
+Application
+- More efficient HSV <-> RGB
+
+- Save and load a session
+-  - Serialize Nodes
+- Don't render if the window isn't visible
+
+Development
+- Fix your scope time tracker to account for threads.
+- Nest scope times so you can see totals/dig in
+- Log memory allocations
+
+Interface
+- fullscreen
+- In world interface elements
+-   - Handles for Patterns
+-   - UI Popups
+-   - Value modifiers
+- Scroll view
+- Update the text system - use system fonts
+
+Switch To Nodes
+x basic node elements
+-   - evaluation step (one node at a time)
+-   - selector node (has a list of connections that it can switch between)
+- serialize
+- delete nodes
+
+Structure
+- motion
+
+Renderer
+- Mouse Picking - point at a led and see info about it
+- Camera: pan
+- Camera: zoom
+- Camera: leds always face camera
+
+Resource Management
+- TODO: Need to figure out which textures are currently in graphics memory and which need to be resubmitted
+- Icons
+
+Animation
+- timeline
+- create clips that play
+- clips can have parameters that drive them?
+- clips should have prerequesites
+-  - channels active
+-  - patterns active in the channel
+-  - when a clip is playing, it should just take over the whole structure
+
+Command Line
+- select a channel/pattern
+
+Optimization
+- patterns are asking to be multithreaded
+- probably want to convert as much color functions to use u32 Packed Colors
+-  - Probably want to think about this more. What about supporting different color depths
+-    for different output devices?
