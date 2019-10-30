@@ -98,7 +98,7 @@ struct app_state
     v2 UniverseOutputDisplayOffset;
     r32 UniverseOutputDisplayZoom;
     
-    b32 InterfaceShowNodeList;
+    b32 InterfaceShowNodeLister;
     v2 NodeListMenuPosition;
     
     node_list* NodeList;

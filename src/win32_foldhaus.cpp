@@ -249,11 +249,10 @@ GET_FONT_INFO(Win32GetFontInfo)
     HGDIOBJ SelectObjectResult = SelectObject(FontDrawingDC, FontBitmap);
     
     CurrentFont = CreateFont(PixelHeight, 0, 0, 0,
-                             // TODO(Peter): Font weight, need a platform way to request others
-                             FW_NORMAL, 
-                             FALSE, // Italic
-                             FALSE, // Underling
-                             FALSE, // Strikeout,
+                             FontWeight,
+                             Italic, 
+                             Underline,
+                             Strikeout,
                              ANSI_CHARSET,
                              OUT_OUTLINE_PRECIS,
                              CLIP_DEFAULT_PRECIS,
@@ -297,8 +296,7 @@ DRAW_FONT_CODEPOINT(Win32DrawFontCodepoint)
         COLORREF PixelColor;
         for (u32 Y = 0; Y < *OutHeight; Y++)
         {
-            // TODO(Peter): * 4 b/c its 4 bytes per pixel. Switch to our bitmap_texture struct for clarity
-            // and fewer fields to this function
+            // NOTE(Peter): XOffset * 4 b/c its 4 bytes per pixel. 
             u8* Channel = (u8*)Row + (XOffset * 4);
             for (u32 X = 0; X < *OutWidth; X++)
             {
@@ -375,39 +373,63 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
         
         case WM_LBUTTONDOWN:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
             Mouse->DownPos = Mouse->Pos;
         }break;
         
         case WM_MBUTTONDOWN:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, false, true, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         case WM_RBUTTONDOWN:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         case WM_LBUTTONUP:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         case WM_MBUTTONUP:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, true, false, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         case WM_RBUTTONUP:
         {
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, true, false, 
-                               false, false, false, false);
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         case WM_SYSKEYDOWN:
@@ -422,9 +444,13 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 KeyWasDown = (Message.lParam & (1 << 30)) != 0;
             b32 KeyIsDown = (Message.lParam & (1 << 31)) == 0;
             
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
             // New Input Queue
-            // TODO(Peter): Come back and add state tracking for the modifier keys
-            AddInputEventEntry(InputQueue, Key, KeyWasDown, KeyIsDown, false, false, false, false);
+            AddInputEventEntry(InputQueue, Key, KeyWasDown, KeyIsDown, 
+                               ShiftDown, AltDown, CtrlDown, false);
         }break;
         
         default:

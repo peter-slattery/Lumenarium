@@ -405,7 +405,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
             Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
             GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
             
-            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize);
+            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize, FontWeight_Normal, false, false, false);
             Font->PixelHeight = FontInfo.PixelHeight;
             Font->Ascent = FontInfo.Ascent;
             Font->Descent = FontInfo.Descent;
@@ -524,6 +524,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
+            
             input_command* Command = FindExistingCommand(State->ActiveCommands, Event.Key, (key_code)0);
             if (Command)
             {
@@ -857,20 +858,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {
             RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
             
-            if (State->InterfaceShowNodeList)
+            if (State->InterfaceShowNodeLister)
             {
                 v2 TopLeft = State->NodeListMenuPosition;
                 v2 Dimension = v2{300, 30};
                 
-                search_lister_result NodeListResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
-                                                                            MakeStringLiteral("Nodes List"),
-                                                                            NodeSpecificationsCount, (u8*)NodeSpecifications, 
-                                                                            State->GeneralPurposeSearchHotItem,
-                                                                            NodeListerGetNodeName, 
-                                                                            &State->ActiveTextEntry.Buffer,
-                                                                            State->ActiveTextEntry.CursorPosition,
-                                                                            State->Font, State->Interface, GuiMouse);
-                State->GeneralPurposeSearchHotItem = NodeListResult.HotItem;
+                search_lister_result NodeListerResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
+                                                                              MakeStringLiteral("Nodes List"),
+                                                                              NodeSpecificationsCount, (u8*)NodeSpecifications, 
+                                                                              State->GeneralPurposeSearchHotItem,
+                                                                              NodeListerGetNodeName, 
+                                                                              &State->ActiveTextEntry.Buffer,
+                                                                              State->ActiveTextEntry.CursorPosition,
+                                                                              State->Font, State->Interface, GuiMouse);
+                State->GeneralPurposeSearchHotItem = NodeListerResult.HotItem;
             }
         }
         

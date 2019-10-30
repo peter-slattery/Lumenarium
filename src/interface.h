@@ -575,7 +575,7 @@ struct search_lister_result
     b32 ShouldRemainOpen;
 };
 
-typedef char* search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, s32 Offset);
+typedef string search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, string SearchString, s32 Offset);
 
 internal search_lister_result
 EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimension, string Title, 
@@ -600,35 +600,29 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     TopLeft.y -= 30;
     
     s32 VisibleItemIndex = 0;
-    for (s32 i = 0; i < ListLength; i++)
+    
+    string ListItemText = GetListItem(ListMemory, ListLength, *SearchString, VisibleItemIndex); 
+    while(ListItemText.Length > 0)
     {
-        char* ListItemText = GetListItem(ListMemory, ListLength, i);
-        Assert(ListItemText);
-        string ListItemString = MakeStringLiteral(ListItemText);
+        v2 Min = v2{TopLeft.x, TopLeft.y - 30};
+        v2 Max = Min + Dimension - v2{0, Config.Margin.y};
         
-        if (SearchString->Length == 0 ||
-            StringContainsStringCaseInsensitive(ListItemString, *SearchString))
+        v4 ButtonColor = Config.ButtonColor_Inactive;
+        if (VisibleItemIndex == HotItem)
         {
-            v2 Min = v2{TopLeft.x, TopLeft.y - 30};
-            v2 Max = Min + Dimension - v2{0, Config.Margin.y};
-            
-            v4 ButtonColor = Config.ButtonColor_Inactive;
-            if (VisibleItemIndex == HotItem)
-            {
-                ButtonColor = Config.ButtonColor_Active;
-            }
-            
-            button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemString, 
-                                                  ButtonColor, ButtonColor, Config.TextColor, Config.TextColor, 
-                                                  Config.Font, Mouse);
-            if (Button.Pressed)
-            {
-                Result.SelectedItem = i;
-            }
-            
-            TopLeft.y -= 30;
-            VisibleItemIndex++;
+            ButtonColor = Config.ButtonColor_Active;
         }
+        
+        button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemText, 
+                                              ButtonColor, ButtonColor, Config.TextColor, Config.TextColor, 
+                                              Config.Font, Mouse);
+        if (Button.Pressed)
+        {
+            Result.SelectedItem = VisibleItemIndex;
+        }
+        
+        TopLeft.y -= 30;
+        ListItemText = GetListItem(ListMemory, ListLength, *SearchString, ++VisibleItemIndex); 
     }
     
     return Result;

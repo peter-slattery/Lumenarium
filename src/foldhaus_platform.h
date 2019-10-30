@@ -35,7 +35,21 @@ typedef CLEANUP_APPLICATION(cleanup_application);
 
 typedef struct platform_font_info platform_font_info;
 
-#define GET_FONT_INFO(name) platform_font_info name(char* FontName, s32 PixelHeight)
+enum font_weight
+{
+    FontWeight_Invalid = 0,
+    FontWeight_Thin = 100,
+    FontWeight_ExtraLight = 200,
+    FontWeight_Light = 300,
+    FontWeight_Normal = 400,
+    FontWeight_Medium = 500,
+    FontWeight_SemiBold = 600,
+    FontWeight_Bold = 700,
+    FontWeight_ExtraBold = 800,
+    FontWeight_Heavy = 900,
+};
+
+#define GET_FONT_INFO(name) platform_font_info name(char* FontName, s32 PixelHeight, font_weight FontWeight, b32 Italic, b32 Underline, b32 Strikeout)
 typedef GET_FONT_INFO(platform_get_font_info);
 
 #define DRAW_FONT_CODEPOINT(name) void name(u8* DestBuffer, s32 DestBufferWidth, s32 DestBufferHeight, u32 XOffset, u32 YOffset, char Codepoint, platform_font_info FontInfo, u32* OutWidth, u32* OutHeight)

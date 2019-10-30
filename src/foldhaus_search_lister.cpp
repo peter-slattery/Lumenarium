@@ -57,7 +57,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(SearchListerPrevItem)
 FOLDHAUS_INPUT_COMMAND_PROC(CloseSearchLister)
 {
     // TODO(Peter): This is to show the node list. Generalize to just a lister
-    State->InterfaceShowNodeList = false;
+    State->InterfaceShowNodeLister = false;
     // TODO(Peter): This also assumes we know where we came from. Probably need to implement
     // push/pop functionality for the activecommands.
     QueueNextFrameCommandRegistry(&State->InputCommandRegistry, State);
@@ -67,7 +67,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseSearchLister)
 FOLDHAUS_INPUT_COMMAND_PROC(SelectAndCloseSearchLister)
 {
     s32 HotItem = State->GeneralPurposeSearchHotItem;
-    PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[HotItem],
+    s32 ListIndexFromHotItem = NodeListerConvertHotItemToListIndex(HotItem, 
+                                                                   (u8*)NodeSpecifications,
+                                                                   NodeSpecificationsCount,
+                                                                   State->ActiveTextEntry.Buffer);
+    PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[ListIndexFromHotItem],
                                     Mouse.Pos, State->NodeRenderSettings, State->Permanent);
     CloseSearchLister(State, Event, Mouse);
 }

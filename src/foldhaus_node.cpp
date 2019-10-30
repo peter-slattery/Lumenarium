@@ -1124,11 +1124,60 @@ ResetNodesUpdateState (node_list* NodeList)
     }
 }
 
-
-internal char*
-NodeListerGetNodeName (u8* NodeSpecificationsList, s32 NodeSpecificationsListCount, s32 Offset)
+internal b32 
+SpecificationPassesFilter(string SpecificationName, string SearchString)
 {
-    node_specification* Specifications = (node_specification*)NodeSpecificationsList + Offset;
-    char* Result = Specifications->Name;
+    return (SearchString.Length == 0 || StringContainsStringCaseInsensitive(SpecificationName, SearchString));
+}
+
+internal s32
+NodeListerConvertHotItemToListIndex (s32 HotItem, u8* NodeSpecificationsList, s32 NodeSpecificationsListCount,
+                                     string SearchString)
+{
+    s32 ListIndex = 0;
+    s32 FilteredItemsCount = 0;
+    
+    for (s32 i = 0; i < NodeSpecificationsListCount; i++)
+    {
+        node_specification* Specification = (node_specification*)NodeSpecificationsList + i;
+        string ItemName = MakeString(Specification->Name);
+        b32 PassesFilter = SpecificationPassesFilter(ItemName, SearchString);
+        if (PassesFilter)
+        {
+            if (FilteredItemsCount == HotItem)
+            {
+                break;
+            }
+            FilteredItemsCount++;
+        }
+        ListIndex++;
+    }
+    
+    return ListIndex;
+}
+
+internal string
+NodeListerGetNodeName (u8* NodeSpecificationsList, s32 NodeSpecificationsListCount, string SearchString, s32 Offset)
+{
+    s32 FilteredItemsCount = 0;
+    node_specification* Specification = (node_specification*)NodeSpecificationsList;
+    string Result = {};
+    for (s32 i = 0; i < NodeSpecificationsListCount; i++)
+    {
+        string ItemName = MakeString(Specification->Name);
+        b32 PassesFilter = SpecificationPassesFilter(ItemName, SearchString);
+        if (PassesFilter)
+        {
+            if (FilteredItemsCount == Offset)
+            {
+                Result = ItemName;
+                break;
+            }
+            FilteredItemsCount++;
+        }
+        
+        Specification++;
+    }
+    
     return Result;
 }
