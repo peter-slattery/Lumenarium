@@ -154,8 +154,6 @@ struct node_specification
 
 struct node_render_settings
 {
-    v2 PortDim;
-    r32 PortStep;
     v4 PortColors[MemberTypeCount];
     bitmap_font* Font;
     b32 Display;
@@ -168,6 +166,11 @@ v4 DragButtonColors[] = {
 };
 
 #define NODE_HEADER_HEIGHT 20
+
+#define NODE_PORT_X 20
+#define NODE_PORT_Y 15
+#define NODE_PORT_DIM v2{NODE_PORT_X, NODE_PORT_Y}
+#define NODE_PORT_STEP NODE_PORT_Y + 20
 
 ///////////////////////////////////////////////
 //   Pre Processor Macros

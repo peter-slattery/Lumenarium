@@ -354,8 +354,7 @@ RELOAD_STATIC_DATA(ReloadStaticData)
                                 CameraMouseControl);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, OpenUniverseView);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
-        
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, OpenNodeView);
         
         // Node Lister
         RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, false, KeyCode_Invalid, NodeListerNextItem);
@@ -478,14 +477,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->NodeList = AllocateNodeList(State->Permanent, Kilobytes(64));
     
-    State->NodeInteraction = NewEmptyNodeInteraction(); 
-    State->NodeRenderSettings.PortDim = v2{20, 15};
-    State->NodeRenderSettings.PortStep = State->NodeRenderSettings.PortDim.y + 10;
-    State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;
-    State->NodeRenderSettings.PortColors[MemberType_s32] = GreenV4;
-    State->NodeRenderSettings.PortColors[MemberType_v4] = BlueV4;
-    State->NodeRenderSettings.Font = State->Font;
-    
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     
     InitializeEmptyString(&State->GeneralPurposeSearchString, PushArray(State->Permanent, char, 256), 256);
@@ -510,13 +501,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically 
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
-    
-    // NOTE(Peter): Input Handling
-    gui_mouse GuiMouse = {};
-    GuiMouse.Pos = Mouse.Pos;
-    GuiMouse.OldPos = Mouse.OldPos;
-    GuiMouse.DeltaPos = Mouse.DeltaPos;
-    GuiMouse.DownPos = Mouse.DownPos;
     
     {
         input_command_registry* ActiveCommands = State->ActiveCommands;
@@ -552,18 +536,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             if (Event.Key == KeyCode_MouseLeftButton)
             {
-                GuiMouse.LeftButtonTransitionedDown = KeyTransitionedDown(Event);
-                GuiMouse.LeftButtonTransitionedUp = KeyTransitionedUp(Event);
+                Mouse.LeftButtonTransitionedDown = KeyTransitionedDown(Event);
+                Mouse.LeftButtonTransitionedUp = KeyTransitionedUp(Event);
             }
             else if (Event.Key == KeyCode_MouseMiddleButton)
             {
-                GuiMouse.MiddleButtonTransitionedDown = KeyTransitionedDown(Event);
-                GuiMouse.MiddleButtonTransitionedUp = KeyTransitionedUp(Event);
+                Mouse.MiddleButtonTransitionedDown = KeyTransitionedDown(Event);
+                Mouse.MiddleButtonTransitionedUp = KeyTransitionedUp(Event);
             }
             else if (Event.Key == KeyCode_MouseRightButton)
             {
-                GuiMouse.RightButtonTransitionedDown = KeyTransitionedDown(Event);
-                GuiMouse.RightButtonTransitionedUp = KeyTransitionedUp(Event);
+                Mouse.RightButtonTransitionedDown = KeyTransitionedDown(Event);
+                Mouse.RightButtonTransitionedUp = KeyTransitionedUp(Event);
             }
         }
         
@@ -730,7 +714,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             v2 ButtonPos = v2{State->Interface.Margin.x, Context.WindowHeight - (ButtonDim.y + 10)};
             button_result LoadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim, 
                                                            MakeStringLiteral("Load Assembly"), 
-                                                           State->Interface, GuiMouse);
+                                                           State->Interface, Mouse);
             
             string InterfaceString = MakeString(PushArray(State->Transient, char, 256), 256);
             for (int i = 0; i < State->AssembliesUsed; i++)
@@ -739,7 +723,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 ButtonPos.x += ButtonDim.x + 10;
                 button_result UnloadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
-                                                                 InterfaceString, State->Interface, GuiMouse);
+                                                                 InterfaceString, State->Interface, Mouse);
                 
                 if (UnloadAssemblyBtn.Pressed)
                 {
@@ -762,75 +746,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
         //    Figuring Out Nodes
         //////////////////////////////////////
         
-        if (GuiMouse.LeftButtonTransitionedDown)
-        {
-            node_offset Node = GetNodeUnderPoint(State->NodeList, GuiMouse.Pos, State->NodeRenderSettings);
-            if (Node.Node)
-            {
-                State->NodeInteraction = GetNodeInteractionType(Node.Node, Node.Offset, GuiMouse.Pos, State->NodeRenderSettings);
-            }
-        }
-        else if (GuiMouse.LeftButtonTransitionedUp)
-        {
-            if (IsDraggingNodePort(State->NodeInteraction))
-            {
-                TryConnectNodes(State->NodeInteraction, GuiMouse.Pos, State->NodeList, State->NodeRenderSettings);
-                State->NodeInteraction = NewEmptyNodeInteraction();
-            }
-            else if(IsDraggingNodeValue(State->NodeInteraction))
-            {
-                // This is just a click
-                if (Mag(Mouse.DeltaPos) < 10)
-                {
-                    node_interaction Interaction = State->NodeInteraction;
-                    interface_node* Node = GetNodeAtOffset(State->NodeList, Interaction.NodeOffset);
-                    node_connection* Connection = Node->Connections + Interaction.InputValue;
-                    struct_member_type InputType = Connection->Type;
-                    if (InputType == MemberType_r32)
-                    {
-                        SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
-                        // TODO(Peter): This is wrong, should be something to do with capturing text input
-                        State->ActiveCommands = &State->NodeListerCommandRegistry;
-                    }
-                    State->NodeInteraction = NewEmptyNodeInteraction();
-                }
-                else // This is the case where you dragged the value
-                {
-                    State->NodeInteraction = NewEmptyNodeInteraction();
-                }
-            }
-            else
-            {
-                State->NodeInteraction = NewEmptyNodeInteraction();
-            }
-            
-        }
-        
-        UpdateDraggingNode(Mouse.Pos, State->NodeInteraction, State->NodeList, 
-                           State->NodeRenderSettings);
-        UpdateDraggingNodePort(Mouse.Pos, State->NodeInteraction, State->NodeList, 
-                               State->NodeRenderSettings, RenderBuffer);
-        UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, State->NodeInteraction, State->NodeList, State->NodeRenderSettings, State);
-        
-        ResetNodesUpdateState(State->NodeList);
-        
-        if (State->NodeRenderSettings.Display)
-        {
-            RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
-        }
+        //NodeViewMousePickNode(State, {}, Mouse);
+        //RenderNodeView(State, RenderBuffer, {}, Mouse);
         
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {
             operation_mode OperationMode = State->Modes.ActiveModes[m];
             if (OperationMode.Render != 0)
             {
-                OperationMode.Render(State, RenderBuffer, OperationMode, GuiMouse);
+                OperationMode.Render(State, RenderBuffer, OperationMode, Mouse);
             }
         }
         
         DrawDebugInterface(RenderBuffer, 25,
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
-                           Context.DeltaTime, State, State->Camera, GuiMouse, State->Transient);
+                           Context.DeltaTime, State, State->Camera, Mouse, State->Transient);
     }
     
     EndDebugFrame(GlobalDebugServices);

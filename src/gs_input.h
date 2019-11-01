@@ -28,8 +28,14 @@ struct mouse_state
     v2 Pos;
     v2 OldPos;
     v2 DeltaPos;
-    
     v2 DownPos;
+    
+    b32 LeftButtonTransitionedDown;
+    b32 LeftButtonTransitionedUp;
+    b32 MiddleButtonTransitionedDown;
+    b32 MiddleButtonTransitionedUp;
+    b32 RightButtonTransitionedDown;
+    b32 RightButtonTransitionedUp;
 };
 
 internal input_queue

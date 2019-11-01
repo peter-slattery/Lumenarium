@@ -126,17 +126,17 @@ InitializeNodeConnection (node_connection* Connection, struct_member_type Type, 
     }
 }
 
-internal r32
-CalculateNodeHeight (s32 Members, node_render_settings RenderSettings)
+inline r32
+CalculateNodeHeight (s32 Members)
 {
-    r32 Result = (RenderSettings.PortStep * Members) + NODE_HEADER_HEIGHT;
+    r32 Result = (NODE_PORT_STEP * Members) + NODE_HEADER_HEIGHT;
     return Result;
 }
 
 internal void
-PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, node_render_settings RenderSettings, memory_arena* Storage)
+PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, memory_arena* Storage)
 {
-    r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength, RenderSettings);
+    r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength);
     interface_node* Node = PushNodeOnList(List, 
                                           Spec.NameLength, 
                                           Spec.MemberListLength,
@@ -207,8 +207,8 @@ CalculateNodeInputPortBounds (interface_node* Node, s32 Index, node_render_setti
     
     Result.Min = v2{
         Node->Min.x,
-        Node->Min.y + Node->Dim.y - ((RenderSettings.PortStep * (Index + 1)) + NODE_HEADER_HEIGHT)};
-    Result.Max = Result.Min + RenderSettings.PortDim;
+        Node->Min.y + Node->Dim.y - ((NODE_PORT_STEP * (Index + 1)) + NODE_HEADER_HEIGHT)};
+    Result.Max = Result.Min + NODE_PORT_DIM;
     
     return Result;
 }
@@ -219,7 +219,7 @@ CalculateNodeInputValueBounds (interface_node* Node, s32 Index, node_render_sett
     rect Result = {};
     rect Port = CalculateNodeInputPortBounds(Node, Index, RenderSettings);
     Result.Min = v2{Port.Max.x, Port.Min.y};
-    Result.Max = Result.Min + v2{RenderSettings.PortDim.x * 2, RenderSettings.PortDim.y};
+    Result.Max = Result.Min + v2{NODE_PORT_DIM.x * 2, NODE_PORT_DIM.y};
     return Result;
 }
 
@@ -228,9 +228,9 @@ CalculateNodeOutputPortBounds (interface_node* Node, s32 Index, node_render_sett
 {
     rect Result = {};
     Result.Min = v2{
-        Node->Min.x + Node->Dim.x - RenderSettings.PortDim.x,
-        Node->Min.y + Node->Dim.y - ((RenderSettings.PortStep * (Index + 1)) + NODE_HEADER_HEIGHT)};
-    Result.Max = Result.Min + RenderSettings.PortDim;
+        Node->Min.x + Node->Dim.x - NODE_PORT_DIM.x,
+        Node->Min.y + Node->Dim.y - ((NODE_PORT_STEP * (Index + 1)) + NODE_HEADER_HEIGHT)};
+    Result.Max = Result.Min + NODE_PORT_DIM;
     return Result;
 }
 
@@ -239,7 +239,7 @@ CalculateNodeOutputValueBounds (interface_node* Node, s32 Index, node_render_set
 {
     rect Result = {};
     rect Port = CalculateNodeOutputPortBounds(Node, Index, RenderSettings);
-    Result.Min = v2{Port.Min.x - (RenderSettings.PortDim.x * 2), Port.Min.y};
+    Result.Min = v2{Port.Min.x - (NODE_PORT_DIM.x * 2), Port.Min.y};
     Result.Max = v2{Port.Min.x, Port.Max.y};
     return Result;
 }

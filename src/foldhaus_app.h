@@ -98,9 +98,11 @@ struct app_state
     v4 Camera_StartDragPos;
     
     node_list* NodeList;
-    node_interaction NodeInteraction;
-    node_render_settings NodeRenderSettings;
     interface_node* OutputNode;
+    
+    node_render_settings NodeRenderSettings;
+    
+    
     
     string GeneralPurposeSearchString;
 };

@@ -1,17 +1,3 @@
-struct gui_mouse
-{
-    v2 Pos;
-    v2 OldPos;
-    v2 DeltaPos;
-    v2 DownPos;
-    b32 LeftButtonTransitionedDown;
-    b32 LeftButtonTransitionedUp;
-    b32 MiddleButtonTransitionedDown;
-    b32 MiddleButtonTransitionedUp;
-    b32 RightButtonTransitionedDown;
-    b32 RightButtonTransitionedUp;
-};
-
 internal v2
 DrawCharacter (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color, r32 FontScale)
 {
@@ -129,7 +115,7 @@ internal button_result
 EvaluateButton (render_command_buffer* RenderBuffer, 
                 v2 Min, v2 Max, v2 Margin, string Label,  
                 v4 IdleBGColor, v4 HotBGColor, v4 IdleTextColor, v4 HotTextColor, 
-                bitmap_font* Font, gui_mouse Mouse)
+                bitmap_font* Font, mouse_state Mouse)
 {
     button_result Result = {};
     Result.Pressed = false;
@@ -158,7 +144,7 @@ EvaluateButton (render_command_buffer* RenderBuffer,
 }
 
 internal button_result
-EvaluateButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, gui_mouse Mouse)
+EvaluateButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, mouse_state Mouse)
 {
     button_result Result = EvaluateButton(RenderBuffer, 
                                           Min, Max, Config.Margin, Label, 
@@ -169,7 +155,7 @@ EvaluateButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Labe
 }
 
 internal button_result
-EvaluateSelectableButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, gui_mouse Mouse, b32 Selected)
+EvaluateSelectableButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, mouse_state Mouse, b32 Selected)
 {
     v4 BGColor = Config.ButtonColor_Inactive;
     if (Selected)
@@ -195,7 +181,7 @@ struct multi_option_label_result
 internal multi_option_label_result
 EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer, 
                           v2 Min, v2 Max, string Label, string Options[], 
-                          interface_config Config, gui_mouse Mouse)
+                          interface_config Config, mouse_state Mouse)
 {
     multi_option_label_result Result = {};
     Result.Pressed = false;
@@ -225,7 +211,7 @@ EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer,
 // to one of its options
 internal multi_option_label_result
 EvaluateMultiOptionButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Text, string Options[], b32 Selected,
-                           interface_config Config, gui_mouse Mouse)
+                           interface_config Config, mouse_state Mouse)
 {
     multi_option_label_result Result = {};
     Result.Pressed = false;
@@ -268,7 +254,7 @@ struct slider_result
 };
 
 internal slider_result
-EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, r32 Percent, interface_config Config, gui_mouse Mouse)
+EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, r32 Percent, interface_config Config, mouse_state Mouse)
 {
     slider_result Result = {};
     
@@ -374,7 +360,7 @@ struct scroll_list_result
 internal scroll_list_result
 DrawOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max, 
                 string* Options, s32 OptionsCount,
-                s32 Start, interface_config Config, gui_mouse Mouse)
+                s32 Start, interface_config Config, mouse_state Mouse)
 {
     scroll_list_result Result = {};
     Result.IndexSelected = -1;
@@ -431,7 +417,7 @@ DrawOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max,
 internal scroll_list_result
 DrawSelectableOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max, 
                           string* Options, s32 OptionsCount,
-                          s32 Start, s32 Selected, interface_config Config, gui_mouse Mouse)
+                          s32 Start, s32 Selected, interface_config Config, mouse_state Mouse)
 {
     scroll_list_result Result = {};
     Result.IndexSelected = Selected;
@@ -499,7 +485,7 @@ DrawSelectableOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max,
 }
 
 internal r32
-EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask, v2 Min, v2 Max, r32 Current, gui_mouse Mouse)
+EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask, v2 Min, v2 Max, r32 Current, mouse_state Mouse)
 {
     r32 Result = Current;
     
@@ -532,7 +518,7 @@ EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask,
 }
 
 internal b32
-EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin, interface_config Config, gui_mouse Mouse)
+EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin, interface_config Config, mouse_state Mouse)
 {
     b32 ShouldClose = false;
     
@@ -582,7 +568,7 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
                       string* ItemList, s32* ListLUT, s32 ListLength,
                       s32 HotItem,
                       string* SearchString, s32 SearchStringCursorPosition,
-                      bitmap_font* Font, interface_config Config, gui_mouse Mouse)
+                      bitmap_font* Font, interface_config Config, mouse_state Mouse)
 {
     search_lister_result Result = {};
     Result.ShouldRemainOpen = true;

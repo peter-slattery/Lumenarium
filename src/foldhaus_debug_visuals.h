@@ -1,5 +1,5 @@
 internal void
-DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, app_state* State, camera Camera, gui_mouse Mouse, memory_arena* Transient)
+DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, app_state* State, camera Camera, mouse_state Mouse, memory_arena* Transient)
 {
     DEBUG_TRACK_SCOPE(DrawDebugInterface);
     

@@ -1,6 +1,6 @@
 typedef struct operation_mode operation_mode;
 
-#define OPERATION_RENDER_PROC(name) void name(app_state* State, render_command_buffer* RenderBuffer, operation_mode Operation,  gui_mouse GuiMouse)
+#define OPERATION_RENDER_PROC(name) void name(app_state* State, render_command_buffer* RenderBuffer, operation_mode Operation,  mouse_state Mouse)
 typedef OPERATION_RENDER_PROC(operation_render_proc);
 
 struct operation_mode
