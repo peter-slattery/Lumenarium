@@ -29,7 +29,7 @@ FindExistingCommand (input_command_registry* CommandRegistry, key_code Key, key_
 internal void
 RegisterKeyPressCommand (input_command_registry* CommandRegistry,
                          key_code Key,
-                         b32 PersistsUntilReleased,
+                         b32 Flags,
                          key_code Mdfr,
                          input_command_proc* Proc)
 {
@@ -44,7 +44,7 @@ RegisterKeyPressCommand (input_command_registry* CommandRegistry,
     }
     
     Command->Key = Key;
-    Command->PersistsUntilReleased = PersistsUntilReleased;
+    Command->Flags = Flags;
     Command->Mdfr = Mdfr;
     Command->Proc = Proc;
 }
@@ -54,6 +54,22 @@ RegisterMouseWheelCommand (input_command_registry* CommandRegistry,
                            input_command_proc* Proc)
 {
     CommandRegistry->MouseWheelCommand = Proc;
+}
+
+internal s32
+GetCommandIndexInQueue(input_command_queue* Queue, input_command Command, input_entry Event)
+{
+    s32 Result = -1;
+    for (s32 CommandIndex = 0; CommandIndex < Queue->Used; CommandIndex++)
+    {
+        command_queue_entry* Entry = Queue->Commands + CommandIndex;
+        if(Entry->Event.Key == Event.Key)
+        {
+            Result = CommandIndex;
+            break;
+        }
+    }
+    return Result;
 }
 
 internal input_command_queue
@@ -73,7 +89,7 @@ RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(input_command_queu
     for (s32 i = 0; i < Queue->Used; i++)
     {
         command_queue_entry* Entry = Queue->Commands + i;
-        if (Entry->Command.PersistsUntilReleased)
+        if (!Entry->RemoveOnExecute)
         {
             Entry->Event.State |= KeyState_WasDown;
             // NOTE(Peter): If i == PersistantCommandsCount, then we don't need to copy the 
@@ -89,27 +105,42 @@ RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(input_command_queu
 }
 
 internal void
-PushCommandOnQueue(input_command_queue* Queue, input_command Command, input_entry Event)
+PushCommandOnQueue(input_command_queue* Queue, input_command Command, input_entry Event, b32 RemoveOnExecute)
 {
     Assert(Queue->Used < Queue->Size);
     command_queue_entry Entry = {};
     Entry.Command = Command;
     Entry.Event = Event;
+    Entry.RemoveOnExecute = RemoveOnExecute;
     Queue->Commands[Queue->Used++] = Entry;
+}
+
+internal void
+FlagCommandForRemoval(input_command_queue* Queue, input_command Command, input_entry Event)
+{
+    s32 CommandIndex = GetCommandIndexInQueue(Queue, Command, Event);
+    Queue->Commands[CommandIndex].RemoveOnExecute = true;
+}
+
+internal void
+RemoveCommandFromQueue(input_command_queue* Queue, s32 Index)
+{
+    s32 CommandIndex = Index;
+    if (CommandIndex < Queue->Used) 
+    { 
+        Queue->Used -= 1;
+        
+        for (; CommandIndex < Queue->Used; CommandIndex++)
+        {
+            Queue->Commands[CommandIndex] = Queue->Commands[CommandIndex + 1];
+        }
+    }
 }
 
 internal void
 RemoveCommandFromQueue(input_command_queue* Queue, input_command Command, input_entry Event)
 {
-    s32 CommandIndex = 0;
-    for (CommandIndex = 0; CommandIndex < Queue->Used; CommandIndex++)
-    {
-        command_queue_entry* Entry = Queue->Commands + CommandIndex;
-        if(Entry->Event.Key == Event.Key)
-        {
-            break;
-        }
-    }
+    s32 CommandIndex = GetCommandIndexInQueue(Queue, Command, Event);
     
     // NOTE(Peter): If we made it through the queue without finding an event, there wasn't one
     // to remove. This happens when we've changed command registries as a result of an input command, 
@@ -121,15 +152,7 @@ RemoveCommandFromQueue(input_command_queue* Queue, input_command Command, input_
     // For this reason, I'm allowing the case where we try and remove a command where non exists
     // I don't think this is a great solution but Im not super familiar with the codebase right now
     // so leaving it as is. revisit if it becomes a problem.
-    if (CommandIndex < Queue->Used) 
-    { 
-        Queue->Used -= 1;
-        
-        for (; CommandIndex < Queue->Used; CommandIndex++)
-        {
-            Queue->Commands[CommandIndex] = Queue->Commands[CommandIndex + 1];
-        }
-    }
+    RemoveCommandFromQueue(Queue, CommandIndex);
 }
 
 internal void

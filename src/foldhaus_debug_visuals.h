@@ -20,12 +20,13 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     
     r32 FramesPerSecond = 1.0f / DeltaTime;
     
-    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d",
+    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d    |   Commands: %d",
            5, DeltaTime,
            (u32)FramesPerSecond,
            State->Modes.ActiveModesCount,
            State->Modes.Arena.CurrentRegion->Used,
-           State->Modes.Arena.CurrentRegion->Size);
+           State->Modes.Arena.CurrentRegion->Size,
+           State->CommandQueue.Used);
     DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, WhiteV4);
     
     v2 ButtonDim = v2{200, (r32)NewLineYOffset(*Interface.Font) + 10};

@@ -109,8 +109,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
     
     { // Mode Commands
         InitializeInputCommandRegistry(&UniverseViewMode->Commands, 3, &State->Modes.Arena);
-        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_MouseLeftButton, true, KeyCode_Invalid, UniverseViewPan);
-        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_U, false, KeyCode_Invalid, CloseUniverseView);
+        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_MouseLeftButton, Command_Began | Command_Ended, KeyCode_Invalid, UniverseViewPan);
+        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_U, Command_Began, KeyCode_Invalid, CloseUniverseView);
         RegisterMouseWheelCommand(&UniverseViewMode->Commands, UniverseZoom);
     }
     
@@ -198,11 +198,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     
     { // Mode Commands
         InitializeInputCommandRegistry(&AddNodeOperation->Commands, 128, &State->Modes.Arena);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_DownArrow, false, KeyCode_Invalid, NodeListerNextItem);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_UpArrow, false, KeyCode_Invalid, NodeListerPrevItem);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Enter, false, KeyCode_Invalid, SelectAndCloseNodeLister);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_MouseLeftButton, false, KeyCode_Invalid, CloseNodeLister);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Esc, false, KeyCode_Invalid, CloseNodeLister);
+        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_DownArrow, Command_Began, KeyCode_Invalid, NodeListerNextItem);
+        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_UpArrow, Command_Began, KeyCode_Invalid, NodeListerPrevItem);
+        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Enter, Command_Began, KeyCode_Invalid, SelectAndCloseNodeLister);
+        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid, CloseNodeLister);
+        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Esc, Command_Began, KeyCode_Invalid, CloseNodeLister);
         InitializeTextInputCommands(&AddNodeOperation->Commands, &State->Modes.Arena);
     }
     
@@ -373,9 +373,9 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
     { // Mode Commands
         InitializeInputCommandRegistry(&NodeViewMode->Commands, 3, &State->Modes.Arena);
         
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_Tab, false, KeyCode_Invalid, CloseNodeView);
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_MouseLeftButton, true, KeyCode_Invalid,
+        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_Tab, Command_Began, KeyCode_Invalid, CloseNodeView);
+        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
+        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_MouseLeftButton, Command_Began | Command_Ended, KeyCode_Invalid,
                                 NodeViewMousePickNode);
     }
     

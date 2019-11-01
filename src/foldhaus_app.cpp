@@ -350,18 +350,18 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     
     if (State->InputCommandRegistry.Size > 0)
     {
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_MouseLeftButton, true, KeyCode_Invalid,
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_MouseLeftButton, Command_Began | Command_Held | Command_Ended, KeyCode_Invalid,
                                 CameraMouseControl);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, OpenUniverseView);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, OpenNodeView);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, Command_Began, KeyCode_Invalid, OpenNodeView);
         
         // Node Lister
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, false, KeyCode_Invalid, NodeListerNextItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, false, KeyCode_Invalid, NodeListerPrevItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, false, KeyCode_Invalid, SelectAndCloseNodeLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, false, KeyCode_Invalid, CloseNodeLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, false, KeyCode_Invalid, CloseNodeLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, Command_Began, KeyCode_Invalid, NodeListerNextItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, Command_Began, KeyCode_Invalid, NodeListerPrevItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, Command_Began, KeyCode_Invalid, SelectAndCloseNodeLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid, CloseNodeLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, Command_Began, KeyCode_Invalid, CloseNodeLister);
         InitializeTextInputCommands(&State->NodeListerCommandRegistry, State->Permanent);
     }
 }
@@ -511,12 +511,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         ActivateQueuedCommandRegistry(State);
         
-        // CommandQueue holds the list of commands, generated from the current InputCommandRegistry
-        // Every command entry in the queue should be executed.
-        // For every Input Event, attempt to add an entry to the CommandQueue if an appropriate command
-        // exists in ActiveCommands
-        RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(&State->CommandQueue);
-        
         for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
@@ -524,13 +518,23 @@ UPDATE_AND_RENDER(UpdateAndRender)
             input_command* Command = FindExistingCommand(ActiveCommands, Event.Key, (key_code)0);
             if (Command)
             {
-                if (KeyTransitionedDown(Event))
+                if ((KeyTransitionedDown(Event) && ((Command->Flags & Command_Began) > 0)))
                 {
-                    PushCommandOnQueue(&State->CommandQueue, *Command, Event);
+                    PushCommandOnQueue(&State->CommandQueue, 
+                                       *Command, 
+                                       Event, 
+                                       (Command->Flags & Command_Held) == 0);
                 }
-                else if (Command->PersistsUntilReleased && KeyTransitionedUp(Event))
+                else if (KeyTransitionedUp(Event) && ((Command->Flags & Command_Ended) > 0))
                 {
-                    RemoveCommandFromQueue(&State->CommandQueue, *Command, Event);
+                    if ((Command->Flags & Command_Held) == 0)
+                    {
+                        PushCommandOnQueue(&State->CommandQueue, *Command, Event, true);
+                    }
+                    else
+                    {
+                        FlagCommandForRemoval(&State->CommandQueue, *Command, Event);
+                    }
                 }
             }
             
@@ -552,11 +556,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
         
         // Execute all commands in CommandQueue
-        for (s32 CommandIdx = 0; CommandIdx < State->CommandQueue.Used; CommandIdx++)
+        for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
         {
-            command_queue_entry Entry = State->CommandQueue.Commands[CommandIdx];
-            Entry.Command.Proc(State, Entry.Event, Mouse);
+            command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
+            Entry->Command.Proc(State, Entry->Event, Mouse);
         }
+        
+        RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(&State->CommandQueue);
     }
     
     if (State->LEDBufferList)
@@ -745,9 +751,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         ///////////////////////////////////////
         //    Figuring Out Nodes
         //////////////////////////////////////
-        
-        //NodeViewMousePickNode(State, {}, Mouse);
-        //RenderNodeView(State, RenderBuffer, {}, Mouse);
         
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {

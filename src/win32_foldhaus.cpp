@@ -379,6 +379,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
+            
             Mouse->DownPos = Mouse->Pos;
         }break;
         

@@ -8,9 +8,9 @@ x Allow one operation at a time at first
 x Push/pop operations on a list?
 - Current Operations:
 -   - View Sculpture (this might be an exception since its so central)
--   - View/Edit Nodes
--      x Add Node (needs nesting)
--   x View SACN
+x     - View/Edit Nodes
+-        x Add Node (needs nesting)
+-     x View SACN
 
 - Why does backspacing in text entry not save when you close and reopen the node lister?
 - Typing a period into a float value doesn't register

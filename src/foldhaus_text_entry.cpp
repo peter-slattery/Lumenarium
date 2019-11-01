@@ -107,13 +107,13 @@ InitializeTextInputCommands (input_command_registry* Commands, memory_arena* Per
 {
     if (Commands->Size > 0)
     {
-        RegisterKeyPressCommand(Commands, KeyCode_Backspace, false, KeyCode_Invalid, RemoveCharacterFromEntryString);
-        RegisterKeyPressCommand(Commands, KeyCode_LeftArrow, false, KeyCode_Invalid, TextEntryMoveCursorLeft);
-        RegisterKeyPressCommand(Commands, KeyCode_RightArrow, false, KeyCode_Invalid, TextEntryMoveCursorRight);
+        RegisterKeyPressCommand(Commands, KeyCode_Backspace, Command_Began, KeyCode_Invalid, RemoveCharacterFromEntryString);
+        RegisterKeyPressCommand(Commands, KeyCode_LeftArrow, Command_Began, KeyCode_Invalid, TextEntryMoveCursorLeft);
+        RegisterKeyPressCommand(Commands, KeyCode_RightArrow, Command_Began, KeyCode_Invalid, TextEntryMoveCursorRight);
         
         for (s32 i = KeyCode_a; i < KeyCode_UpArrow; i++)
         {
-            RegisterKeyPressCommand(Commands, (key_code)i, false, KeyCode_Invalid, TextEntryInsertChar);
+            RegisterKeyPressCommand(Commands, (key_code)i, Command_Began, KeyCode_Invalid, TextEntryInsertChar);
         }
         
     }
