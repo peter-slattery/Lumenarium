@@ -84,7 +84,7 @@ struct app_state
     s32 TotalLEDsCount;
     led_buffer* LEDBufferList;
     
-    // TODO(Peter): Make this dynamic. WE want them contiguous in memory since we'll be accessing them
+    // TODO(Peter): Make this dynamic. We want them contiguous in memory since we'll be accessing them
     // mostly by looping through them. On the other hand, I don't expect there to ever be more than 100 
     // of them at once. 
 #define ASSEMBLY_LIST_LENGTH 32
@@ -102,10 +102,11 @@ struct app_state
     node_render_settings NodeRenderSettings;
     interface_node* OutputNode;
     
-    v4* ColorPickerEditValue;
-    
     string GeneralPurposeSearchString;
 };
+
+// TODO(Peter): Once rendering nodes becomes an operation_mode you can get rid of this pre-declaration
+internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "foldhaus_debug_visuals.h"
 #include "foldhaus_sacn_view.cpp"

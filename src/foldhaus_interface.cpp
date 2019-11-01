@@ -241,3 +241,49 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     OpState->ListPosition = Mouse.Pos;
     SetTextInputDestinationToString(&State->ActiveTextEntry, &State->GeneralPurposeSearchString);
 }
+
+////////////////////////////////////////
+//
+//    Node Color Picker
+//
+///////////////////////////////////////
+
+struct color_picker_operation_state
+{
+    v4* ValueAddr;
+};
+
+internal void
+CloseColorPicker(app_state* State)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+OPERATION_RENDER_PROC(RenderColorPicker)
+{
+    // TODO(Peter): Pass this in as a parameter
+    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
+    color_picker_operation_state* OpState = (color_picker_operation_state*)Mode.OpStateMemory;
+    
+    
+    b32 ShouldClose = EvaluateColorPicker(RenderBuffer, OpState->ValueAddr, 
+                                          v2{200, 200}, State->Interface, GuiMouse);
+    
+    if (ShouldClose)
+    {
+        CloseColorPicker(State);
+    }
+}
+
+internal void
+OpenColorPicker(app_state* State, v4* ValueAddr)
+{
+    // TODO(Peter): This won't work with hot code reloading
+    operation_mode* ColorPickerMode = ActivateOperationMode(&State->Modes);
+    ColorPickerMode->Render = RenderColorPicker;
+    
+    color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
+                                                                 &State->Modes, 
+                                                                 color_picker_operation_state);
+    OpState->ValueAddr = ValueAddr;
+}

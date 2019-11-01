@@ -2,26 +2,18 @@ TODO FOLDHAUS
 
 Intermediate Lifetime Memory & Operations
 x Intermediate lifetime memory arena
-- Temporary memory region = a multi frame operation
-- Concept of an operation - temporary memory + interface command registry
-- Allow one operation at a time at first
-- Push/pop operations on a list?
+x Temporary memory region = a multi frame operation
+x Concept of an operation - temporary memory + interface command registry
+x Allow one operation at a time at first
+x Push/pop operations on a list?
 - Current Operations:
--   - View Sculpture
+-   - View Sculpture (this might be an exception since its so central)
 -   - View/Edit Nodes
 -      x Add Node (needs nesting)
--   - View SACN
+-   x View SACN
 
 - Why does backspacing in text entry not save when you close and reopen the node lister?
-
-Plan
-x start with adding nodes
-x   push/pop an operation
-x   create operation structure
-x   static size of operations list
-x   move command registry out of search lister and text entry into operation
-x   initialize/cleanup add node operation
-- extend to other operations
+- Typing a period into a float value doesn't register
 
 Hardening
 - memory visualization

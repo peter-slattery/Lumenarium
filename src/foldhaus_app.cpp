@@ -789,11 +789,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     if (InputType == MemberType_r32)
                     {
                         SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
+                        // TODO(Peter): This is wrong, should be something to do with capturing text input
+                        State->ActiveCommands = &State->NodeListerCommandRegistry;
                     }
                     State->NodeInteraction = NewEmptyNodeInteraction();
-                    
-                    // TODO(Peter): This is wrong, should be something to do with capturing text input
-                    State->ActiveCommands = &State->NodeListerCommandRegistry;
                 }
                 else // This is the case where you dragged the value
                 {
@@ -820,21 +819,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
             RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
         }
         
-        if (State->ColorPickerEditValue != 0)
-        {
-            b32 ShouldClose = EvaluateColorPicker(RenderBuffer, State->ColorPickerEditValue, 
-                                                  v2{200, 200}, State->Interface, GuiMouse);
-            
-            if (ShouldClose)
-            {
-                State->ColorPickerEditValue = 0;
-            }
-        }
-        
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {
             operation_mode OperationMode = State->Modes.ActiveModes[m];
-            OperationMode.Render(State, RenderBuffer, OperationMode, GuiMouse);
+            if (OperationMode.Render != 0)
+            {
+                OperationMode.Render(State, RenderBuffer, OperationMode, GuiMouse);
+            }
         }
         
         DrawDebugInterface(RenderBuffer, 25,
