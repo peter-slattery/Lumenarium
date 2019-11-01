@@ -39,3 +39,13 @@ DeactivateCurrentOperationMode (operation_mode_system* System)
     s32 ModeIndex = --System->ActiveModesCount;
     ClearArenaToSnapshot(&System->Arena, System->ModeMemorySnapshots[ModeIndex]);
 }
+
+#define CreateOperationState(mode, modeSystem, stateType) \
+(stateType*)CreateOperationState_(mode, modeSystem, sizeof(stateType))
+
+internal u8*
+CreateOperationState_ (operation_mode* Mode, operation_mode_system* System, s32 StateSize)
+{
+    Mode->OpStateMemory = PushSize(&System->Arena, StateSize);
+    return Mode->OpStateMemory;
+}

@@ -1,7 +1,7 @@
 TODO FOLDHAUS
 
 Intermediate Lifetime Memory & Operations
-- Intermediate lifetime memory arena
+x Intermediate lifetime memory arena
 - Temporary memory region = a multi frame operation
 - Concept of an operation - temporary memory + interface command registry
 - Allow one operation at a time at first
@@ -9,7 +9,7 @@ Intermediate Lifetime Memory & Operations
 - Current Operations:
 -   - View Sculpture
 -   - View/Edit Nodes
--      - Add Node (needs nesting)
+-      x Add Node (needs nesting)
 -   - View SACN
 
 - Why does backspacing in text entry not save when you close and reopen the node lister?

@@ -97,12 +97,6 @@ struct app_state
     r32 PixelsToWorldScale;
     v4 Camera_StartDragPos;
     
-    b32 DrawUniverseOutputDisplay;
-    v2 UniverseOutputDisplayOffset;
-    r32 UniverseOutputDisplayZoom;
-    
-    v2 NodeListMenuPosition;
-    
     node_list* NodeList;
     node_interaction NodeInteraction;
     node_render_settings NodeRenderSettings;

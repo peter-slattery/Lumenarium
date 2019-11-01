@@ -628,8 +628,11 @@ INT NCmdShow
         
         // TODO(Peter): We shouldn't need to do this translation. the platform layer knows about win32_windows. We should just make that the interface
         // to all windows.
+        // TODO(Peter): Decide which we want to use, context or renderbuffer. Should only be one
         Context.WindowWidth = MainWindow.Width;
         Context.WindowHeight = MainWindow.Height;
+        RenderBuffer.ViewWidth = MainWindow.Width;
+        RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
         
         Context.UpdateAndRender(Context, InputQueue, Mouse, &RenderBuffer);

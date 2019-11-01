@@ -352,8 +352,7 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     {
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_MouseLeftButton, true, KeyCode_Invalid,
                                 CameraMouseControl);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, ToggleUniverseDebugView);
-        RegisterMouseWheelCommand(&State->InputCommandRegistry, CameraMouseZoom);
+        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, false, KeyCode_Invalid, OpenUniverseView);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
         
@@ -474,9 +473,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
 #endif
     
     State->PixelsToWorldScale = .01f;
-    
-    State->UniverseOutputDisplayOffset = v2{0, 0};
-    State->UniverseOutputDisplayZoom = 1.0f;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
@@ -718,57 +714,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         DEBUG_TRACK_SCOPE(DrawInterface);
         
         PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight);
-        
-        // Universe Data View
-        if (State->DrawUniverseOutputDisplay)
-        {
-            DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);
-            
-            string TitleBarString = InitializeEmptyString(PushArray(State->Transient, char, 64), 64);
-            
-            v2 DisplayArea_Dimension = v2{600, 600};
-            v2 DisplayContents_Offset = State->UniverseOutputDisplayOffset;
-            v2 DisplayArea_TopLeft = v2{300, Context.WindowHeight - 50} + DisplayContents_Offset;
-            v2 UniverseDisplayDimension = v2{100, 100} * State->UniverseOutputDisplayZoom;
-            v2 Padding = v2{25, 50} * State->UniverseOutputDisplayZoom;
-            
-            v2 UniverseDisplayTopLeft = DisplayArea_TopLeft;
-            
-            sacn_universe_buffer* UniverseList = State->SACN.UniverseBuffer;
-            while(UniverseList)
-            {
-                for (s32 UniverseIdx = 0;
-                     UniverseIdx < UniverseList->Used;
-                     UniverseIdx++)
-                {
-                    sacn_universe* Universe = UniverseList->Universes + UniverseIdx;
-                    
-                    DrawSACNUniversePixels(RenderBuffer, Universe, 
-                                           UniverseDisplayTopLeft, UniverseDisplayDimension);
-                    
-                    if (State->UniverseOutputDisplayZoom > .5f)
-                    {
-                        v2 TitleDisplayStart = UniverseDisplayTopLeft + v2{0, 12};
-                        PrintF(&TitleBarString, "Universe %d", Universe->Universe);
-                        DrawString(RenderBuffer, TitleBarString, State->Interface.Font, 12, 
-                                   TitleDisplayStart, WhiteV4);
-                    }
-                    
-                    UniverseDisplayTopLeft.x += UniverseDisplayDimension.x + Padding.x;
-                    if (UniverseDisplayTopLeft.x > DisplayArea_TopLeft.x + DisplayArea_Dimension.x)
-                    {
-                        UniverseDisplayTopLeft.x = DisplayArea_TopLeft.x;
-                        UniverseDisplayTopLeft.y -= UniverseDisplayDimension.y + Padding.y;
-                    }
-                    
-                    if (UniverseDisplayTopLeft.y < DisplayArea_TopLeft.y - DisplayArea_Dimension.y)
-                    {
-                        break;
-                    }
-                }
-                UniverseList = UniverseList->Next;
-            }
-        }
         
         ///////////////////////////////////////
         //     Menu Bar
