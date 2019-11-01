@@ -48,9 +48,8 @@ struct assembly
 
 typedef struct app_state app_state;
 
-
 #include "foldhaus_command_dispatch.h"
-
+#include "foldhaus_operation_mode.h"
 
 #include "foldhaus_text_entry.h"
 
@@ -66,6 +65,9 @@ struct app_state
     
     camera Camera;
     
+    operation_mode Operation_AddNode;
+    operation_mode_system Modes;
+    
     input_command_registry InputCommandRegistry;
     input_command_registry NodeListerCommandRegistry;
     // NOTE(Peter): stores the address of the command registry to be activated next frame.
@@ -76,6 +78,7 @@ struct app_state
     
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
+    search_lister SearchLister;
     
     streaming_acn SACN;
     s32 TotalLEDsCount;
@@ -109,8 +112,6 @@ struct app_state
     v4* ColorPickerEditValue;
     
     string GeneralPurposeSearchString;
-    s32 GeneralPurposeSearchHotItem;
-    
 };
 
 #include "foldhaus_debug_visuals.h"

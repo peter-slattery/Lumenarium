@@ -378,6 +378,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
+    { // MODES PLAYGROUND
+        State->Modes.ActiveModesCount = 0;
+    }
+    
     InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
     InitializeInputCommandRegistry(&State->NodeListerCommandRegistry, 128, State->Permanent);
     State->ActiveCommands = &State->InputCommandRegistry;
@@ -389,6 +393,30 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
     State->ActiveTextEntry.Buffer = MakeString(PushArray(State->Permanent, char, 256), 0, 256);
+    
+    { // Search Lister
+        State->SearchLister.SourceListCount = NodeSpecificationsCount;
+        State->SearchLister.SourceList = PushArray(State->Permanent, string, State->SearchLister.SourceListCount);
+        {
+            for (s32 i = 0; i < State->SearchLister.SourceListCount; i++)
+            {
+                State->SearchLister.SourceList[i] = MakeString(
+                    NodeSpecifications[i].Name,
+                    NodeSpecifications[i].NameLength);
+            }
+        }
+        State->SearchLister.Filter = State->ActiveTextEntry.Buffer;
+        
+        // TODO(Peter): This doesn't allow for using this search lister on different sources
+        //
+        // TODO(Peter): In general right now we support memory lifetimes of 1 frame, and permanent
+        //   we need to support some intermediate lifetimes like 
+        //   temporary multiframe operation like searching.
+        //
+        State->SearchLister.FilteredListMax = State->SearchLister.SourceListCount;
+        State->SearchLister.FilteredListCount = 0;
+        State->SearchLister.FilteredIndexLUT = PushArray(State->Permanent, s32, State->SearchLister.SourceListCount);
+    }
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -863,15 +891,25 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 v2 TopLeft = State->NodeListMenuPosition;
                 v2 Dimension = v2{300, 30};
                 
+                if (State->ActiveTextEntry.Buffer.Length > 0)
+                {
+                    s32 x = 5;
+                }
+                
+                // Filter the lister
+                State->SearchLister.Filter = State->ActiveTextEntry.Buffer;
+                FilterSearchLister(&State->SearchLister);
+                
+                // Display Search Lister
                 search_lister_result NodeListerResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
                                                                               MakeStringLiteral("Nodes List"),
-                                                                              NodeSpecificationsCount, (u8*)NodeSpecifications, 
-                                                                              State->GeneralPurposeSearchHotItem,
-                                                                              NodeListerGetNodeName, 
+                                                                              State->SearchLister.SourceList,
+                                                                              State->SearchLister.FilteredIndexLUT,
+                                                                              State->SearchLister.FilteredListCount,
+                                                                              State->SearchLister.HotItem,
                                                                               &State->ActiveTextEntry.Buffer,
                                                                               State->ActiveTextEntry.CursorPosition,
                                                                               State->Font, State->Interface, GuiMouse);
-                State->GeneralPurposeSearchHotItem = NodeListerResult.HotItem;
             }
         }
         

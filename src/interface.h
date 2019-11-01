@@ -579,12 +579,11 @@ typedef string search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLen
 
 internal search_lister_result
 EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimension, string Title, 
-                      s32 ListLength, u8* ListMemory, s32 HotItem, search_lister_get_list_item_at_offset* GetListItem, 
+                      string* ItemList, s32* ListLUT, s32 ListLength,
+                      s32 HotItem,
                       string* SearchString, s32 SearchStringCursorPosition,
                       bitmap_font* Font, interface_config Config, gui_mouse Mouse)
 {
-    Assert(GetListItem != 0);
-    
     search_lister_result Result = {};
     Result.ShouldRemainOpen = true;
     Result.HotItem = HotItem;
@@ -592,6 +591,10 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     // Title Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
     DrawString(RenderBuffer, Title, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
+    
+    MakeStringBuffer(DebugString, 256);
+    PrintF(&DebugString, "Hot Item: %d", HotItem);
+    DrawString(RenderBuffer, DebugString, Font, 14, v2{TopLeft.x + 256, TopLeft.y - 25}, WhiteV4);
     TopLeft.y -= 30;
     
     // Search Bar
@@ -599,30 +602,29 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     DrawStringWithCursor(RenderBuffer, *SearchString, SearchStringCursorPosition, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4, GreenV4);
     TopLeft.y -= 30;
     
-    s32 VisibleItemIndex = 0;
-    
-    string ListItemText = GetListItem(ListMemory, ListLength, *SearchString, VisibleItemIndex); 
-    while(ListItemText.Length > 0)
+    for (s32 i = 0; i < ListLength; i++)
     {
+        s32 FilteredIndex = ListLUT[i];
+        string ListItemString = ItemList[FilteredIndex];
+        
         v2 Min = v2{TopLeft.x, TopLeft.y - 30};
         v2 Max = Min + Dimension - v2{0, Config.Margin.y};
         
         v4 ButtonColor = Config.ButtonColor_Inactive;
-        if (VisibleItemIndex == HotItem)
+        if (i == HotItem)
         {
             ButtonColor = Config.ButtonColor_Active;
         }
         
-        button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemText, 
-                                              ButtonColor, ButtonColor, Config.TextColor, Config.TextColor, 
+        button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemString, 
+                                              ButtonColor, ButtonColor, Config.TextColor, Config.TextColor,
                                               Config.Font, Mouse);
         if (Button.Pressed)
         {
-            Result.SelectedItem = VisibleItemIndex;
+            Result.SelectedItem = i;
         }
         
         TopLeft.y -= 30;
-        ListItemText = GetListItem(ListMemory, ListLength, *SearchString, ++VisibleItemIndex); 
     }
     
     return Result;

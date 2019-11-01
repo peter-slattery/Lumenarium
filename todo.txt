@@ -1,5 +1,26 @@
 TODO FOLDHAUS
 
+Intermediate Lifetime Memory & Operations
+- Intermediate lifetime memory arena
+- Temporary memory region = a multi frame operation
+- Concept of an operation - temporary memory + interface command registry
+- Allow one operation at a time at first
+- Push/pop operations on a list?
+- Current Operations:
+-   - View Sculpture
+-   - View/Edit Nodes
+-      - Add Node (needs nesting)
+-   - View SACN
+
+Plan
+- start with adding nodes
+-   push/pop an operation
+-   create operation structure
+-   static size of operations list
+-   move command registry out of search lister and text entry into operation
+-   initialize/cleanup add node operation
+- extend to other operations
+
 Hardening
 - memory visualization
 - separate rendering thread

@@ -41,6 +41,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(ToggleUniverseDebugView)
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
 {
+    ActivateOperationMode(State->Operation_AddNode, &State->Modes);
+    
     State->InterfaceShowNodeLister = true;
     State->NodeListMenuPosition = Mouse.Pos;
     SetTextInputDestinationToString(&State->ActiveTextEntry, &State->GeneralPurposeSearchString);

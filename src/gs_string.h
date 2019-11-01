@@ -1749,6 +1749,7 @@ PrintFArgsList (char* Dest, s32 DestMax, char* Format, va_list Args)
                 if (SignedInt < 0)
                 {
                     OutChar(&TempDest, '-');
+                    SignedInt *= -1;
                 }
                 U64ToASCII(&TempDest, (u64)SignedInt, 10, DecimalDigits);
             }
