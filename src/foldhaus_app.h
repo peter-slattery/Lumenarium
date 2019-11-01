@@ -65,10 +65,11 @@ struct app_state
     
     camera Camera;
     
-    operation_mode Operation_AddNode;
     operation_mode_system Modes;
     
     input_command_registry InputCommandRegistry;
+    // TODO(Peter): At the moment this is only still here because text input into nodes utilizes it. 
+    // Get rid of this once Modes are working and you can switch all text input over to various modes
     input_command_registry NodeListerCommandRegistry;
     // NOTE(Peter): stores the address of the command registry to be activated next frame.
     // was having a problem where switching command registry's in the middle of the loop trying to 
@@ -78,7 +79,6 @@ struct app_state
     
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
-    search_lister SearchLister;
     
     streaming_acn SACN;
     s32 TotalLEDsCount;
@@ -101,7 +101,6 @@ struct app_state
     v2 UniverseOutputDisplayOffset;
     r32 UniverseOutputDisplayZoom;
     
-    b32 InterfaceShowNodeLister;
     v2 NodeListMenuPosition;
     
     node_list* NodeList;
@@ -119,5 +118,6 @@ struct app_state
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_node.cpp"
 #include "foldhaus_text_entry.cpp"
-#include "foldhaus_interface.cpp"
 #include "foldhaus_search_lister.cpp"
+
+#include "foldhaus_interface.cpp"

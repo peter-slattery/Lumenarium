@@ -12,13 +12,15 @@ Intermediate Lifetime Memory & Operations
 -      - Add Node (needs nesting)
 -   - View SACN
 
+- Why does backspacing in text entry not save when you close and reopen the node lister?
+
 Plan
-- start with adding nodes
--   push/pop an operation
--   create operation structure
--   static size of operations list
--   move command registry out of search lister and text entry into operation
--   initialize/cleanup add node operation
+x start with adding nodes
+x   push/pop an operation
+x   create operation structure
+x   static size of operations list
+x   move command registry out of search lister and text entry into operation
+x   initialize/cleanup add node operation
 - extend to other operations
 
 Hardening

@@ -357,12 +357,13 @@ RELOAD_STATIC_DATA(ReloadStaticData)
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, false, KeyCode_Invalid, OpenNodeLister);
         RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, false, KeyCode_Invalid, ToggleNodeDisplay);
         
+        
         // Node Lister
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, false, KeyCode_Invalid, SearchListerNextItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, false, KeyCode_Invalid, SearchListerPrevItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, false, KeyCode_Invalid, SelectAndCloseSearchLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, false, KeyCode_Invalid, CloseSearchLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, false, KeyCode_Invalid, CloseSearchLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, false, KeyCode_Invalid, NodeListerNextItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, false, KeyCode_Invalid, NodeListerPrevItem);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, false, KeyCode_Invalid, SelectAndCloseNodeLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, false, KeyCode_Invalid, CloseNodeLister);
+        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, false, KeyCode_Invalid, CloseNodeLister);
         InitializeTextInputCommands(&State->NodeListerCommandRegistry, State->Permanent);
     }
 }
@@ -378,10 +379,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
-    { // MODES PLAYGROUND
-        State->Modes.ActiveModesCount = 0;
-    }
-    
     InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
     InitializeInputCommandRegistry(&State->NodeListerCommandRegistry, 128, State->Permanent);
     State->ActiveCommands = &State->InputCommandRegistry;
@@ -393,30 +390,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
     State->ActiveTextEntry.Buffer = MakeString(PushArray(State->Permanent, char, 256), 0, 256);
-    
-    { // Search Lister
-        State->SearchLister.SourceListCount = NodeSpecificationsCount;
-        State->SearchLister.SourceList = PushArray(State->Permanent, string, State->SearchLister.SourceListCount);
-        {
-            for (s32 i = 0; i < State->SearchLister.SourceListCount; i++)
-            {
-                State->SearchLister.SourceList[i] = MakeString(
-                    NodeSpecifications[i].Name,
-                    NodeSpecifications[i].NameLength);
-            }
-        }
-        State->SearchLister.Filter = State->ActiveTextEntry.Buffer;
-        
-        // TODO(Peter): This doesn't allow for using this search lister on different sources
-        //
-        // TODO(Peter): In general right now we support memory lifetimes of 1 frame, and permanent
-        //   we need to support some intermediate lifetimes like 
-        //   temporary multiframe operation like searching.
-        //
-        State->SearchLister.FilteredListMax = State->SearchLister.SourceListCount;
-        State->SearchLister.FilteredListCount = 0;
-        State->SearchLister.FilteredIndexLUT = PushArray(State->Permanent, s32, State->SearchLister.SourceListCount);
-    }
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -522,6 +495,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     InitializeEmptyString(&State->GeneralPurposeSearchString, PushArray(State->Permanent, char, 256), 256);
     
     ReloadStaticData(Context, GlobalDebugServices);
+    
+    { // MODES PLAYGROUND
+        State->Modes.ActiveModesCount = 0;
+        
+        s32 ModesMemorySize = Kilobytes(32);
+        u8* ModesMemory = PushSize(State->Permanent, ModesMemorySize);
+        InitMemoryArena(&State->Modes.Arena, ModesMemory, ModesMemorySize, 0);
+    }
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -540,7 +521,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
     GuiMouse.OldPos = Mouse.OldPos;
     GuiMouse.DeltaPos = Mouse.DeltaPos;
     GuiMouse.DownPos = Mouse.DownPos;
+    
     {
+        input_command_registry* ActiveCommands = State->ActiveCommands;
+        if (State->Modes.ActiveModesCount > 0)
+        {
+            ActiveCommands = &State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
+        }
+        
         ActivateQueuedCommandRegistry(State);
         
         // CommandQueue holds the list of commands, generated from the current InputCommandRegistry
@@ -553,7 +541,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
             
-            input_command* Command = FindExistingCommand(State->ActiveCommands, Event.Key, (key_code)0);
+            input_command* Command = FindExistingCommand(ActiveCommands, Event.Key, (key_code)0);
             if (Command)
             {
                 if (KeyTransitionedDown(Event))
@@ -885,32 +873,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         if (State->NodeRenderSettings.Display)
         {
             RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
-            
-            if (State->InterfaceShowNodeLister)
-            {
-                v2 TopLeft = State->NodeListMenuPosition;
-                v2 Dimension = v2{300, 30};
-                
-                if (State->ActiveTextEntry.Buffer.Length > 0)
-                {
-                    s32 x = 5;
-                }
-                
-                // Filter the lister
-                State->SearchLister.Filter = State->ActiveTextEntry.Buffer;
-                FilterSearchLister(&State->SearchLister);
-                
-                // Display Search Lister
-                search_lister_result NodeListerResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
-                                                                              MakeStringLiteral("Nodes List"),
-                                                                              State->SearchLister.SourceList,
-                                                                              State->SearchLister.FilteredIndexLUT,
-                                                                              State->SearchLister.FilteredListCount,
-                                                                              State->SearchLister.HotItem,
-                                                                              &State->ActiveTextEntry.Buffer,
-                                                                              State->ActiveTextEntry.CursorPosition,
-                                                                              State->Font, State->Interface, GuiMouse);
-            }
         }
         
         if (State->ColorPickerEditValue != 0)
@@ -922,6 +884,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
             {
                 State->ColorPickerEditValue = 0;
             }
+        }
+        
+        for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
+        {
+            operation_mode OperationMode = State->Modes.ActiveModes[m];
+            OperationMode.Render(State, RenderBuffer, OperationMode, GuiMouse);
         }
         
         DrawDebugInterface(RenderBuffer, 25,

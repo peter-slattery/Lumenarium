@@ -20,21 +20,12 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     
     r32 FramesPerSecond = 1.0f / DeltaTime;
     
-    string InputCommands = MakeStringLiteral("Default Input Registry");
-    string NodeListerCommands = MakeStringLiteral("Node Lister Input Registry");
-    string ActiveInputRegistry = {};
-    if (State->ActiveCommands == &State->InputCommandRegistry)
-    {
-        ActiveInputRegistry = InputCommands;
-    }
-    else if (State->ActiveCommands == &State->NodeListerCommandRegistry)
-    {
-        ActiveInputRegistry = NodeListerCommands;
-    }
-    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d",
+    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d",
            5, DeltaTime,
            (u32)FramesPerSecond,
-           State->Modes.ActiveModesCount);
+           State->Modes.ActiveModesCount,
+           State->Modes.Arena.CurrentRegion->Used,
+           State->Modes.Arena.CurrentRegion->Size);
     DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, WhiteV4);
     
     v2 ButtonDim = v2{200, (r32)NewLineYOffset(*Interface.Font) + 10};
