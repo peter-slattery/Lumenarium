@@ -1,21 +1,3 @@
-inline node_offset
-InvalidNodeOffset()
-{
-    node_offset Result = {};
-    
-    // NOTE(Peter): I'm not sure this is actually invalid. Should be. 
-    // If it is valid, it implies you can have offset from somewhere other than the beginning of
-    // the array, but where that point is isn't captured here so it seems like that shouldn't be 
-    // correct
-    Result.Offset = -1; 
-    Result.Node = 0; // NOTE(Peter): Pretty sure this is invalid tho ;)
-    
-    return Result;
-}
-
-#define IsValidOffset(off) ((off.Node != 0) && (off.Offset >= 0))
-#define IsInvalidOffset(off) ((off.Node == 0) && (off.Offset < 0))
-
 inline s32
 GetNodeMemorySize (interface_node Node)
 {
@@ -37,13 +19,6 @@ NodeIteratorIsValid(node_list_iterator Iter)
 {
     b32 Result = (Iter.At != 0); 
     Result &= (((u8*)Iter.At - Iter.List.Memory) < Iter.List.Used);
-    return Result;
-}
-
-internal s32
-GetCurrentOffset (node_list_iterator Iter)
-{
-    s32 Result = (u8*)Iter.At - Iter.List.Memory;
     return Result;
 }
 
@@ -74,6 +49,7 @@ AllocateNodeList (memory_arena* Storage, s32 Size)
     Result->Max = Size;
     Result->Used = 0;
     Result->Next = 0;
+    Result->HandleAccumulator = 0;
     return Result;
 }
 
@@ -93,6 +69,7 @@ PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v
     else
     {
         Result = (interface_node*)(List->Memory + List->Used);
+        Result->Handle = ++List->HandleAccumulator;
         Result->Name = MakeString((char*)(Result + 1), NameLength);
         
         Result->ConnectionsCount = ConnectionsCount;
@@ -111,9 +88,9 @@ internal void
 InitializeNodeConnection (node_connection* Connection, struct_member_type Type, b32 DirectionMask)
 {
     Connection->Type = Type;
-    Connection->UpstreamNodeOffset = -1;
+    Connection->UpstreamNodeHandle = 0;
     Connection->UpstreamNodePortIndex = -1;
-    Connection->DownstreamNodeOffset = -1;
+    Connection->DownstreamNodeHandle = 0;
     Connection->DownstreamNodePortIndex = -1;
     Connection->DirectionMask = DirectionMask;
     switch (Type)
@@ -192,20 +169,24 @@ PushOutputNodeOnList (node_list* List, v2 Min, memory_arena* Storage)
 }
 
 internal interface_node*
-GetNodeAtOffset (node_list* List, s32 Offset)
+GetNodeWithHandle(node_list* List, s32 Handle)
 {
     DEBUG_TRACK_FUNCTION;
+    interface_node* Result = 0;
     
-    interface_node* Node = 0;
-    if (Offset <= List->Used)
+    u8* At = List->Memory;
+    while(At - List->Memory < List->Used)
     {
-        Node = (interface_node*)(List->Memory + Offset);
+        interface_node* Node = (interface_node*)At;
+        if(Node->Handle == Handle)
+        {
+            Result = Node;
+            break;
+        }
+        At += GetNodeMemorySize(*Node);
     }
-    else if (List->Next)
-    {
-        Node = GetNodeAtOffset(List->Next, Offset - List->Max);
-    }
-    return Node;
+    
+    return Result;
 }
 
 internal rect
@@ -264,7 +245,8 @@ CalculateNodeOutputValueBounds (interface_node* Node, s32 Index, node_render_set
 internal rect
 GetBoundsOfPortConnectedToInput (interface_node* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
 {
-    interface_node* ConnectedNode = GetNodeAtOffset(NodeList, Node->Connections[PortIndex].UpstreamNodeOffset);
+    interface_node* ConnectedNode =
+        GetNodeWithHandle(NodeList, Node->Connections[PortIndex].UpstreamNodeHandle);
     rect Result = CalculateNodeOutputPortBounds(ConnectedNode, Node->Connections[PortIndex].UpstreamNodePortIndex, RenderSettings);
     return Result;
 }
@@ -272,7 +254,7 @@ GetBoundsOfPortConnectedToInput (interface_node* Node, s32 PortIndex, node_list*
 internal rect
 GetBoundsOfPortConnectedToOutput (interface_node* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
 {
-    interface_node* ConnectedNode = GetNodeAtOffset(NodeList, Node->Connections[PortIndex].DownstreamNodeOffset);
+    interface_node* ConnectedNode = GetNodeWithHandle(NodeList, Node->Connections[PortIndex].DownstreamNodeHandle);
     rect Result = CalculateNodeInputPortBounds(ConnectedNode, Node->Connections[PortIndex].DownstreamNodePortIndex, RenderSettings);
     return Result;
 }
@@ -291,7 +273,7 @@ internal node_interaction
 NewEmptyNodeInteraction ()
 {
     node_interaction Result = {};
-    Result.NodeOffset = -1;
+    Result.NodeHandle = 0;
     Result.InputPort = -1;
     Result.InputValue = -1;
     Result.OutputPort = -1;
@@ -300,10 +282,10 @@ NewEmptyNodeInteraction ()
 }
 
 internal node_interaction
-NewNodeInteraction (s32 NodeOffset, v2 MouseOffset)
+NewNodeInteraction (s32 NodeHandle, v2 MouseOffset)
 {
     node_interaction Result = {};
-    Result.NodeOffset = NodeOffset;
+    Result.NodeHandle = NodeHandle;
     Result.MouseOffset = MouseOffset;
     Result.InputPort = -1;
     Result.InputValue = -1;
@@ -315,7 +297,7 @@ NewNodeInteraction (s32 NodeOffset, v2 MouseOffset)
 internal b32
 IsDraggingNode (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.InputPort < 0 && Interaction.InputValue < 0) && 
                   (Interaction.OutputPort < 0 && Interaction.InputValue < 0));
     return Result;
@@ -324,7 +306,7 @@ IsDraggingNode (node_interaction Interaction)
 internal b32
 IsDraggingNodePort (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) &&
+    b32 Result = ((Interaction.NodeHandle > 0) &&
                   (Interaction.InputPort >= 0 || Interaction.OutputPort >= 0) &&
                   (Interaction.InputValue < 0 && Interaction.OutputValue < 0));
     return Result;
@@ -333,7 +315,7 @@ IsDraggingNodePort (node_interaction Interaction)
 internal b32
 IsDraggingNodeValue (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) &&
+    b32 Result = ((Interaction.NodeHandle > 0) &&
                   (Interaction.InputPort < 0 && Interaction.OutputPort < 0) &&
                   (Interaction.InputValue >= 0 || Interaction.OutputValue >= 0));
     return Result;
@@ -342,7 +324,7 @@ IsDraggingNodeValue (node_interaction Interaction)
 internal b32
 IsDraggingNodeInput (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.InputPort >= 0 || Interaction.InputValue >= 0) && 
                   (Interaction.OutputPort < 0 && Interaction.OutputValue < 0));
     return Result;
@@ -351,7 +333,7 @@ IsDraggingNodeInput (node_interaction Interaction)
 internal b32
 IsDraggingNodeInputPort (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.InputPort >= 0) && (Interaction.InputValue < 0) && 
                   (Interaction.OutputPort < 0 && Interaction.OutputValue < 0));
     return Result;
@@ -360,7 +342,7 @@ IsDraggingNodeInputPort (node_interaction Interaction)
 internal b32
 IsDraggingNodeInputValue (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.InputPort < 0) &&  (Interaction.InputValue >= 0) && 
                   (Interaction.OutputPort < 0 && Interaction.OutputValue < 0));
     return Result;
@@ -369,7 +351,7 @@ IsDraggingNodeInputValue (node_interaction Interaction)
 internal b32
 IsDraggingNodeOutput (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.OutputPort >= 0 || Interaction.OutputValue >= 0) && 
                   (Interaction.InputPort < 0 && Interaction.InputValue < 0));
     return Result;
@@ -378,7 +360,7 @@ IsDraggingNodeOutput (node_interaction Interaction)
 internal b32
 IsDraggingNodeOutputPort (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.OutputPort >= 0) && (Interaction.OutputValue < 0) && 
                   (Interaction.InputPort < 0 && Interaction.InputValue < 0));
     return Result;
@@ -387,7 +369,7 @@ IsDraggingNodeOutputPort (node_interaction Interaction)
 internal b32
 IsDraggingNodeOutputValue (node_interaction Interaction)
 {
-    b32 Result = ((Interaction.NodeOffset >= 0) && 
+    b32 Result = ((Interaction.NodeHandle > 0) && 
                   (Interaction.OutputPort < 0) &&  (Interaction.OutputValue >= 0) && 
                   (Interaction.InputPort < 0 && Interaction.InputValue < 0));
     return Result;
@@ -396,7 +378,7 @@ IsDraggingNodeOutputValue (node_interaction Interaction)
 internal b32
 ConnectionIsConnected (node_connection Connection)
 {
-    b32 Result = (Connection.UpstreamNodeOffset >= 0) || (Connection.DownstreamNodeOffset >= 0);
+    b32 Result = (Connection.UpstreamNodeHandle > 0) || (Connection.DownstreamNodeHandle > 0);
     return Result;
 }
 
@@ -410,7 +392,7 @@ ConnectionIsConnected (interface_node* Node, s32 Index)
 internal b32
 ConnectionHasUpstreamConnection (node_connection Connection)
 {
-    b32 Result = (Connection.UpstreamNodeOffset >= 0);
+    b32 Result = (Connection.UpstreamNodeHandle > 0);
     return Result;
 }
 
@@ -424,7 +406,7 @@ ConnectionHasUpstreamConnection (interface_node* Node, s32 Index)
 internal b32
 ConnectionHasDownstreamConnection (node_connection Connection)
 {
-    b32 Result = (Connection.DownstreamNodeOffset >= 0);
+    b32 Result = (Connection.DownstreamNodeHandle > 0);
     return Result;
 }
 
@@ -462,7 +444,7 @@ ConnectionIsOutput (interface_node* Node, s32 ConnectionIdx)
 }
 
 internal b32
-CheckForRecursion (node_list* NodeList, s32 LookForNode, interface_node* StartNode)
+CheckForRecursionWithHandle (node_list* NodeList, s32 LookForNodeHandle, interface_node* StartNode)
 {
     DEBUG_TRACK_FUNCTION;
     b32 Result = false;
@@ -471,16 +453,16 @@ CheckForRecursion (node_list* NodeList, s32 LookForNode, interface_node* StartNo
     {
         if (!ConnectionIsOutput(StartNode->Connections[Connection])) { continue; }
         
-        if (StartNode->Connections[Connection].DownstreamNodeOffset == LookForNode)
+        if (StartNode->Connections[Connection].DownstreamNodeHandle == LookForNodeHandle)
         {
             Result = true;
             break;
         }
         
-        if (StartNode->Connections[Connection].DownstreamNodeOffset >= 0)
+        if (StartNode->Connections[Connection].DownstreamNodeHandle > 0)
         {
-            interface_node* NextNode = GetNodeAtOffset(NodeList, StartNode->Connections[Connection].DownstreamNodeOffset);
-            Result = CheckForRecursion(NodeList, LookForNode, NextNode);
+            interface_node* NextNode = GetNodeWithHandle(NodeList, StartNode->Connections[Connection].DownstreamNodeHandle);
+            Result = CheckForRecursionWithHandle(NodeList, LookForNodeHandle, NextNode);
             if (Result) { break; }
         }
     }
@@ -499,48 +481,48 @@ PortTypesMatch (interface_node* UpstreamNode, s32 UpstreamNode_OutputPort, inter
 
 internal void
 ConnectNodes(node_list* NodeList, 
-             s32 UpstreamNodeOffset, s32 UpstreamNodePort, 
-             s32 DownstreamNodeOffset, s32 DownstreamNodePort)
+             s32 UpstreamNodeHandle, s32 UpstreamNodePort, 
+             s32 DownstreamNodeHandle, s32 DownstreamNodePort)
 {
-    interface_node* DownstreamNode = GetNodeAtOffset(NodeList, DownstreamNodeOffset);
-    if (!CheckForRecursion(NodeList, UpstreamNodeOffset, DownstreamNode))
+    interface_node* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
+    if (!CheckForRecursionWithHandle(NodeList, UpstreamNodeHandle, DownstreamNode))
     {
-        interface_node* UpstreamNode = GetNodeAtOffset(NodeList, UpstreamNodeOffset);
+        interface_node* UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
         if (PortTypesMatch(UpstreamNode, UpstreamNodePort, 
                            DownstreamNode, DownstreamNodePort))
         {
             Assert(ConnectionIsOutput(UpstreamNode, UpstreamNodePort));
             Assert(ConnectionIsInput(DownstreamNode, DownstreamNodePort));
             
-            DownstreamNode->Connections[DownstreamNodePort].UpstreamNodeOffset = UpstreamNodeOffset;
+            DownstreamNode->Connections[DownstreamNodePort].UpstreamNodeHandle = UpstreamNodeHandle;
             DownstreamNode->Connections[DownstreamNodePort].UpstreamNodePortIndex = UpstreamNodePort;
-            UpstreamNode->Connections[UpstreamNodePort].DownstreamNodeOffset = DownstreamNodeOffset;
+            UpstreamNode->Connections[UpstreamNodePort].DownstreamNodeHandle = DownstreamNodeHandle;
             UpstreamNode->Connections[UpstreamNodePort].DownstreamNodePortIndex = DownstreamNodePort;
         }
     }
 }
 
 internal void
-UnconnectNodes (node_list* NodeList, s32 DownstreamNodeOffset, s32 DownstreamNode_OutputPort, s32 UpstreamNodeOffset, s32 UpstreamNode_InputPort)
+UnconnectNodes (node_list* NodeList, 
+                s32 DownstreamNodeHandle, s32 DownstreamNode_OutputPort, s32 UpstreamNodeHandle,  s32 UpstreamNode_InputPort)
 {
-    interface_node* DownstreamNode = GetNodeAtOffset(NodeList, DownstreamNodeOffset);
-    interface_node* UpstreamNode = GetNodeAtOffset(NodeList, UpstreamNodeOffset);
+    interface_node* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
+    interface_node* UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
     
     Assert(ConnectionIsOutput(DownstreamNode, DownstreamNode_OutputPort));
     Assert(ConnectionIsInput(UpstreamNode, UpstreamNode_InputPort));
     
-    DownstreamNode->Connections[DownstreamNode_OutputPort].DownstreamNodeOffset = -1;
+    DownstreamNode->Connections[DownstreamNode_OutputPort].DownstreamNodeHandle = 0;
     DownstreamNode->Connections[DownstreamNode_OutputPort].DownstreamNodePortIndex = -1;
-    UpstreamNode->Connections[UpstreamNode_InputPort].UpstreamNodeOffset = -1;
+    UpstreamNode->Connections[UpstreamNode_InputPort].UpstreamNodeHandle = 0;
     UpstreamNode->Connections[UpstreamNode_InputPort].UpstreamNodePortIndex = -1;
 }
 
-internal node_offset
+internal interface_node*
 GetNodeUnderPoint (node_list* NodeList, v2 Point, node_render_settings RenderSettings)
 {
     DEBUG_TRACK_FUNCTION;
-    
-    node_offset Result = {0, -1};
+    interface_node* Result = 0;
     
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
@@ -549,8 +531,7 @@ GetNodeUnderPoint (node_list* NodeList, v2 Point, node_render_settings RenderSet
         rect NodeBounds = CalculateNodeBounds(Node, RenderSettings);
         if (PointIsInRect(Point, NodeBounds))
         {
-            Result.Node = Node;
-            Result.Offset = (s32)((u8*)NodeIter.At - NodeList->Memory);
+            Result = Node;
             break;
         }
         Next(&NodeIter);
@@ -560,11 +541,11 @@ GetNodeUnderPoint (node_list* NodeList, v2 Point, node_render_settings RenderSet
 }
 
 internal node_interaction
-GetNodeInteractionType (interface_node* ActiveNode, s32 NodeOffset, v2 MousePos, node_render_settings RenderSettings)
+GetNodeInteractionType (interface_node* ActiveNode, v2 MousePos, node_render_settings RenderSettings)
 {
     DEBUG_TRACK_FUNCTION;
     
-    node_interaction Interaction = NewNodeInteraction(NodeOffset, ActiveNode->Min - MousePos);
+    node_interaction Interaction = NewNodeInteraction(ActiveNode->Handle, ActiveNode->Min - MousePos);
     
     rect NodeBounds = CalculateNodeBounds(ActiveNode, RenderSettings);
     
@@ -633,18 +614,18 @@ TryConnectNodes (node_interaction Interaction, v2 Point, node_list* NodeList, no
     
     if (IsDraggingNodeOutput(Interaction))
     {
-        node_offset UpstreamNodeOffset = GetNodeUnderPoint(NodeList, Point, RenderSettings);
-        if (UpstreamNodeOffset.Node)
+        interface_node* UpstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
+        if (UpstreamNode)
         {
-            for (s32 Connection = 0; Connection < UpstreamNodeOffset.Node->ConnectionsCount; Connection++)
+            for (s32 Connection = 0; Connection < UpstreamNode->ConnectionsCount; Connection++)
             {
-                if (ConnectionIsOutput(UpstreamNodeOffset.Node, Connection)) { continue; }
+                if (ConnectionIsOutput(UpstreamNode, Connection)) { continue; }
                 
-                rect InputBounds = CalculateNodeInputPortBounds(UpstreamNodeOffset.Node, Connection, RenderSettings);
+                rect InputBounds = CalculateNodeInputPortBounds(UpstreamNode, Connection, RenderSettings);
                 if (PointIsInRect(Point, InputBounds))
                 {
-                    ConnectNodes(NodeList, Interaction.NodeOffset, Interaction.OutputPort,
-                                 UpstreamNodeOffset.Offset, Connection);
+                    ConnectNodes(NodeList, Interaction.NodeHandle, Interaction.OutputPort,
+                                 UpstreamNode->Handle, Connection);
                     break;
                 }
             }
@@ -652,19 +633,19 @@ TryConnectNodes (node_interaction Interaction, v2 Point, node_list* NodeList, no
     }
     else if (IsDraggingNodeInput(Interaction))
     {
-        node_offset DownstreamNodeOffset = GetNodeUnderPoint(NodeList, Point, RenderSettings);
-        if (DownstreamNodeOffset.Node)
+        interface_node* DownstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
+        if (DownstreamNode)
         {
-            for (s32 Connection = 0; Connection < DownstreamNodeOffset.Node->ConnectionsCount; Connection++)
+            for (s32 Connection = 0; Connection < DownstreamNode->ConnectionsCount; Connection++)
             {
-                if (ConnectionIsInput(DownstreamNodeOffset.Node, Connection)) { continue; }
+                if (ConnectionIsInput(DownstreamNode, Connection)) { continue; }
                 
-                rect OutputBounds = CalculateNodeOutputPortBounds(DownstreamNodeOffset.Node, Connection, RenderSettings);
+                rect OutputBounds = CalculateNodeOutputPortBounds(DownstreamNode, Connection, RenderSettings);
                 if (PointIsInRect(Point, OutputBounds))
                 {
                     ConnectNodes(NodeList, 
-                                 DownstreamNodeOffset.Offset, Connection,
-                                 Interaction.NodeOffset, Interaction.InputPort);
+                                 DownstreamNode->Handle, Connection,
+                                 Interaction.NodeHandle, Interaction.InputPort);
                     break;
                 }
             }
@@ -685,10 +666,10 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
         {
             if (!ConnectionIsOutput(Node, Connection)) { continue; }
             
-            s32 ConnectionOffset = Node->Connections[Connection].DownstreamNodeOffset;
-            if (ConnectionOffset >= 0)
+            s32 ConnectionHandle = Node->Connections[Connection].DownstreamNodeHandle;
+            if (ConnectionHandle > 0)
             {
-                interface_node* ConnectedNode = GetNodeAtOffset(NodeList, ConnectionOffset);
+                interface_node* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
                 v2 CurrPos = ConnectedNode->Min;
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all downstream component so it doesn't turn around and try
@@ -704,10 +685,10 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
         {
             if (!ConnectionIsInput(Node, Connection)) { continue; }
             
-            s32 ConnectionOffset = Node->Connections[Connection].UpstreamNodeOffset;
-            if (ConnectionOffset >= 0)
+            s32 ConnectionHandle = Node->Connections[Connection].UpstreamNodeHandle;
+            if (ConnectionHandle > 0)
             {
-                interface_node* ConnectedNode = GetNodeAtOffset(NodeList, ConnectionOffset);
+                interface_node* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
                 v2 CurrPos = ConnectedNode->Min;
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all upstream component so it doesn't turn around and try
@@ -727,7 +708,7 @@ UpdateDraggingNode (v2 MousePos, node_interaction Interaction, node_list* NodeLi
     
     if (IsDraggingNode(Interaction))
     {
-        interface_node* ActiveNode = GetNodeAtOffset(NodeList, Interaction.NodeOffset);
+        interface_node* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         PlaceNode(NodeList, ActiveNode, MousePos + Interaction.MouseOffset, Interaction.Flags);
     }
 }
@@ -739,7 +720,7 @@ UpdateDraggingNodePort (v2 MousePos, node_interaction Interaction, node_list* No
     
     if (IsDraggingNodePort(Interaction))
     {
-        interface_node* ActiveNode = GetNodeAtOffset(NodeList, Interaction.NodeOffset);
+        interface_node* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         rect PortBounds = {};
         if (IsDraggingNodeInput(Interaction))
         {
@@ -763,7 +744,7 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
     if(IsDraggingNodeValue(Interaction))
     {
         v2 MouseDelta = MousePos - LastFrameMousePos;
-        interface_node* Node = GetNodeAtOffset(NodeList, Interaction.NodeOffset);
+        interface_node* Node = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         
         node_connection* Connection = 0;
         if (IsDraggingNodeInputValue(Interaction))
@@ -819,7 +800,7 @@ UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList,
             
             if (ConnectionHasUpstreamConnection(*Connection))
             {
-                interface_node* UpstreamNode = GetNodeAtOffset(NodeList, Connection->UpstreamNodeOffset);
+                interface_node* UpstreamNode = GetNodeWithHandle(NodeList, Connection->UpstreamNodeHandle);
                 if (!UpstreamNode->UpdatedThisFrame)
                 {
                     UpdateNodeCalculation(UpstreamNode, NodeList, Permanent, Transient, LEDs, ColorsInit, LEDCount, DeltaTime);

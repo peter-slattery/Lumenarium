@@ -413,18 +413,17 @@ BeginDraggingNode(app_state* State, node_interaction Interaction)
 
 struct node_view_operation_state
 {
-    node_offset SelectedNodeOffset;
+    s32 SelectedNodeHandle;
 };
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    node_offset NodeOffset = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
-    if (NodeOffset.Node)
+    interface_node* Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
+    if (Node)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(NodeOffset.Node, 
-                                                                 NodeOffset.Offset, 
+        node_interaction NewInteraction = GetNodeInteractionType(Node, 
                                                                  Mouse.Pos, 
                                                                  State->NodeRenderSettings);
         if (IsDraggingNodePort(NewInteraction))
@@ -440,13 +439,13 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
         }
         else // IsDraggingNode
         {
-            OpState->SelectedNodeOffset = NodeOffset;
+            OpState->SelectedNodeHandle = Node->Handle;
             BeginDraggingNode(State, NewInteraction);
         }
     }
     else
     {
-        OpState->SelectedNodeOffset = InvalidNodeOffset();
+        OpState->SelectedNodeHandle = 0;
     }
 }
 
@@ -454,16 +453,15 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    node_offset NodeOffset = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
-    if (NodeOffset.Node)
+    interface_node* Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
+    if (Node)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(NodeOffset.Node, 
-                                                                 NodeOffset.Offset, 
+        node_interaction NewInteraction = GetNodeInteractionType(Node, 
                                                                  Mouse.Pos, 
                                                                  State->NodeRenderSettings);
         if(IsDraggingNodeValue(NewInteraction))
         {
-            node_connection* Connection = NodeOffset.Node->Connections + NewInteraction.InputValue;
+            node_connection* Connection = Node->Connections + NewInteraction.InputValue;
             struct_member_type InputType = Connection->Type;
             
             if (InputType == MemberType_r32)
@@ -484,6 +482,10 @@ OPERATION_RENDER_PROC(RenderNodeView)
     
     DEBUG_TRACK_FUNCTION;
     
+    MakeStringBuffer(NodeHeaderBuffer, 128);
+    
+    interface_node* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
+    
     node_list_iterator NodeIter = GetNodeListIterator(*State->NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
@@ -492,14 +494,17 @@ OPERATION_RENDER_PROC(RenderNodeView)
         rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
         b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);
         
-        if (Node == OpState->SelectedNodeOffset.Node)
+        if (Node == SelectedNode)
         {
             PushRenderQuad2D(RenderBuffer, NodeBounds.Min - v2{2, 2}, NodeBounds.Max + v2{2, 2}, WhiteV4);
         }
         
         PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
         
-        DrawString(RenderBuffer, Node->Name, State->NodeRenderSettings.Font,
+        // TODO(Peter): This is just for debug purposes. We can remove and go back to just having
+        // Node->Name in DrawString
+        PrintF(&NodeHeaderBuffer, "%.*s: %d", Node->Name.Length, Node->Name.Memory, Node->Handle);
+        DrawString(RenderBuffer, NodeHeaderBuffer, State->NodeRenderSettings.Font,
                    v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
                    WhiteV4);
         
@@ -578,7 +583,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
 FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
-    if (IsValidOffset(OpState->SelectedNodeOffset))
+    if (OpState->SelectedNodeHandle > 0)
     {
         
     }
@@ -589,12 +594,19 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
+FOLDHAUS_INPUT_COMMAND_PROC(DEBUGGetNode)
+{
+    interface_node* Node = GetNodeWithHandle(State->NodeList, 3);
+    s32 x = 5;
+}
+
 input_command NodeViewCommands [] = {
     { KeyCode_Tab, KeyCode_Invalid, Command_Began, CloseNodeView},
     { KeyCode_A, KeyCode_Invalid, Command_Began, OpenNodeLister},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, NodeViewBeginMouseDragInteraction},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, NodeViewBeginMouseSelectInteraction},
     { KeyCode_X, KeyCode_Invalid, Command_Began, NodeViewDeleteNode},
+    { KeyCode_B, KeyCode_Invalid, Command_Began, DEBUGGetNode},
 };
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
@@ -605,7 +617,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
     node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
                                                               &State->Modes, 
                                                               node_view_operation_state);
-    OpState->SelectedNodeOffset = InvalidNodeOffset();
+    OpState->SelectedNodeHandle = 0;
 }
 
 ////////////////////////////////////////

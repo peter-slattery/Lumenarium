@@ -53,11 +53,10 @@ struct node_led_color_connection
 struct node_connection
 {
     struct_member_type Type;
-    // NOTE(Peter): Offset from the head of the node list that the connected node
-    // is stored at. See GetNodeAtOffset for example of how this is used
-    s32 UpstreamNodeOffset;
+    
+    s32 UpstreamNodeHandle;
     s32 UpstreamNodePortIndex;
-    s32 DownstreamNodeOffset;
+    s32 DownstreamNodeHandle;
     s32 DownstreamNodePortIndex;
     b32 DirectionMask;
     
@@ -75,6 +74,7 @@ struct node_connection
 #define NODE_CONNECTIONS_MAX 8
 struct interface_node
 {
+    s32 Handle;
     string Name;
     
     v2 Min, Dim;
@@ -95,12 +95,8 @@ struct node_list
     s32 Used;
     
     node_list* Next;
-};
-
-struct node_offset
-{
-    interface_node* Node;
-    s32 Offset;
+    
+    s32 HandleAccumulator;
 };
 
 struct node_list_iterator
@@ -117,7 +113,7 @@ enum node_interaction_flag
 
 struct node_interaction
 {
-    s32 NodeOffset;
+    s32 NodeHandle;
     v2  MouseOffset;
     b32 Flags;
     
