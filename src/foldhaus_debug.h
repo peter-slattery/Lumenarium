@@ -48,7 +48,9 @@ struct debug_services
     
     debug_timing_proc* GetWallClock;
     
-    debug_histogram_entry ScopeHistogram[SCOPE_HISTOGRAM_SIZE];
+    debug_histogram_entry* ScopeHistogramUnsorted;
+    debug_histogram_entry* ScopeHistogramSorted;
+    
     s32 ScopeHistogramUsed;
 };
 
@@ -70,6 +72,9 @@ InitDebugServices (debug_services* Services, u8* Memory, s32 MemorySize, s32 Tra
     Services->Interface.RenderSculpture = true;
     Services->Interface.SendSACNData = false;
     
+    Services->ScopeHistogramUnsorted = PushArray(&Services->DebugStorage, debug_histogram_entry, SCOPE_HISTOGRAM_SIZE);
+    Services->ScopeHistogramSorted = PushArray(&Services->DebugStorage, debug_histogram_entry, SCOPE_HISTOGRAM_SIZE);
+    
     Services->ScopeHistogramUsed = 0;
 }
 
@@ -79,7 +84,7 @@ DEBUGFindScopeHistogram (debug_services* Services, string Name)
     s32 Result = -1;
     for (s32 i = 0; i < SCOPE_HISTOGRAM_SIZE; i++)
     {
-        if (StringsEqual(Services->ScopeHistogram[i].ScopeName, Name))
+        if (StringsEqual(Services->ScopeHistogramUnsorted[i].ScopeName, Name))
         {
             Result = i;
             break;
@@ -95,7 +100,7 @@ DEBUGAddScopeHistogram (debug_services* Services, scope_time_record Record)
     
     s32 Result = Services->ScopeHistogramUsed++;
     
-    debug_histogram_entry* Entry = Services->ScopeHistogram + Result;
+    debug_histogram_entry* Entry = Services->ScopeHistogramUnsorted + Result;
     Entry->ScopeName = MakeString(Entry->ScopeName_, 256);
     
     Entry->CurrentFrame = 0;
@@ -112,7 +117,7 @@ DEBUGAddScopeHistogram (debug_services* Services, scope_time_record Record)
 internal void
 DEBUGRecordScopeInHistogram (debug_services* Services, s32 Index, scope_time_record Record)
 {
-    debug_histogram_entry* Entry = Services->ScopeHistogram + Index;
+    debug_histogram_entry* Entry = Services->ScopeHistogramUnsorted + Index;
     s32 FrameIndex = Entry->CurrentFrame;
     if (FrameIndex >= 0 && FrameIndex < HISTOGRAM_DEPTH)
     {
@@ -139,6 +144,43 @@ DEBUGCacheScopeHistogramValues (debug_histogram_entry* Histogram)
 }
 
 internal void
+DEBUGSortedHistogramInsert(debug_histogram_entry Source, debug_histogram_entry* DestList, s32 DestCount, s32 Max)
+{
+    s32 CurrentFrame0 = Source.CurrentFrame;
+    s32 V0 = Source.Average_Cycles; //PerFrame_Cycles[CurrentFrame0];
+    if (DestCount > 0)
+    {
+        for (s32 i = DestCount - 1; i >= 0; i--)
+        {
+            s32 CurrentFrame1 = DestList[i].CurrentFrame;
+            s32 V1 = DestList[i].Average_Cycles; //PerFrame_Cycles[CurrentFrame1];
+            if (V0 < V1)
+            {
+                DestList[i + 1] = Source;
+                break;
+            }
+            else
+            {
+                DestList[i + 1] = DestList[i];
+            }
+        }
+    }
+    else
+    {
+        DestList[0] = Source;
+    }
+}
+
+internal void
+DEBUGSortHistogram(debug_histogram_entry* Source, debug_histogram_entry* Dest, s32 Count, s32 Max)
+{
+    for (s32 i = 0; i < Count; i++)
+    {
+        DEBUGSortedHistogramInsert(Source[i], Dest, i, Max);
+    }
+}
+
+internal void
 DEBUGCollateScopeRecords (debug_services* Services)
 {
     for (s32 i = 0; i < Services->TrackedScopesCount; i++)
@@ -155,8 +197,13 @@ DEBUGCollateScopeRecords (debug_services* Services)
     
     for (s32 h = 0; h < Services->ScopeHistogramUsed; h++)
     {
-        DEBUGCacheScopeHistogramValues(Services->ScopeHistogram + h);
+        DEBUGCacheScopeHistogramValues(Services->ScopeHistogramUnsorted + h);
     }
+    
+    DEBUGSortHistogram(Services->ScopeHistogramUnsorted, 
+                       Services->ScopeHistogramSorted, 
+                       Services->ScopeHistogramUsed,
+                       SCOPE_HISTOGRAM_SIZE);
 }
 
 internal void
@@ -169,14 +216,14 @@ EndDebugFrame (debug_services* Services)
     
     for (s32 i = 0; i < Services->ScopeHistogramUsed; i++)
     {
-        s32 NewFrame = Services->ScopeHistogram[i].CurrentFrame + 1;
+        s32 NewFrame = Services->ScopeHistogramUnsorted[i].CurrentFrame + 1;
         if (NewFrame >= HISTOGRAM_DEPTH)
         {
             NewFrame = 0;
         }
-        Services->ScopeHistogram[i].CurrentFrame = NewFrame;
-        Services->ScopeHistogram[i].PerFrame_Cycles[NewFrame] = 0;
-        Services->ScopeHistogram[i].PerFrame_CallCount[NewFrame] = 0;
+        Services->ScopeHistogramUnsorted[i].CurrentFrame = NewFrame;
+        Services->ScopeHistogramUnsorted[i].PerFrame_Cycles[NewFrame] = 0;
+        Services->ScopeHistogramUnsorted[i].PerFrame_CallCount[NewFrame] = 0;
     }
 }
 

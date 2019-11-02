@@ -6,7 +6,6 @@
 #include "foldhaus_network_ordering.h"
 #include "foldhaus_sacn.h"
 
-#define LED_BUFFER_SIZE 256
 struct led
 {
     s32 Index;

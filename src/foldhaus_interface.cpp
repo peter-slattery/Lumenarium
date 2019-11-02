@@ -413,17 +413,18 @@ BeginDraggingNode(app_state* State, node_interaction Interaction)
 
 struct node_view_operation_state
 {
+    node_offset SelectedNodeOffset;
 };
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    node_offset Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
-    if (Node.Node)
+    node_offset NodeOffset = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
+    if (NodeOffset.Node)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(Node.Node, 
-                                                                 Node.Offset, 
+        node_interaction NewInteraction = GetNodeInteractionType(NodeOffset.Node, 
+                                                                 NodeOffset.Offset, 
                                                                  Mouse.Pos, 
                                                                  State->NodeRenderSettings);
         if (IsDraggingNodePort(NewInteraction))
@@ -439,8 +440,13 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
         }
         else // IsDraggingNode
         {
+            OpState->SelectedNodeOffset = NodeOffset;
             BeginDraggingNode(State, NewInteraction);
         }
+    }
+    else
+    {
+        OpState->SelectedNodeOffset = InvalidNodeOffset();
     }
 }
 
@@ -475,7 +481,108 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
 OPERATION_RENDER_PROC(RenderNodeView)
 {
     node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
-    RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
+    
+    DEBUG_TRACK_FUNCTION;
+    
+    node_list_iterator NodeIter = GetNodeListIterator(*State->NodeList);
+    while (NodeIteratorIsValid(NodeIter))
+    {
+        interface_node* Node = NodeIter.At;
+        Node->Min = Node->MinAfterUpdate;
+        
+        rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
+        b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);
+        
+        if (Node == OpState->SelectedNodeOffset.Node)
+        {
+            PushRenderQuad2D(RenderBuffer, NodeBounds.Min - v2{2, 2}, NodeBounds.Max + v2{2, 2}, WhiteV4);
+        }
+        
+        PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
+        
+        DrawString(RenderBuffer, Node->Name, State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
+                   v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
+                   WhiteV4);
+        
+        for (s32 Connection = 0; Connection < Node->ConnectionsCount; Connection++)
+        {
+            v4 PortColor = State->NodeRenderSettings.PortColors[Node->Connections[Connection].Type];
+            
+            // Inputs
+            if (ConnectionIsInput(Node, Connection))
+            {
+                rect PortBounds = CalculateNodeInputPortBounds(Node, Connection, State->NodeRenderSettings);
+                DrawPort(RenderBuffer, PortBounds, PortColor);
+                
+                //
+                // TODO(Peter): I don't like excluding OutputNode, feels too much like a special case
+                // but I don't want to get in to the meta programming right now. 
+                // We should just generate a spec and struct member types for NodeType_OutputNode
+                //
+                // :ExcludingOutputNodeSpecialCase
+                //
+                if (Node->Type != NodeType_OutputNode && DrawFields)
+                {
+                    node_specification Spec = NodeSpecifications[Node->Type - 1];
+                    node_struct_member Member = Spec.MemberList[Connection];
+                    DrawString(RenderBuffer, MakeString(Member.Name), 
+                               State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
+                               v2{PortBounds.Min.x - 32, PortBounds.Min.y}, WhiteV4);
+                }
+                
+                rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
+                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
+                
+                // NOTE(Peter): its way easier to draw the connection on the input port b/c its a 1:1 relationship,
+                // whereas output ports might have many connections, they really only know about the most recent one
+                // Not sure if this is a problem. We mostly do everything backwards here, starting at the 
+                // most downstream node and working back up to find dependencies.
+                if (ConnectionHasUpstreamConnection(Node, Connection))
+                {
+                    rect ConnectedPortBounds = GetBoundsOfPortConnectedToInput(Node, Connection, State->NodeList, State->NodeRenderSettings);
+                    v2 InputCenter = CalculateRectCenter(PortBounds);
+                    v2 OutputCenter = CalculateRectCenter(ConnectedPortBounds);
+                    PushRenderLine2D(RenderBuffer, OutputCenter, InputCenter, 1, WhiteV4);
+                }
+            }
+            
+            // Outputs
+            if (ConnectionIsOutput(Node, Connection))
+            {
+                rect PortBounds = CalculateNodeOutputPortBounds(Node, Connection, State->NodeRenderSettings);
+                DrawPort(RenderBuffer, PortBounds, PortColor);
+                
+                if (DrawFields)
+                {
+                    node_specification Spec = NodeSpecifications[Node->Type - 1];
+                    node_struct_member Member = Spec.MemberList[Connection];
+                    DrawString(RenderBuffer, MakeString(Member.Name), 
+                               State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
+                               v2{PortBounds.Max.x + 8, PortBounds.Min.y}, WhiteV4);
+                }
+                
+                rect ValueBounds = CalculateNodeOutputValueBounds(Node, Connection, State->NodeRenderSettings);
+                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
+            }
+            
+            for (s32 Button = 0; Button < 3; Button++)
+            {
+                rect ButtonRect = CalculateNodeDragHandleBounds(NodeBounds, Button, State->NodeRenderSettings);
+                PushRenderQuad2D(RenderBuffer, ButtonRect.Min, ButtonRect.Max, DragButtonColors[Button]);
+            }
+        }
+        
+        Next(&NodeIter);
+    }
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
+{
+    /*node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
+    if (IsValidOffset(OpState->SelectedNodeOffset))
+    {
+    
+    }*/
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
@@ -488,6 +595,7 @@ input_command NodeViewCommands [] = {
     { KeyCode_A, KeyCode_Invalid, Command_Began, OpenNodeLister},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, NodeViewBeginMouseDragInteraction},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, NodeViewBeginMouseSelectInteraction},
+    { KeyCode_X, KeyCode_Invalid, Command_Began, NodeViewDeleteNode},
 };
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
@@ -498,6 +606,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
     node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
                                                               &State->Modes, 
                                                               node_view_operation_state);
+    OpState->SelectedNodeOffset = InvalidNodeOffset();
 }
 
 ////////////////////////////////////////

@@ -20,6 +20,7 @@ x decided I don't like storing NodeRenderSettings in each operation mode. Probab
 /Debug
 x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 
 x    Keep an eye out.
+x Sort Scope Tracking
 
 Switch To Nodes
 x basic node elements

@@ -533,22 +533,22 @@ INT NCmdShow
     // Set up worker threads
     //
     
-    const s32 WorkerThreadCount = 2;
+    const s32 WorkerThreadCount = PLATFORM_THREAD_COUNT;
     worker_thread_info* WorkerThreads = 0;
-    if (WorkerThreadCount > 0)
+    if (PLATFORM_THREAD_COUNT > 0)
     {
-        WorkerThreads = (worker_thread_info*)malloc(sizeof(worker_thread_info) * WorkerThreadCount);
+        WorkerThreads = (worker_thread_info*)malloc(sizeof(worker_thread_info) * PLATFORM_THREAD_COUNT);
     }
     
     work_queue WorkQueue = {};
-    WorkQueue.SemaphoreHandle = CreateSemaphoreEx(0, 0, WorkerThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    WorkQueue.SemaphoreHandle = CreateSemaphoreEx(0, 0, PLATFORM_THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
     WorkQueue.JobsMax = 256;
     WorkQueue.NextJobIndex = 0;
     WorkQueue.PushWorkOnQueue = Win32PushWorkOnQueue;
     WorkQueue.DoQueueWorkUntilDone = Win32DoQueueWorkUntilDone;
     WorkQueue.ResetWorkQueue = ResetWorkQueue;
     
-    for (s32 i = 0; i < WorkerThreadCount; i++)
+    for (s32 i = 0; i < PLATFORM_THREAD_COUNT; i++)
     {
         // ID = 0 is reserved for this thread
         WorkerThreads[i].ID = i + 1;
@@ -670,7 +670,7 @@ INT NCmdShow
         CleanupResult = WSACleanup();
     }while(CleanupResult == SOCKET_ERROR);
     
-    for (s32 Thread = 0; Thread < WorkerThreadCount; Thread++)
+    for (s32 Thread = 0; Thread < PLATFORM_THREAD_COUNT; Thread++)
     {
         TerminateThread(WorkerThreads[Thread].Handle, 0);
     }

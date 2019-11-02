@@ -119,22 +119,22 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
         {
             v2 Register = v2{ColumnsStartX, TopOfScreenLinePos.y};
             
-            s32 CurrentFrame = GlobalDebugServices->ScopeHistogram[i].CurrentFrame - 1;
+            s32 CurrentFrame = GlobalDebugServices->ScopeHistogramSorted[i].CurrentFrame - 1;
             if (CurrentFrame < 0) { CurrentFrame = HISTOGRAM_DEPTH - 1; }
             
-            u64 CyclesPerHit = GlobalDebugServices->ScopeHistogram[i].PerFrame_Cycles[CurrentFrame];
+            u64 CyclesPerHit = GlobalDebugServices->ScopeHistogramSorted[i].PerFrame_Cycles[CurrentFrame];
             r32 SecondsPerHit = (r32)CyclesPerHit / (r32)GlobalDebugServices->PerformanceCountFrequency;
             
             // Column 1
             PrintF(&DebugString, "%.*s",
-                   GlobalDebugServices->ScopeHistogram[i].ScopeName.Length,
-                   GlobalDebugServices->ScopeHistogram[i].ScopeName.Memory);
+                   GlobalDebugServices->ScopeHistogramSorted[i].ScopeName.Length,
+                   GlobalDebugServices->ScopeHistogramSorted[i].ScopeName.Memory);
             r32 ColumnOneX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
                                         Register, WhiteV4).x;
             Register.x += GSMax(ColumnOneX - Register.x, 250.f);
             
             // Column 2
-            PrintF(&DebugString, "%d hits", GlobalDebugServices->ScopeHistogram[i].PerFrame_CallCount[CurrentFrame]);
+            PrintF(&DebugString, "%d hits", GlobalDebugServices->ScopeHistogramSorted[i].PerFrame_CallCount[CurrentFrame]);
             r32 ColumnTwoX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
                                         Register, WhiteV4).x;
             Register.x += GSMax(ColumnTwoX - Register.x, 150.f);

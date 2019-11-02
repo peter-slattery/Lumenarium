@@ -57,6 +57,8 @@ typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
 
 // Worker Threads
 
+#define PLATFORM_THREAD_COUNT 4
+
 #define THREADED_WORK_PROC(name) void name(s32 ThreadID, void* Data)
 typedef THREADED_WORK_PROC(threaded_work_proc);
 

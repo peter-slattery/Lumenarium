@@ -8,27 +8,32 @@ Hardening
 - Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel
 update functions
 - memory visualization
+-  - Log memory allocations
 - separate rendering thread
 - cache led positions. Only update if they are moving
 -  - shift drag to 10x drag speed
-- select nodes -> delete nodes
-- remove node connections
 
 UI Improvements
 - highlight node field under active edit
-- print node field names on hover or on the node
+- draw cursor in node field under active edit
+x print node field names on hover or on the node
+- Mouse Held Commands
+- Actual cursor states
+
+API Improvements
+- Clean up DrawString... good lord
+- Add Text Alignment to DrawString
+- Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
+-    - Cant we just calculate this at render time?
 
 Application
 - More efficient HSV <-> RGB
-
 - Save and load a session
--  - Serialize Nodes
 - Don't render if the window isn't visible
 
 Development
 - Fix your scope time tracker to account for threads.
 - Nest scope times so you can see totals/dig in
-- Log memory allocations
 
 Interface
 - fullscreen
@@ -40,10 +45,11 @@ Interface
 - Update the text system - use system fonts
 
 Switch To Nodes
-- evaluation step (one node at a time)
 - selector node (has a list of connections that it can switch between)
-- serialize
 - delete nodes
+- remove node connections
+- Serialize Nodes
+- evaluation step (one node at a time)
 
 Structure
 - motion

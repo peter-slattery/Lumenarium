@@ -625,7 +625,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         DEBUG_IF(GlobalDebugServices->Interface.RenderSculpture) // DebugServices RenderSculpture Toggle
         {
-            s32 JobsNeeded = IntegerDivideRoundUp(State->TotalLEDsCount, LED_BUFFER_SIZE);
+            s32 JobsNeeded = PLATFORM_THREAD_COUNT;
+            s32 LEDBufferSize = IntegerDivideRoundUp(State->TotalLEDsCount, JobsNeeded);
             
             draw_leds_job_data* JobDataBank = PushArray(State->Transient, draw_leds_job_data, JobsNeeded);
             s32 JobDataBankUsed = 0;
@@ -645,7 +646,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 JobData->LEDs = LEDBuffer->LEDs;
                 JobData->Colors = LEDBuffer->Colors;
                 JobData->StartIndex = LEDBufferLEDsAssignedToJobs;
-                JobData->OnePastLastIndex = GSMin(JobData->StartIndex + LED_BUFFER_SIZE, LEDBuffer->Count);
+                JobData->OnePastLastIndex = GSMin(JobData->StartIndex + LEDBufferSize, LEDBuffer->Count);
                 
                 LEDBufferLEDsAssignedToJobs += JobData->OnePastLastIndex - JobData->StartIndex;
                 

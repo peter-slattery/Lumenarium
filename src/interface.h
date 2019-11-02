@@ -18,6 +18,8 @@ DrawCharacter (render_quad_batch_constructor* BatchConstructor, char C, bitmap_f
     return v2{Position.x + CodepointInfo.Width * FontScale, Position.y};
 }
 
+// TODO(Peter): Why are we passing in both the bitmap_font and the point size when everywhere, we just 
+// use the native point size of the font???
 internal v2
 DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Font, s32 PointSize, v2 Position, v4 Color)
 {

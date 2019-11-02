@@ -1,3 +1,20 @@
+inline node_offset
+InvalidNodeOffset()
+{
+    node_offset Result = {};
+    
+    // NOTE(Peter): I'm not sure this is actually invalid. Should be. 
+    // If it is valid, it implies you can have offset from somewhere other than the beginning of
+    // the array, but where that point is isn't captured here so it seems like that shouldn't be 
+    // correct
+    Result.Offset = -1; 
+    Result.Node = 0; // NOTE(Peter): Pretty sure this is invalid tho ;)
+    
+    return Result;
+}
+
+#define IsValidOffset(off) ((off.Node != 0) && (off.Offset >= 0))
+#define IsInvalidOffset(off) ((off.Node == 0) && (off.Offset < 0))
 
 inline s32
 GetNodeMemorySize (interface_node Node)
@@ -136,6 +153,7 @@ CalculateNodeHeight (s32 Members)
 internal void
 PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, memory_arena* Storage)
 {
+    // :NodesDontNeedToKnowTheirBounds
     r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength);
     interface_node* Node = PushNodeOnList(List, 
                                           Spec.NameLength, 
@@ -1043,72 +1061,6 @@ internal void
 DrawPort (render_command_buffer* RenderBuffer, rect Bounds, v4 Color)
 {
     PushRenderQuad2D(RenderBuffer, Bounds.Min, Bounds.Max, Color);
-}
-
-internal void
-RenderNodeList (node_list* NodeList, node_render_settings RenderSettings, render_command_buffer* RenderBuffer)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
-    while (NodeIteratorIsValid(NodeIter))
-    {
-        interface_node* Node = NodeIter.At;
-        Node->Min = Node->MinAfterUpdate;
-        
-        rect NodeBounds = CalculateNodeBounds(Node, RenderSettings);
-        
-        PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
-        
-        DrawString(RenderBuffer, Node->Name, RenderSettings.Font, RenderSettings.Font->PixelHeight,
-                   v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (RenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
-                   WhiteV4);
-        
-        for (s32 Connection = 0; Connection < Node->ConnectionsCount; Connection++)
-        {
-            // Inputs
-            if (ConnectionIsInput(Node, Connection))
-            {
-                rect PortBounds = CalculateNodeInputPortBounds(Node, Connection, RenderSettings);
-                v4 PortColor = RenderSettings.PortColors[Node->Connections[Connection].Type];
-                DrawPort(RenderBuffer, PortBounds, PortColor);
-                
-                rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, RenderSettings);
-                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], RenderSettings.Font);
-                
-                // NOTE(Peter): its way easier to draw the connection on the input port b/c its a 1:1 relationship,
-                // whereas output ports might have many connections, they really only know about the most recent one
-                // Not sure if this is a problem. We mostly do everything backwards here, starting at the 
-                // most downstream node and working back up to find dependencies.
-                if (ConnectionHasUpstreamConnection(Node, Connection))
-                {
-                    rect ConnectedPortBounds = GetBoundsOfPortConnectedToInput(Node, Connection, NodeList, RenderSettings);
-                    v2 InputCenter = CalculateRectCenter(PortBounds);
-                    v2 OutputCenter = CalculateRectCenter(ConnectedPortBounds);
-                    PushRenderLine2D(RenderBuffer, OutputCenter, InputCenter, 1, WhiteV4);
-                }
-            }
-            
-            // Outputs
-            if (ConnectionIsOutput(Node, Connection))
-            {
-                rect PortBounds = CalculateNodeOutputPortBounds(Node, Connection, RenderSettings);
-                v4 PortColor = RenderSettings.PortColors[Node->Connections[Connection].Type];
-                DrawPort(RenderBuffer, PortBounds, PortColor);
-                
-                rect ValueBounds = CalculateNodeOutputValueBounds(Node, Connection, RenderSettings);
-                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], RenderSettings.Font);
-            }
-            
-            for (s32 Button = 0; Button < 3; Button++)
-            {
-                rect ButtonRect = CalculateNodeDragHandleBounds(NodeBounds, Button, RenderSettings);
-                PushRenderQuad2D(RenderBuffer, ButtonRect.Min, ButtonRect.Max, DragButtonColors[Button]);
-            }
-        }
-        
-        Next(&NodeIter);
-    }
 }
 
 internal void
