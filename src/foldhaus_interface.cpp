@@ -578,11 +578,11 @@ OPERATION_RENDER_PROC(RenderNodeView)
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
 {
-    /*node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
+    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     if (IsValidOffset(OpState->SelectedNodeOffset))
     {
-    
-    }*/
+        
+    }
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
