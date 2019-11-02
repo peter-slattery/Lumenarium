@@ -8,6 +8,8 @@ struct operation_mode
     input_command_registry Commands;
     operation_render_proc* Render;
     u8* OpStateMemory;
+    
+    string Name;
 };
 
 #define OPERATION_MODES_MAX 32
@@ -23,13 +25,38 @@ struct operation_mode_system
 };
 
 internal operation_mode*
-ActivateOperationMode (operation_mode_system* System)
+ActivateOperationMode (operation_mode_system* System, char* ModeName)
 {
     Assert(System->ActiveModesCount < OPERATION_MODES_MAX);
     s32 ModeIndex = System->ActiveModesCount++;
-    System->ActiveModes[ModeIndex] = {};
+    
     System->ModeMemorySnapshots[ModeIndex] = TakeSnapshotOfArena(System->Arena);
+    
+    operation_mode NewMode = {};
+    s32 NameLength = CharArrayLength(ModeName);
+    NewMode.Name = MakeString(PushArray(&System->Arena, char, NameLength), 0, NameLength);
+    CopyCharArrayToString(ModeName, &NewMode.Name);
+    System->ActiveModes[ModeIndex] = NewMode;
+    
     return &System->ActiveModes[ModeIndex];
+}
+
+#define ActivateOperationModeWithCommands(sys, name, cmds) \
+ActivateOperationModeWithCommands_(sys, name, cmds, (s32)(sizeof(cmds) / sizeof(cmds[0])));
+
+internal operation_mode*
+ActivateOperationModeWithCommands_(operation_mode_system* System, char* ModeName, input_command* Commands, s32 CommandsCount)
+{
+    operation_mode* NewMode = ActivateOperationMode(System, ModeName);
+    
+    InitializeInputCommandRegistry(&NewMode->Commands, CommandsCount, &System->Arena);
+    for (s32 i = 0; i < CommandsCount; i++)
+    {
+        input_command Command = Commands[i];
+        RegisterKeyPressCommand(&NewMode->Commands, Command.Key, Command.Flags, Command.Mdfr, Command.Proc);
+    }
+    
+    return NewMode;
 }
 
 internal void
@@ -42,6 +69,10 @@ DeactivateCurrentOperationMode (operation_mode_system* System)
 
 #define CreateOperationState(mode, modeSystem, stateType) \
 (stateType*)CreateOperationState_(mode, modeSystem, sizeof(stateType))
+
+#define GetCurrentOperationState(modeSystem, stateType) \
+(stateType*)State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].OpStateMemory;
+
 
 internal u8*
 CreateOperationState_ (operation_mode* Mode, operation_mode_system* System, s32 StateSize)

@@ -1,19 +1,3 @@
-FOLDHAUS_INPUT_COMMAND_PROC(CameraMouseControl)
-{
-    if (KeyTransitionedDown(Event))
-    {
-        State->Camera_StartDragPos = V4(State->Camera.Position, 1);
-    }
-    
-    v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
-    
-    m44 XRotation = GetXRotation(-TotalDeltaPos.y * State->PixelsToWorldScale);
-    m44 YRotation = GetYRotation(TotalDeltaPos.x * State->PixelsToWorldScale);
-    m44 Combined = XRotation * YRotation;
-    
-    State->Camera.Position = V3(Combined * State->Camera_StartDragPos);
-}
-
 ////////////////////////////////////////
 //
 //     Universe View
@@ -22,6 +6,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(CameraMouseControl)
 
 struct universe_view_operation_state
 {
+    b32 MouseDown;
     v2 DisplayOffset;
     r32 Zoom;
 };
@@ -30,13 +15,26 @@ OPERATION_RENDER_PROC(RenderUniverseView)
 {
     DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);
     
-    // TODO(Peter): Pass this in as a parameter
     universe_view_operation_state* OpState = (universe_view_operation_state*)Operation.OpStateMemory;
     
     string TitleBarString = InitializeEmptyString(PushArray(State->Transient, char, 64), 64);
     
     v2 DisplayArea_Dimension = v2{600, 600};
+    
     v2 DisplayContents_Offset = OpState->DisplayOffset;
+    
+    //
+    // TODO(Peter): I don't like this. Dragging the Universe view should be an operation mode, just
+    // like rotating the 3D view, but modes don't have access to the state of modes above them in the stack
+    // (and attempting to cast those states to the appropriate type seems risky)
+    //
+    // :NeedToPassStateDownModeChain
+    //
+    if (OpState->MouseDown)
+    {
+        DisplayContents_Offset += (Mouse.Pos - Mouse.DownPos);
+    }
+    
     v2 DisplayArea_TopLeft = v2{300, (r32)RenderBuffer->ViewHeight - 50} + DisplayContents_Offset;
     v2 UniverseDisplayDimension = v2{100, 100} * OpState->Zoom;
     v2 Padding = v2{25, 50} * OpState->Zoom;
@@ -82,19 +80,24 @@ OPERATION_RENDER_PROC(RenderUniverseView)
 // TODO(Peter): Something isn't working with my laptop trackpad's zoom
 FOLDHAUS_INPUT_COMMAND_PROC(UniverseZoom)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    universe_view_operation_state* OpState = (universe_view_operation_state*)Mode.OpStateMemory;
+    universe_view_operation_state* OpState = GetCurrentOperationState(State->Modes, universe_view_operation_state);
     r32 DeltaZoom = (r32)(Mouse.Scroll) / 120;
     OpState->Zoom = GSClamp(0.1f, OpState->Zoom + DeltaZoom, 4.f);
 }
 
-FOLDHAUS_INPUT_COMMAND_PROC(UniverseViewPan)
+FOLDHAUS_INPUT_COMMAND_PROC(UniverseViewEndPan)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    universe_view_operation_state* OpState = (universe_view_operation_state*)Mode.OpStateMemory;
-    OpState->DisplayOffset += Mouse.DeltaPos;
+    // :NeedToPassStateDownModeChain
+    universe_view_operation_state* OpState = GetCurrentOperationState(State->Modes, universe_view_operation_state);
+    OpState->MouseDown = false;
+    OpState->DisplayOffset = OpState->DisplayOffset + (Mouse.Pos - Mouse.DownPos);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(UniverseViewBeginPan)
+{
+    // :NeedToPassStateDownModeChain
+    universe_view_operation_state* OpState = GetCurrentOperationState(State->Modes, universe_view_operation_state);
+    OpState->MouseDown = true;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(CloseUniverseView)
@@ -102,17 +105,16 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseUniverseView)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
+input_command UniverseViewCommands [] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, UniverseViewBeginPan },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, UniverseViewEndPan },
+    { KeyCode_U, KeyCode_Invalid, Command_Began, CloseUniverseView },
+};
+
 FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
 {
-    operation_mode* UniverseViewMode = ActivateOperationMode(&State->Modes);
+    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, "Universe View", UniverseViewCommands);
     UniverseViewMode->Render = RenderUniverseView;
-    
-    { // Mode Commands
-        InitializeInputCommandRegistry(&UniverseViewMode->Commands, 3, &State->Modes.Arena);
-        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_MouseLeftButton, Command_Began | Command_Ended, KeyCode_Invalid, UniverseViewPan);
-        RegisterKeyPressCommand(&UniverseViewMode->Commands, KeyCode_U, Command_Began, KeyCode_Invalid, CloseUniverseView);
-        RegisterMouseWheelCommand(&UniverseViewMode->Commands, UniverseZoom);
-    }
     
     // State Setup
     universe_view_operation_state* OpState = CreateOperationState(UniverseViewMode, 
@@ -159,17 +161,13 @@ OPERATION_RENDER_PROC(RenderNodeLister)
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeListerNextItem)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    node_lister_operation_state* OpState = (node_lister_operation_state*)Mode.OpStateMemory;
+    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
     OpState->SearchLister.HotItem = GetNextFilteredItem(OpState->SearchLister);
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeListerPrevItem)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    node_lister_operation_state* OpState = (node_lister_operation_state*)Mode.OpStateMemory;
+    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
     OpState->SearchLister.HotItem = GetPrevFilteredItem(OpState->SearchLister);
 }
 
@@ -180,31 +178,29 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeLister)
 
 FOLDHAUS_INPUT_COMMAND_PROC(SelectAndCloseNodeLister)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    node_lister_operation_state* OpState = (node_lister_operation_state*)Mode.OpStateMemory;
-    
+    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
     s32 FilteredNodeIndex = OpState->SearchLister.HotItem;
-    s32 NodeIndex = OpState->SearchLister.FilteredIndexLUT[FilteredNodeIndex];
-    PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeIndex],
-                                    Mouse.Pos, State->Permanent);
+    if (FilteredNodeIndex >= 0)
+    {
+        s32 NodeIndex = OpState->SearchLister.FilteredIndexLUT[FilteredNodeIndex];
+        PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeIndex],
+                                        Mouse.Pos, State->Permanent);
+    }
     CloseNodeLister(State, Event, Mouse);
 }
 
+input_command UniverseViewCommads [] = {
+    { KeyCode_DownArrow, KeyCode_Invalid, Command_Began, NodeListerNextItem },
+    { KeyCode_UpArrow, KeyCode_Invalid, Command_Began, NodeListerPrevItem },
+    { KeyCode_Enter, KeyCode_Invalid, Command_Began, SelectAndCloseNodeLister },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, CloseNodeLister },
+    { KeyCode_Esc, KeyCode_Invalid, Command_Began, CloseNodeLister },
+    DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY,
+};
+
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
 {
-    // TODO(Peter): This won't work with hot code reloading
-    operation_mode* AddNodeOperation = ActivateOperationMode(&State->Modes);
-    
-    { // Mode Commands
-        InitializeInputCommandRegistry(&AddNodeOperation->Commands, 128, &State->Modes.Arena);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_DownArrow, Command_Began, KeyCode_Invalid, NodeListerNextItem);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_UpArrow, Command_Began, KeyCode_Invalid, NodeListerPrevItem);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Enter, Command_Began, KeyCode_Invalid, SelectAndCloseNodeLister);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid, CloseNodeLister);
-        RegisterKeyPressCommand(&AddNodeOperation->Commands, KeyCode_Esc, Command_Began, KeyCode_Invalid, CloseNodeLister);
-        InitializeTextInputCommands(&AddNodeOperation->Commands, &State->Modes.Arena);
-    }
+    operation_mode* AddNodeOperation = ActivateOperationModeWithCommands(&State->Modes, "Node Lister", UniverseViewCommads);
     
     AddNodeOperation->Render = RenderNodeLister;
     
@@ -222,8 +218,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
                     NodeSpecifications[i].NameLength);
             }
         }
-        OpState->SearchLister.Filter = State->ActiveTextEntry.Buffer;
-        
+        OpState->SearchLister.Filter = MakeString(PushArray(&State->Modes.Arena, char, 64), 0, 64);
         
         OpState->SearchLister.FilteredListMax = OpState->SearchLister.SourceListCount;
         OpState->SearchLister.FilteredListCount = 0;
@@ -231,7 +226,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     }
     
     OpState->ListPosition = Mouse.Pos;
-    SetTextInputDestinationToString(&State->ActiveTextEntry, &State->GeneralPurposeSearchString);
+    SetTextInputDestinationToString(&State->ActiveTextEntry, &OpState->SearchLister.Filter);
 }
 
 ////////////////////////////////////////
@@ -253,7 +248,6 @@ CloseColorPicker(app_state* State)
 
 OPERATION_RENDER_PROC(RenderColorPicker)
 {
-    // TODO(Peter): Pass this in as a parameter
     color_picker_operation_state* OpState = (color_picker_operation_state*)Operation.OpStateMemory;
     
     
@@ -269,8 +263,7 @@ OPERATION_RENDER_PROC(RenderColorPicker)
 internal void
 OpenColorPicker(app_state* State, v4* ValueAddr)
 {
-    // TODO(Peter): This won't work with hot code reloading
-    operation_mode* ColorPickerMode = ActivateOperationMode(&State->Modes);
+    operation_mode* ColorPickerMode = ActivateOperationMode(&State->Modes, "Color Picker");
     ColorPickerMode->Render = RenderColorPicker;
     
     color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
@@ -282,81 +275,207 @@ OpenColorPicker(app_state* State, v4* ValueAddr)
 
 ////////////////////////////////////////
 //
+//    Node Field Text Edit
+//
+///////////////////////////////////////
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndNodeFieldTextEdit)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command NodeFieldTextEditCommands [] = {
+    { KeyCode_Enter, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit},
+    DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY,
+};
+
+internal void
+BeginNodeFieldTextEdit(app_state* State, interface_node* Node, node_interaction Interaction)
+{
+    operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes, 
+                                                                              "Node Field Text Edit",
+                                                                              NodeFieldTextEditCommands);
+    
+    node_connection* Connection = Node->Connections + Interaction.InputValue;
+    struct_member_type InputType = Connection->Type;
+    if (InputType == MemberType_r32)
+    {
+        SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
+    }
+}
+
+////////////////////////////////////////
+//
+//    Node Port Mouse Drag
+//
+///////////////////////////////////////
+
+struct drag_node_port_operation_state
+{
+    node_interaction Interaction;
+};
+
+OPERATION_RENDER_PROC(RenderDraggingNodePort)
+{
+    drag_node_port_operation_state* OpState = (drag_node_port_operation_state*)Operation.OpStateMemory;
+    UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList, 
+                           State->NodeRenderSettings, RenderBuffer);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndDraggingNodePort)
+{
+    drag_node_port_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_port_operation_state);
+    
+    TryConnectNodes(OpState->Interaction, Mouse.Pos, State->NodeList, State->NodeRenderSettings);
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command DragNodePortInputCommands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDraggingNodePort },
+};
+
+internal void
+BeginDraggingNodePort(app_state* State, node_interaction Interaction)
+{
+    operation_mode* DragNodePortMode = ActivateOperationModeWithCommands(
+        &State->Modes, 
+        "Drag Node Port",
+        DragNodePortInputCommands);
+    DragNodePortMode->Render = RenderDraggingNodePort;
+    
+    drag_node_port_operation_state* OpState = CreateOperationState(DragNodePortMode, 
+                                                                   &State->Modes, 
+                                                                   drag_node_port_operation_state);
+    OpState->Interaction = Interaction;
+}
+
+////////////////////////////////////////
+//
+//    Node Field Mouse Drag
+//
+///////////////////////////////////////
+
+OPERATION_RENDER_PROC(RenderDragNodeField)
+{
+    // TODO(Peter): 
+    //UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, OpState->Interaction, State->NodeList, State->NodeRenderSettings, State);
+}
+
+internal void
+BeginInteractWithNodeField(app_state* State, node_interaction Interaction)
+{
+    // TODO(Peter): 
+}
+
+////////////////////////////////////////
+//
+//    Node Field Mouse Drag
+//
+///////////////////////////////////////
+
+struct drag_node_operation_state
+{
+    node_interaction Interaction;
+};
+
+OPERATION_RENDER_PROC(RenderDraggingNode)
+{
+    drag_node_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_operation_state);
+    UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList, 
+                       State->NodeRenderSettings);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndDraggingNode)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command DragNodeInputCommands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDraggingNode },
+};
+
+internal void
+BeginDraggingNode(app_state* State, node_interaction Interaction)
+{
+    operation_mode* DragNodeMode = ActivateOperationModeWithCommands(
+        &State->Modes, 
+        "Drag Node",
+        DragNodeInputCommands);
+    DragNodeMode->Render = RenderDraggingNode;
+    
+    drag_node_operation_state* OpState = CreateOperationState(DragNodeMode, 
+                                                              &State->Modes, 
+                                                              drag_node_operation_state);
+    OpState->Interaction = Interaction;
+}
+
+////////////////////////////////////////
+//
 //    Node View
 //
 ///////////////////////////////////////
 
 struct node_view_operation_state
 {
-    node_interaction Interaction;
-    node_render_settings RenderSettings;
 };
 
-FOLDHAUS_INPUT_COMMAND_PROC(NodeViewMousePickNode)
+FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
 {
-    // TODO(Peter): Pass this in as a parameter
-    operation_mode Mode = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1];
-    node_view_operation_state* OpState = (node_view_operation_state*)Mode.OpStateMemory;
+    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    if (Mouse.LeftButtonTransitionedDown)
+    node_offset Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
+    if (Node.Node)
     {
-        node_offset Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, OpState->RenderSettings);
-        if (Node.Node)
+        node_interaction NewInteraction = GetNodeInteractionType(Node.Node, 
+                                                                 Node.Offset, 
+                                                                 Mouse.Pos, 
+                                                                 State->NodeRenderSettings);
+        if (IsDraggingNodePort(NewInteraction))
         {
-            OpState->Interaction = GetNodeInteractionType(Node.Node, Node.Offset, Mouse.Pos, OpState->RenderSettings);
+            BeginDraggingNodePort(State, NewInteraction);
+        }
+        else if(IsDraggingNodeValue(NewInteraction))
+        {
+            // TODO(Peter): This probably wants to live in a mouse held action
+            // the first frame we realize we're held over a field, just transition to 
+            // drag node field
+            //BeginInteractWithNodeField(State, NewInteraction, State->NodeRenderSettings);
+        }
+        else // IsDraggingNode
+        {
+            BeginDraggingNode(State, NewInteraction);
         }
     }
-    else if (Mouse.LeftButtonTransitionedUp)
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
+{
+    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
+    
+    node_offset NodeOffset = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
+    if (NodeOffset.Node)
     {
-        if (IsDraggingNodePort(OpState->Interaction))
+        node_interaction NewInteraction = GetNodeInteractionType(NodeOffset.Node, 
+                                                                 NodeOffset.Offset, 
+                                                                 Mouse.Pos, 
+                                                                 State->NodeRenderSettings);
+        if(IsDraggingNodeValue(NewInteraction))
         {
-            TryConnectNodes(OpState->Interaction, Mouse.Pos, State->NodeList, OpState->RenderSettings);
-            OpState->Interaction = NewEmptyNodeInteraction();
+            BeginNodeFieldTextEdit(State, NodeOffset.Node, NewInteraction);
         }
-        else if(IsDraggingNodeValue(OpState->Interaction))
-        {
-            // This is just a click
-            if (Mag(Mouse.DeltaPos) < 10)
-            {
-                node_interaction Interaction = OpState->Interaction;
-                interface_node* Node = GetNodeAtOffset(State->NodeList, Interaction.NodeOffset);
-                node_connection* Connection = Node->Connections + Interaction.InputValue;
-                struct_member_type InputType = Connection->Type;
-                if (InputType == MemberType_r32)
-                {
-                    SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
-                    // TODO(Peter): This is wrong, should be something to do with capturing text input
-                    State->ActiveCommands = &State->NodeListerCommandRegistry;
-                }
-                OpState->Interaction = NewEmptyNodeInteraction();
-            }
-            else // This is the case where you dragged the value
-            {
-                OpState->Interaction = NewEmptyNodeInteraction();
-            }
-        }
-        else
-        {
-            OpState->Interaction = NewEmptyNodeInteraction();
-        }
-        
     }
 }
 
 OPERATION_RENDER_PROC(RenderNodeView)
 {
-    // TODO(Peter): Pass this in as a parameter
     node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
     
-    UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList, 
-                       OpState->RenderSettings);
-    UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList, 
-                           OpState->RenderSettings, RenderBuffer);
-    UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, OpState->Interaction, State->NodeList, OpState->RenderSettings, State);
-    
+    // TODO(Peter): Not sure we want to be doing Node Functionality updates in a mode. This should happen every
+    // frame regardless of whether or not we're viewing the nodes. 
+    // TODO(Peter): Make sure that RenderNodeList isn't also updating them!!
     ResetNodesUpdateState(State->NodeList);
     
-    RenderNodeList(State->NodeList, OpState->RenderSettings, RenderBuffer);
+    RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
@@ -364,27 +483,63 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
+input_command NodeViewCommands [] = {
+    { KeyCode_Tab, KeyCode_Invalid, Command_Began, CloseNodeView},
+    { KeyCode_A, KeyCode_Invalid, Command_Began, OpenNodeLister},
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, NodeViewBeginMouseDragInteraction},
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, NodeViewBeginMouseSelectInteraction},
+};
+
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
 {
-    // TODO(Peter): This won't work with hot code reloading
-    operation_mode* NodeViewMode = ActivateOperationMode(&State->Modes);
+    operation_mode* NodeViewMode = ActivateOperationModeWithCommands(&State->Modes, "Node View", NodeViewCommands);
     NodeViewMode->Render = RenderNodeView;
-    
-    { // Mode Commands
-        InitializeInputCommandRegistry(&NodeViewMode->Commands, 3, &State->Modes.Arena);
-        
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_Tab, Command_Began, KeyCode_Invalid, CloseNodeView);
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
-        RegisterKeyPressCommand(&NodeViewMode->Commands, KeyCode_MouseLeftButton, Command_Began | Command_Ended, KeyCode_Invalid,
-                                NodeViewMousePickNode);
-    }
     
     node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
                                                               &State->Modes, 
                                                               node_view_operation_state);
-    OpState->Interaction = NewEmptyNodeInteraction();
-    OpState->RenderSettings.PortColors[MemberType_r32] = RedV4;
-    OpState->RenderSettings.PortColors[MemberType_s32] = GreenV4;
-    OpState->RenderSettings.PortColors[MemberType_v4] = BlueV4;
-    OpState->RenderSettings.Font = State->Font;
+}
+
+////////////////////////////////////////
+//
+//     3D View Mouse Rotate
+//
+///////////////////////////////////////
+
+struct mouse_rotate_view_operation_state
+{
+    v4 CameraStartPos;
+};
+
+OPERATION_RENDER_PROC(Update3DViewMouseRotate)
+{
+    mouse_rotate_view_operation_state* OpState = (mouse_rotate_view_operation_state*)Operation.OpStateMemory;
+    
+    v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
+    
+    m44 XRotation = GetXRotation(-TotalDeltaPos.y * State->PixelsToWorldScale);
+    m44 YRotation = GetYRotation(TotalDeltaPos.x * State->PixelsToWorldScale);
+    m44 Combined = XRotation * YRotation;
+    
+    State->Camera.Position = V3(Combined * OpState->CameraStartPos);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(End3DViewMouseRotate)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command MouseRotateViewCommands [] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, End3DViewMouseRotate},
+};
+
+FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
+{
+    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, "Rotate 3D View", MouseRotateViewCommands);
+    RotateViewMode->Render = Update3DViewMouseRotate;
+    
+    mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,
+                                                                      &State->Modes,
+                                                                      mouse_rotate_view_operation_state);
+    OpState->CameraStartPos = V4(State->Camera.Position, 1);
 }

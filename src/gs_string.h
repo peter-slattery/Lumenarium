@@ -1046,6 +1046,7 @@ CopyCharArrayToString (char* Source, string* Dest)
         *Dst++ = *Src++;
         Copied++;
     }
+    *Dst++ = 0;
     Dest->Length = Copied;
 }
 
@@ -1060,6 +1061,7 @@ CopyCharArrayToString (char* Source, s32 SourceLength, string* Dest)
     {
         *Dst++ = *Src++;
     }
+    *Dst++ = 0;
     Dest->Length = SourceLength;
 }
 

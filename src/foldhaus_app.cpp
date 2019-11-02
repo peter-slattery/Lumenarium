@@ -342,21 +342,13 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     
     GlobalDebugServices = DebugServices;
     
-    if (State->InputCommandRegistry.Size > 0)
+    if (State->DefaultInputCommandRegistry.Size > 0)
     {
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_MouseLeftButton, Command_Began | Command_Held | Command_Ended, KeyCode_Invalid,
-                                CameraMouseControl);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
-        RegisterKeyPressCommand(&State->InputCommandRegistry, KeyCode_Tab, Command_Began, KeyCode_Invalid, OpenNodeView);
-        
-        // Node Lister
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_DownArrow, Command_Began, KeyCode_Invalid, NodeListerNextItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_UpArrow, Command_Began, KeyCode_Invalid, NodeListerPrevItem);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Enter, Command_Began, KeyCode_Invalid, SelectAndCloseNodeLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid, CloseNodeLister);
-        RegisterKeyPressCommand(&State->NodeListerCommandRegistry, KeyCode_Esc, Command_Began, KeyCode_Invalid, CloseNodeLister);
-        InitializeTextInputCommands(&State->NodeListerCommandRegistry, State->Permanent);
+        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid,
+                                Begin3DViewMouseRotate);
+        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
+        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
+        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_Tab, Command_Began, KeyCode_Invalid, OpenNodeView);
     }
 }
 
@@ -371,9 +363,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
-    InitializeInputCommandRegistry(&State->InputCommandRegistry, 32, State->Permanent);
-    InitializeInputCommandRegistry(&State->NodeListerCommandRegistry, 128, State->Permanent);
-    State->ActiveCommands = &State->InputCommandRegistry;
+    InitializeInputCommandRegistry(&State->DefaultInputCommandRegistry, 32, State->Permanent);
     
     s32 CommandQueueSize = 32;
     command_queue_entry* CommandQueueMemory = PushArray(State->Permanent, 
@@ -458,7 +448,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Far = 100.0f;
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
-    State->Camera_StartDragPos = V4(State->Camera.Position, 1);
     
 #if 1
     char Path[] = "radialumia.fold";
@@ -470,11 +459,13 @@ INITIALIZE_APPLICATION(InitializeApplication)
     GlobalDebugServices->Interface.RenderSculpture = true;
     
     State->NodeList = AllocateNodeList(State->Permanent, Kilobytes(64));
-    
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
-    
-    InitializeEmptyString(&State->GeneralPurposeSearchString, PushArray(State->Permanent, char, 256), 256);
-    
+    {
+        State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;
+        State->NodeRenderSettings.PortColors[MemberType_s32] = GreenV4;
+        State->NodeRenderSettings.PortColors[MemberType_v4] = BlueV4;
+        State->NodeRenderSettings.Font = State->Font;
+    }
     ReloadStaticData(Context, GlobalDebugServices);
     
     { // MODES PLAYGROUND
@@ -497,13 +488,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     ClearArena(State->Transient);
     
     {
-        input_command_registry* ActiveCommands = State->ActiveCommands;
+        input_command_registry ActiveCommands = State->DefaultInputCommandRegistry;
         if (State->Modes.ActiveModesCount > 0)
         {
-            ActiveCommands = &State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
+            ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
         }
-        
-        ActivateQueuedCommandRegistry(State);
         
         for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
@@ -514,15 +503,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
             // frame when the button was released, even if the command is registered to both events
             if (KeyTransitionedDown(Event))
             {
-                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
             }
             else if (KeyTransitionedUp(Event))
             {
-                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
             }
             else if (KeyHeldDown(Event))
             {
-                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Held, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
             }
             
             if (Event.Key == KeyCode_MouseLeftButton)
@@ -549,7 +538,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             Entry->Command.Proc(State, Entry->Event, Mouse);
         }
         
-        RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(&State->CommandQueue);
+        ClearCommandQueue(&State->CommandQueue);
     }
     
     if (State->LEDBufferList)

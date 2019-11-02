@@ -1,6 +1,9 @@
 #define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse)
 typedef FOLDHAUS_INPUT_COMMAND_PROC(input_command_proc);
 
+// NOTE(Peter): Helper function so I don't have to remember the parameters to this define 
+#define ExecFoldhausCommand(cmd) cmd(State, Event, Mouse)
+
 enum input_command_flags
 {
     Command_Began = 1 << 0,
@@ -15,8 +18,8 @@ enum input_command_flags
 struct input_command
 {
     key_code Key;
-    b32 Flags;
     key_code Mdfr;
+    b32 Flags;
     input_command_proc* Proc;
 };
 

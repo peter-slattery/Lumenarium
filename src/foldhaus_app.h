@@ -49,6 +49,7 @@ struct assembly
 typedef struct app_state app_state;
 
 #include "foldhaus_command_dispatch.h"
+#include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_operation_mode.h"
 
 #include "foldhaus_text_entry.h"
@@ -67,15 +68,7 @@ struct app_state
     
     operation_mode_system Modes;
     
-    input_command_registry InputCommandRegistry;
-    // TODO(Peter): At the moment this is only still here because text input into nodes utilizes it. 
-    // Get rid of this once Modes are working and you can switch all text input over to various modes
-    input_command_registry NodeListerCommandRegistry;
-    // NOTE(Peter): stores the address of the command registry to be activated next frame.
-    // was having a problem where switching command registry's in the middle of the loop trying to 
-    // execute commands was causing problems. 
-    input_command_registry* NextCommandRegistry;
-    input_command_registry* ActiveCommands;
+    input_command_registry DefaultInputCommandRegistry;
     
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
@@ -95,22 +88,18 @@ struct app_state
     interface_config Interface;
     
     r32 PixelsToWorldScale;
-    v4 Camera_StartDragPos;
     
     node_list* NodeList;
     interface_node* OutputNode;
     
     node_render_settings NodeRenderSettings;
     
-    string GeneralPurposeSearchString;
 };
 
-// TODO(Peter): Once rendering nodes becomes an operation_mode you can get rid of this pre-declaration
 internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "foldhaus_debug_visuals.h"
 #include "foldhaus_sacn_view.cpp"
-#include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_node.cpp"
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"

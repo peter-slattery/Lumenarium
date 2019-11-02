@@ -1,0 +1,28 @@
+BUGS
+x if there is nothing in the filtered list when searching for a node, hitting enter still selects one
+
+Intermediate Lifetime Memory & Operations
+x Intermediate lifetime memory arena
+x Temporary memory region = a multi frame operation
+x Concept of an operation - temporary memory + interface command registry
+x Allow one operation at a time at first
+x Push/pop operations on a list?
+- Current Operations:
+-   - View Sculpture (this might be an exception since its so central)
+-     x View/Edit Nodes
+-        x Add Node (needs nesting)
+-     x View SACN
+x make modes work with hot code reloading: rather than do the whole series of initialize command registry,
+x   and manually adding each command, store the commands as an array, and auto iterate over them when you
+x   push the mode on the mode stack
+x decided I don't like storing NodeRenderSettings in each operation mode. Probably want to put it back in   x   app_state
+
+/Debug
+x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 
+x    Keep an eye out.
+
+Switch To Nodes
+x basic node elements
+
+Hardening
+x input context changes

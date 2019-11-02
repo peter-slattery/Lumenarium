@@ -14,6 +14,11 @@ FilterSearchLister (search_lister* SearchLister)
             SearchLister->FilteredIndexLUT[SearchLister->FilteredListCount++] = i;
         }
     }
+    
+    if (SearchLister->FilteredListCount == 0)
+    {
+        SearchLister->HotItem = -1;
+    }
 }
 
 internal s32

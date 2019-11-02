@@ -42,29 +42,9 @@ InitializeCommandQueue(command_queue_entry* Memory, s32 MemorySize)
 }
 
 internal void
-RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(input_command_queue* Queue)
+ClearCommandQueue(input_command_queue* Queue)
 {
-#if 0
-    s32 PersistantCommandsCount = 0;
-    for (s32 i = 0; i < Queue->Used; i++)
-    {
-        command_queue_entry* Entry = Queue->Commands + i;
-        if (!Entry->RemoveOnExecute)
-        {
-            Entry->Event.State |= KeyState_WasDown;
-            // NOTE(Peter): If i == PersistantCommandsCount, then we don't need to copy the 
-            // command anywhere
-            if (i != PersistantCommandsCount)
-            {
-                Queue->Commands[PersistantCommandsCount] = *Entry;
-            }
-            PersistantCommandsCount++;
-        }
-    }
-    Queue->Used = PersistantCommandsCount;
-#else
     Queue->Used = 0;
-#endif
 }
 
 internal void
@@ -110,30 +90,14 @@ RemoveCommandFromQueue(input_command_queue* Queue, input_command Command, input_
     RemoveCommandFromQueue(Queue, CommandIndex);
 }
 
-internal void
-QueueNextFrameCommandRegistry (input_command_registry* NewRegistry, app_state* State)
-{
-    State->NextCommandRegistry = NewRegistry;
-}
-
-internal void
-ActivateQueuedCommandRegistry (app_state* State)
-{
-    if (State->NextCommandRegistry)
-    {
-        State->ActiveCommands = State->NextCommandRegistry;
-        State->NextCommandRegistry = 0;
-    }
-}
-
 internal input_command*
-FindExistingCommand (input_command_registry* CommandRegistry, key_code Key, key_code Mdfr, b32 Flags)
+FindExistingCommand (input_command_registry CommandRegistry, key_code Key, key_code Mdfr, b32 Flags)
 {
     input_command* Result = 0;
     
-    for (s32 Cmd = 0; Cmd < CommandRegistry->Used; Cmd++)
+    for (s32 Cmd = 0; Cmd < CommandRegistry.Used; Cmd++)
     {
-        input_command* Command = CommandRegistry->Commands + Cmd;
+        input_command* Command = CommandRegistry.Commands + Cmd;
         if (Command->Key == Key && Command->Mdfr == Mdfr)
         {
             b32 FlagsOverlap = Flags & Command->Flags;
@@ -149,7 +113,7 @@ FindExistingCommand (input_command_registry* CommandRegistry, key_code Key, key_
 }
 
 internal b32
-FindAndPushExistingCommand(input_command_registry* CommandRegistry, input_entry Event, b32 Flags, input_command_queue* CommandQueue)
+FindAndPushExistingCommand(input_command_registry CommandRegistry, input_entry Event, b32 Flags, input_command_queue* CommandQueue)
 {
     b32 CommandFound = false;
     input_command* Command = FindExistingCommand(CommandRegistry, Event.Key, (key_code)0, Flags);
@@ -168,7 +132,7 @@ RegisterKeyPressCommand (input_command_registry* CommandRegistry,
                          key_code Mdfr,
                          input_command_proc* Proc)
 {
-    input_command* Command = FindExistingCommand(CommandRegistry, Key, Mdfr, Flags);
+    input_command* Command = FindExistingCommand(*CommandRegistry, Key, Mdfr, Flags);
     
     if (!Command)
     {

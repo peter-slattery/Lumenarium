@@ -579,7 +579,7 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     DrawString(RenderBuffer, Title, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
     
     MakeStringBuffer(DebugString, 256);
-    PrintF(&DebugString, "Hot Item: %d", HotItem);
+    PrintF(&DebugString, "Hot Item: %d  |  Filtered Items: %d", HotItem, ListLength);
     DrawString(RenderBuffer, DebugString, Font, 14, v2{TopLeft.x + 256, TopLeft.y - 25}, WhiteV4);
     TopLeft.y -= 30;
     
