@@ -261,7 +261,7 @@ OPERATION_RENDER_PROC(RenderColorPicker)
 }
 
 internal void
-OpenColorPicker(app_state* State, v4* ValueAddr)
+OpenColorPicker(app_state* State, node_connection* Connection)
 {
     operation_mode* ColorPickerMode = ActivateOperationMode(&State->Modes, "Color Picker");
     ColorPickerMode->Render = RenderColorPicker;
@@ -269,7 +269,7 @@ OpenColorPicker(app_state* State, v4* ValueAddr)
     color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
                                                                  &State->Modes, 
                                                                  color_picker_operation_state);
-    OpState->ValueAddr = ValueAddr;
+    OpState->ValueAddr = &Connection->V4Value;
 }
 
 
@@ -290,18 +290,13 @@ input_command NodeFieldTextEditCommands [] = {
 };
 
 internal void
-BeginNodeFieldTextEdit(app_state* State, interface_node* Node, node_interaction Interaction)
+BeginNodeFieldTextEdit(app_state* State, node_connection* Connection)
 {
     operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes, 
                                                                               "Node Field Text Edit",
                                                                               NodeFieldTextEditCommands);
     
-    node_connection* Connection = Node->Connections + Interaction.InputValue;
-    struct_member_type InputType = Connection->Type;
-    if (InputType == MemberType_r32)
-    {
-        SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
-    }
+    SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
 }
 
 ////////////////////////////////////////
@@ -369,7 +364,7 @@ BeginInteractWithNodeField(app_state* State, node_interaction Interaction)
 
 ////////////////////////////////////////
 //
-//    Node Field Mouse Drag
+//    Node Mouse Drag
 //
 ///////////////////////////////////////
 
@@ -461,7 +456,17 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
                                                                  State->NodeRenderSettings);
         if(IsDraggingNodeValue(NewInteraction))
         {
-            BeginNodeFieldTextEdit(State, NodeOffset.Node, NewInteraction);
+            node_connection* Connection = NodeOffset.Node->Connections + NewInteraction.InputValue;
+            struct_member_type InputType = Connection->Type;
+            
+            if (InputType == MemberType_r32)
+            {
+                BeginNodeFieldTextEdit(State, Connection);
+            }
+            else if (InputType == MemberType_v4)
+            {
+                OpenColorPicker(State, Connection);
+            }
         }
     }
 }

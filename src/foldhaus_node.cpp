@@ -775,11 +775,6 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
             
             case MemberType_v4:
             {
-                // TODO(Peter): This is a problem. We seem to be calling this several times
-                if (MagSqr(MouseDelta) < 10)
-                {
-                    OpenColorPicker(State, &Connection->V4Value);
-                }
             }break;
             
             case MemberType_NODE_COLOR_BUFFER: {} break; // NOTE(Peter): Unused for now
