@@ -527,7 +527,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
                     node_struct_member Member = Spec.MemberList[Connection];
                     DrawString(RenderBuffer, MakeString(Member.Name), 
                                State->NodeRenderSettings.Font,
-                               v2{PortBounds.Min.x - 32, PortBounds.Min.y}, WhiteV4, Align_Right);
+                               v2{PortBounds.Min.x - 8, PortBounds.Min.y}, WhiteV4, Align_Right);
                 }
                 
                 rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
