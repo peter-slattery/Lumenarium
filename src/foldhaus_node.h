@@ -78,7 +78,6 @@ struct interface_node
     string Name;
     
     v2 Min, Dim;
-    v2 MinAfterUpdate;
     
     s32 ConnectionsCount;
     node_connection* Connections;

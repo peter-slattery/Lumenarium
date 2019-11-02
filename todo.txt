@@ -21,10 +21,12 @@ x print node field names on hover or on the node
 - Actual cursor states
 
 API Improvements
-- Clean up DrawString... good lord
-- Add Text Alignment to DrawString
+x Clean up DrawString... good lord
+x Add Text Alignment to DrawString
 - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
 -    - Cant we just calculate this at render time?
+- Move nodes over to referencing eachother based on a UID system
+- separate out interface nodes from computation nodes (interface in a binary/quad tree?)
 
 Application
 - More efficient HSV <-> RGB

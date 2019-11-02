@@ -488,7 +488,6 @@ OPERATION_RENDER_PROC(RenderNodeView)
     while (NodeIteratorIsValid(NodeIter))
     {
         interface_node* Node = NodeIter.At;
-        Node->Min = Node->MinAfterUpdate;
         
         rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
         b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);

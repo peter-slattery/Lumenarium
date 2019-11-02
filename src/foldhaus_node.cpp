@@ -99,7 +99,6 @@ PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v
         Result->Connections = (node_connection*)(Result->Name.Memory + NameLength);
         
         Result->Min = Min;
-        Result->MinAfterUpdate = Min;
         Result->Dim = Dim;
         
         List->Used += GetNodeMemorySize(*Result);
@@ -718,7 +717,7 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
         }
     }
     
-    Node->MinAfterUpdate = Position;
+    Node->Min = Position;
 }
 
 internal void
