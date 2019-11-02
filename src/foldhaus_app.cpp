@@ -548,6 +548,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                      State->LEDBufferList->Colors, 
                                      State->LEDBufferList->Count, 
                                      Context.DeltaTime);
+        ResetNodesUpdateState(State->NodeList);
     }
     ClearTransientNodeColorBuffers(State->NodeList);
     
@@ -722,10 +723,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 }
             }
         }
-        
-        ///////////////////////////////////////
-        //    Figuring Out Nodes
-        //////////////////////////////////////
         
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {

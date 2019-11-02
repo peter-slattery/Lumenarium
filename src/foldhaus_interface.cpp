@@ -285,7 +285,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndNodeFieldTextEdit)
 }
 
 input_command NodeFieldTextEditCommands [] = {
-    { KeyCode_Enter, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit},
+    { KeyCode_Enter, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit },
     DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY,
 };
 
@@ -474,12 +475,6 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
 OPERATION_RENDER_PROC(RenderNodeView)
 {
     node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
-    
-    // TODO(Peter): Not sure we want to be doing Node Functionality updates in a mode. This should happen every
-    // frame regardless of whether or not we're viewing the nodes. 
-    // TODO(Peter): Make sure that RenderNodeList isn't also updating them!!
-    ResetNodesUpdateState(State->NodeList);
-    
     RenderNodeList(State->NodeList, State->NodeRenderSettings, RenderBuffer);
 }
 

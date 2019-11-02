@@ -16,11 +16,7 @@ update functions
 
 UI Improvements
 - highlight node field under active edit
-
-Name
-- Splash screen (like blender) (thisll be fun)
--  - Image importer (stb image? or find a png > bmp converter for the image you have)
--  - Display on startup
+- print node field names on hover or on the node
 
 Application
 - More efficient HSV <-> RGB
@@ -79,3 +75,8 @@ Optimization
 - probably want to convert as much color functions to use u32 Packed Colors
 -  - Probably want to think about this more. What about supporting different color depths
 -    for different output devices?
+
+Name
+- Splash screen (like blender) (thisll be fun)
+-  - Image importer (stb image? or find a png > bmp converter for the image you have)
+-  - Display on startup
