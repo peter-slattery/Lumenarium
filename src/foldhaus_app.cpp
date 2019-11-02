@@ -347,7 +347,6 @@ RELOAD_STATIC_DATA(ReloadStaticData)
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid,
                                 Begin3DViewMouseRotate);
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
-        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_A, Command_Began, KeyCode_Invalid, OpenNodeLister);
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_Tab, Command_Began, KeyCode_Invalid, OpenNodeView);
     }
 }
