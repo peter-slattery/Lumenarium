@@ -57,7 +57,7 @@ OPERATION_RENDER_PROC(RenderUniverseView)
             {
                 v2 TitleDisplayStart = UniverseDisplayTopLeft + v2{0, 12};
                 PrintF(&TitleBarString, "Universe %d", Universe->Universe);
-                DrawString(RenderBuffer, TitleBarString, State->Interface.Font, 12, 
+                DrawString(RenderBuffer, TitleBarString, State->Interface.Font, 
                            TitleDisplayStart, WhiteV4);
             }
             
@@ -500,7 +500,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
         
         PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
         
-        DrawString(RenderBuffer, Node->Name, State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
+        DrawString(RenderBuffer, Node->Name, State->NodeRenderSettings.Font,
                    v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
                    WhiteV4);
         
@@ -526,8 +526,8 @@ OPERATION_RENDER_PROC(RenderNodeView)
                     node_specification Spec = NodeSpecifications[Node->Type - 1];
                     node_struct_member Member = Spec.MemberList[Connection];
                     DrawString(RenderBuffer, MakeString(Member.Name), 
-                               State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
-                               v2{PortBounds.Min.x - 32, PortBounds.Min.y}, WhiteV4);
+                               State->NodeRenderSettings.Font,
+                               v2{PortBounds.Min.x - 32, PortBounds.Min.y}, WhiteV4, Align_Right);
                 }
                 
                 rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
@@ -557,7 +557,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
                     node_specification Spec = NodeSpecifications[Node->Type - 1];
                     node_struct_member Member = Spec.MemberList[Connection];
                     DrawString(RenderBuffer, MakeString(Member.Name), 
-                               State->NodeRenderSettings.Font, State->NodeRenderSettings.Font->PixelHeight,
+                               State->NodeRenderSettings.Font,
                                v2{PortBounds.Max.x + 8, PortBounds.Min.y}, WhiteV4);
                 }
                 

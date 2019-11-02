@@ -1,27 +1,85 @@
-internal v2
-DrawCharacter (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color, r32 FontScale)
+enum string_alignment
 {
-    s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
-    codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
-    
-    r32 MinX = Position.x + CodepointInfo.XOffset * FontScale;
-    r32 MinY = Position.y + CodepointInfo.YOffset * FontScale;
-    r32 MaxX = MinX + (CodepointInfo.Width) * FontScale;
-    r32 MaxY = MinY + (CodepointInfo.Height) * FontScale;
+    Align_Left,
+    Align_Center,
+    Align_Right,
+};
+
+internal void
+DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 MinY, codepoint_bitmap CodepointInfo, v4 Color)
+{
+    r32 MaxX = MinX + (CodepointInfo.Width);
+    r32 MaxY = MinY + (CodepointInfo.Height);
     
     PushQuad2DOnBatch(BatchConstructor, 
                       v2{MinX, MinY}, v2{MaxX, MinY}, 
                       v2{MaxX, MaxY}, v2{MinX, MaxY},  
                       CodepointInfo.UVMin, CodepointInfo.UVMax, 
                       Color);
-    
-    return v2{Position.x + CodepointInfo.Width * FontScale, Position.y};
 }
 
-// TODO(Peter): Why are we passing in both the bitmap_font and the point size when everywhere, we just 
-// use the native point size of the font???
 internal v2
-DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Font, s32 PointSize, v2 Position, v4 Color)
+DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color)
+{
+    s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
+    codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
+    
+    // NOTE(Peter): 
+    r32 MinX = Position.x + CodepointInfo.XOffset;
+    r32 MinY = Position.y + CodepointInfo.YOffset;
+    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
+    
+    // NOTE(Peter): 
+    v2 PointAfterCharacter = v2{Position.x + CodepointInfo.Width, Position.y};
+    return PointAfterCharacter;
+}
+
+internal v2
+DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color)
+{
+    s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
+    codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
+    
+    // NOTE(Peter): 
+    r32 MinX = Position.x - (CodepointInfo.XOffset + CodepointInfo.Width);
+    r32 MinY = Position.y + CodepointInfo.YOffset + CodepointInfo.YOffset;
+    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
+    
+    // NOTE(Peter): 
+    v2 PointAfterCharacter = v2{Position.x-(CodepointInfo.Width + CodepointInfo.XOffset), Position.y};
+    return PointAfterCharacter;
+}
+
+internal v2
+DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, char* String, s32 Length, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+{
+    v2 RegisterPosition = InitialRegisterPosition;
+    char* C = String;
+    for (s32 i = 0; i < Length; i++)
+    {
+        v2 PositionAfterCharacter = DrawCharacterLeftAligned(BatchConstructor, *C, *Font, RegisterPosition, Color);
+        RegisterPosition.x = PositionAfterCharacter.x;
+        C++;
+    }
+    return RegisterPosition;
+}
+
+internal v2
+DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, char* String, s32 Length, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+{
+    v2 RegisterPosition = InitialRegisterPosition;
+    char* C = String + Length - 1;
+    for (s32 i = Length - 1; i >= 0; i--)
+    {
+        v2 PositionAfterCharacter = DrawCharacterRightAligned(BatchConstructor, *C, *Font, RegisterPosition, Color);
+        RegisterPosition.x = PositionAfterCharacter.x;
+        C--;
+    }
+    return RegisterPosition;
+}
+
+internal v2
+DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Font, v2 Position, v4 Color, string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     v2 LowerRight = Position;
@@ -34,14 +92,22 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
                                                                               Font->BitmapBytesPerPixel,
                                                                               Font->BitmapStride);
     
-    r32 FontScale = (r32)PointSize / Font->PixelHeight;
     v2 RegisterPosition = Position;
-    char* C = String.Memory;
-    for (s32 i = 0; i < String.Length; i++)
+    if (Alignment == Align_Left)
     {
-        v2 PositionAfterCharacter = DrawCharacter(&BatchConstructor, *C, *Font, RegisterPosition, Color, FontScale);
-        RegisterPosition.x = PositionAfterCharacter.x;
-        C++;
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
+                                                 String.Memory, String.Length, 
+                                                 RegisterPosition, Font, Color);
+    }
+    else if (Alignment == Align_Right)
+    {
+        RegisterPosition = DrawStringRightAligned(&BatchConstructor,
+                                                  String.Memory, String.Length, 
+                                                  RegisterPosition, Font, Color);
+    }
+    else
+    {
+        InvalidCodePath;
     }
     
     LowerRight.x = RegisterPosition.x;
@@ -50,15 +116,15 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
 }
 
 internal void
-DrawCursor (render_quad_batch_constructor* BatchConstructor, v2 Position, v4 Color, bitmap_font Font, r32 FontScale)
+DrawCursor (render_quad_batch_constructor* BatchConstructor, v2 Position, v4 Color, bitmap_font Font)
 {
     v2 Min = Position;
-    v2 Max = Position + v2{(r32)Font.MaxCharWidth * FontScale, Font.Ascent + Font.Descent * FontScale};
+    v2 Max = Position + v2{(r32)Font.MaxCharWidth, (r32)(Font.Ascent + Font.Descent)};
     PushQuad2DOnBatch(BatchConstructor, Min, Max, Color);
 }
 
 internal v2
-DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 CursorPosition, bitmap_font* Font, s32 PointSize, v2 Position, v4 Color, v4 CursorColor)
+DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 CursorPosition, bitmap_font* Font, v2 Position, v4 Color, v4 CursorColor, string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     v2 LowerRight = Position;
@@ -73,24 +139,38 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 Cu
                                                                               Font->BitmapBytesPerPixel,
                                                                               Font->BitmapStride);
     
-    r32 FontScale = (r32)PointSize / Font->PixelHeight;
     v2 RegisterPosition = Position;
-    char* C = String.Memory;
-    for (s32 i = 0; i < String.Length; i++)
+    if (Alignment == Align_Left)
     {
-        if (i == CursorPosition)
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
+                                                 String.Memory, CursorPosition, 
+                                                 RegisterPosition, Font, Color);
+        DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font);
+        if (String.Length - CursorPosition > 0)
         {
-            DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font, FontScale);
+            RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
+                                                     String.Memory + CursorPosition, 
+                                                     String.Length - CursorPosition,
+                                                     RegisterPosition, Font, Color);
         }
-        
-        v2 PositionAfterCharacter = DrawCharacter(&BatchConstructor, *C, *Font, RegisterPosition, Color, FontScale);
-        RegisterPosition.x = PositionAfterCharacter.x;
-        C++;
     }
-    
-    if (CursorPosition == String.Length)
+    else if (Alignment == Align_Right)
     {
-        DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font, FontScale);
+        RegisterPosition = DrawStringRightAligned(&BatchConstructor,
+                                                  String.Memory, CursorPosition, 
+                                                  RegisterPosition, Font, Color);
+        DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font);
+        if (String.Length - CursorPosition > 0)
+        {
+            RegisterPosition = DrawStringRightAligned(&BatchConstructor,
+                                                      String.Memory + CursorPosition, 
+                                                      String.Length - CursorPosition,
+                                                      RegisterPosition, Font, Color);
+        }
+    }
+    else
+    {
+        InvalidCodePath;
     }
     
     LowerRight.x = RegisterPosition.x;
@@ -139,7 +219,7 @@ EvaluateButton (render_command_buffer* RenderBuffer,
     }
     
     PushRenderQuad2D(RenderBuffer, Min, Max, BGColor);
-    DrawString(RenderBuffer, Label, Font, Font->PixelHeight, Min + Margin, TextColor);
+    DrawString(RenderBuffer, Label, Font, Min + Margin, TextColor);
     
     Result.Advance = (Max.y - Min.y) + Margin.y;
     return Result;
@@ -188,7 +268,7 @@ EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer,
     multi_option_label_result Result = {};
     Result.Pressed = false;
     
-    DrawString(RenderBuffer, Label, Config.Font, 14, Min + Config.Margin, Config.TextColor);
+    DrawString(RenderBuffer, Label, Config.Font, Min + Config.Margin, Config.TextColor);
     
     r32 ButtonSide = (Max.y - Min.y) - (2 * Config.Margin.y);
     v2 ButtonDim = v2{ButtonSide, ButtonSide};
@@ -287,7 +367,7 @@ EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Labe
     
     // TODO(Peter): display the actual value of the slider
     
-    DrawString(RenderBuffer, Label, Config.Font, 14, Min, Config.TextColor);
+    DrawString(RenderBuffer, Label, Config.Font, Min, Config.TextColor);
     
     Result.Percent = DisplayPercent;
     Result.Advance = (Max.y - Min.y) + Config.Margin.y; 
@@ -327,7 +407,7 @@ EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label
         Min.x + Config.Margin.x,
         Max.y - ((r32)NewLineYOffset(*Config.Font) + Config.Margin.y)
     };
-    DrawString(RenderBuffer, Label, Config.Font, 14, TextPos, Config.TextColor);
+    DrawString(RenderBuffer, Label, Config.Font, TextPos, Config.TextColor);
     Result.ChildMax = v2{Max.x, TextPos.y} - Config.Margin;
     
     return Result;
@@ -534,7 +614,7 @@ EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin
         PushRenderQuad2D(RenderBuffer, PanelMin, PanelMax, v4{.5f, .5f, .5f, 1.f});
         
         v2 TitleMin = v2{PanelMin.x + 5, PanelMax.y - (Config.Font->PixelHeight + 5)};
-        DrawString(RenderBuffer, MakeStringLiteral("Color Picker"), Config.Font, Config.Font->PixelHeight, 
+        DrawString(RenderBuffer, MakeStringLiteral("Color Picker"), Config.Font, 
                    TitleMin, WhiteV4);
         
         v2 SliderDim = v2{(PanelMax.x - PanelMin.x) - 20, 32};
@@ -578,16 +658,16 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     
     // Title Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
-    DrawString(RenderBuffer, Title, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
+    DrawString(RenderBuffer, Title, Font, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
     
     MakeStringBuffer(DebugString, 256);
     PrintF(&DebugString, "Hot Item: %d  |  Filtered Items: %d", HotItem, ListLength);
-    DrawString(RenderBuffer, DebugString, Font, 14, v2{TopLeft.x + 256, TopLeft.y - 25}, WhiteV4);
+    DrawString(RenderBuffer, DebugString, Font, v2{TopLeft.x + 256, TopLeft.y - 25}, WhiteV4);
     TopLeft.y -= 30;
     
     // Search Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
-    DrawStringWithCursor(RenderBuffer, *SearchString, SearchStringCursorPosition, Font, 14, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4, GreenV4);
+    DrawStringWithCursor(RenderBuffer, *SearchString, SearchStringCursorPosition, Font, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4, GreenV4);
     TopLeft.y -= 30;
     
     for (s32 i = 0; i < ListLength; i++)

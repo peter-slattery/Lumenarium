@@ -1033,13 +1033,13 @@ DrawValueDisplay (render_command_buffer* RenderBuffer, rect Bounds, node_connect
         case MemberType_s32:
         {
             PrintF(&String, "%.*d", 4, Value.S32Value);
-            DrawString(RenderBuffer, String, Font, Font->PixelHeight, Bounds.Min + v2{2, 2}, WhiteV4);
+            DrawString(RenderBuffer, String, Font, Bounds.Min + v2{2, 2}, WhiteV4);
         }break;
         
         case MemberType_r32:
         {
             PrintF(&String, "%.*f", 4, Value.R32Value);
-            DrawString(RenderBuffer, String, Font, Font->PixelHeight, Bounds.Min + v2{2, 2}, WhiteV4);
+            DrawString(RenderBuffer, String, Font, Bounds.Min + v2{2, 2}, WhiteV4);
         }break;
         
         case MemberType_v4:
@@ -1050,7 +1050,7 @@ DrawValueDisplay (render_command_buffer* RenderBuffer, rect Bounds, node_connect
         case MemberType_NODE_COLOR_BUFFER:
         {
             PrintF(&String, "LEDs");
-            DrawString(RenderBuffer, String, Font, Font->PixelHeight, Bounds.Min +  v2{2, 2}, WhiteV4);
+            DrawString(RenderBuffer, String, Font, Bounds.Min +  v2{2, 2}, WhiteV4);
         }break;
         
         InvalidDefaultCase;

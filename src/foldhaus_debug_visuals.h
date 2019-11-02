@@ -35,7 +35,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
            State->Modes.Arena.CurrentRegion->Used,
            State->Modes.Arena.CurrentRegion->Size,
            State->CommandQueue.Used);
-    DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, WhiteV4);
+    DrawString(RenderBuffer, DebugString, Interface.Font, TopOfScreenLinePos, WhiteV4);
     
     v2 ButtonDim = v2{200, (r32)NewLineYOffset(*Interface.Font) + 10};
     TopOfScreenLinePos.y -= ButtonDim.y + 10;
@@ -97,7 +97,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
                3, Camera.LookAt.x,
                3, Camera.LookAt.y,
                3, Camera.LookAt.z);
-        DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, TopOfScreenLinePos, v4{1.0f, 1.0f, 1.0f, 1.0f});
+        DrawString(RenderBuffer, DebugString, Interface.Font, TopOfScreenLinePos, v4{1.0f, 1.0f, 1.0f, 1.0f});
         TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
         
         s32 MousePrecision = 0;
@@ -106,7 +106,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
                MousePrecision, Mouse.Pos.y,
                MousePrecision, Mouse.DownPos.x,
                MousePrecision, Mouse.DownPos.y);
-        DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize,
+        DrawString(RenderBuffer, DebugString, Interface.Font,
                    TopOfScreenLinePos, WhiteV4);
         TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
     }
@@ -129,24 +129,24 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
             PrintF(&DebugString, "%.*s",
                    GlobalDebugServices->ScopeHistogramSorted[i].ScopeName.Length,
                    GlobalDebugServices->ScopeHistogramSorted[i].ScopeName.Memory);
-            r32 ColumnOneX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
+            r32 ColumnOneX = DrawString(RenderBuffer, DebugString, Interface.Font, 
                                         Register, WhiteV4).x;
             Register.x += GSMax(ColumnOneX - Register.x, 250.f);
             
             // Column 2
             PrintF(&DebugString, "%d hits", GlobalDebugServices->ScopeHistogramSorted[i].PerFrame_CallCount[CurrentFrame]);
-            r32 ColumnTwoX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
+            r32 ColumnTwoX = DrawString(RenderBuffer, DebugString, Interface.Font, 
                                         Register, WhiteV4).x;
             Register.x += GSMax(ColumnTwoX - Register.x, 150.f);
             
             // Column 3
             PrintF(&DebugString, "%lld cycles", CyclesPerHit);
-            r32 ColumnThreeX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
+            r32 ColumnThreeX = DrawString(RenderBuffer, DebugString, Interface.Font, 
                                           Register, WhiteV4).x;
             Register.x += GSMax(ColumnThreeX - Register.x, 200.f);
             
             PrintF(&DebugString, "%f sec", SecondsPerHit);
-            r32 ColumnFourX = DrawString(RenderBuffer, DebugString, Interface.Font, Interface.FontSize, 
+            r32 ColumnFourX = DrawString(RenderBuffer, DebugString, Interface.Font, 
                                          Register, WhiteV4).x;
             Register.x += GSMax(ColumnFourX - Register.x, 200.f);
             
