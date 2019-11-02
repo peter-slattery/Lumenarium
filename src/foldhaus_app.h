@@ -102,8 +102,6 @@ struct app_state
     
     node_render_settings NodeRenderSettings;
     
-    
-    
     string GeneralPurposeSearchString;
 };
 

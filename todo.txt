@@ -8,7 +8,7 @@ x Allow one operation at a time at first
 x Push/pop operations on a list?
 - Current Operations:
 -   - View Sculpture (this might be an exception since its so central)
-x     - View/Edit Nodes
+-     x View/Edit Nodes
 -        x Add Node (needs nesting)
 -     x View SACN
 

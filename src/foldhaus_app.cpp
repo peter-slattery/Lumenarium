@@ -336,12 +336,6 @@ UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 
 ////////////////////////////////////////////////////////////////////////
 
-internal void
-RegisterTextEntryCommands (input_command_registry* CommandRegistry)
-{
-    
-}
-
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     app_state* State = (app_state*)Context.MemoryBase;
@@ -515,27 +509,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
             
-            input_command* Command = FindExistingCommand(ActiveCommands, Event.Key, (key_code)0);
-            if (Command)
+            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
+            // Down and Up over Held. In other words, we don't want to call a Held command on the 
+            // frame when the button was released, even if the command is registered to both events
+            if (KeyTransitionedDown(Event))
             {
-                if ((KeyTransitionedDown(Event) && ((Command->Flags & Command_Began) > 0)))
-                {
-                    PushCommandOnQueue(&State->CommandQueue, 
-                                       *Command, 
-                                       Event, 
-                                       (Command->Flags & Command_Held) == 0);
-                }
-                else if (KeyTransitionedUp(Event) && ((Command->Flags & Command_Ended) > 0))
-                {
-                    if ((Command->Flags & Command_Held) == 0)
-                    {
-                        PushCommandOnQueue(&State->CommandQueue, *Command, Event, true);
-                    }
-                    else
-                    {
-                        FlagCommandForRemoval(&State->CommandQueue, *Command, Event);
-                    }
-                }
+                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+            }
+            else if (KeyTransitionedUp(Event))
+            {
+                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+            }
+            else if (KeyHeldDown(Event))
+            {
+                FindAndPushExistingCommand(State->ActiveCommands, Event, Command_Held, &State->CommandQueue); 
             }
             
             if (Event.Key == KeyCode_MouseLeftButton)

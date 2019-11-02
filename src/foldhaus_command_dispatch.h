@@ -8,6 +8,8 @@ enum input_command_flags
     Command_Ended = 1 << 2,
 };
 
+#define Command_Any Command_Began | Command_Held | Command_Ended
+
 // TODO(Peter): At the moment these are all key press commands. Need a way to differentiate between
 // press and hold. Probably add a second array to input_command_Registry
 struct input_command
@@ -31,7 +33,6 @@ struct command_queue_entry
 {
     input_command Command;
     input_entry Event;
-    b32 RemoveOnExecute;
 };
 
 struct input_command_queue

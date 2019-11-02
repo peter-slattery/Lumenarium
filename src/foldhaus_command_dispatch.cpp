@@ -8,47 +8,6 @@ InitializeInputCommandRegistry (input_command_registry* CommandRegistry,
     CommandRegistry->Used = 0;
 }
 
-internal input_command*
-FindExistingCommand (input_command_registry* CommandRegistry, key_code Key, key_code Mdfr)
-{
-    input_command* Result = 0;
-    
-    for (s32 Cmd = 0; Cmd < CommandRegistry->Used; Cmd++)
-    {
-        input_command* Command = CommandRegistry->Commands + Cmd;
-        if (Command->Key == Key && Command->Mdfr == Mdfr)
-        {
-            Result = Command;
-            break;
-        }
-    }
-    
-    return Result;
-}
-
-internal void
-RegisterKeyPressCommand (input_command_registry* CommandRegistry,
-                         key_code Key,
-                         b32 Flags,
-                         key_code Mdfr,
-                         input_command_proc* Proc)
-{
-    input_command* Command = FindExistingCommand(CommandRegistry, Key, Mdfr);
-    
-    if (!Command)
-    {
-        Assert(CommandRegistry->Size > CommandRegistry->Used);
-        Assert(Mdfr == KeyCode_Invalid || Mdfr == KeyCode_LeftShift || Mdfr == KeyCode_RightShift ||
-               Mdfr == KeyCode_LeftCtrl || Mdfr == KeyCode_RightCtrl || Mdfr == KeyCode_Alt);
-        Command = CommandRegistry->Commands + CommandRegistry->Used++;
-    }
-    
-    Command->Key = Key;
-    Command->Flags = Flags;
-    Command->Mdfr = Mdfr;
-    Command->Proc = Proc;
-}
-
 internal void
 RegisterMouseWheelCommand (input_command_registry* CommandRegistry,
                            input_command_proc* Proc)
@@ -85,6 +44,7 @@ InitializeCommandQueue(command_queue_entry* Memory, s32 MemorySize)
 internal void
 RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(input_command_queue* Queue)
 {
+#if 0
     s32 PersistantCommandsCount = 0;
     for (s32 i = 0; i < Queue->Used; i++)
     {
@@ -102,24 +62,19 @@ RemoveNonPersistantCommandsFromQueueAndUpdatePersistentEvents(input_command_queu
         }
     }
     Queue->Used = PersistantCommandsCount;
+#else
+    Queue->Used = 0;
+#endif
 }
 
 internal void
-PushCommandOnQueue(input_command_queue* Queue, input_command Command, input_entry Event, b32 RemoveOnExecute)
+PushCommandOnQueue(input_command_queue* Queue, input_command Command, input_entry Event)
 {
     Assert(Queue->Used < Queue->Size);
     command_queue_entry Entry = {};
     Entry.Command = Command;
     Entry.Event = Event;
-    Entry.RemoveOnExecute = RemoveOnExecute;
     Queue->Commands[Queue->Used++] = Entry;
-}
-
-internal void
-FlagCommandForRemoval(input_command_queue* Queue, input_command Command, input_entry Event)
-{
-    s32 CommandIndex = GetCommandIndexInQueue(Queue, Command, Event);
-    Queue->Commands[CommandIndex].RemoveOnExecute = true;
 }
 
 internal void
@@ -169,4 +124,62 @@ ActivateQueuedCommandRegistry (app_state* State)
         State->ActiveCommands = State->NextCommandRegistry;
         State->NextCommandRegistry = 0;
     }
+}
+
+internal input_command*
+FindExistingCommand (input_command_registry* CommandRegistry, key_code Key, key_code Mdfr, b32 Flags)
+{
+    input_command* Result = 0;
+    
+    for (s32 Cmd = 0; Cmd < CommandRegistry->Used; Cmd++)
+    {
+        input_command* Command = CommandRegistry->Commands + Cmd;
+        if (Command->Key == Key && Command->Mdfr == Mdfr)
+        {
+            b32 FlagsOverlap = Flags & Command->Flags;
+            if (FlagsOverlap)
+            {
+                Result = Command;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+internal b32
+FindAndPushExistingCommand(input_command_registry* CommandRegistry, input_entry Event, b32 Flags, input_command_queue* CommandQueue)
+{
+    b32 CommandFound = false;
+    input_command* Command = FindExistingCommand(CommandRegistry, Event.Key, (key_code)0, Flags);
+    if (Command)
+    {
+        PushCommandOnQueue(CommandQueue, *Command, Event);
+        CommandFound = true;
+    }
+    return CommandFound;
+}
+
+internal void
+RegisterKeyPressCommand (input_command_registry* CommandRegistry,
+                         key_code Key,
+                         b32 Flags,
+                         key_code Mdfr,
+                         input_command_proc* Proc)
+{
+    input_command* Command = FindExistingCommand(CommandRegistry, Key, Mdfr, Flags);
+    
+    if (!Command)
+    {
+        Assert(CommandRegistry->Size > CommandRegistry->Used);
+        Assert(Mdfr == KeyCode_Invalid || Mdfr == KeyCode_LeftShift || Mdfr == KeyCode_RightShift ||
+               Mdfr == KeyCode_LeftCtrl || Mdfr == KeyCode_RightCtrl || Mdfr == KeyCode_Alt);
+        Command = CommandRegistry->Commands + CommandRegistry->Used++;
+    }
+    
+    Command->Key = Key;
+    Command->Flags = Flags;
+    Command->Mdfr = Mdfr;
+    Command->Proc = Proc;
 }
