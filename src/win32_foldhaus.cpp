@@ -516,7 +516,7 @@ INT NCmdShow
     r32 LastFrameSecondsElapsed = 0.0f;
     
     GlobalDebugServices = (debug_services*)malloc(sizeof(debug_services));
-    InitDebugServices(GlobalDebugServices, (u8*)malloc(Megabytes(8)), Megabytes(8), 1000, PerformanceCountFrequency);
+    InitDebugServices(GlobalDebugServices, (u8*)malloc(Megabytes(8)), Megabytes(16), 32000, PerformanceCountFrequency);
     GlobalDebugServices->GetWallClock = GetWallClock;
     
     mouse_state Mouse;

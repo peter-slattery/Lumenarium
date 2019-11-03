@@ -74,7 +74,7 @@ struct node_connection
 #define NODE_CONNECTIONS_MAX 8
 struct interface_node
 {
-    s32 Handle;
+    s32 Handle; // NOTE(Peter): stores a non-zero handle. must come first to match node_free_list_member
     string Name;
     
     v2 Min, Dim;
@@ -88,13 +88,29 @@ struct interface_node
     u8* PersistentData;
 };
 
-struct node_list
+struct node_free_list_member
+{
+    s32 Handle; // NOTE(Peter): this will always be zero, and must come first to match interface_node
+    s32 Size;
+    node_free_list_member* Next;
+    s32 OldHandle;
+};
+
+struct node_list_buffer
 {
     u8* Memory;
     s32 Max;
     s32 Used;
     
-    node_list* Next;
+    node_list_buffer* Next;
+};
+
+struct node_list
+{
+    node_list_buffer* First;
+    node_list_buffer* Head;
+    s32 TotalMax;
+    s32 TotalUsed;
     
     s32 HandleAccumulator;
 };
@@ -102,6 +118,7 @@ struct node_list
 struct node_list_iterator
 {
     node_list List;
+    node_list_buffer* CurrentBuffer;
     interface_node* At;
 };
 

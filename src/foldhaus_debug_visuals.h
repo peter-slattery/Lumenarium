@@ -109,6 +109,13 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
         DrawString(RenderBuffer, DebugString, Interface.Font,
                    TopOfScreenLinePos, WhiteV4);
         TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
+        
+        PrintF(&DebugString, "Nodes Memory: %d / %d",
+               State->NodeList->TotalUsed,
+               State->NodeList->TotalMax);
+        DrawString(RenderBuffer, DebugString, Interface.Font,
+                   TopOfScreenLinePos, WhiteV4);
+        TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
     }
     
     if (GlobalDebugServices->Interface.ShowTrackedScopes)

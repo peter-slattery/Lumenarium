@@ -585,7 +585,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     if (OpState->SelectedNodeHandle > 0)
     {
-        
+        interface_node* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
+        FreeNodeOnList(State->NodeList, SelectedNode);
     }
 }
 
@@ -594,19 +595,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-FOLDHAUS_INPUT_COMMAND_PROC(DEBUGGetNode)
-{
-    interface_node* Node = GetNodeWithHandle(State->NodeList, 3);
-    s32 x = 5;
-}
-
 input_command NodeViewCommands [] = {
     { KeyCode_Tab, KeyCode_Invalid, Command_Began, CloseNodeView},
     { KeyCode_A, KeyCode_Invalid, Command_Began, OpenNodeLister},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, NodeViewBeginMouseDragInteraction},
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, NodeViewBeginMouseSelectInteraction},
     { KeyCode_X, KeyCode_Invalid, Command_Began, NodeViewDeleteNode},
-    { KeyCode_B, KeyCode_Invalid, Command_Began, DEBUGGetNode},
 };
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)

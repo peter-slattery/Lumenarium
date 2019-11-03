@@ -71,21 +71,21 @@ NODE_PROC(RevolvingDiscs, revolving_discs_data)
 {
     sacn_pixel Color = PackFloatsToSACNPixel(Data->Color.r, Data->Color.g, Data->Color.b);
     
-    v3 Center = v3{0, 0, 0};
-    v3 Normal = v3{GSCos(Data->ThetaZ), 0, GSSin(Data->ThetaZ)}; // NOTE(Peter): dont' need to normalize. Should always be 1
-    v3 Right = Cross(Normal, v3{0, 1, 0});
+    v4 Center = v4{0, 0, 0, 1};
+    v4 Normal = v4{GSCos(Data->ThetaZ), 0, GSSin(Data->ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
+    v4 Right = Cross(Normal, v4{0, 1, 0, 0});
     //Normal = RotateAround(Data->ThetaY, Right);
     
-    v3 FrontCenter = Center + (Normal * Data->DiscWidth);
-    v3 BackCenter = Center - (Normal * Data->DiscWidth);
+    v4 FrontCenter = Center + (Normal * Data->DiscWidth);
+    v4 BackCenter = Center - (Normal * Data->DiscWidth);
     
     led* LED = Data->ResultLEDs;
     for (s32 l = 0; l < Data->ResultLEDCount; l++)
     {
-        v3 Position = LED->Position;
+        v4 Position = LED->Position;
         
-        v3 ToFront = Normalize(Position + FrontCenter);
-        v3 ToBack = Normalize(Position + BackCenter);
+        v4 ToFront = Normalize(Position + FrontCenter);
+        v4 ToBack = Normalize(Position + BackCenter);
         
         r32 ToFrontDotNormal = Dot(ToFront, Normal);
         r32 ToBackDotNormal = Dot(ToBack, Normal);

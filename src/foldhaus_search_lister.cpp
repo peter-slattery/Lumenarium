@@ -15,6 +15,8 @@ FilterSearchLister (search_lister* SearchLister)
         }
     }
     
+    SearchLister->HotItem = GSClamp(0, SearchLister->HotItem, SearchLister->FilteredListCount - 1);
+    
     if (SearchLister->FilteredListCount == 0)
     {
         SearchLister->HotItem = -1;

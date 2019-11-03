@@ -175,7 +175,7 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
         r32 PercentStep = 1 / (r32)LEDsInStripCount;
         for (s32 Step = 0; Step < LEDsInStripCount; Step++)
         {
-            v3 LEDPosition = Lerp(WS_StripStart, WS_StripEnd, Percent);
+            v4 LEDPosition = V4(Lerp(WS_StripStart, WS_StripEnd, Percent), 1);
             s32 LEDIndex = LEDBuffer->Count++;
             Assert(LEDIndex < LEDCount);
             
@@ -183,7 +183,6 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
             sacn_pixel* LEDColor = LEDBuffer->Colors + LEDIndex;
             
             LED->Position = LEDPosition;
-            LED->PositionMatrix = GetPositionM44(V4(LED->Position, 1));
             LED->Index = LEDIndex; 
             
             Percent += PercentStep;
@@ -242,13 +241,14 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
         sacn_pixel SACNColor = Data->Colors[LED->Index];
         v4 Color = v4{SACNColor.R / 255.f, SACNColor.G / 255.f, SACNColor.B / 255.f, 1.0f};
         
-        m44 ModelMatrix = Data->FaceCameraMatrix * LED->PositionMatrix;// * Data->FaceCameraMatrix;
+        v4 V4Position = LED->Position;
+        V4Position.w = 0;
+        v4 P0 = P0_In + V4Position;
+        v4 P1 = P1_In + V4Position;
+        v4 P2 = P2_In + V4Position;
+        v4 P3 = P3_In + V4Position;
         
-        v4 P0 = ModelMatrix * P0_In;
-        v4 P1 = ModelMatrix * P1_In;
-        v4 P2 = ModelMatrix * P2_In;
-        v4 P3 = ModelMatrix * P3_In;
-        
+        DEBUG_TRACK_SCOPE(PushLEDTris);
         PushTri3DOnBatch(Data->Batch, P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
         PushTri3DOnBatch(Data->Batch, P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
         
@@ -457,7 +457,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    State->NodeList = AllocateNodeList(State->Permanent, Kilobytes(64));
+    State->NodeList = AllocateNodeList(State->Permanent, 512); //Kilobytes(64));
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     {
         State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;

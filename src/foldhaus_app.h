@@ -9,8 +9,7 @@
 struct led
 {
     s32 Index;
-    v3 Position;
-    m44 PositionMatrix;
+    v4 Position;
 };
 
 struct led_buffer
@@ -63,18 +62,17 @@ struct app_state
     memory_arena* Transient;
     memory_arena  SACNMemory;
     
-    camera Camera;
-    
-    operation_mode_system Modes;
-    
-    input_command_registry DefaultInputCommandRegistry;
-    
-    input_command_queue CommandQueue;
-    text_entry ActiveTextEntry;
-    
     streaming_acn SACN;
     s32 TotalLEDsCount;
     led_buffer* LEDBufferList;
+    
+    camera Camera;
+    r32 PixelsToWorldScale;
+    
+    operation_mode_system Modes;
+    input_command_registry DefaultInputCommandRegistry;
+    input_command_queue CommandQueue;
+    text_entry ActiveTextEntry;
     
     // TODO(Peter): Make this dynamic. We want them contiguous in memory since we'll be accessing them
     // mostly by looping through them. On the other hand, I don't expect there to ever be more than 100 
@@ -83,23 +81,19 @@ struct app_state
     assembly AssemblyList[ASSEMBLY_LIST_LENGTH];
     s32 AssembliesUsed;
     
-    bitmap_font* Font;
-    interface_config Interface;
-    
-    r32 PixelsToWorldScale;
-    
     node_list* NodeList;
     interface_node* OutputNode;
     
     node_render_settings NodeRenderSettings;
-    
+    bitmap_font* Font;
+    interface_config Interface;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
+#include "foldhaus_node.cpp"
 #include "foldhaus_debug_visuals.h"
 #include "foldhaus_sacn_view.cpp"
-#include "foldhaus_node.cpp"
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"
 

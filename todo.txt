@@ -1,7 +1,20 @@
 TODO FOLDHAUS
 
+
 BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
+
+Switch To Nodes
+- separate node functionality from drawing the nodes
+-   - parallelize the node connections array so that they can be pushed and freed independently
+-   - this could allow dynamically resizing node connections
+-   - separate out interface nodes from computation nodes (interface in a binary/quad tree?)
+-   - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
+- selector node (has a list of connections that it can switch between)
+- delete nodes
+- remove node connections
+- Serialize Nodes
+- evaluation step (one node at a time)
 
 Hardening
 - turn the default sculpture view into an operation mode ? (have to think about this)
@@ -16,17 +29,10 @@ update functions
 UI Improvements
 - highlight node field under active edit
 - draw cursor in node field under active edit
-x print node field names on hover or on the node
 - Mouse Held Commands
 - Actual cursor states
 
 API Improvements
-x Clean up DrawString... good lord
-x Add Text Alignment to DrawString
-- Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
--    - Cant we just calculate this at render time?
-- Move nodes over to referencing eachother based on a UID system
-- separate out interface nodes from computation nodes (interface in a binary/quad tree?)
 
 Application
 - More efficient HSV <-> RGB
@@ -45,13 +51,6 @@ Interface
 -   - Value modifiers
 - Scroll view
 - Update the text system - use system fonts
-
-Switch To Nodes
-- selector node (has a list of connections that it can switch between)
-- delete nodes
-- remove node connections
-- Serialize Nodes
-- evaluation step (one node at a time)
 
 Structure
 - motion

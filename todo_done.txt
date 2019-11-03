@@ -1,5 +1,6 @@
 BUGS
 x if there is nothing in the filtered list when searching for a node, hitting enter still selects one
+x Search lister - returning from a filtered list that has zero elements to one that has a few, hotItem = -1
 
 Intermediate Lifetime Memory & Operations
 x Intermediate lifetime memory arena
@@ -16,6 +17,14 @@ x make modes work with hot code reloading: rather than do the whole series of in
 x   and manually adding each command, store the commands as an array, and auto iterate over them when you
 x   push the mode on the mode stack
 x decided I don't like storing NodeRenderSettings in each operation mode. Probably want to put it back in   x   app_state
+
+UI Improvements
+x print node field names on hover or on the node
+
+API Improvements
+x Clean up DrawString... good lord
+x Add Text Alignment to DrawString
+x Move nodes over to referencing eachother based on a UID system
 
 /Debug
 x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 

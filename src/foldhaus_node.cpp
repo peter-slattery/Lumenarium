@@ -1,8 +1,14 @@
 inline s32
+GetNodeMemorySize(s32 ConnectionsCount, s32 NameLength)
+{
+    s32 Result = sizeof(interface_node) + (sizeof(node_connection) * ConnectionsCount) + sizeof(NameLength);
+    return Result;
+}
+
+inline s32
 GetNodeMemorySize (interface_node Node)
 {
-    s32 Result = sizeof(interface_node) + (sizeof(node_connection) * Node.ConnectionsCount) + sizeof(Node.Name);
-    return Result;
+    return GetNodeMemorySize(Node.ConnectionsCount, Node.Name.Length);
 }
 
 internal node_list_iterator
@@ -10,7 +16,9 @@ GetNodeListIterator(node_list List)
 {
     node_list_iterator Result = {};
     Result.List = List;
-    Result.At = (interface_node*)List.Memory;
+    Result.CurrentBuffer = List.First;
+    Result.At = (interface_node*)Result.CurrentBuffer->Memory;
+    
     return Result;
 }
 
@@ -18,37 +26,59 @@ internal b32
 NodeIteratorIsValid(node_list_iterator Iter)
 {
     b32 Result = (Iter.At != 0); 
-    Result &= (((u8*)Iter.At - Iter.List.Memory) < Iter.List.Used);
+    Result &= (((u8*)Iter.At - Iter.CurrentBuffer->Memory) < Iter.CurrentBuffer->Used);
     return Result;
 }
 
 internal void
 Next (node_list_iterator* Iter)
 {
-    s32 SkipAmount = GetNodeMemorySize(*Iter->At);
-    if (((u8*)Iter->At - Iter->List.Memory) + SkipAmount < Iter->List.Used)
+    if (Iter->At->Handle == 0)
     {
+        node_free_list_member* FreeNode = (node_free_list_member*)Iter->At;
+        s32 SkipAmount = FreeNode->Size;
         Iter->At = (interface_node*)((u8*)Iter->At + SkipAmount);
-    }
-    else if (Iter->List.Next)
-    {
-        Iter->List = *Iter->List.Next;
-        Iter->At = (interface_node*)Iter->List.Memory;
     }
     else
     {
-        Iter->At = 0;
+        s32 SkipAmount = GetNodeMemorySize(*Iter->At);
+        if (((u8*)Iter->At - Iter->CurrentBuffer->Memory) + SkipAmount < Iter->CurrentBuffer->Used)
+        {
+            Iter->At = (interface_node*)((u8*)Iter->At + SkipAmount);
+            if (Iter->At->Handle == 0) { Next(Iter); }
+        }
+        else if (Iter->CurrentBuffer->Next)
+        {
+            Iter->CurrentBuffer = Iter->CurrentBuffer->Next;
+            Iter->At = (interface_node*)Iter->CurrentBuffer->Memory;
+            if (Iter->At->Handle == 0) { Next(Iter); }
+        }
+        else
+        {
+            Iter->At = 0;
+        }
     }
 }
 
-internal node_list*
-AllocateNodeList (memory_arena* Storage, s32 Size)
+internal node_list_buffer*
+AllocateNodeListBuffer (memory_arena* Storage, s32 Size)
 {
-    node_list* Result = PushStruct(Storage, node_list);
+    node_list_buffer* Result = PushStruct(Storage, node_list_buffer);;
     Result->Memory = PushSize(Storage, Size);
     Result->Max = Size;
     Result->Used = 0;
     Result->Next = 0;
+    return Result;
+}
+
+internal node_list*
+AllocateNodeList (memory_arena* Storage, s32 InitialSize)
+{
+    node_list* Result = PushStruct(Storage, node_list);
+    Result->First = AllocateNodeListBuffer(Storage, InitialSize);
+    Result->Head = Result->First;
+    Result->TotalMax = InitialSize;
+    Result->TotalUsed = 0;
     Result->HandleAccumulator = 0;
     return Result;
 }
@@ -58,30 +88,37 @@ PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v
 {
     interface_node* Result = 0;
     
-    if (List->Used >= List->Max)
+    s32 NodeMemorySize = GetNodeMemorySize(ConnectionsCount, NameLength);
+    
+    if (List->TotalUsed + NodeMemorySize >= List->TotalMax)
     {
-        if (!List->Next)
-        {
-            List->Next = AllocateNodeList(Storage, List->Max);
-        }
-        Result = PushNodeOnList(List->Next, NameLength, ConnectionsCount, Min, Dim, Storage);
+        node_list_buffer* Buf = AllocateNodeListBuffer(Storage, List->Head->Max);
+        List->Head->Next = Buf;
+        List->Head = Buf;
+        List->TotalMax += Buf->Max;
     }
-    else
-    {
-        Result = (interface_node*)(List->Memory + List->Used);
-        Result->Handle = ++List->HandleAccumulator;
-        Result->Name = MakeString((char*)(Result + 1), NameLength);
-        
-        Result->ConnectionsCount = ConnectionsCount;
-        Result->Connections = (node_connection*)(Result->Name.Memory + NameLength);
-        
-        Result->Min = Min;
-        Result->Dim = Dim;
-        
-        List->Used += GetNodeMemorySize(*Result);
-    }
+    Assert(List->TotalUsed + NodeMemorySize <= List->TotalMax);
+    
+    Result = (interface_node*)(List->Head->Memory + List->Head->Used);
+    Result->Handle = ++List->HandleAccumulator;
+    Result->Name = MakeString((char*)(Result + 1), NameLength);
+    
+    Result->ConnectionsCount = ConnectionsCount;
+    Result->Connections = (node_connection*)(Result->Name.Memory + NameLength);
+    
+    Result->Min = Min;
+    Result->Dim = Dim;
+    
+    List->Head->Used += NodeMemorySize;
+    List->TotalUsed += NodeMemorySize;
     
     return Result;
+}
+
+internal void
+FreeNodeOnList (node_list* List, interface_node* Node)
+{
+    // TODO(Peter): 
 }
 
 internal void
@@ -174,16 +211,15 @@ GetNodeWithHandle(node_list* List, s32 Handle)
     DEBUG_TRACK_FUNCTION;
     interface_node* Result = 0;
     
-    u8* At = List->Memory;
-    while(At - List->Memory < List->Used)
+    node_list_iterator Iter = GetNodeListIterator(*List);
+    while (NodeIteratorIsValid(Iter))
     {
-        interface_node* Node = (interface_node*)At;
-        if(Node->Handle == Handle)
+        if(Iter.At->Handle == Handle)
         {
-            Result = Node;
+            Result = Iter.At;
             break;
         }
-        At += GetNodeMemorySize(*Node);
+        Next(&Iter);
     }
     
     return Result;
