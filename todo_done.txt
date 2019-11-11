@@ -30,6 +30,9 @@ x Move nodes over to referencing eachother based on a UID system
 x Make debug scope tracking thread safe - was throwing an error in stringsequal but that stopped. 
 x    Keep an eye out.
 x Sort Scope Tracking
+x got the profiler view rudimentarily working
+x reimplement the scope list view. 
+x start tracking debug interface state somehow and it would be good to separate that out from global debug state
 
 Switch To Nodes
 x basic node elements

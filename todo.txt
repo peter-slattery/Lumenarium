@@ -1,23 +1,26 @@
 TODO FOLDHAUS
 
 YOU WERE IN THE MIDDLE OF
-You just got the profiler view rudimentarily working and were about to start to reimplement the 
-scope list view. You need to start tracking debug interface state somehow, and it would be good
-to separate that out from global debug state
 
 
 BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
 
 Switch To Nodes
+- delete nodes
+-  - Simplify node storage
+-     - separate storage of node headers from connections
+-     - investigate if node connections can be operated on separately from the node headers
+-  - Allow insertion/deletion within connection table
+-  - Allow inerstion/deletion within header table
+-  - maintain free list of connections and headers
 - separate node functionality from drawing the nodes
--   - parallelize the node connections array so that they can be pushed and freed independently
--   - this could allow dynamically resizing node connections
--   - separate out interface nodes from computation nodes (interface in a binary/quad tree?)
+-   - pull node position, size, etc out into a parallel data structure. after split names: node_header, interface_node
+-   - create separate files: foldhaus_node_engine, foldhaus_node_gui
+-   - store interface_nodes in binary tree
+-   - allow panning and zooming around the node canvas
 -   - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
 - selector node (has a list of connections that it can switch between)
-- delete nodes
-- remove node connections
 - Serialize Nodes
 - evaluation step (one node at a time)
 
@@ -33,9 +36,11 @@ update functions
 
 UI Improvements
 - highlight node field under active edit
-- draw cursor in node field under active edit
 - Mouse Held Commands
 - Actual cursor states
+- Text editing improvements
+-   - draw cursor in node field under active edit
+-   - better/intelligent zero padding
 
 API Improvements
 
