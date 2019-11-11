@@ -95,7 +95,7 @@ node_specification NodeSpecifications[] = {
 };
 s32 NodeSpecificationsCount = 10;
 
-internal void CallNodeProc(interface_node* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
+internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
 {
 switch (Node->Type)
 {

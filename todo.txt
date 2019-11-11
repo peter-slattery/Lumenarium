@@ -9,6 +9,7 @@ BUGS
 Switch To Nodes
 - delete nodes
 -  - Simplify node storage
+-     x don't pull node names into the struct, just reference the specification
 -     - separate storage of node headers from connections
 -     - investigate if node connections can be operated on separately from the node headers
 -  - Allow insertion/deletion within connection table
@@ -32,12 +33,13 @@ update functions
 -  - Log memory allocations
 - separate rendering thread
 - cache led positions. Only update if they are moving
--  - shift drag to 10x drag speed
+- :HotCodeReloading
 
 UI Improvements
 - highlight node field under active edit
 - Mouse Held Commands
 - Actual cursor states
+- shift drag to 10x drag speed
 - Text editing improvements
 -   - draw cursor in node field under active edit
 -   - better/intelligent zero padding

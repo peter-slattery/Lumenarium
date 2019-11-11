@@ -82,7 +82,7 @@ struct app_state
     s32 AssembliesUsed;
     
     node_list* NodeList;
-    interface_node* OutputNode;
+    node_header* OutputNode;
     
     node_render_settings NodeRenderSettings;
     bitmap_font* Font;

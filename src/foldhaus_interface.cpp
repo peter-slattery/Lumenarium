@@ -420,7 +420,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    interface_node* Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
+    node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
     if (Node)
     {
         node_interaction NewInteraction = GetNodeInteractionType(Node, 
@@ -453,7 +453,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
 {
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    interface_node* Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
+    node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
     if (Node)
     {
         node_interaction NewInteraction = GetNodeInteractionType(Node, 
@@ -484,12 +484,12 @@ OPERATION_RENDER_PROC(RenderNodeView)
     
     MakeStringBuffer(NodeHeaderBuffer, 128);
     
-    interface_node* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
+    node_header* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
     
     node_list_iterator NodeIter = GetNodeListIterator(*State->NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
-        interface_node* Node = NodeIter.At;
+        node_header* Node = NodeIter.At;
         
         rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
         b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);
@@ -585,7 +585,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
     node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     if (OpState->SelectedNodeHandle > 0)
     {
-        interface_node* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
+        node_header* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
         FreeNodeOnList(State->NodeList, SelectedNode);
     }
 }

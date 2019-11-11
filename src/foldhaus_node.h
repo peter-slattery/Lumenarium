@@ -52,8 +52,10 @@ struct node_led_color_connection
 
 struct node_connection
 {
+    s32 NodeHandle;
     struct_member_type Type;
     
+    // TODO(Peter): probably can unify these pairs into a struct
     s32 UpstreamNodeHandle;
     s32 UpstreamNodePortIndex;
     s32 DownstreamNodeHandle;
@@ -72,7 +74,7 @@ struct node_connection
 // TODO(Peter): cant decide if this needs to be dynamic or just a really big number
 // reevaluate once you have some examples
 #define NODE_CONNECTIONS_MAX 8
-struct interface_node
+struct node_header
 {
     s32 Handle; // NOTE(Peter): stores a non-zero handle. must come first to match node_free_list_member
     string Name;
@@ -90,7 +92,7 @@ struct interface_node
 
 struct node_free_list_member
 {
-    s32 Handle; // NOTE(Peter): this will always be zero, and must come first to match interface_node
+    s32 Handle; // NOTE(Peter): this will always be zero, and must come first to match node_header
     s32 Size;
     node_free_list_member* Next;
     s32 OldHandle;
@@ -105,6 +107,7 @@ struct node_list_buffer
     node_list_buffer* Next;
 };
 
+#define NODE_LIST_CONNECTIONS_MAX 256
 struct node_list
 {
     node_list_buffer* First;
@@ -113,13 +116,16 @@ struct node_list
     s32 TotalUsed;
     
     s32 HandleAccumulator;
+    
+    s32 ConnectionsUsed;
+    node_connection Connections[NODE_LIST_CONNECTIONS_MAX];
 };
 
 struct node_list_iterator
 {
     node_list List;
     node_list_buffer* CurrentBuffer;
-    interface_node* At;
+    node_header* At;
 };
 
 enum node_interaction_flag

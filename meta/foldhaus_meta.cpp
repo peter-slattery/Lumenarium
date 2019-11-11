@@ -579,7 +579,7 @@ int main(int ArgCount, char** ArgV)
     CodeBlockPrint(&NodeSpecificationsBlock, MakeStringLiteral("node_specification NodeSpecifications[] = {\n"));
     
     code_block_builder CallNodeProcBlock = InitCodeBlockBuilder();
-    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("internal void CallNodeProc(interface_node* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"));
+    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"));
     CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("switch (Node->Type)\n{\n"));
     
     // Build Search Paths Array

@@ -1,14 +1,14 @@
 inline s32
-GetNodeMemorySize(s32 ConnectionsCount, s32 NameLength)
+GetNodeMemorySize(s32 ConnectionsCount)
 {
-    s32 Result = sizeof(interface_node) + (sizeof(node_connection) * ConnectionsCount) + sizeof(NameLength);
+    s32 Result = sizeof(node_header) + (sizeof(node_connection) * ConnectionsCount);
     return Result;
 }
 
 inline s32
-GetNodeMemorySize (interface_node Node)
+GetNodeMemorySize (node_header Node)
 {
-    return GetNodeMemorySize(Node.ConnectionsCount, Node.Name.Length);
+    return GetNodeMemorySize(Node.ConnectionsCount);
 }
 
 internal node_list_iterator
@@ -17,7 +17,7 @@ GetNodeListIterator(node_list List)
     node_list_iterator Result = {};
     Result.List = List;
     Result.CurrentBuffer = List.First;
-    Result.At = (interface_node*)Result.CurrentBuffer->Memory;
+    Result.At = (node_header*)Result.CurrentBuffer->Memory;
     
     return Result;
 }
@@ -37,20 +37,20 @@ Next (node_list_iterator* Iter)
     {
         node_free_list_member* FreeNode = (node_free_list_member*)Iter->At;
         s32 SkipAmount = FreeNode->Size;
-        Iter->At = (interface_node*)((u8*)Iter->At + SkipAmount);
+        Iter->At = (node_header*)((u8*)Iter->At + SkipAmount);
     }
     else
     {
         s32 SkipAmount = GetNodeMemorySize(*Iter->At);
         if (((u8*)Iter->At - Iter->CurrentBuffer->Memory) + SkipAmount < Iter->CurrentBuffer->Used)
         {
-            Iter->At = (interface_node*)((u8*)Iter->At + SkipAmount);
+            Iter->At = (node_header*)((u8*)Iter->At + SkipAmount);
             if (Iter->At->Handle == 0) { Next(Iter); }
         }
         else if (Iter->CurrentBuffer->Next)
         {
             Iter->CurrentBuffer = Iter->CurrentBuffer->Next;
-            Iter->At = (interface_node*)Iter->CurrentBuffer->Memory;
+            Iter->At = (node_header*)Iter->CurrentBuffer->Memory;
             if (Iter->At->Handle == 0) { Next(Iter); }
         }
         else
@@ -83,12 +83,12 @@ AllocateNodeList (memory_arena* Storage, s32 InitialSize)
     return Result;
 }
 
-internal interface_node*
-PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v2 Dim, memory_arena* Storage)
+internal node_header*
+PushNodeOnList (node_list* List, s32 ConnectionsCount, v2 Min, v2 Dim, memory_arena* Storage)
 {
-    interface_node* Result = 0;
+    node_header* Result = 0;
     
-    s32 NodeMemorySize = GetNodeMemorySize(ConnectionsCount, NameLength);
+    s32 NodeMemorySize = GetNodeMemorySize(ConnectionsCount);
     
     if (List->TotalUsed + NodeMemorySize >= List->TotalMax)
     {
@@ -99,12 +99,11 @@ PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v
     }
     Assert(List->TotalUsed + NodeMemorySize <= List->TotalMax);
     
-    Result = (interface_node*)(List->Head->Memory + List->Head->Used);
+    Result = (node_header*)(List->Head->Memory + List->Head->Used);
     Result->Handle = ++List->HandleAccumulator;
-    Result->Name = MakeString((char*)(Result + 1), NameLength);
     
     Result->ConnectionsCount = ConnectionsCount;
-    Result->Connections = (node_connection*)(Result->Name.Memory + NameLength);
+    Result->Connections = (node_connection*)(Result + 1);
     
     Result->Min = Min;
     Result->Dim = Dim;
@@ -116,7 +115,7 @@ PushNodeOnList (node_list* List, s32 NameLength, s32 ConnectionsCount, v2 Min, v
 }
 
 internal void
-FreeNodeOnList (node_list* List, interface_node* Node)
+FreeNodeOnList (node_list* List, node_header* Node)
 {
     // TODO(Peter): 
 }
@@ -168,15 +167,17 @@ PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Mi
 {
     // :NodesDontNeedToKnowTheirBounds
     r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength);
-    interface_node* Node = PushNodeOnList(List, 
-                                          Spec.NameLength, 
-                                          Spec.MemberListLength,
-                                          Min, 
-                                          v2{150, NodeHeight}, 
-                                          Storage);
+    node_header* Node = PushNodeOnList(List, 
+                                       Spec.MemberListLength,
+                                       Min, 
+                                       v2{150, NodeHeight}, 
+                                       Storage);
     Node->Type = Spec.Type;
     
-    CopyCharArrayToString(Spec.Name, Spec.NameLength, &Node->Name);
+    // TODO(Peter): This doesn't work with code reloading, probably just want to store the spec index
+    // we'll get there
+    // :HotCodeReloading
+    Node->Name = MakeString(Spec.Name, Spec.NameLength);
     
     node_struct_member* MemberList = Spec.MemberList;
     for (s32 MemberIdx = 0; MemberIdx < Spec.MemberListLength; MemberIdx++)
@@ -188,28 +189,31 @@ PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Mi
     Node->PersistentData = PushArray(Storage, u8, Spec.DataStructSize);
 }
 
-internal interface_node*
+global_variable char* OutputName = "Output";
+
+internal node_header*
 PushOutputNodeOnList (node_list* List, v2 Min, memory_arena* Storage)
 {
-    string OutputNodeName = MakeStringLiteral("Output");
-    interface_node* Node = PushNodeOnList(List, 
-                                          OutputNodeName.Length,
-                                          1,
-                                          Min,
-                                          DEFAULT_NODE_DIMENSION,
-                                          Storage);
+    node_header* Node = PushNodeOnList(List, 
+                                       1,
+                                       Min,
+                                       DEFAULT_NODE_DIMENSION,
+                                       Storage);
     Node->Type = NodeType_OutputNode;
-    CopyStringTo(OutputNodeName, &Node->Name);
+    
+    // :HotCodeReloading
+    Node->Name = MakeString(OutputName);
+    
     InitializeNodeConnection(Node->Connections, MemberType_NODE_COLOR_BUFFER, IsInputMember);
     
     return Node;
 }
 
-internal interface_node*
+internal node_header*
 GetNodeWithHandle(node_list* List, s32 Handle)
 {
     DEBUG_TRACK_FUNCTION;
-    interface_node* Result = 0;
+    node_header* Result = 0;
     
     node_list_iterator Iter = GetNodeListIterator(*List);
     while (NodeIteratorIsValid(Iter))
@@ -226,7 +230,7 @@ GetNodeWithHandle(node_list* List, s32 Handle)
 }
 
 internal rect
-CalculateNodeBounds (interface_node* Node, node_render_settings Settings)
+CalculateNodeBounds (node_header* Node, node_render_settings Settings)
 {
     rect Result = {};
     Result.Min = Node->Min;
@@ -235,7 +239,7 @@ CalculateNodeBounds (interface_node* Node, node_render_settings Settings)
 }
 
 internal rect
-CalculateNodeInputPortBounds (interface_node* Node, s32 Index, node_render_settings RenderSettings)
+CalculateNodeInputPortBounds (node_header* Node, s32 Index, node_render_settings RenderSettings)
 {
     rect Result = {};
     
@@ -248,7 +252,7 @@ CalculateNodeInputPortBounds (interface_node* Node, s32 Index, node_render_setti
 }
 
 internal rect
-CalculateNodeInputValueBounds (interface_node* Node, s32 Index, node_render_settings RenderSettings)
+CalculateNodeInputValueBounds (node_header* Node, s32 Index, node_render_settings RenderSettings)
 {
     rect Result = {};
     rect Port = CalculateNodeInputPortBounds(Node, Index, RenderSettings);
@@ -258,7 +262,7 @@ CalculateNodeInputValueBounds (interface_node* Node, s32 Index, node_render_sett
 }
 
 internal rect
-CalculateNodeOutputPortBounds (interface_node* Node, s32 Index, node_render_settings RenderSettings)
+CalculateNodeOutputPortBounds (node_header* Node, s32 Index, node_render_settings RenderSettings)
 {
     rect Result = {};
     Result.Min = v2{
@@ -269,7 +273,7 @@ CalculateNodeOutputPortBounds (interface_node* Node, s32 Index, node_render_sett
 }
 
 internal rect
-CalculateNodeOutputValueBounds (interface_node* Node, s32 Index, node_render_settings RenderSettings)
+CalculateNodeOutputValueBounds (node_header* Node, s32 Index, node_render_settings RenderSettings)
 {
     rect Result = {};
     rect Port = CalculateNodeOutputPortBounds(Node, Index, RenderSettings);
@@ -279,18 +283,18 @@ CalculateNodeOutputValueBounds (interface_node* Node, s32 Index, node_render_set
 }
 
 internal rect
-GetBoundsOfPortConnectedToInput (interface_node* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
+GetBoundsOfPortConnectedToInput (node_header* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
 {
-    interface_node* ConnectedNode =
+    node_header* ConnectedNode =
         GetNodeWithHandle(NodeList, Node->Connections[PortIndex].UpstreamNodeHandle);
     rect Result = CalculateNodeOutputPortBounds(ConnectedNode, Node->Connections[PortIndex].UpstreamNodePortIndex, RenderSettings);
     return Result;
 }
 
 internal rect
-GetBoundsOfPortConnectedToOutput (interface_node* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
+GetBoundsOfPortConnectedToOutput (node_header* Node, s32 PortIndex, node_list* NodeList, node_render_settings RenderSettings)
 {
-    interface_node* ConnectedNode = GetNodeWithHandle(NodeList, Node->Connections[PortIndex].DownstreamNodeHandle);
+    node_header* ConnectedNode = GetNodeWithHandle(NodeList, Node->Connections[PortIndex].DownstreamNodeHandle);
     rect Result = CalculateNodeInputPortBounds(ConnectedNode, Node->Connections[PortIndex].DownstreamNodePortIndex, RenderSettings);
     return Result;
 }
@@ -419,7 +423,7 @@ ConnectionIsConnected (node_connection Connection)
 }
 
 internal b32
-ConnectionIsConnected (interface_node* Node, s32 Index)
+ConnectionIsConnected (node_header* Node, s32 Index)
 {
     b32 Result = ConnectionIsConnected(Node->Connections[Index]);
     return Result;
@@ -433,7 +437,7 @@ ConnectionHasUpstreamConnection (node_connection Connection)
 }
 
 internal b32
-ConnectionHasUpstreamConnection (interface_node* Node, s32 Index)
+ConnectionHasUpstreamConnection (node_header* Node, s32 Index)
 {
     b32 Result = ConnectionHasUpstreamConnection(Node->Connections[Index]);
     return Result;
@@ -447,7 +451,7 @@ ConnectionHasDownstreamConnection (node_connection Connection)
 }
 
 internal b32
-ConnectionHasDownstreamConnection (interface_node* Node, s32 Index)
+ConnectionHasDownstreamConnection (node_header* Node, s32 Index)
 {
     b32 Result = ConnectionHasDownstreamConnection(Node->Connections[Index]);
     return Result;
@@ -461,7 +465,7 @@ ConnectionIsInput (node_connection Connection)
 }
 
 internal b32
-ConnectionIsInput (interface_node* Node, s32 ConnectionIdx)
+ConnectionIsInput (node_header* Node, s32 ConnectionIdx)
 {
     return ConnectionIsInput(Node->Connections[ConnectionIdx]);
 }
@@ -474,13 +478,13 @@ ConnectionIsOutput (node_connection Connection)
 }
 
 internal b32
-ConnectionIsOutput (interface_node* Node, s32 ConnectionIdx)
+ConnectionIsOutput (node_header* Node, s32 ConnectionIdx)
 {
     return ConnectionIsOutput(Node->Connections[ConnectionIdx]);
 }
 
 internal b32
-CheckForRecursionWithHandle (node_list* NodeList, s32 LookForNodeHandle, interface_node* StartNode)
+CheckForRecursionWithHandle (node_list* NodeList, s32 LookForNodeHandle, node_header* StartNode)
 {
     DEBUG_TRACK_FUNCTION;
     b32 Result = false;
@@ -497,7 +501,7 @@ CheckForRecursionWithHandle (node_list* NodeList, s32 LookForNodeHandle, interfa
         
         if (StartNode->Connections[Connection].DownstreamNodeHandle > 0)
         {
-            interface_node* NextNode = GetNodeWithHandle(NodeList, StartNode->Connections[Connection].DownstreamNodeHandle);
+            node_header* NextNode = GetNodeWithHandle(NodeList, StartNode->Connections[Connection].DownstreamNodeHandle);
             Result = CheckForRecursionWithHandle(NodeList, LookForNodeHandle, NextNode);
             if (Result) { break; }
         }
@@ -507,7 +511,7 @@ CheckForRecursionWithHandle (node_list* NodeList, s32 LookForNodeHandle, interfa
 }
 
 internal b32
-PortTypesMatch (interface_node* UpstreamNode, s32 UpstreamNode_OutputPort, interface_node* DownstreamNode, s32 DownstreamNode_InputPort)
+PortTypesMatch (node_header* UpstreamNode, s32 UpstreamNode_OutputPort, node_header* DownstreamNode, s32 DownstreamNode_InputPort)
 {
     Assert(ConnectionIsOutput(UpstreamNode, UpstreamNode_OutputPort));
     Assert(ConnectionIsInput(DownstreamNode, DownstreamNode_InputPort));
@@ -520,8 +524,8 @@ ConnectNodes(node_list* NodeList,
              s32 UpstreamNodeHandle, s32 UpstreamNodePort, 
              s32 DownstreamNodeHandle, s32 DownstreamNodePort)
 {
-    interface_node* UpstreamNode = 0;
-    interface_node* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
+    node_header* UpstreamNode = 0;
+    node_header* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
     if (!CheckForRecursionWithHandle(NodeList, UpstreamNodeHandle, DownstreamNode))
     {
         UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
@@ -543,8 +547,8 @@ internal void
 UnconnectNodes (node_list* NodeList, 
                 s32 DownstreamNodeHandle, s32 DownstreamNode_OutputPort, s32 UpstreamNodeHandle,  s32 UpstreamNode_InputPort)
 {
-    interface_node* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
-    interface_node* UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
+    node_header* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
+    node_header* UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
     
     Assert(ConnectionIsOutput(DownstreamNode, DownstreamNode_OutputPort));
     Assert(ConnectionIsInput(UpstreamNode, UpstreamNode_InputPort));
@@ -555,16 +559,16 @@ UnconnectNodes (node_list* NodeList,
     UpstreamNode->Connections[UpstreamNode_InputPort].UpstreamNodePortIndex = -1;
 }
 
-internal interface_node*
+internal node_header*
 GetNodeUnderPoint (node_list* NodeList, v2 Point, node_render_settings RenderSettings)
 {
     DEBUG_TRACK_FUNCTION;
-    interface_node* Result = 0;
+    node_header* Result = 0;
     
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
-        interface_node* Node = NodeIter.At;
+        node_header* Node = NodeIter.At;
         rect NodeBounds = CalculateNodeBounds(Node, RenderSettings);
         if (PointIsInRect(Point, NodeBounds))
         {
@@ -578,7 +582,7 @@ GetNodeUnderPoint (node_list* NodeList, v2 Point, node_render_settings RenderSet
 }
 
 internal node_interaction
-GetNodeInteractionType (interface_node* ActiveNode, v2 MousePos, node_render_settings RenderSettings)
+GetNodeInteractionType (node_header* ActiveNode, v2 MousePos, node_render_settings RenderSettings)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -651,7 +655,7 @@ TryConnectNodes (node_interaction Interaction, v2 Point, node_list* NodeList, no
     
     if (IsDraggingNodeOutput(Interaction))
     {
-        interface_node* UpstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
+        node_header* UpstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
         if (UpstreamNode)
         {
             for (s32 Connection = 0; Connection < UpstreamNode->ConnectionsCount; Connection++)
@@ -670,7 +674,7 @@ TryConnectNodes (node_interaction Interaction, v2 Point, node_list* NodeList, no
     }
     else if (IsDraggingNodeInput(Interaction))
     {
-        interface_node* DownstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
+        node_header* DownstreamNode = GetNodeUnderPoint(NodeList, Point, RenderSettings);
         if (DownstreamNode)
         {
             for (s32 Connection = 0; Connection < DownstreamNode->ConnectionsCount; Connection++)
@@ -691,7 +695,7 @@ TryConnectNodes (node_interaction Interaction, v2 Point, node_list* NodeList, no
 }
 
 internal void
-PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
+PlaceNode (node_list* NodeList, node_header* Node, v2 Position, b32 Flags)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -706,7 +710,7 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
             s32 ConnectionHandle = Node->Connections[Connection].DownstreamNodeHandle;
             if (ConnectionHandle > 0)
             {
-                interface_node* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
+                node_header* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
                 v2 CurrPos = ConnectedNode->Min;
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all downstream component so it doesn't turn around and try
@@ -725,7 +729,7 @@ PlaceNode (node_list* NodeList, interface_node* Node, v2 Position, b32 Flags)
             s32 ConnectionHandle = Node->Connections[Connection].UpstreamNodeHandle;
             if (ConnectionHandle > 0)
             {
-                interface_node* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
+                node_header* ConnectedNode = GetNodeWithHandle(NodeList, ConnectionHandle);
                 v2 CurrPos = ConnectedNode->Min;
                 v2 NewPos = CurrPos + Offset;
                 // NOTE(Peter): Have to negate the all upstream component so it doesn't turn around and try
@@ -745,7 +749,7 @@ UpdateDraggingNode (v2 MousePos, node_interaction Interaction, node_list* NodeLi
     
     if (IsDraggingNode(Interaction))
     {
-        interface_node* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
+        node_header* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         PlaceNode(NodeList, ActiveNode, MousePos + Interaction.MouseOffset, Interaction.Flags);
     }
 }
@@ -757,7 +761,7 @@ UpdateDraggingNodePort (v2 MousePos, node_interaction Interaction, node_list* No
     
     if (IsDraggingNodePort(Interaction))
     {
-        interface_node* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
+        node_header* ActiveNode = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         rect PortBounds = {};
         if (IsDraggingNodeInput(Interaction))
         {
@@ -781,7 +785,7 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
     if(IsDraggingNodeValue(Interaction))
     {
         v2 MouseDelta = MousePos - LastFrameMousePos;
-        interface_node* Node = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
+        node_header* Node = GetNodeWithHandle(NodeList, Interaction.NodeHandle);
         
         node_connection* Connection = 0;
         if (IsDraggingNodeInputValue(Interaction))
@@ -819,12 +823,12 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
 }
 
 
-internal void UpdateNodeCalculation (interface_node* Node, node_list* NodeList, 
+internal void UpdateNodeCalculation (node_header* Node, node_list* NodeList, 
                                      memory_arena* Permanent, memory_arena* Transient,
                                      led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime);
 
 internal void
-UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList, 
+UpdateNodesConnectedUpstream (node_header* Node, node_list* NodeList, 
                               memory_arena* Permanent, memory_arena* Transient,
                               led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
@@ -837,7 +841,7 @@ UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList,
             
             if (ConnectionHasUpstreamConnection(*Connection))
             {
-                interface_node* UpstreamNode = GetNodeWithHandle(NodeList, Connection->UpstreamNodeHandle);
+                node_header* UpstreamNode = GetNodeWithHandle(NodeList, Connection->UpstreamNodeHandle);
                 if (!UpstreamNode->UpdatedThisFrame)
                 {
                     UpdateNodeCalculation(UpstreamNode, NodeList, Permanent, Transient, LEDs, ColorsInit, LEDCount, DeltaTime);
@@ -872,7 +876,7 @@ UpdateNodesConnectedUpstream (interface_node* Node, node_list* NodeList,
 }
 
 internal void
-UpdateNodeCalculation (interface_node* Node, node_list* NodeList, 
+UpdateNodeCalculation (node_header* Node, node_list* NodeList, 
                        memory_arena* Permanent, memory_arena* Transient,
                        led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
@@ -984,7 +988,7 @@ UpdateNodeCalculation (interface_node* Node, node_list* NodeList,
 }
 
 internal void
-UpdateOutputNodeCalculations (interface_node* OutputNode, node_list* NodeList, 
+UpdateOutputNodeCalculations (node_header* OutputNode, node_list* NodeList, 
                               memory_arena* Permanent, memory_arena* Transient, 
                               led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
@@ -1009,7 +1013,7 @@ UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Permanent, memory_
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
-        interface_node* Node = NodeIter.At;
+        node_header* Node = NodeIter.At;
         if (!Node->UpdatedThisFrame)
         {
             UpdateNodeCalculation(Node, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
@@ -1024,7 +1028,7 @@ ClearTransientNodeColorBuffers (node_list* NodeList)
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
-        interface_node* Node = NodeIter.At;
+        node_header* Node = NodeIter.At;
         for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
         {
             node_connection* Connection = Node->Connections + ConnectionIdx;
@@ -1086,7 +1090,7 @@ ResetNodesUpdateState (node_list* NodeList)
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))
     {
-        interface_node* Node = NodeIter.At;
+        node_header* Node = NodeIter.At;
         Node->UpdatedThisFrame = false;
         Next(&NodeIter);
     }
