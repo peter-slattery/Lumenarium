@@ -219,7 +219,10 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     
     draw_leds_job_data* Data = (draw_leds_job_data*)JobData;
     
-    s32 DrawCommandsCount = Data->OnePastLastIndex - Data->StartIndex;
+    s32 LEDCount = Data->OnePastLastIndex - Data->StartIndex;
+    
+    quad_batch_constructor_reserved_range BatchReservedRange = ThreadSafeReserveRangeInQuadConstructor(Data->Batch, LEDCount * 2);
+    s32 TrisUsed = 0;
     
     r32 HalfWidth = Data->LEDHalfWidth;
     
@@ -235,7 +238,7 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     
     led* LED = Data->LEDs + Data->StartIndex;
     for (s32 LEDIdx = 0;
-         LEDIdx < DrawCommandsCount;
+         LEDIdx < LEDCount;
          LEDIdx++)
     {
         sacn_pixel SACNColor = Data->Colors[LED->Index];
@@ -248,9 +251,10 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
         v4 P2 = P2_In + V4Position;
         v4 P3 = P3_In + V4Position;
         
-        DEBUG_TRACK_SCOPE(PushLEDTris);
-        PushTri3DOnBatch(Data->Batch, P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
-        PushTri3DOnBatch(Data->Batch, P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
+        SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
+                        P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
+        SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
+                        P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
         
         LED++;
     }
@@ -476,8 +480,53 @@ INITIALIZE_APPLICATION(InitializeApplication)
     }
 }
 
+internal void
+HandleInput (app_state* State, input_queue InputQueue, mouse_state Mouse)
+{
+    DEBUG_TRACK_FUNCTION;
+    
+    input_command_registry ActiveCommands = State->DefaultInputCommandRegistry;
+    if (State->Modes.ActiveModesCount > 0)
+    {
+        ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
+    }
+    
+    
+    
+    for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
+    {
+        input_entry Event = InputQueue.Entries[EventIdx];
+        
+        // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
+        // Down and Up over Held. In other words, we don't want to call a Held command on the 
+        // frame when the button was released, even if the command is registered to both events
+        if (KeyTransitionedDown(Event))
+        {
+            FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+        }
+        else if (KeyTransitionedUp(Event))
+        {
+            FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+        }
+        else if (KeyHeldDown(Event))
+        {
+            FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
+        }
+    }
+    
+    // Execute all commands in CommandQueue
+    for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
+    {
+        command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
+        Entry->Command.Proc(State, Entry->Event, Mouse);
+    }
+    
+    ClearCommandQueue(&State->CommandQueue);
+}
+
 UPDATE_AND_RENDER(UpdateAndRender)
 {
+    DEBUG_TRACK_FUNCTION;
     app_state* State = (app_state*)Context.MemoryBase;
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
@@ -486,59 +535,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
     
-    {
-        input_command_registry ActiveCommands = State->DefaultInputCommandRegistry;
-        if (State->Modes.ActiveModesCount > 0)
-        {
-            ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
-        }
-        
-        for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
-        {
-            input_entry Event = InputQueue.Entries[EventIdx];
-            
-            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
-            // Down and Up over Held. In other words, we don't want to call a Held command on the 
-            // frame when the button was released, even if the command is registered to both events
-            if (KeyTransitionedDown(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
-            }
-            else if (KeyTransitionedUp(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
-            }
-            else if (KeyHeldDown(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
-            }
-            
-            if (Event.Key == KeyCode_MouseLeftButton)
-            {
-                Mouse.LeftButtonTransitionedDown = KeyTransitionedDown(Event);
-                Mouse.LeftButtonTransitionedUp = KeyTransitionedUp(Event);
-            }
-            else if (Event.Key == KeyCode_MouseMiddleButton)
-            {
-                Mouse.MiddleButtonTransitionedDown = KeyTransitionedDown(Event);
-                Mouse.MiddleButtonTransitionedUp = KeyTransitionedUp(Event);
-            }
-            else if (Event.Key == KeyCode_MouseRightButton)
-            {
-                Mouse.RightButtonTransitionedDown = KeyTransitionedDown(Event);
-                Mouse.RightButtonTransitionedUp = KeyTransitionedUp(Event);
-            }
-        }
-        
-        // Execute all commands in CommandQueue
-        for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
-        {
-            command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
-            Entry->Command.Proc(State, Entry->Event, Mouse);
-        }
-        
-        ClearCommandQueue(&State->CommandQueue);
-    }
+    HandleInput(State, InputQueue, Mouse);
     
     if (State->LEDBufferList)
     {
@@ -625,6 +622,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         DEBUG_IF(GlobalDebugServices->Interface.RenderSculpture) // DebugServices RenderSculpture Toggle
         {
+            DEBUG_TRACK_SCOPE(RenderSculpture);
             s32 JobsNeeded = PLATFORM_THREAD_COUNT;
             s32 LEDBufferSize = IntegerDivideRoundUp(State->TotalLEDsCount, JobsNeeded);
             
@@ -738,8 +736,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
                            Context.DeltaTime, State, State->Camera, Mouse, State->Transient);
     }
-    
-    EndDebugFrame(GlobalDebugServices);
 }
 
 CLEANUP_APPLICATION(CleanupApplication)

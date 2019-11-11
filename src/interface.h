@@ -207,7 +207,7 @@ EvaluateButton (render_command_buffer* RenderBuffer,
     
     if (PointIsInRange(Mouse.Pos, Min, Max))
     {
-        if (Mouse.LeftButtonTransitionedDown)
+        if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
         {
             Result.Pressed = true;
         }
@@ -350,7 +350,7 @@ EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Labe
         BGColor = Config.ButtonColor_Active;
     }
     
-    if (Mouse.LeftButtonTransitionedDown)
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
     {
         if (PointIsInRange(Mouse.DownPos, Min, Max))
         {
@@ -581,7 +581,7 @@ EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask,
                       v2{0, 0}, v2{1, 0}, v2{1, 1}, v2{0, 1},
                       LeftColor, RightColor, RightColor, LeftColor);
     
-    if (Mouse.LeftButtonTransitionedDown)
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
     {
         if (PointIsInRange(Mouse.DownPos, Min, Max))
         {
@@ -605,7 +605,7 @@ EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin
     b32 ShouldClose = false;
     
     v2 PanelMax = v2{400, 500};
-    if (Mouse.LeftButtonTransitionedDown && !PointIsInRange(Mouse.Pos, PanelMin, PanelMax))
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState) && !PointIsInRange(Mouse.Pos, PanelMin, PanelMax))
     {
         ShouldClose = true;
     }

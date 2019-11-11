@@ -624,6 +624,21 @@ v2 _Min, v2 _Max
             _P.y >= _Min.y && _P.y <= _Max.y);
 }
 
+static bool
+PointIsInRangeSafe (
+v2 _P,
+v2 _Min, v2 _Max
+)
+{
+    s32 MinX = GSMin(_Min.x, _Max.x);
+    s32 MinY = GSMin(_Min.y, _Max.y);
+    s32 MaxX = GSMax(_Min.x, _Max.x);
+    s32 MaxY = GSMax(_Min.y, _Max.y);
+    
+    return (_P.x >= MinX && _P.x <= MaxX &&
+            _P.y >= MinY && _P.y <= MaxY);
+}
+
 inline v2
 PointToPercentRange (v2 P, v2 Min, v2 Max)
 {

@@ -4,8 +4,8 @@ enum key_state_flags
     KeyState_IsDown = 1 << 1,
 };
 
-#define KeyWasDown(event) ((event.State & KeyState_WasDown) > 0)
-#define KeyIsDown(event) ((event.State & KeyState_IsDown) > 0)
+#define KeyWasDown(event) ((event & KeyState_WasDown) > 0)
+#define KeyIsDown(event) ((event & KeyState_IsDown) > 0)
 
 struct input_entry
 {
@@ -30,12 +30,9 @@ struct mouse_state
     v2 DeltaPos;
     v2 DownPos;
     
-    b32 LeftButtonTransitionedDown;
-    b32 LeftButtonTransitionedUp;
-    b32 MiddleButtonTransitionedDown;
-    b32 MiddleButtonTransitionedUp;
-    b32 RightButtonTransitionedDown;
-    b32 RightButtonTransitionedUp;
+    b32 LeftButtonState;
+    b32 MiddleButtonState;
+    b32 RightButtonState;
 };
 
 internal input_queue
@@ -78,17 +75,35 @@ AddInputEventEntry (input_queue* Queue, key_code Key,
 internal b32
 KeyTransitionedDown (input_entry Entry)
 {
-    return (!KeyWasDown(Entry) && KeyIsDown(Entry));
+    return (!KeyWasDown(Entry.State) && KeyIsDown(Entry.State));
 }
 
 internal b32
 KeyTransitionedUp (input_entry Entry)
 {
-    return (KeyWasDown(Entry) && !KeyIsDown(Entry));
+    return (KeyWasDown(Entry.State) && !KeyIsDown(Entry.State));
 }
 
 internal b32
 KeyHeldDown (input_entry Entry)
 {
-    return (KeyWasDown(Entry) && KeyIsDown(Entry));
+    return (KeyWasDown(Entry.State) && KeyIsDown(Entry.State));
+}
+
+internal b32
+MouseButtonTransitionedDown (b32 MouseButtonState)
+{
+    return (!KeyWasDown(MouseButtonState) && KeyIsDown(MouseButtonState));
+}
+
+internal b32
+MouseButtonTransitionedUp (b32 MouseButtonState)
+{
+    return (KeyWasDown(MouseButtonState) && !KeyIsDown(MouseButtonState));
+}
+
+internal b32
+MouseButtonHeldDown (b32 MouseButtonState)
+{
+    return (KeyWasDown(MouseButtonState) && KeyIsDown(MouseButtonState));
 }

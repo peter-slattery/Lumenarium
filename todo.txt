@@ -1,5 +1,10 @@
 TODO FOLDHAUS
 
+YOU WERE IN THE MIDDLE OF
+You just got the profiler view rudimentarily working and were about to start to reimplement the 
+scope list view. You need to start tracking debug interface state somehow, and it would be good
+to separate that out from global debug state
+
 
 BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
@@ -56,6 +61,7 @@ Structure
 - motion
 
 Renderer
+- Render layers
 - Mouse Picking - point at a led and see info about it
 - Camera: pan
 - Camera: zoom
@@ -78,6 +84,8 @@ Command Line
 - select a channel/pattern
 
 Optimization
+- investigate the memory access pattern of the SACN / LED systems. Guessing they are very slow
+- look into why debug logging functions seems to incur a large hit on framrate
 - patterns are asking to be multithreaded
 - probably want to convert as much color functions to use u32 Packed Colors
 -  - Probably want to think about this more. What about supporting different color depths

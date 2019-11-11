@@ -1,10 +1,11 @@
 internal render_command_buffer
-AllocateRenderCommandBuffer (u8* Memory, s32 Size)
+AllocateRenderCommandBuffer (u8* Memory, s32 Size, renderer_realloc* Realloc)
 {
     render_command_buffer Result = {};
     Result.CommandMemory = Memory;
-    Result.CommandMemoryUsed = 0;
     Result.CommandMemorySize = Size;
+    Result.CommandMemoryUsed = 0;
+    Result.Realloc = Realloc;
     return Result;
 }
 
@@ -95,6 +96,8 @@ RenderCommandBuffer (render_command_buffer CommandBuffer)
         {
             case RenderCommand_render_command_set_render_mode:
             {
+                DEBUG_TRACK_SCOPE(SetRenderMode);
+                
                 render_command_set_render_mode* Command = (render_command_set_render_mode*)(CommandHeader + 1);
                 
                 glViewport(Command->ViewOffsetX, Command->ViewOffsetY, 
@@ -118,6 +121,8 @@ RenderCommandBuffer (render_command_buffer CommandBuffer)
             
             case RenderCommand_render_command_clear_screen:
             {
+                DEBUG_TRACK_SCOPE(RendererClearScreen);
+                
                 render_command_clear_screen* Command = (render_command_clear_screen*)(CommandHeader + 1);
                 
                 ClearRenderBuffer();

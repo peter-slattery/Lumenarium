@@ -871,6 +871,10 @@ GetPerformanceFrequency ()
 internal s64
 GetWallClock ()
 {
+#if 0
+    s64 Result = __rdtsc();
+    return Result;
+#else
     LARGE_INTEGER Time;
     if (!QueryPerformanceCounter(&Time))
     {
@@ -878,6 +882,7 @@ GetWallClock ()
         InvalidCodePath;
     }
     return (s64)Time.QuadPart;
+#endif
 }
 
 /////////////////////////////////////////

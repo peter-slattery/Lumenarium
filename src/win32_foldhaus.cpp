@@ -380,6 +380,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
             
+            Mouse->LeftButtonState = KeyState_IsDown & ~KeyState_WasDown;
             Mouse->DownPos = Mouse->Pos;
         }break;
         
@@ -391,6 +392,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
+            Mouse->MiddleButtonState = KeyState_IsDown & ~KeyState_WasDown;
         }break;
         
         case WM_RBUTTONDOWN:
@@ -401,6 +403,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
+            Mouse->RightButtonState = KeyState_IsDown & ~KeyState_WasDown;
         }break;
         
         case WM_LBUTTONUP:
@@ -411,6 +414,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
+            Mouse->LeftButtonState = ~KeyState_IsDown & KeyState_WasDown;
         }break;
         
         case WM_MBUTTONUP:
@@ -421,6 +425,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
+            Mouse->MiddleButtonState = ~KeyState_IsDown & KeyState_WasDown;
         }break;
         
         case WM_RBUTTONUP:
@@ -431,6 +436,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
+            Mouse->RightButtonState = ~KeyState_IsDown & KeyState_WasDown;
         }break;
         
         case WM_SYSKEYDOWN:
@@ -493,6 +499,27 @@ SetApplicationLinks (context* Context, win32_dll_refresh DLL, work_queue* WorkQu
     }
 }
 
+internal u8*
+DEBUGAlloc(s32 ElementSize, s32 ElementCount)
+{
+    return Win32BasicAlloc(ElementSize * ElementCount);
+}
+
+internal u8*
+Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
+{
+    u8* NewMemory = Win32BasicAlloc(NewSize);
+    GSMemCopy(Buf, NewMemory, OldSize);
+    return NewMemory;
+}
+
+internal s32 
+Win32GetThreadId()
+{
+    s32 Result = GetCurrentThreadId();
+    return Result;
+}
+
 int WINAPI
 WinMain (
 HINSTANCE HInstance,
@@ -516,8 +543,14 @@ INT NCmdShow
     r32 LastFrameSecondsElapsed = 0.0f;
     
     GlobalDebugServices = (debug_services*)malloc(sizeof(debug_services));
-    InitDebugServices(GlobalDebugServices, (u8*)malloc(Megabytes(8)), Megabytes(16), 32000, PerformanceCountFrequency);
-    GlobalDebugServices->GetWallClock = GetWallClock;
+    s32 DebugThreadCount = PLATFORM_THREAD_COUNT + 1;
+    InitDebugServices(GlobalDebugServices, 
+                      PerformanceCountFrequency, 
+                      DEBUGAlloc, 
+                      Win32Realloc, 
+                      GetWallClock, 
+                      Win32GetThreadId, 
+                      DebugThreadCount);
     
     mouse_state Mouse;
     input_queue InputQueue;
@@ -592,8 +625,8 @@ INT NCmdShow
     WSADATA WSAData;
     WSAStartup(MAKEWORD(2, 2), &WSAData);
     
-    platform_memory_result RenderMemory = Win32Alloc(Megabytes(32));
-    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory.Base, RenderMemory.Size);
+    platform_memory_result RenderMemory = Win32Alloc(Megabytes(12));
+    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory.Base, RenderMemory.Size, Win32Realloc);
     
     Context.InitializeApplication(Context);
     
@@ -601,6 +634,10 @@ INT NCmdShow
     Context.WindowIsVisible = true;
     while (Running)
     {
+        if (GlobalDebugServices->RecordFrames) 
+        { 
+            EndDebugFrame(GlobalDebugServices); 
+        }
         DEBUG_TRACK_SCOPE(MainLoop);
         
         ResetInputQueue(&InputQueue);
@@ -624,6 +661,7 @@ INT NCmdShow
         MSG Message;
         while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
         {
+            DEBUG_TRACK_SCOPE(PeekWindowsMessages);
             HandleWindowMessage(Message, &MainWindow, &InputQueue, &Mouse);
         }
         
@@ -641,6 +679,35 @@ INT NCmdShow
         RenderCommandBuffer(RenderBuffer);
         ClearRenderBuffer(&RenderBuffer);
         
+        
+        if (Mouse.LeftButtonState & KeyState_WasDown &&
+            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+        {
+            Mouse.LeftButtonState = 0;
+        } else if (Mouse.LeftButtonState & KeyState_IsDown) 
+        { 
+            Mouse.LeftButtonState |= KeyState_WasDown; 
+        }
+        
+        if (Mouse.MiddleButtonState & KeyState_WasDown &&
+            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+        {
+            Mouse.MiddleButtonState = 0;
+        } else if (Mouse.MiddleButtonState & KeyState_IsDown) 
+        { 
+            Mouse.MiddleButtonState |= KeyState_WasDown; 
+        }
+        
+        if (Mouse.RightButtonState & KeyState_WasDown &&
+            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+        {
+            Mouse.RightButtonState = 0;
+        } else if (Mouse.RightButtonState & KeyState_IsDown) 
+        { 
+            Mouse.RightButtonState |= KeyState_WasDown; 
+        }
+        
+        
         ///////////////////////////////////
         //        Finish Up
         //////////////////////////////////
@@ -654,6 +721,7 @@ INT NCmdShow
         
         while (SecondsElapsed < TargetSecondsPerFrame)
         {
+            DEBUG_TRACK_SCOPE(UnusedTime);
             u32 SleepTime = 1000.0f * (TargetSecondsPerFrame - SecondsElapsed);
             Sleep(SleepTime);
             SecondsElapsed = GetSecondsElapsed(LastFrameEnd, GetWallClock(), PerformanceCountFrequency);

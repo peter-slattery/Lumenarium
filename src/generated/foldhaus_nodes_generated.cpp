@@ -11,7 +11,6 @@ NodeType_SwdColorProc,
 NodeType_SolidColorProc,
 NodeType_VerticalColorFadeProc,
 NodeType_RevolvingDiscs,
-NodeType_MichelleColorProc,
 NodeType_Count,
 };
 
@@ -61,7 +60,7 @@ node_struct_member MemberList_swd_color_data[] = {
 
 node_struct_member MemberList_solid_color_data[] = {
 { MemberType_v4, "Color", (u64)&((solid_color_data*)0)->Color, IsInputMember  },
-{ MemberType_NODE_COLOR_BUFFER, "LEDs", (u64)&((solid_color_data*)0)->LEDs, IsInputMember | IsOutputMember},
+{ MemberType_NODE_COLOR_BUFFER, "ResultLEDs", (u64)&((solid_color_data*)0)->ResultLEDs,   IsOutputMember},
 };
 
 node_struct_member MemberList_vertical_color_fade_data[] = {
@@ -82,11 +81,6 @@ node_struct_member MemberList_revolving_discs_data[] = {
 { MemberType_NODE_COLOR_BUFFER, "ResultLEDs", (u64)&((revolving_discs_data*)0)->ResultLEDs,   IsOutputMember},
 };
 
-node_struct_member MemberList_michelle_data[] = {
-{ MemberType_v4, "Color", (u64)&((michelle_data*)0)->Color, IsInputMember  },
-{ MemberType_NODE_COLOR_BUFFER, "LEDs", (u64)&((michelle_data*)0)->LEDs, IsInputMember | IsOutputMember},
-};
-
 node_specification NodeSpecifications[] = {
 { NodeType_FloatValue, "FloatValue", 10, MemberList_float_value_data, 8, 2, false},
 { NodeType_VectorValue, "VectorValue", 11, MemberList_vector_data, 32, 5, false},
@@ -98,9 +92,8 @@ node_specification NodeSpecifications[] = {
 { NodeType_SolidColorProc, "SolidColorProc", 14, MemberList_solid_color_data, 36, 2, false},
 { NodeType_VerticalColorFadeProc, "VerticalColorFadeProc", 21, MemberList_vertical_color_fade_data, 44, 4, false},
 { NodeType_RevolvingDiscs, "RevolvingDiscs", 14, MemberList_revolving_discs_data, 60, 8, false},
-{ NodeType_MichelleColorProc, "MichelleColorProc", 17, MemberList_michelle_data, 36, 2, false},
 };
-s32 NodeSpecificationsCount = 11;
+s32 NodeSpecificationsCount = 10;
 
 internal void CallNodeProc(interface_node* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
 {
@@ -116,6 +109,5 @@ case NodeType_SwdColorProc: { SwdColorProc((swd_color_data*)Data, DeltaTime); } 
 case NodeType_SolidColorProc: { SolidColorProc((solid_color_data*)Data, DeltaTime); } break; 
 case NodeType_VerticalColorFadeProc: { VerticalColorFadeProc((vertical_color_fade_data*)Data, DeltaTime); } break; 
 case NodeType_RevolvingDiscs: { RevolvingDiscs((revolving_discs_data*)Data, DeltaTime); } break; 
-case NodeType_MichelleColorProc: { MichelleColorProc((michelle_data*)Data, DeltaTime); } break; 
 }
 }

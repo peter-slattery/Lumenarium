@@ -186,11 +186,17 @@ struct render_command_set_render_mode
     b32 UseDepthBuffer;
 };
 
+typedef u8* renderer_realloc(u8* Base, s32 CurrentSize, s32 NewSize);
+
+#define COMMAND_BUFFER_MIN_GROW_SIZE Megabytes(2)
+
 struct render_command_buffer
 {
     u8* CommandMemory;
     s32 CommandMemoryUsed;
     s32 CommandMemorySize;
+    
+    renderer_realloc* Realloc;
     
     s32 ViewWidth;
     s32 ViewHeight;
@@ -230,15 +236,29 @@ PackColorStructR32 (r32 In_R, r32 In_G, r32 In_B, r32 In_A)
     return Result;
 }
 
+internal void
+ResizeBufferIfNecessary(render_command_buffer* Buffer, s32 DataSize)
+{
+    if (Buffer->CommandMemoryUsed + DataSize > Buffer->CommandMemorySize)
+    {
+        // NOTE(Peter): If this becomes a problem just go back to the original solution of
+        // NewSize =  Buffer->CommandMemorySize + (2 * DataSize);
+        s32 SpaceAvailable = Buffer->CommandMemorySize - Buffer->CommandMemoryUsed;
+        s32 SpaceNeeded = DataSize - SpaceAvailable; // This is known to be positive at this point
+        s32 AdditionSize = GSMax(SpaceNeeded, COMMAND_BUFFER_MIN_GROW_SIZE);
+        s32 NewSize = Buffer->CommandMemorySize + AdditionSize;
+        Buffer->CommandMemory = Buffer->Realloc(Buffer->CommandMemory, 
+                                                Buffer->CommandMemorySize,
+                                                NewSize);
+        Buffer->CommandMemorySize = NewSize;
+    }
+}
+
 // Batch
 
 internal s32
-PushQuad3DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* Constructor, s32 QuadCount, u8* MemStart, b32 UseIntegerColor = false)
+PushQuad3DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* Constructor, u8* MemStart, s32 TriCount, s32 DataSize, b32 UseIntegerColor = false)
 {
-    s32 TriCount = QuadCount * 2;
-    s32 DataSize = BATCH_3D_SIZE(TriCount);
-    Assert(Buffer->CommandMemoryUsed + DataSize <= Buffer->CommandMemorySize);
-    
     Constructor->Max = TriCount;
     Constructor->Count = 0;
     
@@ -251,15 +271,13 @@ PushQuad3DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* C
 }
 
 internal s32
-PushQuad2DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* Constructor, s32 QuadCount, u8* MemStart)
+PushQuad2DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* Constructor, s32 QuadCount, s32 DataSize, u8* MemStart)
 {
-    s32 DataSize = BATCH_2D_SIZE(QuadCount);
-    Assert(Buffer->CommandMemoryUsed + DataSize <= Buffer->CommandMemorySize);
-    
     GSZeroMemory(MemStart, DataSize);
     
     Constructor->Max = QuadCount;
     Constructor->Count = 0;
+    
     Constructor->Vertecies = (v4*)(MemStart + BATCH_2D_VERTECIES_OFFSET(QuadCount));
     Constructor->UVs = (v2*)(MemStart + BATCH_2D_UVS_OFFSET(QuadCount));
     Constructor->ColorsV = (v4*)(MemStart + BATCH_2D_COLORS_OFFSET(QuadCount));
@@ -280,31 +298,58 @@ ThreadSafeIncrementQuadConstructorCount (render_quad_batch_constructor* Construc
     return Result;
 }
 
+struct quad_batch_constructor_reserved_range
+{
+    s32 Start;
+    s32 OnePastLast;
+};
+
+internal quad_batch_constructor_reserved_range
+ThreadSafeReserveRangeInQuadConstructor(render_quad_batch_constructor* Constructor, s32 TrisNeeded)
+{
+    quad_batch_constructor_reserved_range Result = {};
+    Result.OnePastLast = InterlockedAdd((long*)&Constructor->Count, TrisNeeded);
+    Result.Start = Result.OnePastLast - TrisNeeded;
+    return Result;
+}
+
+inline void
+SetTri3DInBatch (render_quad_batch_constructor* Constructor, s32 TriIndex,
+                 v4 P0, v4 P1, v4 P2, 
+                 v2 UV0, v2 UV1, v2 UV2, 
+                 v4 C0, v4 C1, v4 C2)
+{
+    // Vertecies
+    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(TriIndex, 0)] = P0;
+    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(TriIndex, 1)] = P1;
+    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(TriIndex, 2)] = P2;
+    
+    // UVs
+    Constructor->UVs[BATCH_3D_UV_INDEX(TriIndex, 0)] = UV0;
+    Constructor->UVs[BATCH_3D_UV_INDEX(TriIndex, 1)] = UV1;
+    Constructor->UVs[BATCH_3D_UV_INDEX(TriIndex, 2)] = UV1;
+    
+    // Color V0
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(TriIndex, 0)] = C0;
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(TriIndex, 1)] = C1;
+    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(TriIndex, 2)] = C2;
+}
+
 inline void
 PushTri3DOnBatch (render_quad_batch_constructor* Constructor,  
                   v4 P0, v4 P1, v4 P2, 
                   v2 UV0, v2 UV1, v2 UV2, 
                   v4 C0, v4 C1, v4 C2)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Tri = ThreadSafeIncrementQuadConstructorCount(Constructor);
-    // Vertecies
-    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(Tri, 0)] = P0;
-    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(Tri, 1)] = P1;
-    Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(Tri, 2)] = P2;
-    // UVs
-    Constructor->UVs[BATCH_3D_UV_INDEX(Tri, 0)] = UV0;
-    Constructor->UVs[BATCH_3D_UV_INDEX(Tri, 1)] = UV1;
-    Constructor->UVs[BATCH_3D_UV_INDEX(Tri, 2)] = UV1;
-    // Color V0
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 0)] = C0;
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 1)] = C1;
-    Constructor->ColorsV[BATCH_3D_COLOR_INDEX(Tri, 2)] = C2;
+    SetTri3DInBatch(Constructor, Tri, P0, P1, P2, UV0, UV1, UV2, C0, C1, C2);
 };
 
 internal void
 PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 P2, v4 P3, v2 UVMin, v2 UVMax, v4 Color)
 {
-    Assert(Constructor->Count < Constructor->Max);
+    Assert(Constructor->Count + 2 < Constructor->Max);
     PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, v2{UVMax.x, UVMin.y}, UVMax, Color, Color, Color);
     PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, v2{UVMin.x, UVMax.y}, Color, Color, Color);
 }
@@ -332,6 +377,8 @@ PushQuad2DOnBatch (render_quad_batch_constructor* Constructor,
                    v2 UV0, v2 UV1, v2 UV2, v2 UV3,
                    v4 C0, v4 C1, v4 C2, v4 C3)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     s32 Quad = ThreadSafeIncrementQuadConstructorCount(Constructor);
     v2* Vertecies = (v2*)Constructor->Vertecies;
     
@@ -367,6 +414,8 @@ PushQuad2DOnBatch (render_quad_batch_constructor* Constructor,
 internal void
 PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, v2 P2, v2 P3, v2 UVMin, v2 UVMax, v4 Color)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     s32 Quad = ThreadSafeIncrementQuadConstructorCount(Constructor);
     v2* Vertecies = (v2*)Constructor->Vertecies;
     
@@ -422,6 +471,7 @@ PushLine2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, r32
 internal u8*
 PushRenderCommand_ (render_command_buffer* CommandBuffer, render_command_type CommandType, s32 CommandSize)
 {
+    ResizeBufferIfNecessary(CommandBuffer, CommandSize);
     Assert(CommandBuffer->CommandMemoryUsed + CommandSize <= CommandBuffer->CommandMemorySize);
     
     render_command_header* Header = (render_command_header*)(CommandBuffer->CommandMemory + CommandBuffer->CommandMemoryUsed);
@@ -488,11 +538,15 @@ PushRenderClearScreen (render_command_buffer* Buffer)
 internal render_quad_batch_constructor
 PushRenderQuad2DBatch(render_command_buffer* Buffer, s32 QuadCount)
 {
+    s32 DataSize = BATCH_2D_SIZE(QuadCount);
+    ResizeBufferIfNecessary(Buffer, DataSize + sizeof(render_batch_command_quad_2d));
+    Assert(Buffer->CommandMemoryUsed + DataSize <= Buffer->CommandMemorySize);
+    
     render_quad_batch_constructor Result = {};
     
     render_batch_command_quad_2d* Command = PushRenderCommand(Buffer, render_batch_command_quad_2d);
     Command->QuadCount = QuadCount;
-    Command->DataSize = PushQuad2DBatch(Buffer, &Result, QuadCount, (u8*)(Command + 1));
+    Command->DataSize = PushQuad2DBatch(Buffer, &Result, QuadCount, DataSize, (u8*)(Command + 1));
     
     return Result;
 }
@@ -515,11 +569,16 @@ PushRenderLine2D (render_command_buffer* Buffer, v2 P0, v2 P1, r32 Thickness, v4
 internal render_quad_batch_constructor
 PushRenderQuad3DBatch(render_command_buffer* Buffer, s32 QuadCount)
 {
+    s32 TriCount = QuadCount * 2;
+    s32 DataSize = BATCH_3D_SIZE(TriCount);
+    ResizeBufferIfNecessary(Buffer, DataSize + sizeof(render_batch_command_quad_3d));
+    Assert(Buffer->CommandMemoryUsed + DataSize <= Buffer->CommandMemorySize);
+    
     render_quad_batch_constructor Result = {};
     
     render_batch_command_quad_3d* Command = PushRenderCommand(Buffer, render_batch_command_quad_3d);
     Command->QuadCount = QuadCount;
-    Command->DataSize = PushQuad3DBatch(Buffer, &Result, QuadCount, (u8*)(Command + 1));
+    Command->DataSize = PushQuad3DBatch(Buffer, &Result, (u8*)(Command + 1), TriCount, DataSize);
     
     return Result;
 }
@@ -547,11 +606,15 @@ internal render_quad_batch_constructor
 PushRenderTexture2DBatch(render_command_buffer* Buffer, s32 QuadCount, 
                          render_texture Texture)
 {
+    s32 DataSize = BATCH_2D_SIZE(QuadCount);
+    ResizeBufferIfNecessary(Buffer, DataSize);
+    Assert(Buffer->CommandMemoryUsed + DataSize <= Buffer->CommandMemorySize);
+    
     render_quad_batch_constructor Result = {};
     
     render_batch_command_texture_2d* Command = PushRenderCommand(Buffer, render_batch_command_texture_2d);
     Command->QuadCount = QuadCount;
-    Command->DataSize = PushQuad2DBatch(Buffer, &Result, QuadCount, (u8*)(Command + 1));
+    Command->DataSize = PushQuad2DBatch(Buffer, &Result, QuadCount, DataSize, (u8*)(Command + 1));
     Command->Texture = Texture;
     
     return Result;

@@ -520,10 +520,11 @@ ConnectNodes(node_list* NodeList,
              s32 UpstreamNodeHandle, s32 UpstreamNodePort, 
              s32 DownstreamNodeHandle, s32 DownstreamNodePort)
 {
+    interface_node* UpstreamNode = 0;
     interface_node* DownstreamNode = GetNodeWithHandle(NodeList, DownstreamNodeHandle);
     if (!CheckForRecursionWithHandle(NodeList, UpstreamNodeHandle, DownstreamNode))
     {
-        interface_node* UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
+        UpstreamNode = GetNodeWithHandle(NodeList, UpstreamNodeHandle);
         if (PortTypesMatch(UpstreamNode, UpstreamNodePort, 
                            DownstreamNode, DownstreamNodePort))
         {

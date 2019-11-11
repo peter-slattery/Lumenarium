@@ -1,11 +1,60 @@
 #define SCOPE_NAME_LENGTH 256
-struct scope_time_record
+struct scope_record
 {
-    char ScopeName_[SCOPE_NAME_LENGTH];
-    string ScopeName;
-    
-    u32 Duration_Cycles;
+    u32 NameHash;
+    s64 StartCycles;
+    s64 EndCycles;
+    s32 CallDepth;
 };
+
+struct collated_scope_record
+{
+    u32 NameHash;
+    s64 TotalCycles;
+    s32 CallCount;
+    
+    r32 PercentFrameTime;
+    r32 TotalSeconds;
+    
+    r32 AverageSecondsPerCall;
+};
+
+#define SCOPE_NAME_BUFFER_LENGTH 128
+struct scope_name
+{
+    u32 Hash;
+    string Name;
+    char Buffer[SCOPE_NAME_BUFFER_LENGTH];
+};
+
+struct debug_scope_record_list
+{
+    s32 ThreadId;
+    s32 Max;
+    s32 Count;
+    scope_record* Calls;
+    
+    s32 CurrentScopeCallDepth;
+};
+
+#define DEBUG_FRAME_GROW_SIZE 8102
+struct debug_frame
+{
+    s64 FrameStartCycles;
+    s64 FrameEndCycles;
+    
+    s32 ScopeNamesMax;
+    scope_name* ScopeNamesHash;
+    
+    s32 ThreadCount;
+    debug_scope_record_list* ThreadCalls;
+    
+    s32 CollatedScopesMax;
+    collated_scope_record* CollatedScopes;
+};
+
+#define FRAME_VIEW_PROFILER 0
+#define FRAME_VIEW_SCOPE_LIST 1
 
 struct debug_interface
 {
@@ -13,9 +62,14 @@ struct debug_interface
     b32 ShowTrackedScopes;
     b32 RenderSculpture;
     b32 SendSACNData;
+    
+    s32 FrameView;
 };
 
+typedef s32 debug_get_thread_id();
 typedef s64 debug_timing_proc();
+typedef u8* debug_alloc(s32 ElementSize, s32 ElementCount);
+typedef u8* debug_realloc(u8* Memory, s32 OldSize, s32 NewSize);
 
 #define HISTOGRAM_DEPTH 10
 struct debug_histogram_entry
@@ -34,34 +88,101 @@ struct debug_histogram_entry
     u32 Total_CallCount;
 };
 
-#define SCOPE_HISTOGRAM_SIZE 512
+#define DEBUG_FRAME_COUNT 128
 struct debug_services
 {
-    s32 TrackedScopesCount;
-    s32 TrackedScopesMax;
-    scope_time_record* TrackedScopes;
-    
     s64 PerformanceCountFrequency;
-    memory_arena DebugStorage;
+    
+    b32 RecordFrames;
+    s32 CurrentDebugFrame;
+    debug_frame Frames[DEBUG_FRAME_COUNT];
     
     debug_interface Interface;
     
+    debug_get_thread_id* GetThreadId;
     debug_timing_proc* GetWallClock;
-    
-    debug_histogram_entry* ScopeHistogramUnsorted;
-    debug_histogram_entry* ScopeHistogramSorted;
-    
-    s32 ScopeHistogramUsed;
+    debug_alloc* Alloc;
+    debug_realloc* Realloc;
 };
 
 internal void
-InitDebugServices (debug_services* Services, u8* Memory, s32 MemorySize, s32 TrackedScopesMax, s64 PerformanceCountFrequency)
+InitializeDebugFrame (debug_frame* Frame, s32 NameHashMax, s32 ThreadCount, s32 ScopeCallsMax, debug_services* Services)
 {
-    InitMemoryArena(&Services->DebugStorage, Memory, MemorySize, 0);
+    Frame->ScopeNamesMax = NameHashMax;
+    Frame->ScopeNamesHash = (scope_name*)Services->Alloc(sizeof(scope_name), NameHashMax);
     
-    Services->TrackedScopesCount = 0;
-    Services->TrackedScopesMax = TrackedScopesMax;
-    Services->TrackedScopes = PushArray(&Services->DebugStorage, scope_time_record, TrackedScopesMax);
+    // NOTE(Peter): We use the same size as scope names because we're only storing a single instance
+    // per scope. If ScopeNamesMax can't hold all the scopes, this will never get filled and
+    // we should assert and recompile with a resized NameHashMax
+    Frame->CollatedScopesMax = NameHashMax;
+    Frame->CollatedScopes = (collated_scope_record*)Services->Alloc(sizeof(collated_scope_record), NameHashMax);
+    
+    for (s32 i = 0; i < Frame->ScopeNamesMax; i++)
+    {
+        scope_name* Entry = Frame->ScopeNamesHash + i;
+        Entry->Name = MakeString(Entry->Buffer, 0, SCOPE_NAME_BUFFER_LENGTH);
+    }
+    
+    Frame->ThreadCount = ThreadCount;
+    Frame->ThreadCalls = (debug_scope_record_list*)Services->Alloc(sizeof(debug_scope_record_list),
+                                                                   ThreadCount);
+    
+    for (s32 i = 0; i < ThreadCount; i++)
+    {
+        Frame->ThreadCalls[i].Max = ScopeCallsMax;
+        Frame->ThreadCalls[i].Count = 0;
+        Frame->ThreadCalls[i].Calls = (scope_record*)Services->Alloc(sizeof(scope_record), ScopeCallsMax);
+        Frame->ThreadCalls[i].CurrentScopeCallDepth = 0;
+        Frame->ThreadCalls[i].ThreadId = 0;
+    }
+    
+    for (s32 c = 0; c < Frame->CollatedScopesMax; c++)
+    {
+        Frame->CollatedScopes[c].NameHash = 0;
+    }
+}
+
+internal void
+StartDebugFrame(debug_frame* Frame, debug_services* Services)
+{
+    Frame->FrameStartCycles = Services->GetWallClock();
+    for (s32 i = 0; i < Frame->ThreadCount; i++)
+    {
+        Frame->ThreadCalls[i].Count = 0;
+        Frame->ThreadCalls[i].CurrentScopeCallDepth = 0;
+    }
+    
+    for (s32 c = 0; c < Frame->CollatedScopesMax; c++)
+    {
+        s32 Hash = Frame->CollatedScopes[c].NameHash;
+        Frame->CollatedScopes[c] = {};
+        Frame->CollatedScopes[c].NameHash = Hash;
+    }
+}
+
+internal void
+InitDebugServices (debug_services* Services, 
+                   s64 PerformanceCountFrequency, 
+                   debug_alloc* Alloc, 
+                   debug_realloc* Realloc, 
+                   debug_timing_proc* GetWallClock, 
+                   debug_get_thread_id* GetThreadId, 
+                   s32 ThreadCount)
+{
+    Services->Alloc = Alloc;
+    Services->Realloc = Realloc;
+    Services->GetWallClock = GetWallClock;
+    Services->GetThreadId = GetThreadId;
+    
+    Services->RecordFrames = true;
+    
+    Services->CurrentDebugFrame = 0;
+    s32 NameHashMax = 4096;
+    s32 ScopeCallsMax = 4096;
+    for (s32 i = 0; i < DEBUG_FRAME_COUNT; i++)
+    {
+        InitializeDebugFrame(&Services->Frames[i], NameHashMax, ThreadCount, ScopeCallsMax,  Services);
+    }
     
     Services->Interface.RenderSculpture = true;
     
@@ -71,182 +192,197 @@ InitDebugServices (debug_services* Services, u8* Memory, s32 MemorySize, s32 Tra
     Services->Interface.ShowTrackedScopes = false;
     Services->Interface.RenderSculpture = true;
     Services->Interface.SendSACNData = false;
-    
-    Services->ScopeHistogramUnsorted = PushArray(&Services->DebugStorage, debug_histogram_entry, SCOPE_HISTOGRAM_SIZE);
-    Services->ScopeHistogramSorted = PushArray(&Services->DebugStorage, debug_histogram_entry, SCOPE_HISTOGRAM_SIZE);
-    
-    Services->ScopeHistogramUsed = 0;
+}
+
+internal debug_frame*
+GetCurrentDebugFrame (debug_services* Services)
+{
+    debug_frame* Result = Services->Frames + Services->CurrentDebugFrame;
+    return Result;
+}
+
+internal debug_frame*
+GetLastDebugFrame(debug_services* Services)
+{
+    s32 Index = (Services->CurrentDebugFrame - 1);
+    if (Index < 0) { Index += DEBUG_FRAME_COUNT; }
+    debug_frame* Result = Services->Frames + Index;
+    return Result;
 }
 
 internal s32
-DEBUGFindScopeHistogram (debug_services* Services, string Name)
+GetIndexForNameHash(debug_frame* Frame, u32 NameHash)
 {
     s32 Result = -1;
-    for (s32 i = 0; i < SCOPE_HISTOGRAM_SIZE; i++)
+    
+    for (s32 Offset = 0; Offset < Frame->ScopeNamesMax; Offset++)
     {
-        if (StringsEqual(Services->ScopeHistogramUnsorted[i].ScopeName, Name))
+        u32 Index = (NameHash + Offset) % Frame->ScopeNamesMax;
+        if ((Frame->ScopeNamesHash[Index].Hash == NameHash))
         {
-            Result = i;
+            Result = Index;
             break;
         }
     }
+    
+    // NOTE(Peter): Its not technically wrong to return a -1 here, just means we didn't find it.
+    // At the time of writing however, this function is only being called in contexts where we 
+    // know there should be an entry in the Name table, so a -1 actually indicates a problem.
+    Assert(Result >= 0);
     return Result;
 }
 
-internal s32
-DEBUGAddScopeHistogram (debug_services* Services, scope_time_record Record)
+internal debug_scope_record_list*
+GetScopeListForThreadInFrame(debug_services* Services, debug_frame* Frame)
 {
-    Assert(Services->ScopeHistogramUsed < SCOPE_HISTOGRAM_SIZE);
+    debug_scope_record_list* List = 0;
     
-    s32 Result = Services->ScopeHistogramUsed++;
-    
-    debug_histogram_entry* Entry = Services->ScopeHistogramUnsorted + Result;
-    Entry->ScopeName = MakeString(Entry->ScopeName_, 256);
-    
-    Entry->CurrentFrame = 0;
-    Entry->Average_Cycles = 0;
-    Entry->Average_CallCount = 0;
-    Entry->Total_Cycles = 0;
-    Entry->Total_CallCount = 0;
-    
-    CopyStringTo(Record.ScopeName, &Entry->ScopeName);
-    
-    return Result;
-}
-
-internal void
-DEBUGRecordScopeInHistogram (debug_services* Services, s32 Index, scope_time_record Record)
-{
-    debug_histogram_entry* Entry = Services->ScopeHistogramUnsorted + Index;
-    s32 FrameIndex = Entry->CurrentFrame;
-    if (FrameIndex >= 0 && FrameIndex < HISTOGRAM_DEPTH)
+    s32 CurrentThreadId = Services->GetThreadId();
+    for (s32 Offset = 0; Offset < Frame->ThreadCount; Offset++)
     {
-        Entry->PerFrame_Cycles[FrameIndex] += Record.Duration_Cycles;
-        Entry->PerFrame_CallCount[FrameIndex]++;
-    }
-}
-
-internal void
-DEBUGCacheScopeHistogramValues (debug_histogram_entry* Histogram)
-{
-    Histogram->Total_Cycles = 0;
-    Histogram->Total_CallCount = 0;
-    
-    // TODO(Peter): This doesn't account for the first frames when the histogram isn't full
-    for (s32 i = 0; i < HISTOGRAM_DEPTH; i++)
-    {
-        Histogram->Total_Cycles += Histogram->PerFrame_Cycles[i];
-        Histogram->Total_CallCount += Histogram->PerFrame_CallCount[i];
-    }
-    
-    Histogram->Average_Cycles = (Histogram->Total_Cycles / HISTOGRAM_DEPTH);
-    Histogram->Average_CallCount = (Histogram->Total_CallCount / HISTOGRAM_DEPTH);
-}
-
-internal void
-DEBUGSortedHistogramInsert(debug_histogram_entry Source, debug_histogram_entry* DestList, s32 DestCount, s32 Max)
-{
-    s32 CurrentFrame0 = Source.CurrentFrame;
-    s32 V0 = Source.Average_Cycles; //PerFrame_Cycles[CurrentFrame0];
-    if (DestCount > 0)
-    {
-        for (s32 i = DestCount - 1; i >= 0; i--)
+        s32 Index = (CurrentThreadId + Offset) % Frame->ThreadCount;
+        if (Frame->ThreadCalls[Index].ThreadId == CurrentThreadId)
         {
-            s32 CurrentFrame1 = DestList[i].CurrentFrame;
-            s32 V1 = DestList[i].Average_Cycles; //PerFrame_Cycles[CurrentFrame1];
-            if (V0 < V1)
-            {
-                DestList[i + 1] = Source;
-                break;
-            }
-            else
-            {
-                DestList[i + 1] = DestList[i];
-            }
+            List = Frame->ThreadCalls + Index;
+            break;
+        }
+        else if (Frame->ThreadCalls[Index].ThreadId == 0)
+        {
+            Frame->ThreadCalls[Index].ThreadId = CurrentThreadId;
+            List = Frame->ThreadCalls + Index;
+            break;
         }
     }
-    else
-    {
-        DestList[0] = Source;
-    }
+    
+    Assert(List);
+    return List;
 }
 
 internal void
-DEBUGSortHistogram(debug_histogram_entry* Source, debug_histogram_entry* Dest, s32 Count, s32 Max)
+CollateThreadScopeCalls (debug_scope_record_list* ThreadRecords, debug_frame* Frame)
 {
-    for (s32 i = 0; i < Count; i++)
+    for (s32 i = 0; i < ThreadRecords->Count; i++)
     {
-        DEBUGSortedHistogramInsert(Source[i], Dest, i, Max);
-    }
-}
-
-internal void
-DEBUGCollateScopeRecords (debug_services* Services)
-{
-    for (s32 i = 0; i < Services->TrackedScopesCount; i++)
-    {
-        scope_time_record Record = Services->TrackedScopes[i];
-        s32 Index = DEBUGFindScopeHistogram(Services, Record.ScopeName);
-        if (Index < 0)
+        scope_record Record = ThreadRecords->Calls[i];
+        s32 Index = GetIndexForNameHash (Frame, Record.NameHash);
+        collated_scope_record* CollatedRecord = Frame->CollatedScopes + Index;
+        
+        if (CollatedRecord->NameHash != Record.NameHash)
         {
-            Index = DEBUGAddScopeHistogram(Services, Record);
+            CollatedRecord->NameHash = Record.NameHash;
+            CollatedRecord->TotalCycles = 0;
+            CollatedRecord->CallCount = 0;
         }
         
-        DEBUGRecordScopeInHistogram(Services, Index, Record);
+        CollatedRecord->TotalCycles += Record.EndCycles - Record.StartCycles;
+        CollatedRecord->CallCount += 1;
     }
-    
-    for (s32 h = 0; h < Services->ScopeHistogramUsed; h++)
-    {
-        DEBUGCacheScopeHistogramValues(Services->ScopeHistogramUnsorted + h);
-    }
-    
-    DEBUGSortHistogram(Services->ScopeHistogramUnsorted, 
-                       Services->ScopeHistogramSorted, 
-                       Services->ScopeHistogramUsed,
-                       SCOPE_HISTOGRAM_SIZE);
 }
 
 internal void
 EndDebugFrame (debug_services* Services)
 {
-    DEBUGCollateScopeRecords(Services);
+    debug_frame* ClosingFrame = GetCurrentDebugFrame(Services);
+    ClosingFrame->FrameEndCycles = Services->GetWallClock();
     
-    GSZeroMemory((u8*)Services->TrackedScopes, sizeof(scope_time_record) * Services->TrackedScopesMax);
-    Services->TrackedScopesCount = 0;
+    s64 FrameTotalCycles = ClosingFrame->FrameEndCycles - ClosingFrame->FrameStartCycles;
     
-    for (s32 i = 0; i < Services->ScopeHistogramUsed; i++)
+    for (s32 t = 0; t < ClosingFrame->ThreadCount; t++)
     {
-        s32 NewFrame = Services->ScopeHistogramUnsorted[i].CurrentFrame + 1;
-        if (NewFrame >= HISTOGRAM_DEPTH)
-        {
-            NewFrame = 0;
-        }
-        Services->ScopeHistogramUnsorted[i].CurrentFrame = NewFrame;
-        Services->ScopeHistogramUnsorted[i].PerFrame_Cycles[NewFrame] = 0;
-        Services->ScopeHistogramUnsorted[i].PerFrame_CallCount[NewFrame] = 0;
+        CollateThreadScopeCalls(ClosingFrame->ThreadCalls + t, ClosingFrame);
     }
+    
+    for (s32 n = 0; n < ClosingFrame->ScopeNamesMax; n++)
+    {
+        if (ClosingFrame->ScopeNamesHash[n].Hash != 0)
+        {
+            collated_scope_record* CollatedRecord = ClosingFrame->CollatedScopes + n;
+            CollatedRecord->TotalSeconds = (r32)CollatedRecord->TotalCycles / (r32)Services->PerformanceCountFrequency;
+            CollatedRecord->PercentFrameTime = (r32)CollatedRecord->TotalCycles / (r32)FrameTotalCycles;
+            CollatedRecord->AverageSecondsPerCall = CollatedRecord->TotalSeconds / CollatedRecord->CallCount;
+        }
+    }
+    
+    Services->CurrentDebugFrame = (Services->CurrentDebugFrame + 1) % DEBUG_FRAME_COUNT;
+    StartDebugFrame(&Services->Frames[Services->CurrentDebugFrame], Services);
 }
 
-internal scope_time_record*
-PushScopeRecord(string ScopeName, debug_services* Services)
+internal u32
+HashScopeName (char* ScopeName)
 {
-    scope_time_record* Result = 0;
+    // djb2 hash
+    u32 Hash = 5381;
+    char* C = ScopeName;
+    while(*C)
+    {
+        Hash = ((Hash << 5) + Hash) + *C;
+        C++;
+    }
+    return Hash;
+}
+
+internal scope_name*
+GetOrAddNameHashEntry(debug_frame* Frame, u32 NameHash)
+{
+    scope_name* Result = 0;
     
-    s32 OnePastIndex = InterlockedIncrement((long*)&Services->TrackedScopesCount);
-    Assert(OnePastIndex <= Services->TrackedScopesMax);
-    Result = Services->TrackedScopes + OnePastIndex - 1;
-    
-    Result->ScopeName = MakeString(Result->ScopeName_, SCOPE_NAME_LENGTH);
-    CopyStringTo(ScopeName, &Result->ScopeName);
+    for (s32 Offset = 0; Offset < Frame->ScopeNamesMax; Offset++)
+    {
+        u32 Index = (NameHash + Offset) % Frame->ScopeNamesMax;
+        if ((Frame->ScopeNamesHash[Index].Hash == 0) || (Frame->ScopeNamesHash[Index].Hash == NameHash))
+        {
+            Result = Frame->ScopeNamesHash + Index;
+            break;
+        }
+    }
     
     return Result;
 }
 
-internal void
-LogScopeTime (debug_services* Services, string ScopeName, u64 CyclesElapsed)
+internal u32
+BeginTrackingScopeAndGetNameHash (debug_services* Services, char* ScopeName)
 {
-    scope_time_record* Record = PushScopeRecord(ScopeName, Services);
-    Record->Duration_Cycles = CyclesElapsed;
+    debug_frame* CurrentFrame = GetCurrentDebugFrame(Services);
+    debug_scope_record_list* ThreadList = GetScopeListForThreadInFrame(Services, CurrentFrame);
+    
+    ThreadList->CurrentScopeCallDepth++;
+    
+    u32 NameHash = HashScopeName(ScopeName);
+    scope_name* Entry = GetOrAddNameHashEntry(CurrentFrame, NameHash);
+    if (Entry->Hash == 0) // If its new
+    {
+        Entry->Hash = NameHash;
+        // TODO(Peter): need to initialize all entry name strings to point at the buffer
+        // This will break eventually. when it does, do this ^^^^ when on startup
+        CopyCharArrayToString(ScopeName, &Entry->Name);
+    }
+    
+    return NameHash;
+}
+
+internal void
+PushScopeTimeOnFrame (debug_services* Services, s32 NameHash, u64 StartCycles, u64 EndCycles)
+{
+    debug_frame* CurrentFrame = GetCurrentDebugFrame(Services);
+    debug_scope_record_list* ThreadList = GetScopeListForThreadInFrame(Services, CurrentFrame);
+    
+    if (ThreadList->Count >= ThreadList->Max)
+    {
+        s32 CurrentSize = ThreadList->Max * sizeof(scope_record);
+        s32 NewMax = (ThreadList->Max + DEBUG_FRAME_GROW_SIZE);
+        s32 NewSize = NewMax * sizeof(scope_record);
+        ThreadList->Calls = (scope_record*)Services->Realloc((u8*)ThreadList->Calls, CurrentSize, NewSize);
+        ThreadList->Max = NewMax;
+    }
+    
+    Assert(ThreadList->Count < ThreadList->Max);
+    
+    s32 EntryIndex = ThreadList->Count++;
+    scope_record* Record = ThreadList->Calls + EntryIndex;
+    Record->NameHash = NameHash;
+    Record->StartCycles = StartCycles;
+    Record->EndCycles = EndCycles;
+    Record->CallDepth = --ThreadList->CurrentScopeCallDepth;
 }
 
 internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFrequency)
@@ -255,7 +391,7 @@ internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFre
     return Result;
 }
 
-#if 1
+#ifdef DEBUG
 #define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker (__FUNCTION__, GlobalDebugServices)
 #define DEBUG_TRACK_SCOPE(name) scope_tracker ScopeTracker_##name (#name, GlobalDebugServices)
 #else
@@ -265,27 +401,29 @@ internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFre
 struct scope_tracker
 {
     s64 ScopeStart;
-    
-    char ScopeName_[SCOPE_NAME_LENGTH];
-    string ScopeName; 
-    
+    u32 ScopeNameHash;
     debug_services* DebugServices;
     
     scope_tracker(char* ScopeName, debug_services* DebugServices)
     {
-        this->ScopeName = MakeString(this->ScopeName_, SCOPE_NAME_LENGTH);
-        CopyCharArrayToString(ScopeName, &this->ScopeName);
-        this->ScopeStart = DebugServices->GetWallClock();
-        this->DebugServices = DebugServices;
+        if (DebugServices->RecordFrames)
+        {
+            this->ScopeNameHash = BeginTrackingScopeAndGetNameHash(DebugServices, ScopeName);
+            this->ScopeStart = DebugServices->GetWallClock();
+            this->DebugServices = DebugServices;
+        }
+        else
+        {
+            this->DebugServices = 0;
+        }
     }
     
     ~scope_tracker()
     {
-        s64 ScopeEnd = DebugServices->GetWallClock();
-        u32 CyclesElapsed = (u32)(ScopeEnd - this->ScopeStart);
-#if 0
-        r32 SecondsElapsed = DEBUGGetSecondsElapsed(this->ScopeStart, ScopeEnd, DebugServices->PerformanceCountFrequency);
-#endif
-        LogScopeTime(DebugServices, ScopeName, CyclesElapsed);
+        if (this->DebugServices) // NOTE(Peter): If DebugServices == 0, then we werent' recording this frame
+        {
+            s64 ScopeEnd = this->DebugServices->GetWallClock();
+            PushScopeTimeOnFrame(this->DebugServices, this->ScopeNameHash, this->ScopeStart, ScopeEnd);
+        }
     }
 };

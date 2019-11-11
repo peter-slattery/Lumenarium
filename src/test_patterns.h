@@ -2,7 +2,7 @@
 NODE_STRUCT(solid_color_data)
 {
     NODE_IN(v4, Color);
-    NODE_COLOR_BUFFER_INOUT;
+    NODE_COLOR_BUFFER_OUT(Result);
 };
 
 NODE_PROC(SolidColorProc, solid_color_data)
@@ -11,14 +11,14 @@ NODE_PROC(SolidColorProc, solid_color_data)
     u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
     u8 B = (u8)GSClamp(0.f, (Data->Color.b * 255), 255.f);
     
-    led* LED = Data->LEDs;
-    for (s32 l = 0; l < Data->LEDCount; l++)
+    led* LED = Data->ResultLEDs;
+    for (s32 l = 0; l < Data->ResultLEDCount; l++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->LEDCount);
+        Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
         
-        Data->Colors[LED->Index].R = R;
-        Data->Colors[LED->Index].G = G;
-        Data->Colors[LED->Index].B = B;
+        Data->ResultColors[LED->Index].R = R;
+        Data->ResultColors[LED->Index].G = G;
+        Data->ResultColors[LED->Index].B = B;
         LED++;
     }
 }
@@ -69,23 +69,27 @@ NODE_STRUCT(revolving_discs_data)
 
 NODE_PROC(RevolvingDiscs, revolving_discs_data)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     sacn_pixel Color = PackFloatsToSACNPixel(Data->Color.r, Data->Color.g, Data->Color.b);
     
     v4 Center = v4{0, 0, 0, 1};
     v4 Normal = v4{GSCos(Data->ThetaZ), 0, GSSin(Data->ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
     v4 Right = Cross(Normal, v4{0, 1, 0, 0});
-    //Normal = RotateAround(Data->ThetaY, Right);
     
     v4 FrontCenter = Center + (Normal * Data->DiscWidth);
     v4 BackCenter = Center - (Normal * Data->DiscWidth);
+    
+    r32 OuterRadiusSquared = Data->OuterRadius * Data->OuterRadius;
+    r32 InnerRadiusSquared = Data->InnerRadius * Data->InnerRadius;
     
     led* LED = Data->ResultLEDs;
     for (s32 l = 0; l < Data->ResultLEDCount; l++)
     {
         v4 Position = LED->Position;
         
-        v4 ToFront = Normalize(Position + FrontCenter);
-        v4 ToBack = Normalize(Position + BackCenter);
+        v4 ToFront = Position + FrontCenter;
+        v4 ToBack = Position + BackCenter;
         
         r32 ToFrontDotNormal = Dot(ToFront, Normal);
         r32 ToBackDotNormal = Dot(ToBack, Normal);
@@ -93,38 +97,14 @@ NODE_PROC(RevolvingDiscs, revolving_discs_data)
         ToFrontDotNormal = GSClamp01(ToFrontDotNormal * 1000);
         ToBackDotNormal = GSClamp01(ToBackDotNormal * 1000);
         
-        r32 DistToCenter = Mag(Position);
-        if (DistToCenter < Data->OuterRadius && DistToCenter > Data->InnerRadius)
+        r32 SqDistToCenter = MagSqr(Position);
+        if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
                 Data->ResultColors[LED->Index] = Color;
             }
         }
-        LED++;
-    }
-}
-
-NODE_STRUCT(michelle_data)
-{
-    NODE_IN(v4, Color);
-    NODE_COLOR_BUFFER_INOUT;
-};
-
-NODE_PROC(MichelleColorProc, michelle_data)
-{
-    u8 R = (u8)GSClamp(0.f, (Data->Color.r * 255), 255.f);
-    u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
-    u8 B = (u8)GSClamp(0.f, (Data->Color.b * 255), 255.f);
-    
-    led* LED = Data->LEDs;
-    for (s32 l = 0; l < Data->LEDCount; l++)
-    {
-        Assert(LED->Index >= 0 && LED->Index < Data->LEDCount);
-        
-        Data->Colors[LED->Index].R = R;
-        Data->Colors[LED->Index].G = G;
-        Data->Colors[LED->Index].B = B;
         LED++;
     }
 }
