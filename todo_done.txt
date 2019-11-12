@@ -36,6 +36,11 @@ x start tracking debug interface state somehow and it would be good to separate 
 
 Switch To Nodes
 x basic node elements
+x output should generate a node_specification
+x go back to calling SpecificationIndex Type
+-     x don't pull node names into the struct, just reference the specification
+-     x separate storage of node headers from connections
+-     x connections shouldn't store their own values, they should just point into permanent storage
 
 Hardening
 x input context changes
