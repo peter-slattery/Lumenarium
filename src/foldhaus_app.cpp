@@ -345,6 +345,8 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     app_state* State = (app_state*)Context.MemoryBase;
     
     GlobalDebugServices = DebugServices;
+    GSAlloc = Alloc;
+    GSFree = Free;
     
     if (State->DefaultInputCommandRegistry.Size > 0)
     {
@@ -461,7 +463,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    State->NodeList = AllocateNodeList(State->Permanent, 512); //Kilobytes(64));
+    State->NodeList = AllocateNodeList(State->Permanent, 128);
     State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
     {
         State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;
@@ -469,7 +471,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         State->NodeRenderSettings.PortColors[MemberType_v4] = BlueV4;
         State->NodeRenderSettings.Font = State->Font;
     }
-    ReloadStaticData(Context, GlobalDebugServices);
+    ReloadStaticData(Context, GlobalDebugServices, Alloc, Free);
     
     { // MODES PLAYGROUND
         State->Modes.ActiveModesCount = 0;

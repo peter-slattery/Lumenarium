@@ -595,19 +595,7 @@ Win32BasicAlloc (s32 Size)
 
 PLATFORM_ALLOC(Win32Alloc)
 {
-    platform_memory_result Result = {};
-    Result.Error = PLATFORM_MEMORY_NO_ERROR;
-    
-    Result.Base = Win32BasicAlloc(Size);
-    if (Result.Base)
-    {
-        Result.Size = Size;
-    }
-    else
-    {
-        Result.Error = 1;
-    }
-    
+    u8* Result = Win32BasicAlloc(Size);
     return Result;
 }
 

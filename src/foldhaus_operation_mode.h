@@ -8,8 +8,6 @@ struct operation_mode
     input_command_registry Commands;
     operation_render_proc* Render;
     u8* OpStateMemory;
-    
-    string Name;
 };
 
 #define OPERATION_MODES_MAX 32
@@ -25,7 +23,7 @@ struct operation_mode_system
 };
 
 internal operation_mode*
-ActivateOperationMode (operation_mode_system* System, char* ModeName)
+ActivateOperationMode (operation_mode_system* System)
 {
     Assert(System->ActiveModesCount < OPERATION_MODES_MAX);
     s32 ModeIndex = System->ActiveModesCount++;
@@ -33,21 +31,18 @@ ActivateOperationMode (operation_mode_system* System, char* ModeName)
     System->ModeMemorySnapshots[ModeIndex] = TakeSnapshotOfArena(System->Arena);
     
     operation_mode NewMode = {};
-    s32 NameLength = CharArrayLength(ModeName);
-    NewMode.Name = MakeString(PushArray(&System->Arena, char, NameLength), 0, NameLength);
-    CopyCharArrayToString(ModeName, &NewMode.Name);
     System->ActiveModes[ModeIndex] = NewMode;
     
     return &System->ActiveModes[ModeIndex];
 }
 
-#define ActivateOperationModeWithCommands(sys, name, cmds) \
-ActivateOperationModeWithCommands_(sys, name, cmds, (s32)(sizeof(cmds) / sizeof(cmds[0])));
+#define ActivateOperationModeWithCommands(sys, cmds) \
+ActivateOperationModeWithCommands_(sys, cmds, (s32)(sizeof(cmds) / sizeof(cmds[0])));
 
 internal operation_mode*
-ActivateOperationModeWithCommands_(operation_mode_system* System, char* ModeName, input_command* Commands, s32 CommandsCount)
+ActivateOperationModeWithCommands_(operation_mode_system* System, input_command* Commands, s32 CommandsCount)
 {
-    operation_mode* NewMode = ActivateOperationMode(System, ModeName);
+    operation_mode* NewMode = ActivateOperationMode(System);
     
     InitializeInputCommandRegistry(&NewMode->Commands, CommandsCount, &System->Arena);
     for (s32 i = 0; i < CommandsCount; i++)

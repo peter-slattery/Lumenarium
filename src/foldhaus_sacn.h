@@ -90,6 +90,13 @@ struct sacn_universe
     platform_network_address_handle SendAddress;
 };
 
+struct sacn_pixel
+{
+    u8 R;
+    u8 G;
+    u8 B;
+};
+
 struct sacn_send_buffer
 {
     u8* Memory;
@@ -131,13 +138,6 @@ internal cid  StringToCID_ (const char* String);
 #define CalculateUniverseBufferSize(UniverseCount) ((UniverseCount * sizeof(sacn_universe)) + sizeof(sacn_universe_buffer))
 
 // Utility
-
-struct sacn_pixel
-{
-    u8 R;
-    u8 G;
-    u8 B;
-};
 
 internal sacn_pixel
 PackFloatsToSACNPixel (r32 R, r32 G, r32 B)
@@ -246,6 +246,7 @@ struct sacn_add_universes_result
     sacn_send_buffer* NewSendBuffer;
     sacn_universe_buffer* NewUniverseBuffer;
 };
+
 internal sacn_add_universes_result
 SACNAddUniverses(s32* Universes, s32 UniversesLength, streaming_acn* SACN, context Context)
 {
@@ -270,7 +271,8 @@ SACNAddUniverses(s32* Universes, s32 UniversesLength, streaming_acn* SACN, conte
         }
     }
     
-    // Push On New Send and Universe Buffers
+    // Reallocate and Copy over the send buffer
+    
     s32 SendBufferSize = CalculateSendBufferSize(UniversesToAdd);
     u8* SendBufferMemory = PushArray(&SACN->Memory, u8, SendBufferSize);
     sacn_send_buffer* SendBufferHeader = (sacn_send_buffer*)SendBufferMemory;
@@ -333,12 +335,6 @@ SACNAddUniverses(s32* Universes, s32 UniversesLength, streaming_acn* SACN, conte
                 AF_INET,
                 HostToNetU16(DEFAULT_STREAMING_ACN_PORT), 
                 HostToNetU32(V4Address));
-            
-#if 0 // Old Net Code
-            UniverseBufferHeader->Universes[Index].SendAddress.sin_family = AF_INET;
-            UniverseBufferHeader->Universes[Index].SendAddress.sin_port = HostToNetU16(DEFAULT_STREAMING_ACN_PORT);
-            UniverseBufferHeader->Universes[Index].SendAddress.sin_addr.s_addr = HostToNetU32(V4Address);
-#endif
             
             s32 SlotCount = 512;
             InitStreamHeader(UniverseBufferHeader->Universes[Index].StartPositionInSendBuffer, 

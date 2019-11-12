@@ -113,7 +113,7 @@ input_command UniverseViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
 {
-    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, "Universe View", UniverseViewCommands);
+    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommands);
     UniverseViewMode->Render = RenderUniverseView;
     
     // State Setup
@@ -183,7 +183,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(SelectAndCloseNodeLister)
     if (FilteredNodeIndex >= 0)
     {
         s32 NodeIndex = OpState->SearchLister.FilteredIndexLUT[FilteredNodeIndex];
-        PushNodeOnListFromSpecification(State->NodeList, NodeSpecifications[NodeIndex],
+        PushNodeOnListFromSpecification(State->NodeList, (node_type)NodeIndex,
                                         Mouse.Pos, State->Permanent);
     }
     CloseNodeLister(State, Event, Mouse);
@@ -200,7 +200,7 @@ input_command UniverseViewCommads [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
 {
-    operation_mode* AddNodeOperation = ActivateOperationModeWithCommands(&State->Modes, "Node Lister", UniverseViewCommads);
+    operation_mode* AddNodeOperation = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommads);
     
     AddNodeOperation->Render = RenderNodeLister;
     
@@ -246,6 +246,11 @@ CloseColorPicker(app_state* State)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
+FOLDHAUS_INPUT_COMMAND_PROC(CloseColorPickerCommand)
+{
+    CloseColorPicker(State);
+}
+
 OPERATION_RENDER_PROC(RenderColorPicker)
 {
     color_picker_operation_state* OpState = (color_picker_operation_state*)Operation.OpStateMemory;
@@ -260,16 +265,20 @@ OPERATION_RENDER_PROC(RenderColorPicker)
     }
 }
 
+input_command ColorPickerCommands [] = {
+    { KeyCode_Esc, KeyCode_Invalid, Command_Began, CloseColorPickerCommand },
+};
+
 internal void
 OpenColorPicker(app_state* State, node_connection* Connection)
 {
-    operation_mode* ColorPickerMode = ActivateOperationMode(&State->Modes, "Color Picker");
+    operation_mode* ColorPickerMode = ActivateOperationModeWithCommands(&State->Modes, ColorPickerCommands);
     ColorPickerMode->Render = RenderColorPicker;
     
     color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
                                                                  &State->Modes, 
                                                                  color_picker_operation_state);
-    OpState->ValueAddr = &Connection->V4Value;
+    OpState->ValueAddr = Connection->V4ValuePtr;
 }
 
 
@@ -294,10 +303,9 @@ internal void
 BeginNodeFieldTextEdit(app_state* State, node_connection* Connection)
 {
     operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes, 
-                                                                              "Node Field Text Edit",
                                                                               NodeFieldTextEditCommands);
     
-    SetTextInputDestinationToFloat(&State->ActiveTextEntry, &Connection->R32Value);
+    SetTextInputDestinationToFloat(&State->ActiveTextEntry, Connection->R32ValuePtr);
 }
 
 ////////////////////////////////////////
@@ -335,7 +343,6 @@ BeginDraggingNodePort(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodePortMode = ActivateOperationModeWithCommands(
         &State->Modes, 
-        "Drag Node Port",
         DragNodePortInputCommands);
     DragNodePortMode->Render = RenderDraggingNodePort;
     
@@ -395,7 +402,6 @@ BeginDraggingNode(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodeMode = ActivateOperationModeWithCommands(
         &State->Modes, 
-        "Drag Node",
         DragNodeInputCommands);
     DragNodeMode->Render = RenderDraggingNode;
     
@@ -503,7 +509,8 @@ OPERATION_RENDER_PROC(RenderNodeView)
         
         // TODO(Peter): This is just for debug purposes. We can remove and go back to just having
         // Node->Name in DrawString
-        PrintF(&NodeHeaderBuffer, "%.*s: %d", Node->Name.Length, Node->Name.Memory, Node->Handle);
+        string NodeName = GetNodeName(*Node);
+        PrintF(&NodeHeaderBuffer, "%.*s: %d", NodeName.Length, NodeName.Memory, Node->Handle);
         DrawString(RenderBuffer, NodeHeaderBuffer, State->NodeRenderSettings.Font,
                    v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
                    WhiteV4);
@@ -527,7 +534,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
                 //
                 if (Node->Type != NodeType_OutputNode && DrawFields)
                 {
-                    node_specification Spec = NodeSpecifications[Node->Type - 1];
+                    node_specification Spec = NodeSpecifications[Node->Type];
                     node_struct_member Member = Spec.MemberList[Connection];
                     DrawString(RenderBuffer, MakeString(Member.Name), 
                                State->NodeRenderSettings.Font,
@@ -558,7 +565,7 @@ OPERATION_RENDER_PROC(RenderNodeView)
                 
                 if (DrawFields)
                 {
-                    node_specification Spec = NodeSpecifications[Node->Type - 1];
+                    node_specification Spec = NodeSpecifications[Node->Type];
                     node_struct_member Member = Spec.MemberList[Connection];
                     DrawString(RenderBuffer, MakeString(Member.Name), 
                                State->NodeRenderSettings.Font,
@@ -605,12 +612,13 @@ input_command NodeViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
 {
-    operation_mode* NodeViewMode = ActivateOperationModeWithCommands(&State->Modes, "Node View", NodeViewCommands);
+    operation_mode* NodeViewMode = ActivateOperationModeWithCommands(&State->Modes, NodeViewCommands);
     NodeViewMode->Render = RenderNodeView;
     
     node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
                                                               &State->Modes, 
                                                               node_view_operation_state);
+    
     OpState->SelectedNodeHandle = 0;
 }
 
@@ -649,7 +657,7 @@ input_command MouseRotateViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
 {
-    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, "Rotate 3D View", MouseRotateViewCommands);
+    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands);
     RotateViewMode->Render = Update3DViewMouseRotate;
     
     mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,

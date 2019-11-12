@@ -136,10 +136,10 @@ PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
     {
         s32 NewDictionaryMax = Win32SocketHandleMax + SOCKET_DICTIONARY_GROW_SIZE;
         s32 NewDictionaryDataSize = NewDictionaryMax *  sizeof(win32_socket);
-        platform_memory_result DictionaryMemory = Win32Alloc(NewDictionaryDataSize);
-        Assert(DictionaryMemory.Size > 0);
+        u8* DictionaryMemory = Win32Alloc(NewDictionaryDataSize);
+        Assert(DictionaryMemory);
         
-        win32_socket* NewValues = (win32_socket*)(DictionaryMemory.Base);
+        win32_socket* NewValues = (win32_socket*)(DictionaryMemory);
         if (SocketValues)
         {
             GSMemCopy(SocketValues, NewValues, sizeof(win32_socket) * NewDictionaryMax);
@@ -169,10 +169,10 @@ PLATFORM_GET_SEND_ADDRESS_HANDLE(Win32GetSendAddress)
     {
         s32 NewDictionaryMax = Win32NetworkAddressHandleMax + NETWORK_ADDRESS_DICTIONARY_GROW_SIZE;
         s32 NewDictionaryDataSize = NewDictionaryMax *  sizeof(sockaddr_in);
-        platform_memory_result DictionaryMemory = Win32Alloc(NewDictionaryDataSize);
-        Assert(DictionaryMemory.Size > 0);
+        u8* DictionaryMemory = Win32Alloc(NewDictionaryDataSize);
+        Assert(DictionaryMemory);
         
-        sockaddr_in* NewValues = (sockaddr_in*)(DictionaryMemory.Base);
+        sockaddr_in* NewValues = (sockaddr_in*)(DictionaryMemory);
         if (NetworkAddressValues)
         {
             GSMemCopy(NetworkAddressValues, NewValues, sizeof(win32_socket) * NewDictionaryMax);
@@ -556,7 +556,7 @@ INT NCmdShow
     input_queue InputQueue;
     {
         s32 InputQueueMemorySize = sizeof(input_entry) * 32;
-        u8* InputQueueMemory = Win32Alloc(InputQueueMemorySize).Base;
+        u8* InputQueueMemory = Win32Alloc(InputQueueMemorySize);
         InputQueue = InitializeInputQueue(InputQueueMemory, InputQueueMemorySize);
         
         Mouse = {0, 0};
@@ -589,10 +589,11 @@ INT NCmdShow
         WorkerThreads[i].Handle = CreateThread(0, 0, &WorkerThreadProc, (void*)&WorkerThreads[i], 0, 0);
     }
     
-    platform_memory_result InitialMemory = Win32Alloc(Megabytes(64));
+    s32 InitialMemorySize = Megabytes(64);
+    u8* InitialMemory = Win32Alloc(InitialMemorySize);
     context Context = {};
-    Context.MemorySize = InitialMemory.Size;
-    Context.MemoryBase = InitialMemory.Base;
+    Context.MemorySize = InitialMemorySize;
+    Context.MemoryBase = InitialMemory;
     Context.WindowWidth = MainWindow.Width;
     Context.WindowHeight = MainWindow.Height;
     
@@ -615,7 +616,7 @@ INT NCmdShow
     if (HotLoadDLL(&DLLRefresh))
     {
         SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-        Context.ReloadStaticData(Context, GlobalDebugServices);
+        Context.ReloadStaticData(Context, GlobalDebugServices, Win32BasicAlloc, Win32Free);
     }
     else
     {
@@ -625,10 +626,11 @@ INT NCmdShow
     WSADATA WSAData;
     WSAStartup(MAKEWORD(2, 2), &WSAData);
     
-    platform_memory_result RenderMemory = Win32Alloc(Megabytes(12));
-    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory.Base, RenderMemory.Size, Win32Realloc);
+    s32 RenderMemorySize = Megabytes(12);
+    u8* RenderMemory = Win32Alloc(RenderMemorySize);
+    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory, RenderMemorySize, Win32Realloc);
     
-    Context.InitializeApplication(Context);
+    Context.InitializeApplication(Context, Win32BasicAlloc, Win32Free);
     
     Running = true;
     Context.WindowIsVisible = true;
@@ -644,7 +646,7 @@ INT NCmdShow
         if (HotLoadDLL(&DLLRefresh))
         {
             SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-            Context.ReloadStaticData(Context, GlobalDebugServices);
+            Context.ReloadStaticData(Context, GlobalDebugServices, Win32BasicAlloc, Win32Free);
         }
         
         { // Mouse Position

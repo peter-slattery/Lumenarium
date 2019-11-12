@@ -69,7 +69,7 @@ struct system_path
     s32 IndexOfLastSlash;
 };
 
-#define PLATFORM_ALLOC(name) platform_memory_result name(s32 Size)
+#define PLATFORM_ALLOC(name) u8* name(s32 Size)
 typedef PLATFORM_ALLOC(platform_alloc);
 
 #define PLATFORM_FREE(name) b32 name(u8* Base, s32 Size)

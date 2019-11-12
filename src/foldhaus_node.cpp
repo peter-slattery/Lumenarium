@@ -1,23 +1,12 @@
-inline s32
-GetNodeMemorySize(s32 ConnectionsCount)
-{
-    s32 Result = sizeof(node_header) + (sizeof(node_connection) * ConnectionsCount);
-    return Result;
-}
-
-inline s32
-GetNodeMemorySize (node_header Node)
-{
-    return GetNodeMemorySize(Node.ConnectionsCount);
-}
-
 internal node_list_iterator
 GetNodeListIterator(node_list List)
 {
     node_list_iterator Result = {};
     Result.List = List;
     Result.CurrentBuffer = List.First;
-    Result.At = (node_header*)Result.CurrentBuffer->Memory;
+    Result.At = Result.CurrentBuffer->Headers;
+    Result.TotalIndexAt = 0;
+    Result.BufferIndexAt = 0;
     
     return Result;
 }
@@ -26,60 +15,70 @@ internal b32
 NodeIteratorIsValid(node_list_iterator Iter)
 {
     b32 Result = (Iter.At != 0); 
-    Result &= (((u8*)Iter.At - Iter.CurrentBuffer->Memory) < Iter.CurrentBuffer->Used);
+    Result &= Iter.TotalIndexAt < Iter.List.TotalUsed && Iter.TotalIndexAt >= 0;
+    Result &= Iter.BufferIndexAt < Iter.CurrentBuffer->Used && Iter.BufferIndexAt >= 0;
     return Result;
 }
 
 internal void
 Next (node_list_iterator* Iter)
 {
-    if (Iter->At->Handle == 0)
+    if (Iter->BufferIndexAt < Iter->CurrentBuffer->Used)
     {
-        node_free_list_member* FreeNode = (node_free_list_member*)Iter->At;
-        s32 SkipAmount = FreeNode->Size;
-        Iter->At = (node_header*)((u8*)Iter->At + SkipAmount);
+        Iter->At++;
+        Iter->TotalIndexAt++;
+        Iter->BufferIndexAt++;
+        if (Iter->At->Handle == 0) { Next(Iter); }
+    }
+    else if (Iter->CurrentBuffer->Next)
+    {
+        Iter->CurrentBuffer = Iter->CurrentBuffer->Next;
+        Iter->At = Iter->CurrentBuffer->Headers;
+        Iter->TotalIndexAt++;
+        Iter->BufferIndexAt = 0;
+        if (Iter->At->Handle == 0) { Next(Iter); }
     }
     else
     {
-        s32 SkipAmount = GetNodeMemorySize(*Iter->At);
-        if (((u8*)Iter->At - Iter->CurrentBuffer->Memory) + SkipAmount < Iter->CurrentBuffer->Used)
-        {
-            Iter->At = (node_header*)((u8*)Iter->At + SkipAmount);
-            if (Iter->At->Handle == 0) { Next(Iter); }
-        }
-        else if (Iter->CurrentBuffer->Next)
-        {
-            Iter->CurrentBuffer = Iter->CurrentBuffer->Next;
-            Iter->At = (node_header*)Iter->CurrentBuffer->Memory;
-            if (Iter->At->Handle == 0) { Next(Iter); }
-        }
-        else
-        {
-            Iter->At = 0;
-        }
+        Iter->At = 0;
+        Iter->TotalIndexAt = -1;
+        Iter->BufferIndexAt = -1;
     }
 }
 
 internal node_list_buffer*
-AllocateNodeListBuffer (memory_arena* Storage, s32 Size)
+AllocateNodeListBuffer (memory_arena* Storage, s32 Count)
 {
     node_list_buffer* Result = PushStruct(Storage, node_list_buffer);;
-    Result->Memory = PushSize(Storage, Size);
-    Result->Max = Size;
+    Result->Headers = PushArray(Storage, node_header, Count);
+    Result->Max = Count;
     Result->Used = 0;
     Result->Next = 0;
     return Result;
 }
 
 internal node_list*
-AllocateNodeList (memory_arena* Storage, s32 InitialSize)
+AllocateNodeList (memory_arena* Storage, s32 InitialCount)
 {
     node_list* Result = PushStruct(Storage, node_list);
-    Result->First = AllocateNodeListBuffer(Storage, InitialSize);
+    Result->First = AllocateNodeListBuffer(Storage, InitialCount);
     Result->Head = Result->First;
-    Result->TotalMax = InitialSize;
+    Result->TotalMax = InitialCount;
     Result->TotalUsed = 0;
     Result->HandleAccumulator = 0;
+    return Result;
+}
+
+global_variable char* OutputName = "Output";
+
+internal string
+GetNodeName (node_header Node)
+{
+    string Result = {};
+    
+    node_specification Spec = NodeSpecifications[Node.Type];
+    Result = MakeString(Spec.Name, Spec.NameLength);
+    
     return Result;
 }
 
@@ -88,28 +87,34 @@ PushNodeOnList (node_list* List, s32 ConnectionsCount, v2 Min, v2 Dim, memory_ar
 {
     node_header* Result = 0;
     
-    s32 NodeMemorySize = GetNodeMemorySize(ConnectionsCount);
-    
-    if (List->TotalUsed + NodeMemorySize >= List->TotalMax)
+    if ((List->TotalUsed + 1) >= List->TotalMax)
     {
         node_list_buffer* Buf = AllocateNodeListBuffer(Storage, List->Head->Max);
         List->Head->Next = Buf;
         List->Head = Buf;
         List->TotalMax += Buf->Max;
     }
-    Assert(List->TotalUsed + NodeMemorySize <= List->TotalMax);
+    Assert(List->TotalUsed + 1 <= List->TotalMax);
     
-    Result = (node_header*)(List->Head->Memory + List->Head->Used);
+    Result = List->Head->Headers + List->Head->Used;
     Result->Handle = ++List->HandleAccumulator;
     
+    // :ConnectionsToStretchyBuffer
+    Assert(List->ConnectionsUsed + ConnectionsCount < NODE_LIST_CONNECTIONS_MAX);
     Result->ConnectionsCount = ConnectionsCount;
-    Result->Connections = (node_connection*)(Result + 1);
+    Result->Connections = (node_connection*)(List->Connections + List->ConnectionsUsed);
+    List->ConnectionsUsed += ConnectionsCount;
+    
+    for (s32 c = 0; c < Result->ConnectionsCount; c++)
+    {
+        Result->Connections[c].NodeHandle = Result->Handle;
+    }
     
     Result->Min = Min;
     Result->Dim = Dim;
     
-    List->Head->Used += NodeMemorySize;
-    List->TotalUsed += NodeMemorySize;
+    List->Head->Used++;
+    List->TotalUsed++;
     
     return Result;
 }
@@ -121,38 +126,42 @@ FreeNodeOnList (node_list* List, node_header* Node)
 }
 
 internal void
-InitializeNodeConnection (node_connection* Connection, struct_member_type Type, b32 DirectionMask)
+InitializeNodeConnection (node_connection* Connection, node_struct_member Member, node_header* Node)
 {
-    Connection->Type = Type;
+    Connection->Type = Member.Type;
     Connection->UpstreamNodeHandle = 0;
     Connection->UpstreamNodePortIndex = -1;
     Connection->DownstreamNodeHandle = 0;
     Connection->DownstreamNodePortIndex = -1;
-    Connection->DirectionMask = DirectionMask;
-    switch (Type)
+    Connection->DirectionMask = Member.IsInput;
+    
+    Connection->Ptr = Node->PersistentData + Member.Offset;
+    
+    switch (Member.Type)
     {
         case MemberType_s32:
         {
-            Connection->S32Value = 0;
+            *Connection->S32ValuePtr = 0;
         }break;
         
         case MemberType_r32:
         {
-            Connection->R32Value = 0;
+            *Connection->R32ValuePtr = 0;
         }break;
         
         case MemberType_v4:
         {
-            Connection->V4Value = v4{0, 0, 0, 1};
+            *Connection->V4ValuePtr = v4{0, 0, 0, 1};
         }break;
         
         case MemberType_NODE_COLOR_BUFFER:
         {
-            Connection->LEDsValue = {};
+            *Connection->LEDsValuePtr = {};
         }break;
         
         InvalidDefaultCase;
     }
+    
 }
 
 inline r32
@@ -162,51 +171,38 @@ CalculateNodeHeight (s32 Members)
     return Result;
 }
 
-internal void
-PushNodeOnListFromSpecification (node_list* List, node_specification Spec, v2 Min, memory_arena* Storage)
+internal node_header*
+PushNodeOnListFromSpecification (node_list* List, node_type Type, v2 Min, memory_arena* Storage)
 {
+    node_header* Node = 0;
+    
+    node_specification Spec = NodeSpecifications[Type];
+    
     // :NodesDontNeedToKnowTheirBounds
     r32 NodeHeight = CalculateNodeHeight (Spec.MemberListLength);
-    node_header* Node = PushNodeOnList(List, 
-                                       Spec.MemberListLength,
-                                       Min, 
-                                       v2{150, NodeHeight}, 
-                                       Storage);
-    Node->Type = Spec.Type;
-    
-    // TODO(Peter): This doesn't work with code reloading, probably just want to store the spec index
-    // we'll get there
-    // :HotCodeReloading
-    Node->Name = MakeString(Spec.Name, Spec.NameLength);
+    Node = PushNodeOnList(List, 
+                          Spec.MemberListLength,
+                          Min, 
+                          v2{150, NodeHeight}, 
+                          Storage);
+    Node->Type = Type;
+    Node->PersistentData = PushArray(Storage, u8, Spec.DataStructSize);
     
     node_struct_member* MemberList = Spec.MemberList;
     for (s32 MemberIdx = 0; MemberIdx < Spec.MemberListLength; MemberIdx++)
     {
         node_struct_member Member = MemberList[MemberIdx];
-        InitializeNodeConnection(Node->Connections + MemberIdx, Member.Type, Member.IsInput);
+        InitializeNodeConnection(Node->Connections + MemberIdx, Member, Node);
     }
     
-    Node->PersistentData = PushArray(Storage, u8, Spec.DataStructSize);
+    return Node;
 }
-
-global_variable char* OutputName = "Output";
 
 internal node_header*
 PushOutputNodeOnList (node_list* List, v2 Min, memory_arena* Storage)
 {
-    node_header* Node = PushNodeOnList(List, 
-                                       1,
-                                       Min,
-                                       DEFAULT_NODE_DIMENSION,
-                                       Storage);
-    Node->Type = NodeType_OutputNode;
-    
-    // :HotCodeReloading
-    Node->Name = MakeString(OutputName);
-    
-    InitializeNodeConnection(Node->Connections, MemberType_NODE_COLOR_BUFFER, IsInputMember);
-    
-    return Node;
+    node_header* Result = PushNodeOnListFromSpecification(List, NodeType_OutputNode, Min, Storage);
+    return Result;
 }
 
 internal node_header*
@@ -804,12 +800,12 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
         {
             case MemberType_s32:
             {
-                Connection->S32Value += (s32)(MouseDelta.y * .05f);
+                *Connection->S32ValuePtr += (s32)(MouseDelta.y * .05f);
             }break;
             
             case MemberType_r32:
             {
-                Connection->R32Value += (MouseDelta.y * .05f);
+                *Connection->R32ValuePtr += (MouseDelta.y * .05f);
             }break;
             
             case MemberType_v4:
@@ -846,26 +842,29 @@ UpdateNodesConnectedUpstream (node_header* Node, node_list* NodeList,
                 {
                     UpdateNodeCalculation(UpstreamNode, NodeList, Permanent, Transient, LEDs, ColorsInit, LEDCount, DeltaTime);
                 }
+                
+                node_connection UpstreamConnection = UpstreamNode->Connections[Connection->UpstreamNodePortIndex];
+                
                 switch (Connection->Type)
                 {
                     case MemberType_s32:
                     {
-                        Connection->S32Value = UpstreamNode->Connections[Connection->UpstreamNodePortIndex].S32Value;
+                        *Connection->S32ValuePtr = *UpstreamConnection.S32ValuePtr;
                     }break;
                     
                     case MemberType_r32:
                     {
-                        Connection->R32Value = UpstreamNode->Connections[Connection->UpstreamNodePortIndex].R32Value;
+                        *Connection->R32ValuePtr = *UpstreamConnection.R32ValuePtr;
                     }break;
                     
                     case MemberType_v4:
                     {
-                        Connection->V4Value = UpstreamNode->Connections[Connection->UpstreamNodePortIndex].V4Value;
+                        *Connection->V4ValuePtr = *UpstreamConnection.V4ValuePtr;
                     }break;
                     
                     case MemberType_NODE_COLOR_BUFFER:
                     {
-                        Connection->LEDsValue = UpstreamNode->Connections[Connection->UpstreamNodePortIndex].LEDsValue;
+                        *Connection->LEDsValuePtr = *UpstreamConnection.LEDsValuePtr;
                     }break;
                     
                     InvalidDefaultCase;
@@ -882,10 +881,11 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
 {
     DEBUG_TRACK_FUNCTION;
     Assert(Node->PersistentData != 0);
+    Assert(Node->Type != NodeType_OutputNode);
     
     // NOTE(Peter): Have to subtract one here so that we account for the 
     // NodeType_OutputNode entry in the enum
-    node_specification Spec = NodeSpecifications[Node->Type - 1];
+    node_specification Spec = NodeSpecifications[Node->Type];
     node_struct_member* MemberList = Spec.MemberList;
     
     // NOTE(Peter): We do this at the beginning in case there is a node connected to this one
@@ -907,40 +907,15 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
         // needs the leds to request that as its own member/parameter.
         if (Connection.Type == MemberType_NODE_COLOR_BUFFER)
         {
-            node_led_color_connection* ColorConnection = (node_led_color_connection*)(Node->PersistentData + MemberList[ConnectionIdx].Offset);
-            
-            ColorConnection->LEDs = LEDs;
-            ColorConnection->LEDCount = LEDCount;
-            ColorConnection->Colors = Connection.LEDsValue.Colors;
-            
+            node_led_color_connection* ColorConnection = Connection.LEDsValuePtr;
             if (!ColorConnection->Colors)
             {
                 sacn_pixel* ColorsCopy = PushArray(Transient, sacn_pixel, LEDCount);
                 GSMemSet((u8*)ColorsCopy, 0, sizeof(sacn_pixel) * LEDCount);
+                
                 ColorConnection->Colors = ColorsCopy;
-            }
-        }
-        else if (ConnectionIsInput(Connection))
-        {
-            Assert(Connection.Type != MemberType_NODE_COLOR_BUFFER);
-            switch (Connection.Type)
-            {
-                case MemberType_s32:
-                {
-                    GSMemCopy(&Connection.S32Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(s32));
-                }break;
-                
-                case MemberType_r32:
-                {
-                    GSMemCopy(&Connection.R32Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(r32));
-                }break;
-                
-                case MemberType_v4:
-                {
-                    GSMemCopy(&Connection.V4Value, (Node->PersistentData + MemberList[ConnectionIdx].Offset), sizeof(v4));
-                }break;
-                
-                InvalidDefaultCase;
+                ColorConnection->LEDs = LEDs;
+                ColorConnection->LEDCount = LEDCount;
             }
         }
     }
@@ -949,41 +924,8 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
     
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
-        node_connection* Connection = 0;
-        if (ConnectionIsOutput(Node, ConnectionIdx))
-        {
-            Connection = Node->Connections + ConnectionIdx;
-        }
-        else
-        {
-            continue;
-        }
-        
-        switch (Connection->Type)
-        {
-            case MemberType_s32:
-            {
-                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->S32Value, sizeof(s32));
-            }break;
-            
-            case MemberType_r32:
-            {
-                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->R32Value, sizeof(r32));
-            }break;
-            
-            case MemberType_v4:
-            {
-                GSMemCopy((Node->PersistentData + MemberList[ConnectionIdx].Offset), &Connection->V4Value, sizeof(v4));
-            }break;
-            
-            case MemberType_NODE_COLOR_BUFFER:
-            {
-                node_led_color_connection* Value = (node_led_color_connection*)(Node->PersistentData + MemberList[ConnectionIdx].Offset);
-                Connection->LEDsValue.Colors = Value->Colors;
-            }break;
-            
-            InvalidDefaultCase;
-        }
+        if (!ConnectionIsOutput(Node, ConnectionIdx)) { continue; }
+        node_connection* Connection = Node->Connections + ConnectionIdx;
     }
 }
 
@@ -993,19 +935,67 @@ UpdateOutputNodeCalculations (node_header* OutputNode, node_list* NodeList,
                               led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     Assert(OutputNode->Type == NodeType_OutputNode);
+    
     UpdateNodesConnectedUpstream(OutputNode, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
     
     node_connection ColorsConnection = OutputNode->Connections[0];
-    if (ColorsConnection.LEDsValue.Colors)
+    if (ColorsConnection.LEDsValuePtr->Colors)
     {
         sacn_pixel* DestPixel = Colors;
-        sacn_pixel* SourcePixel = ColorsConnection.LEDsValue.Colors;
+        sacn_pixel* SourcePixel = ColorsConnection.LEDsValuePtr->Colors;
         for (s32 i = 0; i < LEDCount; i++)
         {
             *DestPixel++ = *SourcePixel++;
         }
     }
 }
+
+#if 0
+// Trying to put updating nodes in terms of connections, rather than nodes.
+internal void
+UpdateAllNodesFloodFill (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
+{
+    s32 NodesUpdated = 0;
+    
+    s32 DEBUGIterations = 0;
+    while(NodesUpdated < NodeList->TotalUsed)
+    {
+        node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
+        while (NodeIteratorIsValid(NodeIter))
+        {
+            node_header* Node = NodeIter.At;
+            
+            s32 ConnectionsReady = 0;
+            // Check if all upstream connections have been updated
+            // TODO(Peter): we should move the HasBeenUpdated field into the connections
+            // and have connections push their updates upstream
+            for (s32 c = 0; c < Node->ConnectionsCount; c++)
+            {
+                node_connection* Connection = Node->Connections + c;
+                if (ConnectionIsInput(*Connection) &&
+                    ConnectionHasUpstreamConnection(*Connection))
+                {
+                    node_header* UpstreamNode = GetNodeWithHandle(NodeList, Connection->UpstreamNodeHandle);
+                    if (UpstreamNode->UpdatedThisFrame)
+                    {
+                        ConnectionsReady += 1;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            
+            if (ConnectionsReady == Node->ConnectionsCount)
+            {
+                
+            }
+        }
+        DEBUGIterations++;
+    }
+}
+#endif
 
 internal void
 UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
@@ -1034,7 +1024,7 @@ ClearTransientNodeColorBuffers (node_list* NodeList)
             node_connection* Connection = Node->Connections + ConnectionIdx;
             if (Connection->Type == MemberType_NODE_COLOR_BUFFER)
             {
-                Connection->LEDsValue.Colors = 0;
+                Connection->LEDsValuePtr->Colors = 0;
             }
         }
         Next(&NodeIter);
@@ -1053,19 +1043,19 @@ DrawValueDisplay (render_command_buffer* RenderBuffer, rect Bounds, node_connect
     {
         case MemberType_s32:
         {
-            PrintF(&String, "%.*d", 4, Value.S32Value);
+            PrintF(&String, "%.*d", 4, *Value.S32ValuePtr);
             DrawString(RenderBuffer, String, Font, Bounds.Min + v2{2, 2}, WhiteV4);
         }break;
         
         case MemberType_r32:
         {
-            PrintF(&String, "%.*f", 4, Value.R32Value);
+            PrintF(&String, "%.*f", 4, *Value.R32ValuePtr);
             DrawString(RenderBuffer, String, Font, Bounds.Min + v2{2, 2}, WhiteV4);
         }break;
         
         case MemberType_v4:
         {
-            PushRenderQuad2D(RenderBuffer, Bounds.Min + v2{2, 2}, Bounds.Max - v2{2, 2}, Value.V4Value);
+            PushRenderQuad2D(RenderBuffer, Bounds.Min + v2{2, 2}, Bounds.Max - v2{2, 2}, *Value.V4ValuePtr);
         }break;
         
         case MemberType_NODE_COLOR_BUFFER:

@@ -211,17 +211,9 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     
     r32 FramesPerSecond = 1.0f / DeltaTime;
     
-    string ModeName = MakeStringLiteral("Base Mode");
-    if (State->Modes.ActiveModesCount > 0 && 
-        State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Name.Length > 0)
-    {
-        ModeName = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Name;
-    }
-    
-    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Current Mode: %.*s  Modes: %d  Memory Used: %d / %d    |   Commands: %d",
+    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d    |   Commands: %d",
            5, DeltaTime,
            (u32)FramesPerSecond,
-           ModeName.Length, ModeName.Memory,
            State->Modes.ActiveModesCount,
            State->Modes.Arena.CurrentRegion->Used,
            State->Modes.Arena.CurrentRegion->Size,

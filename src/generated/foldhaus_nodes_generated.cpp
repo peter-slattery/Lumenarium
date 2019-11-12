@@ -1,12 +1,12 @@
 enum node_type
 {
-NodeType_OutputNode,
 NodeType_FloatValue,
 NodeType_VectorValue,
 NodeType_MultiplyNodeProc,
 NodeType_AddNodeProc,
 NodeType_SinWave,
 NodeType_MultiplyPatterns,
+NodeType_OutputNode,
 NodeType_SwdColorProc,
 NodeType_SolidColorProc,
 NodeType_VerticalColorFadeProc,
@@ -52,6 +52,10 @@ node_struct_member MemberList_multiply_patterns_data[] = {
 { MemberType_NODE_COLOR_BUFFER, "ResultLEDs", (u64)&((multiply_patterns_data*)0)->ResultLEDs,   IsOutputMember},
 };
 
+node_struct_member MemberList_output_node_data[] = {
+{ MemberType_NODE_COLOR_BUFFER, "ResultLEDs", (u64)&((output_node_data*)0)->ResultLEDs, IsInputMember  },
+};
+
 node_struct_member MemberList_swd_color_data[] = {
 { MemberType_v4, "Color", (u64)&((swd_color_data*)0)->Color, IsInputMember  },
 { MemberType_v4, "ColorB", (u64)&((swd_color_data*)0)->ColorB, IsInputMember  },
@@ -88,16 +92,18 @@ node_specification NodeSpecifications[] = {
 { NodeType_AddNodeProc, "AddNodeProc", 11, MemberList_add_data, 48, 3, false},
 { NodeType_SinWave, "SinWave", 7, MemberList_sin_wave_data, 20, 4, false},
 { NodeType_MultiplyPatterns, "MultiplyPatterns", 16, MemberList_multiply_patterns_data, 60, 3, false},
+{ NodeType_OutputNode, "OutputNode", 10, MemberList_output_node_data, 20, 1, false},
 { NodeType_SwdColorProc, "SwdColorProc", 12, MemberList_swd_color_data, 52, 3, false},
 { NodeType_SolidColorProc, "SolidColorProc", 14, MemberList_solid_color_data, 36, 2, false},
 { NodeType_VerticalColorFadeProc, "VerticalColorFadeProc", 21, MemberList_vertical_color_fade_data, 44, 4, false},
 { NodeType_RevolvingDiscs, "RevolvingDiscs", 14, MemberList_revolving_discs_data, 60, 8, false},
 };
-s32 NodeSpecificationsCount = 10;
+s32 NodeSpecificationsCount = 11;
 
 internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
 {
-switch (Node->Type)
+node_specification Spec = NodeSpecifications[Node->Type];
+switch (Spec.Type)
 {
 case NodeType_FloatValue: { FloatValue((float_value_data*)Data, DeltaTime); } break; 
 case NodeType_VectorValue: { VectorValue((vector_data*)Data, DeltaTime); } break; 
@@ -105,6 +111,7 @@ case NodeType_MultiplyNodeProc: { MultiplyNodeProc((multiply_data*)Data, DeltaTi
 case NodeType_AddNodeProc: { AddNodeProc((add_data*)Data, DeltaTime); } break; 
 case NodeType_SinWave: { SinWave((sin_wave_data*)Data, DeltaTime); } break; 
 case NodeType_MultiplyPatterns: { MultiplyPatterns((multiply_patterns_data*)Data, DeltaTime); } break; 
+case NodeType_OutputNode: { OutputNode((output_node_data*)Data, DeltaTime); } break; 
 case NodeType_SwdColorProc: { SwdColorProc((swd_color_data*)Data, DeltaTime); } break; 
 case NodeType_SolidColorProc: { SolidColorProc((solid_color_data*)Data, DeltaTime); } break; 
 case NodeType_VerticalColorFadeProc: { VerticalColorFadeProc((vertical_color_fade_data*)Data, DeltaTime); } break; 

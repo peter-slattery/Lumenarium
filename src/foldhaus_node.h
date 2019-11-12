@@ -64,10 +64,11 @@ struct node_connection
     
     union
     {
-        s32 S32Value;
-        r32 R32Value;
-        v4 V4Value;
-        node_led_color_connection LEDsValue;
+        u8* Ptr;
+        s32* S32ValuePtr;
+        r32* R32ValuePtr;
+        v4* V4ValuePtr;
+        node_led_color_connection* LEDsValuePtr;
     };
 };
 
@@ -77,19 +78,19 @@ struct node_connection
 struct node_header
 {
     s32 Handle; // NOTE(Peter): stores a non-zero handle. must come first to match node_free_list_member
-    string Name;
+    node_type Type;
     
     v2 Min, Dim;
     
     s32 ConnectionsCount;
     node_connection* Connections;
     
-    node_type Type;
     b32 UpdatedThisFrame;
     
     u8* PersistentData;
 };
 
+// TODO(Peter): @Remove Confirm we don't need it first
 struct node_free_list_member
 {
     s32 Handle; // NOTE(Peter): this will always be zero, and must come first to match node_header
@@ -100,7 +101,7 @@ struct node_free_list_member
 
 struct node_list_buffer
 {
-    u8* Memory;
+    node_header* Headers;
     s32 Max;
     s32 Used;
     
@@ -117,6 +118,8 @@ struct node_list
     
     s32 HandleAccumulator;
     
+    // TODO(Peter): Replace this with some sort of stretchy bufferf
+    // :ConnectionsToStretchyBuffer
     s32 ConnectionsUsed;
     node_connection Connections[NODE_LIST_CONNECTIONS_MAX];
 };
@@ -126,6 +129,8 @@ struct node_list_iterator
     node_list List;
     node_list_buffer* CurrentBuffer;
     node_header* At;
+    s32 BufferIndexAt;
+    s32 TotalIndexAt;
 };
 
 enum node_interaction_flag
@@ -206,3 +211,17 @@ void proc_name(input_type* Data, r32 DeltaTime)
 #define NODE_IN(type, name) type name
 #define NODE_OUT(type, name) type name
 
+
+///////////////////////////////////////////////
+//   OUTPUT NODE
+///////////////////////////////////////////////
+
+NODE_STRUCT(output_node_data)
+{
+    NODE_COLOR_BUFFER_IN(Result);
+};
+
+NODE_PROC(OutputNode, output_node_data)
+{
+    
+}

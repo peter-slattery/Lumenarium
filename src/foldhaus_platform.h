@@ -7,6 +7,9 @@
 
 global_variable debug_services* GlobalDebugServices;
 
+global_variable platform_alloc* GSAlloc;
+global_variable platform_free* GSFree;
+
 #include "gs_vector_matrix.h"
 
 #include "gs_input.h"
@@ -19,13 +22,13 @@ typedef struct context context;
 
 // Application Functions
 
-#define INITIALIZE_APPLICATION(name) void name(context Context)
+#define INITIALIZE_APPLICATION(name) void name(context Context, platform_alloc* Alloc, platform_free* Free)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
 #define UPDATE_AND_RENDER(name) void name(context Context, input_queue InputQueue, mouse_state Mouse, render_command_buffer* RenderBuffer)
 typedef UPDATE_AND_RENDER(update_and_render);
 
-#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
+#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices, platform_alloc* Alloc, platform_free* Free)
 typedef RELOAD_STATIC_DATA(reload_static_data);
 
 #define CLEANUP_APPLICATION(name) void name(context Context)

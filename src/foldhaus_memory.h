@@ -122,11 +122,10 @@ PushSize_ (memory_arena* Arena, u32 Size)
                 s32 RegionPagesNeeded = IntegerDivideRoundUp(SizeNeeded, MEMORY_REGION_PAGE_SIZE); 
                 s32 SizeToAllocate = RegionPagesNeeded * MEMORY_REGION_PAGE_SIZE;
                 
-                platform_memory_result AllocResult = Arena->PlatformAlloc(SizeToAllocate);
-                Assert(AllocResult.Error == PLATFORM_MEMORY_NO_ERROR);
-                Assert(AllocResult.Size >= SizeNeeded);
+                u8* AllocResult = Arena->PlatformAlloc(SizeToAllocate);
+                Assert(AllocResult);
                 
-                memory_region* NewRegion = BootstrapRegionOntoMemory(AllocResult.Base, AllocResult.Size);
+                memory_region* NewRegion = BootstrapRegionOntoMemory(AllocResult, SizeToAllocate);
                 NewRegion->PreviousRegion = Arena->CurrentRegion;
                 Arena->CurrentRegion = NewRegion;
                 PushOntoRegion = Arena->CurrentRegion;
@@ -177,11 +176,10 @@ AllocateNonGrowableArenaWithSpace(platform_alloc* PlatformAlloc, s32 SizeNeeded)
     memory_arena Result = {};
     
     s32 AllocateSize = SizeNeeded + sizeof(memory_region);
-    platform_memory_result Memory = PlatformAlloc(AllocateSize);
-    Assert(Memory.Error == PLATFORM_MEMORY_NO_ERROR);
-    Assert(Memory.Size == AllocateSize);
+    u8* Memory = PlatformAlloc(AllocateSize);
+    Assert(Memory);
     
-    InitMemoryArena(&Result, Memory.Base, Memory.Size, 0);
+    InitMemoryArena(&Result, Memory, AllocateSize, 0);
     
     return Result;
 }

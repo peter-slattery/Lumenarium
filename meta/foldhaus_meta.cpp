@@ -571,7 +571,7 @@ int main(int ArgCount, char** ArgV)
     InitMemoryArena(&SourceFileArena, 0, 0, StdAlloc);
     
     code_block_builder NodeTypeBlock = InitCodeBlockBuilder();
-    CodeBlockPrint(&NodeTypeBlock, MakeStringLiteral("enum node_type\n{\nNodeType_OutputNode,\n"));
+    CodeBlockPrint(&NodeTypeBlock, MakeStringLiteral("enum node_type\n{\n"));
     
     code_block_builder NodeMembersBlock = InitCodeBlockBuilder();
     
@@ -580,7 +580,10 @@ int main(int ArgCount, char** ArgV)
     
     code_block_builder CallNodeProcBlock = InitCodeBlockBuilder();
     CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"));
-    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("switch (Node->Type)\n{\n"));
+    CodeBlockPrint(&CallNodeProcBlock,
+                   MakeStringLiteral("node_specification Spec = NodeSpecifications[Node->Type];\n"));
+    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("switch (Spec.Type)\n{\n"));
+    
     
     // Build Search Paths Array
     s32 SearchPathsCount = 1; //ArgCount - 1;

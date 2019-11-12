@@ -7,11 +7,19 @@ BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
 
 Switch To Nodes
+x output should generate a node_specification
+x go back to calling SpecificationIndex Type
+- BUG: Connect a solid color node to output then try and pick a color. I think temporary node buffers are
+-      overwriting other data when they get evaluated. Bigger solution is to create a system of working
+-      led buffers that get assigned to nodes as needed.
+- gonna need to remove output node from the node lister
 - delete nodes
 -  - Simplify node storage
 -     x don't pull node names into the struct, just reference the specification
--     - separate storage of node headers from connections
+-     x separate storage of node headers from connections
 -     - investigate if node connections can be operated on separately from the node headers
+-       - UpdatedThisFrame can probably go into each connection
+-     x connections shouldn't store their own values, they should just point into permanent storage
 -  - Allow insertion/deletion within connection table
 -  - Allow inerstion/deletion within header table
 -  - maintain free list of connections and headers
