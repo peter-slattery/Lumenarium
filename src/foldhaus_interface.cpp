@@ -13,6 +13,9 @@ struct universe_view_operation_state
 
 OPERATION_RENDER_PROC(RenderUniverseView)
 {
+    InvalidCodePath;
+    
+#if 0
     DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);
     
     universe_view_operation_state* OpState = (universe_view_operation_state*)Operation.OpStateMemory;
@@ -49,9 +52,8 @@ OPERATION_RENDER_PROC(RenderUniverseView)
              UniverseIdx++)
         {
             sacn_universe* Universe = UniverseList->Universes + UniverseIdx;
+            DrawSACNUniversePixels(RenderBuffer, Universe, UniverseDisplayTopLeft, UniverseDisplayDimension);
             
-            DrawSACNUniversePixels(RenderBuffer, Universe, 
-                                   UniverseDisplayTopLeft, UniverseDisplayDimension);
             
             if (OpState->Zoom > .5f)
             {
@@ -72,9 +74,11 @@ OPERATION_RENDER_PROC(RenderUniverseView)
             {
                 break;
             }
+            
         }
         UniverseList = UniverseList->Next;
     }
+#endif
 }
 
 // TODO(Peter): Something isn't working with my laptop trackpad's zoom

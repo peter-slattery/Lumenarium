@@ -31,26 +31,6 @@ GSMemCopy (u8* Source, u8* Destination, s32 Count)
 
 #endif // GS_LANGUAGE_H
 
-#ifndef GS_PLATFORM_H
-
-#define PLATFORM_MEMORY_NO_ERROR 0
-#define PLATFORM_MEMORY_ERROR 1
-struct platform_memory_result
-{
-    s32 Size;
-    u8* Base;
-    s32 Error;
-};
-
-#define PLATFORM_ALLOC(name) platform_memory_result name(s32 Size)
-typedef PLATFORM_ALLOC(platform_alloc);
-
-// Returns 1 if successful, 0 otherwise
-#define PLATFORM_FREE(name) b32 name(u8* Memory, s32 Size)
-typedef PLATFORM_FREE(platform_free);
-
-#endif // GS_PLATFORM_H
-
 #if !defined Assert && defined DEBUG
 #define Assert(expression) if(!(expression)){ *((int *)0) = 5; }
 #define InvalidCodePath Assert(0)

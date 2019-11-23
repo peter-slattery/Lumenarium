@@ -71,7 +71,11 @@ NODE_PROC(RevolvingDiscs, revolving_discs_data)
 {
     DEBUG_TRACK_FUNCTION;
     
-    sacn_pixel Color = PackFloatsToSACNPixel(Data->Color.r, Data->Color.g, Data->Color.b);
+    pixel Color = {
+        (u8)(GSClamp01(Data->Color.r) * 255),
+        (u8)(GSClamp01(Data->Color.g) * 255),
+        (u8)(GSClamp01(Data->Color.b) * 255),
+    };
     
     v4 Center = v4{0, 0, 0, 1};
     v4 Normal = v4{GSCos(Data->ThetaZ), 0, GSSin(Data->ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1

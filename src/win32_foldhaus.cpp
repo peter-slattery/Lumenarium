@@ -608,6 +608,7 @@ INT NCmdShow
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
     Context.PlatformGetSendAddress = Win32GetSendAddress;
     Context.PlatformSetSocketOption = Win32SetSocketOption;
+    Context.PlatformSendTo = Win32SendTo;
     Context.PlatformCloseSocket = Win32CloseSocket;
     Context.PlatformGetFontInfo = Win32GetFontInfo;
     Context.PlatformDrawFontCodepoint = Win32DrawFontCodepoint;

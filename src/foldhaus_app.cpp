@@ -22,186 +22,10 @@ MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, r32 WindowWidth, r32 Win
     return WorldPosition;
 }
 
-internal void 
-PushLEDBufferOnList (led_buffer* List, led_buffer* Entry)
-{
-    if (List->Next)
-    {
-        PushLEDBufferOnList(List->Next, Entry);
-    }
-    else
-    {
-        List->Next = Entry;
-    }
-}
-
-internal led_buffer* 
-RemoveLEDBufferFromList (led_buffer* List, led_buffer* Entry)
-{
-    led_buffer* ListHead = 0;
-    if (List != Entry && List->Next)
-    {
-        ListHead = RemoveLEDBufferFromList(List->Next, Entry);
-    }
-    else if (List == Entry)
-    {
-        ListHead = Entry->Next;
-    }
-    else
-    {
-        // NOTE(Peter): Trying to remove an entry from a list that doesn't contain it
-        InvalidCodePath;
-    }
-    return ListHead;
-}
-
-internal void
-ConstructAssemblyFromDefinition (assembly_definition Definition,
-                                 string AssemblyName,
-                                 v3 RootPosition,
-                                 r32 Scale,
-                                 context Context,
-                                 app_state* State)
-{
-    Assert(State->AssembliesUsed < ASSEMBLY_LIST_LENGTH);
-    
-    assembly* Assembly = State->AssemblyList + State->AssembliesUsed++;
-    
-    // 1. Find # of LEDs, # of Universes
-    s32 UniversesUsedByLEDs[2048]; // TODO(Peter): find the max universe number and size these accordingly
-    s32 ChannelsInUniverse[2048];
-    GSZeroMemory(UniversesUsedByLEDs, sizeof(s32) * 2048);
-    GSZeroMemory(ChannelsInUniverse, sizeof(s32) * 2048);
-    s32 UniverseCount = 0;
-    s32 LEDCount = 0;
-    
-    for (s32 StripIdx = 0; StripIdx < Definition.LEDStripCount; StripIdx++)
-    {
-        led_strip_definition StripDef = Definition.LEDStrips[StripIdx];
-        
-        s32 ChannelsPerStrip = StripDef.LEDsPerStrip * 3;
-        s32 UniversesPerStrip = IntegerDivideRoundUp(ChannelsPerStrip, 512);
-        s32 ChannelsAllocated = 0;
-        for (s32 UniverseIdx = 0; UniverseIdx < UniversesPerStrip; UniverseIdx++)
-        {
-            s32 UniverseID = StripDef.StartUniverse + UniverseIdx;
-            s32 UniverseIndex = -1;
-            
-            for (s32 RegisteredUniverse = 0; RegisteredUniverse < UniverseCount; RegisteredUniverse++)
-            {
-                if (UniversesUsedByLEDs[RegisteredUniverse] == UniverseID)
-                {
-                    UniverseIndex = RegisteredUniverse;
-                    break;
-                }
-            }
-            if (UniverseIndex < 0)
-            {
-                UniverseIndex = UniverseCount++;
-            }
-            
-            s32 ChannelsRequested = GSMin(STREAM_BODY_SIZE, ChannelsPerStrip - ChannelsAllocated);
-            ChannelsAllocated += ChannelsRequested;
-            ChannelsInUniverse[UniverseIndex] += ChannelsRequested;
-            Assert(ChannelsInUniverse[UniverseIndex] <= 512);
-            
-            UniversesUsedByLEDs[UniverseIndex++] = UniverseID;
-        }
-        
-        LEDCount += StripDef.LEDsPerStrip;
-    }
-    
-    sacn_add_universes_result AddedUniverses = SACNAddUniverses(UniversesUsedByLEDs, UniverseCount, &State->SACN, Context);
-    
-    Assembly->MemorySize = CalculateMemorySizeForAssembly(LEDCount, AssemblyName.Length);
-    memory_arena TemporaryAssemblyArena = AllocateNonGrowableArenaWithSpace(Context.PlatformAlloc, Assembly->MemorySize);
-    Assembly->MemoryBase = TemporaryAssemblyArena.CurrentRegion->Base;
-    
-    Assembly->Universes = AddedUniverses.NewUniverseBuffer;
-    Assembly->SendBuffer = AddedUniverses.NewSendBuffer;
-    
-    Assembly->Name = MakeString(PushArray(&TemporaryAssemblyArena, char, AssemblyName.Length), AssemblyName.Length);
-    CopyStringTo(AssemblyName, &Assembly->Name);
-    
-    led_buffer* LEDBuffer = PushStruct(&TemporaryAssemblyArena, led_buffer);
-    LEDBuffer->Next = 0;
-    LEDBuffer->Count = 0;
-    LEDBuffer->Max = LEDCount;
-    LEDBuffer->LEDs = PushArray(&TemporaryAssemblyArena, led, LEDCount);
-    LEDBuffer->Colors = PushArray(&TemporaryAssemblyArena, sacn_pixel, LEDCount);
-    
-    Assembly->LEDBuffer = LEDBuffer;
-    
-    if (State->LEDBufferList)
-    {
-        PushLEDBufferOnList(State->LEDBufferList, LEDBuffer);
-    }
-    else
-    {
-        State->LEDBufferList = LEDBuffer;
-    }
-    State->TotalLEDsCount += LEDCount;
-    
-    // Add LEDs
-    for (s32 StripIdx = 0; StripIdx < Definition.LEDStripCount; StripIdx++)
-    {
-        led_strip_definition StripDef = Definition.LEDStrips[StripIdx];
-        
-        v3 WS_StripStart = {};
-        v3 WS_StripEnd = {};
-        s32 LEDsInStripCount = 0;
-        
-        switch(StripDef.InterpolationType)
-        {
-            case StripInterpolate_Points:
-            {
-                WS_StripStart= StripDef.InterpolatePositionStart * Scale;
-                WS_StripEnd= StripDef.InterpolatePositionEnd * Scale;
-                LEDsInStripCount = StripDef.LEDsPerStrip;
-                
-            }break;
-            
-            default:
-            {
-                InvalidCodePath;
-            }break;
-        }
-        
-        sacn_universe* CurrentUniverse = SACNGetUniverse(StripDef.StartUniverse, &State->SACN);
-        s32 ChannelsUsed = 0;
-        CurrentUniverse->BeginPixelCopyFromOffset = LEDBuffer->Count * sizeof(sacn_pixel);
-        
-        r32 Percent = 0;
-        r32 PercentStep = 1 / (r32)LEDsInStripCount;
-        for (s32 Step = 0; Step < LEDsInStripCount; Step++)
-        {
-            v4 LEDPosition = V4(Lerp(WS_StripStart, WS_StripEnd, Percent), 1);
-            s32 LEDIndex = LEDBuffer->Count++;
-            Assert(LEDIndex < LEDCount);
-            
-            led* LED = LEDBuffer->LEDs + LEDIndex;
-            sacn_pixel* LEDColor = LEDBuffer->Colors + LEDIndex;
-            
-            LED->Position = LEDPosition;
-            LED->Index = LEDIndex; 
-            
-            Percent += PercentStep;
-            
-            ChannelsUsed += 3;
-            if (ChannelsUsed > STREAM_BODY_SIZE)
-            {
-                ChannelsUsed -= STREAM_BODY_SIZE;
-                CurrentUniverse = SACNGetUniverse(CurrentUniverse->Universe + 1, &State->SACN);
-                CurrentUniverse->BeginPixelCopyFromOffset = (LEDBuffer->Count + sizeof(sacn_pixel)) - ChannelsUsed;
-            }
-        }
-    }
-}
-
 struct draw_leds_job_data
 {
     led* LEDs;
-    sacn_pixel* Colors;
+    pixel* Colors;
     s32 StartIndex;
     s32 OnePastLastIndex;
     
@@ -241,8 +65,8 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
          LEDIdx < LEDCount;
          LEDIdx++)
     {
-        sacn_pixel SACNColor = Data->Colors[LED->Index];
-        v4 Color = v4{SACNColor.R / 255.f, SACNColor.G / 255.f, SACNColor.B / 255.f, 1.0f};
+        pixel PixelColor = Data->Colors[LED->Index];
+        v4 Color = v4{PixelColor.R / 255.f, PixelColor.G / 255.f, PixelColor.B / 255.f, 1.0f};
         
         v4 V4Position = LED->Position;
         V4Position.w = 0;
@@ -262,25 +86,37 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
 
 struct send_sacn_job_data
 {
-    streaming_acn SACN;
-    sacn_universe_buffer UniverseList;
-    s32 StartUniverse;
-    s32 OnePastLastUniverse;
-    platform_send_to* PlatformSendTo;
+    
+    platform_socket_handle SendSocket;
+    platform_get_send_address* GetSendAddress;
+    platform_send_to* SendTo;
+    dmx_buffer_list* DMXBuffers;
 };
 
 internal void
-SendSACNBufferData (s32 ThreadID, void* JobData)
+SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
 {
     DEBUG_TRACK_FUNCTION;
     
     send_sacn_job_data* Data = (send_sacn_job_data*)JobData;
+    platform_get_send_address* GetSendAddress = Data->GetSendAddress;
+    platform_socket_handle SendSocket = Data->SendSocket;
+    platform_send_to* SendTo = Data->SendTo;
     
-    sacn_universe* SendUniverse = Data->UniverseList.Universes + Data->StartUniverse;
-    for (s32 UniverseIdx = Data->StartUniverse; UniverseIdx < Data->OnePastLastUniverse; UniverseIdx++)
+    dmx_buffer_list* DMXBufferAt = Data->DMXBuffers;
+    while (DMXBufferAt)
     {
-        SACNSendDataToUniverse(&Data->SACN, SendUniverse, Data->PlatformSendTo);
-        SendUniverse++;
+        dmx_buffer Buffer = DMXBufferAt->Buffer;
+        
+        u_long V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
+        platform_network_address_handle SendAddress = GetSendAddress(
+            AF_INET,
+            HostToNetU16(DEFAULT_STREAMING_ACN_PORT), 
+            HostToNetU32(V4SendAddress));
+        
+        SendTo(SendSocket, SendAddress, (const char*)Buffer.Base, Buffer.TotalSize, 0);
+        
+        DMXBufferAt = DMXBufferAt->Next;
     }
 }
 
@@ -312,7 +148,14 @@ LoadAssembly (app_state* State, context Context, char* Path)
     string FileName = Substring(PathString, IndexOfLastSlash + 1);
     
     r32 Scale = 100;
-    ConstructAssemblyFromDefinition(AssemblyDefinition, FileName, v3{0, 0, 0}, Scale, Context, State);
+    Assert(State->AssembliesCount < ASSEMBLY_LIST_LENGTH);
+    assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
+                                                           FileName, 
+                                                           v3{0, 0, 0}, 
+                                                           Scale, 
+                                                           Context);
+    State->AssemblyList[State->AssembliesCount++] = NewAssembly;
+    State->TotalLEDsCount += NewAssembly.LEDCount;
     
     ClearArenaToSnapshot(State->Transient, TempMemorySnapshot);
 }
@@ -321,21 +164,19 @@ internal void
 UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 {
     assembly Assembly = State->AssemblyList[AssemblyIndex];
-    SACNRemoveUniverseAndSendBuffer(&State->SACN, Assembly.Universes, Assembly.SendBuffer);
-    
-    State->LEDBufferList = RemoveLEDBufferFromList(State->LEDBufferList, Assembly.LEDBuffer);
-    
+    /*
     s32 LEDsInAssembly = Assembly.LEDBuffer->Count;
     s32 MemoryRequiredForAssembly = CalculateMemorySizeForAssembly(LEDsInAssembly, Assembly.Name.Length);
     Context.PlatformFree((u8*)Assembly.LEDBuffer, MemoryRequiredForAssembly);
     
     State->TotalLEDsCount -= LEDsInAssembly;
+    */
     
-    if (AssemblyIndex != (State->AssembliesUsed - 1))
+    if (AssemblyIndex != (State->AssembliesCount - 1))
     {
-        State->AssemblyList[AssemblyIndex] = State->AssemblyList[State->AssembliesUsed - 1];
+        State->AssemblyList[AssemblyIndex] = State->AssemblyList[State->AssembliesCount - 1];
     }
-    State->AssembliesUsed -= 1;
+    State->AssembliesCount -= 1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -445,7 +286,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.TextColor = WhiteV4;
     State->Interface.Margin = v2{5, 5};
     
-    State->SACN = InitializeSACN(Context.PlatformAlloc, Context);
+    State->SACN = InitializeSACN(Context);
+    State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
     
     State->Camera.FieldOfView = DegreesToRadians(45.0f);
     State->Camera.AspectRatio = (r32)Context.WindowWidth / (r32)Context.WindowHeight;
@@ -526,6 +368,50 @@ HandleInput (app_state* State, input_queue InputQueue, mouse_state Mouse)
     ClearCommandQueue(&State->CommandQueue);
 }
 
+internal dmx_buffer_list*
+CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
+{
+    dmx_buffer_list* Result = 0;
+    dmx_buffer_list* Head = 0;
+    
+    s32 BufferSize = BufferHeaderSize + 512;
+    
+    s32 Universe = 1;
+    s32 ChannelsUsed = 0;
+    for (s32 l = 0; l < Assembly.LEDCount; l++)
+    {
+        if(ChannelsUsed == 0)
+        {
+            dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
+            NewBuffer->Buffer.Universe = Universe;
+            NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
+            NewBuffer->Buffer.TotalSize = BufferSize;
+            NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
+            
+            // Append
+            if (!Result) { 
+                Result = NewBuffer; 
+                Head = Result;
+            }
+            Head->Next = NewBuffer;
+            Head = NewBuffer;
+        }
+        
+        led LED = Assembly.LEDs[l];
+        pixel Color = Assembly.Colors[LED.Index];
+        *((pixel*)(Head->Buffer.Base + ChannelsUsed)) = Color;
+        ChannelsUsed += 3;
+        
+        if (ChannelsUsed + 3 >= 512)
+        {
+            Universe++;
+            ChannelsUsed= 0;
+        }
+    }
+    
+    return Result;
+}
+
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -539,71 +425,57 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     HandleInput(State, InputQueue, Mouse);
     
-    if (State->LEDBufferList)
+    for (s32 AssemblyIndex = 0; AssemblyIndex < State->AssembliesCount; AssemblyIndex++)
     {
+        assembly Assembly = State->AssemblyList[AssemblyIndex];
         UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, 
-                                     State->Permanent, State->Transient, 
-                                     State->LEDBufferList->LEDs,
-                                     State->LEDBufferList->Colors, 
-                                     State->LEDBufferList->Count, 
+                                     State->Permanent, State->Transient,
+                                     Assembly.LEDs,
+                                     Assembly.Colors,
+                                     Assembly.LEDCount,
                                      Context.DeltaTime);
         ResetNodesUpdateState(State->NodeList);
     }
     ClearTransientNodeColorBuffers(State->NodeList);
     
-    {
-        // NOTE(Peter): We know that these two lists should be maintained together. Each element in the list is one sculpture's worth of
-        // information, and should always be evaluated in pairs.
-        sacn_universe_buffer* UniverseList = State->SACN.UniverseBuffer;
-        led_buffer* LEDBuffer = State->LEDBufferList;
-        while (UniverseList && LEDBuffer)
-        {
-            for (s32 U = 0; U < UniverseList->Used; U++)
-            {
-                sacn_universe* UniverseOne = UniverseList->Universes + U;
-                Assert(UniverseOne->BeginPixelCopyFromOffset >= 0);
-                
-                u8* LEDColorBuffer = (u8*)LEDBuffer->Colors + UniverseOne->BeginPixelCopyFromOffset;
-                u8* SACNSendBuffer = UniverseOne->StartPositionInSendBuffer + STREAM_HEADER_SIZE;
-                
-                GSMemCopy(LEDColorBuffer, SACNSendBuffer, STREAM_BODY_SIZE);
-            }
-            UniverseList = UniverseList->Next;
-            LEDBuffer = LEDBuffer->Next;
-        }
-        Assert(!LEDBuffer && !UniverseList);
-    }
-    
     DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {
-        if (++State->SACN.SequenceIterator == 0) // Never use 0 after the first one
+        s32 HeaderSize = State->NetworkProtocolHeaderSize;
+        dmx_buffer_list* DMXBuffers = 0;
+        for (s32 i = 0; i < State->AssembliesCount; i++)
         {
-            ++State->SACN.SequenceIterator;
+            assembly Assembly = State->AssemblyList[i];
+            dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, State->Transient);
+            DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
         }
         
-        
-        sacn_universe_buffer* UniverseList = State->SACN.UniverseBuffer;
-        while (UniverseList)
+        switch (State->NetworkProtocol)
         {
-            s32 JobCount = 2;
-            s32 UniversesPerJob = UniverseList->Used / JobCount;
-            send_sacn_job_data* SACNData = PushArray(State->Transient, send_sacn_job_data, JobCount);
-            for (s32 i = 0; i < JobCount; i++)
+            case NetworkProtocol_SACN:
             {
-                SACNData[i].SACN = State->SACN;
-                SACNData[i].UniverseList = *UniverseList;
-                SACNData[i].StartUniverse = i * UniversesPerJob;
-                SACNData[i].OnePastLastUniverse = (i * UniversesPerJob) + UniversesPerJob;
-                if (SACNData[i].OnePastLastUniverse > UniverseList->Used)
+                SACNUpdateSequence(&State->SACN);
+                
+                dmx_buffer_list* CurrentDMXBuffer = DMXBuffers;
+                while (CurrentDMXBuffer)
                 {
-                    SACNData[i].OnePastLastUniverse = UniverseList->Used;
+                    dmx_buffer Buffer = CurrentDMXBuffer->Buffer;
+                    SACNPrepareBufferHeader(Buffer.Universe, Buffer.Base, Buffer.TotalSize, Buffer.HeaderSize, State->SACN);
+                    CurrentDMXBuffer = CurrentDMXBuffer->Next;
                 }
+                
+                send_sacn_job_data* Job = PushStruct(State->Transient, send_sacn_job_data);
+                Job->SendSocket = State->SACN.SendSocket;
+                Job->GetSendAddress = Context.PlatformGetSendAddress;
+                Job->SendTo = Context.PlatformSendTo;
+                Job->DMXBuffers = DMXBuffers;
+                
                 Context.GeneralWorkQueue->PushWorkOnQueue(
                     Context.GeneralWorkQueue,
-                    SendSACNBufferData,
-                    SACNData + i);
-            }
-            UniverseList = UniverseList->Next;
+                    SACNSendDMXBufferListJob,
+                    Job);
+            }break;
+            
+            InvalidDefaultCase;
         }
     }
     
@@ -637,16 +509,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             render_quad_batch_constructor BatchConstructor = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
             
-            led_buffer* LEDBuffer = State->LEDBufferList;
+            s32 CurrentAssemblyIndex = 0;
             s32 LEDBufferLEDsAssignedToJobs = 0;
             
             for (s32 Job = 0; Job < JobsNeeded; Job++)
             {
+                assembly CurrentAssembly = State->AssemblyList[CurrentAssemblyIndex];
+                
                 draw_leds_job_data* JobData = JobDataBank + JobDataBankUsed++;
-                JobData->LEDs = LEDBuffer->LEDs;
-                JobData->Colors = LEDBuffer->Colors;
+                JobData->LEDs = CurrentAssembly.LEDs;
+                JobData->Colors = CurrentAssembly.Colors;
                 JobData->StartIndex = LEDBufferLEDsAssignedToJobs;
-                JobData->OnePastLastIndex = GSMin(JobData->StartIndex + LEDBufferSize, LEDBuffer->Count);
+                JobData->OnePastLastIndex = GSMin(JobData->StartIndex + LEDBufferSize, CurrentAssembly.LEDCount);
                 
                 LEDBufferLEDsAssignedToJobs += JobData->OnePastLastIndex - JobData->StartIndex;
                 
@@ -662,11 +536,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     DrawLEDsInBufferRangeJob,
                     JobData);
                 
-                Assert(LEDBufferLEDsAssignedToJobs <= LEDBuffer->Count); // We should never go OVER the number of leds in the buffer
-                if (LEDBufferLEDsAssignedToJobs == LEDBuffer->Count)
+                // NOTE: We should never go OVER the number of leds in the buffer
+                Assert(LEDBufferLEDsAssignedToJobs <= CurrentAssembly.LEDCount); 
+                if (LEDBufferLEDsAssignedToJobs == CurrentAssembly.LEDCount)
                 {
-                    LEDBuffer = LEDBuffer->Next;
-                    LEDBufferLEDsAssignedToJobs = 0;
+                    if (CurrentAssemblyIndex >= State->AssembliesCount)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        CurrentAssemblyIndex++;
+                    }
                 }
             }
             
@@ -700,7 +581,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                            State->Interface, Mouse);
             
             string InterfaceString = MakeString(PushArray(State->Transient, char, 256), 256);
-            for (int i = 0; i < State->AssembliesUsed; i++)
+            for (int i = 0; i < State->AssembliesCount; i++)
             {
                 PrintF(&InterfaceString, "Unload %.*s", State->AssemblyList[i].Name.Length, State->AssemblyList[i].Name.Memory);
                 

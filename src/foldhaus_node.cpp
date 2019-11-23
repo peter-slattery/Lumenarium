@@ -821,12 +821,12 @@ UpdateDraggingNodeValue (v2 MousePos, v2 LastFrameMousePos, node_interaction Int
 
 internal void UpdateNodeCalculation (node_header* Node, node_list* NodeList, 
                                      memory_arena* Permanent, memory_arena* Transient,
-                                     led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime);
+                                     led* LEDs, pixel* ColorsInit, s32 LEDCount, r32 DeltaTime);
 
 internal void
 UpdateNodesConnectedUpstream (node_header* Node, node_list* NodeList, 
                               memory_arena* Permanent, memory_arena* Transient,
-                              led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
+                              led* LEDs, pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
     for (s32 ConnectionIdx = 0; ConnectionIdx < Node->ConnectionsCount; ConnectionIdx++)
     {
@@ -877,7 +877,7 @@ UpdateNodesConnectedUpstream (node_header* Node, node_list* NodeList,
 internal void
 UpdateNodeCalculation (node_header* Node, node_list* NodeList, 
                        memory_arena* Permanent, memory_arena* Transient,
-                       led* LEDs, sacn_pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
+                       led* LEDs, pixel* ColorsInit, s32 LEDCount, r32 DeltaTime)
 {
     DEBUG_TRACK_FUNCTION;
     Assert(Node->PersistentData != 0);
@@ -894,7 +894,7 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
     // eachother to update.
     Node->UpdatedThisFrame = true;
     
-    sacn_pixel* Colors = ColorsInit;
+    pixel* Colors = ColorsInit;
     
     UpdateNodesConnectedUpstream(Node, NodeList, Permanent, Transient, LEDs, Colors, LEDCount, DeltaTime);
     
@@ -910,8 +910,8 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
             node_led_color_connection* ColorConnection = Connection.LEDsValuePtr;
             if (!ColorConnection->Colors)
             {
-                sacn_pixel* ColorsCopy = PushArray(Transient, sacn_pixel, LEDCount);
-                GSMemSet((u8*)ColorsCopy, 0, sizeof(sacn_pixel) * LEDCount);
+                pixel* ColorsCopy = PushArray(Transient, pixel, LEDCount);
+                GSMemSet((u8*)ColorsCopy, 0, sizeof(pixel) * LEDCount);
                 
                 ColorConnection->Colors = ColorsCopy;
                 ColorConnection->LEDs = LEDs;
@@ -932,7 +932,7 @@ UpdateNodeCalculation (node_header* Node, node_list* NodeList,
 internal void
 UpdateOutputNodeCalculations (node_header* OutputNode, node_list* NodeList, 
                               memory_arena* Permanent, memory_arena* Transient, 
-                              led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
+                              led* LEDs, pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     Assert(OutputNode->Type == NodeType_OutputNode);
     
@@ -941,8 +941,8 @@ UpdateOutputNodeCalculations (node_header* OutputNode, node_list* NodeList,
     node_connection ColorsConnection = OutputNode->Connections[0];
     if (ColorsConnection.LEDsValuePtr->Colors)
     {
-        sacn_pixel* DestPixel = Colors;
-        sacn_pixel* SourcePixel = ColorsConnection.LEDsValuePtr->Colors;
+        pixel* DestPixel = Colors;
+        pixel* SourcePixel = ColorsConnection.LEDsValuePtr->Colors;
         for (s32 i = 0; i < LEDCount; i++)
         {
             *DestPixel++ = *SourcePixel++;
@@ -953,7 +953,7 @@ UpdateOutputNodeCalculations (node_header* OutputNode, node_list* NodeList,
 #if 0
 // Trying to put updating nodes in terms of connections, rather than nodes.
 internal void
-UpdateAllNodesFloodFill (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
+UpdateAllNodesFloodFill (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     s32 NodesUpdated = 0;
     
@@ -998,7 +998,7 @@ UpdateAllNodesFloodFill (node_list* NodeList, memory_arena* Permanent, memory_ar
 #endif
 
 internal void
-UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, sacn_pixel* Colors, s32 LEDCount, r32 DeltaTime)
+UpdateAllNodeCalculations (node_list* NodeList, memory_arena* Permanent, memory_arena* Transient, led* LEDs, pixel* Colors, s32 LEDCount, r32 DeltaTime)
 {
     node_list_iterator NodeIter = GetNodeListIterator(*NodeList);
     while (NodeIteratorIsValid(NodeIter))

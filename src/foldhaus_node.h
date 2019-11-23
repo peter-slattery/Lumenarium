@@ -7,12 +7,12 @@ typedef enum node_type node_type;
 
 #define NODE_COLOR_BUFFER \
 led* LEDs; \
-sacn_pixel* Colors; \
+pixel* Colors; \
 s32 LEDCount;
 
 #define NAMED_NODE_COLOR_BUFFER(name) \
 led* name##LEDs; \
-sacn_pixel* name##Colors; \
+pixel* name##Colors; \
 s32 name##LEDCount;
 
 #define NODE_COLOR_BUFFER_INOUT NODE_COLOR_BUFFER

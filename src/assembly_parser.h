@@ -56,5 +56,6 @@ struct assembly_definition
 {
     s32 LEDStripSize;
     s32 LEDStripCount;
+    s32 TotalLEDCount;
     led_strip_definition* LEDStrips;
 };

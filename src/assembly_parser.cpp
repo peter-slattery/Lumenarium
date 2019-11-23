@@ -102,33 +102,30 @@ ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
     
 }
 
-internal void 
-ParseLEDStrip (assembly_definition* Assembly, tokenizer* Tokenizer)
+internal led_strip_definition
+ParseLEDStrip (tokenizer* Tokenizer)
 {
-    led_strip_definition* LEDStripDef = Assembly->LEDStrips + Assembly->LEDStripCount;
-    Assert(Assembly->LEDStripCount < Assembly->LEDStripSize);
-    
-    Assembly->LEDStripCount++;
+    led_strip_definition Result = {};
     
     // Control Box Index
     while (*Tokenizer->At && !IsNumericExtended(*Tokenizer->At)) { Tokenizer->At++; }
     assembly_token BoxIDToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token).SignedIntValue;
+    Result.ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token).SignedIntValue;
     
     // Start Universe
     EatPastCharacter(Tokenizer, ',');
     EatWhitespace(Tokenizer);
     assembly_token StartUniverseToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->StartUniverse = ParseSignedIntUnsafe(StartUniverseToken.Token).SignedIntValue;
+    Result.StartUniverse = ParseSignedIntUnsafe(StartUniverseToken.Token).SignedIntValue;
     
     // Start Channel
     EatPastCharacter(Tokenizer, ',');
     EatWhitespace(Tokenizer);
     assembly_token StartChannelToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
-    LEDStripDef->StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token).SignedIntValue;
+    Result.StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token).SignedIntValue;
     
     // Strip Type
     // TODO(Peter): This is unused for now, and would be a branch point for parsing 
@@ -137,32 +134,34 @@ ParseLEDStrip (assembly_definition* Assembly, tokenizer* Tokenizer)
     EatWhitespace(Tokenizer);
     if (CharArraysEqualUpToLength(Tokenizer->At, INTERPOLATE_POINTS_IDENTIFIER, CharArrayLength(INTERPOLATE_POINTS_IDENTIFIER)))
     {
-        LEDStripDef->InterpolationType = StripInterpolate_Points;
+        Result.InterpolationType = StripInterpolate_Points;
         
         // Start Position
         EatPastCharacter(Tokenizer, ',');
         EatWhitespace(Tokenizer);
         assembly_token StartPositionToken = ParseToken(Tokenizer);
         Assert(StartPositionToken.Type == AssemblyToken_Vector);
-        LEDStripDef->InterpolatePositionStart = ParseAssemblyVector(StartPositionToken.Token);
+        Result.InterpolatePositionStart = ParseAssemblyVector(StartPositionToken.Token);
         
         // End Position
         EatPastCharacter(Tokenizer, ',');
         EatWhitespace(Tokenizer);
         assembly_token EndPositionToken = ParseToken(Tokenizer);
         Assert(EndPositionToken.Type == AssemblyToken_Vector);
-        LEDStripDef->InterpolatePositionEnd = ParseAssemblyVector(EndPositionToken.Token);
+        Result.InterpolatePositionEnd = ParseAssemblyVector(EndPositionToken.Token);
         
         // LEDs Per Strip
         EatPastCharacter(Tokenizer, ',');
         EatWhitespace(Tokenizer);
         assembly_token LEDsPerStripToken = ParseToken(Tokenizer);
         Assert(BoxIDToken.Type == AssemblyToken_Number);
-        LEDStripDef->LEDsPerStrip = ParseSignedIntUnsafe(LEDsPerStripToken.Token).SignedIntValue;
+        Result.LEDsPerStrip = ParseSignedIntUnsafe(LEDsPerStripToken.Token).SignedIntValue;
     }
     
     EatPastCharacter(Tokenizer, '}');
     EatWhitespace(Tokenizer);
+    
+    return Result;
 }
 
 internal void
@@ -181,7 +180,13 @@ ParseAssemblyFileBody (assembly_definition* Assembly, tokenizer* Tokenizer)
             {
                 case AssemblyToken_LEDStrip:
                 {
-                    ParseLEDStrip(Assembly, Tokenizer);
+                    led_strip_definition* LEDStripDef = Assembly->LEDStrips + Assembly->LEDStripCount;
+                    Assert(Assembly->LEDStripCount < Assembly->LEDStripSize);
+                    
+                    *LEDStripDef = ParseLEDStrip(Tokenizer);
+                    Assembly->TotalLEDCount += LEDStripDef->LEDsPerStrip;
+                    
+                    Assembly->LEDStripCount++;
                 } break;
                 
                 // TODO(Peter): Other cases? What else would need to be in the assembly body?

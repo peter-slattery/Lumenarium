@@ -1,31 +1,36 @@
-//Packs a u8 to a known big endian buffer
-inline u8*	PackB1(u8* ptr, u8 val)
+// Packs a u8 to a known big endian buffer
+inline u8*	
+PackB1(u8* ptr, u8 val)
 {
 	*ptr = val;
     return ptr + sizeof(val);
 }
 
 //Unpacks a u8 from a known big endian buffer
-inline u8 UpackB1(const u8* ptr)
+inline u8 
+UpackB1(const u8* ptr)
 {
 	return *ptr;
 }
 
 //Packs a u8 to a known little endian buffer
-inline u8*	PackL1(u8* ptr, u8 val)
+inline u8*	
+PackL1(u8* ptr, u8 val)
 {
 	*ptr = val;
     return ptr + sizeof(val);
 }
 
 //Unpacks a u8 from a known little endian buffer
-inline u8 UpackL1(const u8* ptr)
+inline u8 
+UpackL1(const u8* ptr)
 {
 	return *ptr;
 }
 
 //Packs a u16 to a known big endian buffer
-inline u8* PackB2(u8* ptr, u16 val)
+inline u8* 
+PackB2(u8* ptr, u16 val)
 {
 	ptr[1] = (u8)(val & 0xff);
 	ptr[0] = (u8)((val & 0xff00) >> 8);
@@ -33,26 +38,30 @@ inline u8* PackB2(u8* ptr, u16 val)
 }
 
 //Unpacks a u16 from a known big endian buffer
-inline u16 UpackB2(const u8* ptr)
+inline u16 
+UpackB2(const u8* ptr)
 {
 	return (u16)(ptr[1] | ptr[0] << 8);
 }
 
 //Packs a u16 to a known little endian buffer
-inline u8* PackL2(u8* ptr, u16 val)
+inline u8* 
+PackL2(u8* ptr, u16 val)
 {
 	*((u16*)ptr) = val;
     return ptr + sizeof(val);
 }
 
 //Unpacks a u16 from a known little endian buffer
-inline u16 UpackL2(const u8* ptr)
+inline u16 
+UpackL2(const u8* ptr)
 {
 	return *((u16*)ptr);
 }
 
 //Packs a u32 to a known big endian buffer
-inline u8* PackB4(u8* ptr, u32 val)
+inline u8* 
+PackB4(u8* ptr, u32 val)
 {
 	ptr[3] = (u8) (val & 0xff);
 	ptr[2] = (u8)((val & 0xff00) >> 8);
@@ -62,26 +71,30 @@ inline u8* PackB4(u8* ptr, u32 val)
 }
 
 //Unpacks a u32 from a known big endian buffer
-inline u32 UpackB4(const u8* ptr)
+inline u32 
+UpackB4(const u8* ptr)
 {
 	return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
 }
 
 //Packs a u32 to a known little endian buffer
-inline u8* PackL4(u8* ptr, u32 val)
+inline u8* 
+PackL4(u8* ptr, u32 val)
 {
 	*((u32*)ptr) = val;
     return ptr + sizeof(val);
 }
 
 //Unpacks a u32 from a known little endian buffer
-inline u32 UpackL4(const u8* ptr)
+inline u32 
+UpackL4(const u8* ptr)
 {
 	return *((u32*)ptr);
 }
 
 //Packs a u64 to a known big endian buffer
-inline u8* PackB8(u8* ptr, u64 val)
+inline u8* 
+PackB8(u8* ptr, u64 val)
 {
 	ptr[7] = (u8) (val & 0xff);
 	ptr[6] = (u8)((val & 0xff00) >> 8);
@@ -95,7 +108,8 @@ inline u8* PackB8(u8* ptr, u64 val)
 }
 
 //Unpacks a uint64 from a known big endian buffer
-inline u64 UpackB8(const u8* ptr)
+inline u64 
+UpackB8(const u8* ptr)
 {
 	return ((u64)ptr[7]) | (((u64)ptr[6]) << 8) | (((u64)ptr[5]) << 16) |
         (((u64)ptr[4]) << 24) | (((u64)ptr[3]) << 32) | 
@@ -104,14 +118,16 @@ inline u64 UpackB8(const u8* ptr)
 }
 
 //Packs a u64 to a known little endian buffer
-inline u8* PackL8(u8* ptr, u64 val)
+inline u8* 
+PackL8(u8* ptr, u64 val)
 {
 	*((u64*)ptr) = val;
     return ptr + sizeof(val);
 }
 
 //Unpacks a u64 from a known little endian buffer
-inline u64 UpackL8(const u8* ptr)
+inline u64 
+UpackL8(const u8* ptr)
 {
 	return *((u64*)ptr);
 }
