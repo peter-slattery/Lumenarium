@@ -23,8 +23,6 @@ typedef struct app_state app_state;
 
 #include "foldhaus_text_entry.h"
 
-#include "foldhaus_default_nodes.h"
-#include "generated/foldhaus_nodes_generated.cpp"
 #include "foldhaus_search_lister.h"
 
 enum network_protocol
@@ -63,10 +61,6 @@ struct app_state
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
     
-    node_list* NodeList;
-    node_header* OutputNode;
-    
-    node_render_settings NodeRenderSettings;
     bitmap_font* Font;
     interface_config Interface;
 };
@@ -74,7 +68,7 @@ struct app_state
 internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "foldhaus_assembly.cpp"
-#include "foldhaus_node.cpp"
+
 #include "foldhaus_debug_visuals.h"
 //#include "foldhaus_sacn_view.cpp"
 #include "foldhaus_text_entry.cpp"

@@ -186,7 +186,6 @@ RELOAD_STATIC_DATA(ReloadStaticData)
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid,
                                 Begin3DViewMouseRotate);
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
-        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_Tab, Command_Began, KeyCode_Invalid, OpenNodeView);
     }
 }
 
@@ -297,14 +296,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    State->NodeList = AllocateNodeList(State->Permanent, 128);
-    State->OutputNode = PushOutputNodeOnList(State->NodeList, v2{500, 250}, State->Permanent);
-    {
-        State->NodeRenderSettings.PortColors[MemberType_r32] = RedV4;
-        State->NodeRenderSettings.PortColors[MemberType_s32] = GreenV4;
-        State->NodeRenderSettings.PortColors[MemberType_v4] = BlueV4;
-        State->NodeRenderSettings.Font = State->Font;
-    }
     ReloadStaticData(Context, GlobalDebugServices, Alloc, Free);
     
     { // MODES PLAYGROUND
@@ -414,18 +405,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     HandleInput(State, InputQueue, Mouse);
     
-    for (s32 AssemblyIndex = 0; AssemblyIndex < State->AssembliesCount; AssemblyIndex++)
-    {
-        assembly Assembly = State->AssemblyList[AssemblyIndex];
-        UpdateOutputNodeCalculations(State->OutputNode, State->NodeList, 
-                                     State->Permanent, State->Transient,
-                                     Assembly.LEDs,
-                                     Assembly.Colors,
-                                     Assembly.LEDCount,
-                                     Context.DeltaTime);
-        ResetNodesUpdateState(State->NodeList);
-    }
-    ClearTransientNodeColorBuffers(State->NodeList);
+    // Update Visuals Here
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;

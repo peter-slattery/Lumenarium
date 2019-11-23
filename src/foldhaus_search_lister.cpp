@@ -1,3 +1,9 @@
+internal b32
+NamePassesFilter (string Target, string Filter)
+{
+    return (Filter.Length == 0 || StringContainsStringCaseInsensitive(Target, Filter));
+}
+
 internal void
 FilterSearchLister (search_lister* SearchLister)
 {
@@ -9,7 +15,7 @@ FilterSearchLister (search_lister* SearchLister)
     for (s32 i = 0; i < SearchLister->SourceListCount; i++)
     {
         string* NameString = SearchLister->SourceList + i;
-        if (SpecificationPassesFilter(*NameString, SearchLister->Filter))
+        if (NamePassesFilter(*NameString, SearchLister->Filter))
         {
             SearchLister->FilteredIndexLUT[SearchLister->FilteredListCount++] = i;
         }

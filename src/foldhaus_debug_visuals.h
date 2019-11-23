@@ -298,13 +298,6 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
                    TopOfScreenLinePos, WhiteV4);
         TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
         
-        PrintF(&DebugString, "Nodes Memory: %d / %d",
-               State->NodeList->TotalUsed,
-               State->NodeList->TotalMax);
-        DrawString(RenderBuffer, DebugString, Interface.Font,
-                   TopOfScreenLinePos, WhiteV4);
-        TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
-        
         PrintF(&DebugString, "Render Buffer: %d / %d (at this point)",
                RenderBuffer->CommandMemoryUsed,
                RenderBuffer->CommandMemorySize);
