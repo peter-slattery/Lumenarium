@@ -123,24 +123,13 @@ SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
 internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
-    assembly_definition AssemblyDefinition = {};
-    
     arena_snapshot TempMemorySnapshot = TakeSnapshotOfArena(*State->Transient);
     
     platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
     Assert(TestAssemblyFile.Size > 0);
-    {
-        tokenizer AssemblyFileTokenizer = {};
-        AssemblyFileTokenizer.At = (char*)TestAssemblyFile.Base;
-        AssemblyFileTokenizer.Memory = (char*)TestAssemblyFile.Base;
-        AssemblyFileTokenizer.MemoryLength = TestAssemblyFile.Size;
-        
-        ParseAssemblyFileHeader(&AssemblyDefinition, &AssemblyFileTokenizer);
-        
-        AssemblyDefinition.LEDStrips = PushArray(State->Transient, led_strip_definition, AssemblyDefinition.LEDStripSize);
-        
-        ParseAssemblyFileBody(&AssemblyDefinition, &AssemblyFileTokenizer);
-    }
+    
+    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, State->Transient);
+    
     Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
     
     string PathString = MakeStringLiteral(Path);
@@ -372,6 +361,8 @@ HandleInput (app_state* State, input_queue InputQueue, mouse_state Mouse)
 internal dmx_buffer_list*
 CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     dmx_buffer_list* Result = 0;
     dmx_buffer_list* Head = 0;
     
@@ -436,16 +427,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     ClearTransientNodeColorBuffers(State->NodeList);
     
+    s32 HeaderSize = State->NetworkProtocolHeaderSize;
+    dmx_buffer_list* DMXBuffers = 0;
+    for (s32 i = 0; i < State->AssembliesCount; i++)
+    {
+        assembly Assembly = State->AssemblyList[i];
+        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, State->Transient);
+        DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
+    }
+    
     DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {
-        s32 HeaderSize = State->NetworkProtocolHeaderSize;
-        dmx_buffer_list* DMXBuffers = 0;
-        for (s32 i = 0; i < State->AssembliesCount; i++)
-        {
-            assembly Assembly = State->AssemblyList[i];
-            dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, State->Transient);
-            DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
-        }
         
         switch (State->NetworkProtocol)
         {
@@ -492,16 +484,16 @@ UPDATE_AND_RENDER(UpdateAndRender)
         PushRenderPerspective(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight, State->Camera);
         PushRenderClearScreen(RenderBuffer);
         
+        // TODO(Peter): Pretty sure this isn't working right now
+        m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
+        FaceCameraMatrix = FaceCameraMatrix;
+        
         DEBUG_IF(GlobalDebugServices->Interface.RenderSculpture) // DebugServices RenderSculpture Toggle
         {
             DEBUG_TRACK_SCOPE(RenderSculpture);
             
             s32 MaxLEDsPerJob = 2048;
             render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
-            
-            // TODO(Peter): Pretty sure this isn't working right now
-            m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
-            FaceCameraMatrix = FaceCameraMatrix;
             
             for (s32 AssemblyIdx = 0; AssemblyIdx < State->AssembliesCount; AssemblyIdx++)
             {

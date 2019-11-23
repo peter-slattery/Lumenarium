@@ -205,3 +205,20 @@ ParseAssemblyFileBody (assembly_definition* Assembly, tokenizer* Tokenizer)
     // so they can fix it.
     Assert(Assembly->LEDStripCount == Assembly->LEDStripSize);
 }
+
+internal assembly_definition
+ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
+{
+    assembly_definition AssemblyDefinition = {};
+    
+    tokenizer AssemblyFileTokenizer = {};
+    AssemblyFileTokenizer.At = (char*)FileBase;
+    AssemblyFileTokenizer.Memory = (char*)FileBase;
+    AssemblyFileTokenizer.MemoryLength = FileSize;
+    
+    ParseAssemblyFileHeader(&AssemblyDefinition, &AssemblyFileTokenizer);
+    AssemblyDefinition.LEDStrips = PushArray(Arena, led_strip_definition, AssemblyDefinition.LEDStripSize);
+    ParseAssemblyFileBody(&AssemblyDefinition, &AssemblyFileTokenizer);
+    
+    return AssemblyDefinition;
+}
