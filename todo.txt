@@ -4,9 +4,11 @@ YOU WERE IN THE MIDDLE OF
 
 
 Assembly -> SACN interface
-- you need to rebuild the map from leds -> universes
--   - thinking about storing a sparse array of { led_start_index, led_count, led_universe, led_channel }
+x you need to rebuild the map from leds -> universes
+-   x thinking about storing a sparse array of { led_start_index, led_count, led_universe, led_channel }
 -     that we can iterate over to populate dmx buffers
+- need to create a data structure in CreateDMXBuffers that prevents duplication of DMXBuffers.
+-   - thinking about a dictionary. Key is Universe, length is 256, create parallel arrays as necessary
 
 BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.

@@ -601,7 +601,12 @@ PLATFORM_ALLOC(Win32Alloc)
 
 PLATFORM_FREE(Win32Free)
 {
-    b32 Result = VirtualFree(Base, Size, MEM_RELEASE);
+    b32 Result = VirtualFree(Base, 0, MEM_RELEASE);
+    if (!Result)
+    {
+        s32 Error = WSAGetLastError();
+        InvalidCodePath;
+    }
     return Result;
 }
 

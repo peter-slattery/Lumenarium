@@ -167,18 +167,17 @@ LoadAssembly (app_state* State, context Context, char* Path)
 internal void
 UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 {
-    assembly Assembly = State->AssemblyList[AssemblyIndex];
-    /*
-    s32 LEDsInAssembly = Assembly.LEDBuffer->Count;
-    s32 MemoryRequiredForAssembly = CalculateMemorySizeForAssembly(LEDsInAssembly, Assembly.Name.Length);
-    Context.PlatformFree((u8*)Assembly.LEDBuffer, MemoryRequiredForAssembly);
-    
-    State->TotalLEDsCount -= LEDsInAssembly;
-    */
+    assembly* Assembly = State->AssemblyList + AssemblyIndex;
+    State->TotalLEDsCount -= Assembly->LEDCount;
+    Context.PlatformFree(Assembly->Arena.Base, Assembly->Arena.Size);
     
     if (AssemblyIndex != (State->AssembliesCount - 1))
     {
         State->AssemblyList[AssemblyIndex] = State->AssemblyList[State->AssembliesCount - 1];
+    }
+    else
+    {
+        *Assembly = {};
     }
     State->AssembliesCount -= 1;
 }
@@ -338,8 +337,6 @@ HandleInput (app_state* State, input_queue InputQueue, mouse_state Mouse)
     {
         ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
     }
-    
-    
     
     for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
     {
