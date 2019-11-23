@@ -495,57 +495,35 @@ UPDATE_AND_RENDER(UpdateAndRender)
         DEBUG_IF(GlobalDebugServices->Interface.RenderSculpture) // DebugServices RenderSculpture Toggle
         {
             DEBUG_TRACK_SCOPE(RenderSculpture);
-            s32 JobsNeeded = PLATFORM_THREAD_COUNT;
-            s32 LEDBufferSize = IntegerDivideRoundUp(State->TotalLEDsCount, JobsNeeded);
             
-            draw_leds_job_data* JobDataBank = PushArray(State->Transient, draw_leds_job_data, JobsNeeded);
-            s32 JobDataBankUsed = 0;
+            s32 MaxLEDsPerJob = 2048;
+            render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
             
             // TODO(Peter): Pretty sure this isn't working right now
             m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
             FaceCameraMatrix = FaceCameraMatrix;
             
-            render_quad_batch_constructor BatchConstructor = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
-            
-            s32 CurrentAssemblyIndex = 0;
-            s32 LEDBufferLEDsAssignedToJobs = 0;
-            
-            for (s32 Job = 0; Job < JobsNeeded; Job++)
+            for (s32 AssemblyIdx = 0; AssemblyIdx < State->AssembliesCount; AssemblyIdx++)
             {
-                assembly CurrentAssembly = State->AssemblyList[CurrentAssemblyIndex];
+                assembly Assembly = State->AssemblyList[AssemblyIdx];
+                s32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
                 
-                draw_leds_job_data* JobData = JobDataBank + JobDataBankUsed++;
-                JobData->LEDs = CurrentAssembly.LEDs;
-                JobData->Colors = CurrentAssembly.Colors;
-                JobData->StartIndex = LEDBufferLEDsAssignedToJobs;
-                JobData->OnePastLastIndex = GSMin(JobData->StartIndex + LEDBufferSize, CurrentAssembly.LEDCount);
-                
-                LEDBufferLEDsAssignedToJobs += JobData->OnePastLastIndex - JobData->StartIndex;
-                
-                // New
-                JobData->Batch = &BatchConstructor;
-                
-                JobData->FaceCameraMatrix = FaceCameraMatrix;
-                JobData->ModelViewMatrix = ModelViewMatrix;
-                JobData->LEDHalfWidth = LEDHalfWidth;
-                
-                Context.GeneralWorkQueue->PushWorkOnQueue(
-                    Context.GeneralWorkQueue,
-                    DrawLEDsInBufferRangeJob,
-                    JobData);
-                
-                // NOTE: We should never go OVER the number of leds in the buffer
-                Assert(LEDBufferLEDsAssignedToJobs <= CurrentAssembly.LEDCount); 
-                if (LEDBufferLEDsAssignedToJobs == CurrentAssembly.LEDCount)
+                for (s32 Job = 0; Job < JobsNeeded; Job++)
                 {
-                    if (CurrentAssemblyIndex >= State->AssembliesCount)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        CurrentAssemblyIndex++;
-                    }
+                    draw_leds_job_data* JobData = PushStruct(State->Transient, draw_leds_job_data);
+                    JobData->LEDs = Assembly.LEDs;
+                    JobData->Colors = Assembly.Colors;
+                    JobData->StartIndex = Job * MaxLEDsPerJob;
+                    JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, Assembly.LEDCount);
+                    JobData->Batch = &RenderLEDsBatch;
+                    JobData->FaceCameraMatrix;
+                    JobData->ModelViewMatrix = ModelViewMatrix;
+                    JobData->LEDHalfWidth = LEDHalfWidth;
+                    
+                    Context.GeneralWorkQueue->PushWorkOnQueue(
+                        Context.GeneralWorkQueue,
+                        DrawLEDsInBufferRangeJob,
+                        JobData);
                 }
             }
             
