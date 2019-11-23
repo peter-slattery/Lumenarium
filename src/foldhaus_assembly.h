@@ -15,12 +15,16 @@ union pixel
     u8 Channels[3];
 };
 
-#define AssemblySize(leds, name_length) ((sizeof(led) + sizeof(pixel)) * (leds)) + name_length;
+struct leds_in_universe_range
+{
+    s32 RangeStart;
+    s32 RangeOnePastLast;
+    s32 Universe;
+};
+
 struct assembly
 {
-    memory_arena Memory;
-    s32 MemorySize;
-    u8* MemoryBase;
+    static_memory_arena Arena;
     
     string Name;
     string FilePath;
@@ -28,4 +32,7 @@ struct assembly
     s32 LEDCount;
     pixel* Colors;
     led* LEDs;
+    
+    s32 LEDUniverseMapCount;
+    leds_in_universe_range* LEDUniverseMap;
 };

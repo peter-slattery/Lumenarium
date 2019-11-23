@@ -149,11 +149,15 @@ LoadAssembly (app_state* State, context Context, char* Path)
     
     r32 Scale = 100;
     Assert(State->AssembliesCount < ASSEMBLY_LIST_LENGTH);
+    s32 AssemblyMemorySize = GetAssemblyMemorySizeFromDefinition(AssemblyDefinition, FileName);
+    u8* AssemblyMemory = Context.PlatformAlloc(AssemblyMemorySize);
+    
     assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
                                                            FileName, 
                                                            v3{0, 0, 0}, 
                                                            Scale, 
-                                                           Context);
+                                                           AssemblyMemory,
+                                                           AssemblyMemorySize);
     State->AssemblyList[State->AssembliesCount++] = NewAssembly;
     State->TotalLEDsCount += NewAssembly.LEDCount;
     
@@ -376,36 +380,33 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
     
     s32 BufferSize = BufferHeaderSize + 512;
     
-    s32 Universe = 1;
-    s32 ChannelsUsed = 0;
-    for (s32 l = 0; l < Assembly.LEDCount; l++)
+    for (s32 Range = 0; Range < Assembly.LEDUniverseMapCount; Range++)
     {
-        if(ChannelsUsed == 0)
-        {
-            dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-            NewBuffer->Buffer.Universe = Universe;
-            NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
-            NewBuffer->Buffer.TotalSize = BufferSize;
-            NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
-            
-            // Append
-            if (!Result) { 
-                Result = NewBuffer; 
-                Head = Result;
-            }
-            Head->Next = NewBuffer;
-            Head = NewBuffer;
+        leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
+        
+        dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
+        NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
+        NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
+        NewBuffer->Buffer.TotalSize = BufferSize;
+        NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
+        
+        // Append
+        if (!Result) { 
+            Result = NewBuffer; 
+            Head = Result;
         }
+        Head->Next = NewBuffer;
+        Head = NewBuffer;
         
-        led LED = Assembly.LEDs[l];
-        pixel Color = Assembly.Colors[LED.Index];
-        *((pixel*)(Head->Buffer.Base + ChannelsUsed)) = Color;
-        ChannelsUsed += 3;
-        
-        if (ChannelsUsed + 3 >= 512)
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
         {
-            Universe++;
-            ChannelsUsed= 0;
+            led LED = Assembly.LEDs[LEDIdx];
+            pixel Color = Assembly.Colors[LED.Index];
+            
+            s32 DestinationStartChannel = LEDIdx * 3;
+            *((pixel*)(Head->Buffer.Base + DestinationStartChannel)) = Color;
         }
     }
     
