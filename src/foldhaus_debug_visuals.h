@@ -211,7 +211,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     
     r32 FramesPerSecond = 1.0f / DeltaTime;
     
-    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d    |   Commands: %d",
+    PrintF(&DebugString, "Framerate: %.*f s   %d fps    |   Modes: %d  Memory Used: %d / %d    |   Commands: %d   |   HI SAM!!!!  ",
            5, DeltaTime,
            (u32)FramesPerSecond,
            State->Modes.ActiveModesCount,

@@ -137,7 +137,6 @@ LoadAssembly (app_state* State, context Context, char* Path)
     string FileName = Substring(PathString, IndexOfLastSlash + 1);
     
     r32 Scale = 100;
-    Assert(State->AssembliesCount < ASSEMBLY_LIST_LENGTH);
     s32 AssemblyMemorySize = GetAssemblyMemorySizeFromDefinition(AssemblyDefinition, FileName);
     u8* AssemblyMemory = Context.PlatformAlloc(AssemblyMemorySize);
     
@@ -147,7 +146,9 @@ LoadAssembly (app_state* State, context Context, char* Path)
                                                            Scale, 
                                                            AssemblyMemory,
                                                            AssemblyMemorySize);
-    State->AssemblyList[State->AssembliesCount++] = NewAssembly;
+    array_entry_handle NewAssemblyHandle = PushElement(NewAssembly, &State->AssemblyList);
+    PushElement(NewAssemblyHandle, &State->ActiveAssemblyIndecies);
+    
     State->TotalLEDsCount += NewAssembly.LEDCount;
     
     ClearArenaToSnapshot(State->Transient, TempMemorySnapshot);
@@ -156,19 +157,20 @@ LoadAssembly (app_state* State, context Context, char* Path)
 internal void
 UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 {
-    assembly* Assembly = State->AssemblyList + AssemblyIndex;
+    assembly* Assembly = GetElementAtIndex(AssemblyIndex, State->AssemblyList);
     State->TotalLEDsCount -= Assembly->LEDCount;
     Context.PlatformFree(Assembly->Arena.Base, Assembly->Arena.Size);
     
-    if (AssemblyIndex != (State->AssembliesCount - 1))
+    RemoveElementAtIndex(AssemblyIndex, &State->AssemblyList);
+    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        State->AssemblyList[AssemblyIndex] = State->AssemblyList[State->AssembliesCount - 1];
+        array_entry_handle Handle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        if (Handle.Index == AssemblyIndex)
+        {
+            RemoveElementAtIndex(i, &State->ActiveAssemblyIndecies);
+            break;
+        }
     }
-    else
-    {
-        *Assembly = {};
-    }
-    State->AssembliesCount -= 1;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -287,6 +289,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
     
+    State->AssemblyList.BucketSize = 32;
+    State->AssemblyList.FreeList.Next = &State->AssemblyList.FreeList;
+    State->ActiveAssemblyIndecies.BucketSize = 32;
 #if 1
     char Path[] = "radialumia.fold";
     LoadAssembly(State, Context, Path);
@@ -409,9 +414,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
-    for (s32 i = 0; i < State->AssembliesCount; i++)
+    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        assembly Assembly = State->AssemblyList[i];
+        array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
         dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
@@ -475,9 +481,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
             s32 MaxLEDsPerJob = 2048;
             render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
             
-            for (s32 AssemblyIdx = 0; AssemblyIdx < State->AssembliesCount; AssemblyIdx++)
+            for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
             {
-                assembly Assembly = State->AssemblyList[AssemblyIdx];
+                array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+                assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
                 s32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
                 
                 for (s32 Job = 0; Job < JobsNeeded; Job++)
@@ -529,9 +536,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                            State->Interface, Mouse);
             
             string InterfaceString = MakeString(PushArray(State->Transient, char, 256), 256);
-            for (int i = 0; i < State->AssembliesCount; i++)
+            for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
             {
-                PrintF(&InterfaceString, "Unload %.*s", State->AssemblyList[i].Name.Length, State->AssemblyList[i].Name.Memory);
+                array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+                assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
+                PrintF(&InterfaceString, "Unload %.*s", Assembly.Name.Length, Assembly.Name.Memory);
                 
                 ButtonPos.x += ButtonDim.x + 10;
                 button_result UnloadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,

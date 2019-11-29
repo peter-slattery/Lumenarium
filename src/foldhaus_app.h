@@ -46,12 +46,8 @@ struct app_state
     
     s32 TotalLEDsCount;
     
-    // TODO(Peter): Make this dynamic. We want them contiguous in memory since we'll be accessing them
-    // mostly by looping through them. On the other hand, I don't expect there to ever be more than 100 
-    // of them at once. 
-#define ASSEMBLY_LIST_LENGTH 32
-    assembly AssemblyList[ASSEMBLY_LIST_LENGTH];
-    s32 AssembliesCount;
+    assembly_array AssemblyList;
+    array_entry_handle_contiguous_array ActiveAssemblyIndecies;
     
     camera Camera;
     r32 PixelsToWorldScale;

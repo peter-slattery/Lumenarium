@@ -36,3 +36,5 @@ struct assembly
     s32 LEDUniverseMapCount;
     leds_in_universe_range* LEDUniverseMap;
 };
+
+TYPEDEF_ARRAY(assembly);

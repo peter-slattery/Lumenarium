@@ -1,5 +1,6 @@
 #include "gs_language.h"
 #include "gs_platform.h"
+#include "gs_array.h"
 
 #include "foldhaus_memory.h"
 #include "gs_string.h"
