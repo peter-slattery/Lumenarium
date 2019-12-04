@@ -140,7 +140,6 @@ struct context
     platform_get_font_info* PlatformGetFontInfo;
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
     platform_get_socket_handle* PlatformGetSocketHandle;
-    platform_get_send_address* PlatformGetSendAddress;
     platform_set_socket_option* PlatformSetSocketOption;
     platform_send_to* PlatformSendTo;
     platform_close_socket* PlatformCloseSocket;

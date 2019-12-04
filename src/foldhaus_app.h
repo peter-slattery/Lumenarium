@@ -36,6 +36,7 @@ enum network_protocol
 struct app_state
 {
     memory_arena* Permanent; 
+    memory_arena TransientMemory;
     memory_arena* Transient;
     memory_arena  SACNMemory;
     
@@ -59,6 +60,10 @@ struct app_state
     
     bitmap_font* Font;
     interface_config Interface;
+    
+    r32 GreenIter;
+    r32 BlueIter;
+    r32 RedIter;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);

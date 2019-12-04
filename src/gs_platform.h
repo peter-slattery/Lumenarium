@@ -87,6 +87,13 @@ typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
 typedef PLATFORM_GET_GPU_TEXTURE_HANDLE(platform_get_gpu_texture_handle);
 
+struct platform_network_address
+{
+    s32 Family;
+    u16 Port;
+    u32 Address;
+};
+
 typedef s32 platform_socket_handle;
 typedef s32 platform_network_address_handle;
 
@@ -99,7 +106,7 @@ typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
 #define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength) 
 typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
 
-#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, platform_network_address_handle AddressHandle, const char* Buffer, s32 BufferLength, s32 Flags)
+#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, platform_network_address Address, const char* Buffer, s32 BufferLength, s32 Flags)
 typedef PLATFORM_SEND_TO(platform_send_to);
 
 #define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)

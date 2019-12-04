@@ -88,7 +88,6 @@ struct send_sacn_job_data
 {
     
     platform_socket_handle SendSocket;
-    platform_get_send_address* GetSendAddress;
     platform_send_to* SendTo;
     dmx_buffer_list* DMXBuffers;
 };
@@ -99,7 +98,6 @@ SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
     DEBUG_TRACK_FUNCTION;
     
     send_sacn_job_data* Data = (send_sacn_job_data*)JobData;
-    platform_get_send_address* GetSendAddress = Data->GetSendAddress;
     platform_socket_handle SendSocket = Data->SendSocket;
     platform_send_to* SendTo = Data->SendTo;
     
@@ -109,10 +107,11 @@ SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
         dmx_buffer Buffer = DMXBufferAt->Buffer;
         
         u_long V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
-        platform_network_address_handle SendAddress = GetSendAddress(
-            AF_INET,
-            HostToNetU16(DEFAULT_STREAMING_ACN_PORT), 
-            HostToNetU32(V4SendAddress));
+        
+        platform_network_address SendAddress = {};
+        SendAddress.Family = AF_INET;
+        SendAddress.Port = DEFAULT_STREAMING_ACN_PORT;
+        SendAddress.Address = V4SendAddress;
         
         SendTo(SendSocket, SendAddress, (const char*)Buffer.Base, Buffer.TotalSize, 0);
         
@@ -195,10 +194,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
     u8* MemoryCursor = Context.MemoryBase + sizeof(app_state);
-    s32 PermanentStorageSize = Megabytes(32);
-    s32 TransientStorageSize = Context.MemorySize - PermanentStorageSize;
+    s32 PermanentStorageSize = Context.MemorySize; //Megabytes(32);
+    //s32 TransientStorageSize = Context.MemorySize - PermanentStorageSize;
     State->Permanent = BootstrapArenaIntoMemory(MemoryCursor, PermanentStorageSize);
-    State->Transient = BootstrapArenaIntoMemory(MemoryCursor + PermanentStorageSize, TransientStorageSize);
+    //State->Transient = BootstrapArenaIntoMemory(MemoryCursor + PermanentStorageSize, TransientStorageSize);
+    
+    u8* TransientMemory = Context.PlatformAlloc(Megabytes(32));
+    InitMemoryArena(&State->TransientMemory, TransientMemory, Megabytes(32), Context.PlatformAlloc);
+    State->Transient = &State->TransientMemory;
     
     InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
     
@@ -293,7 +296,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->AssemblyList.FreeList.Next = &State->AssemblyList.FreeList;
     State->ActiveAssemblyIndecies.BucketSize = 32;
 #if 1
-    char Path[] = "radialumia.fold";
+    char Path[] = "blumen_lumen.fold";
     LoadAssembly(State, Context, Path);
 #endif
     
@@ -382,6 +385,7 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
         Head->Next = NewBuffer;
         Head = NewBuffer;
         
+        u8* DestChannel = Head->Buffer.Base + BufferHeaderSize;
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
@@ -389,8 +393,11 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
             led LED = Assembly.LEDs[LEDIdx];
             pixel Color = Assembly.Colors[LED.Index];
             
-            s32 DestinationStartChannel = LEDIdx * 3;
-            *((pixel*)(Head->Buffer.Base + DestinationStartChannel)) = Color;
+            
+            DestChannel[0] = Color.R;
+            DestChannel[1] = Color.G;
+            DestChannel[2] = Color.B;
+            DestChannel += 3;
         }
     }
     
@@ -410,6 +417,96 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     HandleInput(State, InputQueue, Mouse);
     
+    r32 GreenSize = 20.0f;
+    r32 BlueSize = 25.0f;
+    r32 RedSize = 25.0f;
+    
+    State->GreenIter += Context.DeltaTime * 45;
+    State->BlueIter += Context.DeltaTime * 25;
+    State->RedIter += Context.DeltaTime * -35;
+    
+    
+    
+#define PATTERN_THREE
+    
+#ifdef PATTERN_ONE
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            TestAssembly.Colors[LED.Index].R = 255;
+            TestAssembly.Colors[LED.Index].B = 255;
+            TestAssembly.Colors[LED.Index].G = 255;
+        }
+    }
+#endif
+    
+#ifdef PATTERN_TWO
+    if (State->GreenIter > 2 * PI * 100) { State->GreenIter = 0; }
+    r32 SinAdjusted = 0.5f + (GSSin(State->GreenIter * 0.01f) * .5f);
+    u8 Brightness = (u8)(GSClamp01(SinAdjusted) * 255);
+    
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            TestAssembly.Colors[LED.Index].R = Brightness;
+            TestAssembly.Colors[LED.Index].B = Brightness;
+            TestAssembly.Colors[LED.Index].G = Brightness;
+        }
+    }
+#endif
+    
+#ifdef PATTERN_THREE
+    if(State->GreenIter > 100 + GreenSize) { State->GreenIter = -GreenSize; }
+    if(State->BlueIter > 100 + BlueSize) { State->BlueIter = -BlueSize; }
+    if(State->RedIter < 0 - RedSize) { State->RedIter = 100 + RedSize; }
+    
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            u8 Red = 0;
+            u8 Green = 0;
+            u8 Blue = 0;
+            
+            r32 GreenDistance = GSAbs(LED.Position.z - State->GreenIter);
+            r32 GreenBrightness = GSClamp(0.0f, GreenSize - GreenDistance, GreenSize) / GreenSize;
+            Green = (u8)(GreenBrightness * 255);
+            
+            r32 BlueDistance = GSAbs(LED.Position.z - State->BlueIter);
+            r32 BlueBrightness = GSClamp(0.0f, BlueSize - BlueDistance, BlueSize) / BlueSize;
+            Blue = (u8)(BlueBrightness * 255);
+            
+            r32 RedDistance = GSAbs(LED.Position.z - State->RedIter);
+            r32 RedBrightness = GSClamp(0.0f, RedSize - RedDistance, RedSize) / RedSize;
+            Red = (u8)(RedBrightness * 255);
+            
+            TestAssembly.Colors[LED.Index].R = Red;
+            TestAssembly.Colors[LED.Index].B = Blue;
+            TestAssembly.Colors[LED.Index].G = Green;
+        }
+    }
+#endif
+    
     // Update Visuals Here
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
@@ -424,7 +521,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {
-        
         switch (State->NetworkProtocol)
         {
             case NetworkProtocol_SACN:
@@ -441,7 +537,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 send_sacn_job_data* Job = PushStruct(State->Transient, send_sacn_job_data);
                 Job->SendSocket = State->SACN.SendSocket;
-                Job->GetSendAddress = Context.PlatformGetSendAddress;
                 Job->SendTo = Context.PlatformSendTo;
                 Job->DMXBuffers = DMXBuffers;
                 
