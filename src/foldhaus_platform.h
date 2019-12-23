@@ -3,6 +3,11 @@
 #include "gs_array.h"
 
 #include "foldhaus_memory.h"
+
+#define GS_MEMORY_TRACK_ALLOCATIONS
+#define GS_MEMORY_NO_STD_LIBS
+#include "gs_memory_arena.h"
+
 #include "gs_string.h"
 #include "foldhaus_debug.h"
 
@@ -133,6 +138,7 @@ struct context
     
     platform_alloc* PlatformAlloc;
     platform_free* PlatformFree;
+    platform_realloc* PlatformRealloc;
     platform_read_entire_file* PlatformReadEntireFile;
     platform_write_entire_file* PlatformWriteEntireFile;
     platform_get_file_path* PlatformGetFilePath;

@@ -567,7 +567,8 @@ INT NCmdShow
     Context.GeneralWorkQueue = &WorkQueue;
     Context.PlatformAlloc = Win32Alloc;
     Context.PlatformFree = Win32Free;
-    Context.PlatformReadEntireFile = Win32ReadEntireFile;
+    Context.PlatformRealloc = Win32Realloc;
+Context.PlatformReadEntireFile = Win32ReadEntireFile;
     Context.PlatformWriteEntireFile = Win32WriteEntireFile;
     Context.PlatformGetFilePath = Win32SystemDialogueOpenFile;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;

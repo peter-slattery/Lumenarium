@@ -35,10 +35,8 @@ enum network_protocol
 
 struct app_state
 {
-    memory_arena* Permanent; 
-    memory_arena TransientMemory;
-    memory_arena* Transient;
-    memory_arena  SACNMemory;
+    memory_arena Permanent; 
+    memory_arena Transient;
     
     s32 NetworkProtocolHeaderSize;
     network_protocol NetworkProtocol;

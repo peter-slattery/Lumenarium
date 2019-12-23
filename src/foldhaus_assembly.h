@@ -24,7 +24,7 @@ struct leds_in_universe_range
 
 struct assembly
 {
-    static_memory_arena Arena;
+    memory_arena Arena;
     
     string Name;
     string FilePath;

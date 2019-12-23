@@ -197,7 +197,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
     v2 TopOfDebugView = v2{StartX, WindowHeight - (NewLineYOffset(*Interface.Font) + 5)};
     v2 TopOfScreenLinePos = TopOfDebugView;
     
-    arena_snapshot StartTempMemory = TakeSnapshotOfArena(*Transient);
+    //arena_snapshot StartTempMemory = TakeSnapshotOfArena(*Transient);
     
     string DebugString = InitializeEmptyString(PushArray(Transient, char, 256), 256);
     
@@ -215,8 +215,8 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
            5, DeltaTime,
            (u32)FramesPerSecond,
            State->Modes.ActiveModesCount,
-           State->Modes.Arena.CurrentRegion->Used,
-           State->Modes.Arena.CurrentRegion->Size,
+           State->Modes.Arena.TotalUsed,
+           State->Modes.Arena.TotalSize,
            State->CommandQueue.Used);
     DrawString(RenderBuffer, DebugString, Interface.Font, TopOfScreenLinePos, WhiteV4);
     
@@ -356,7 +356,4 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
         }
 #endif
     }
-    
-    ZeroArenaToSnapshot(Transient, StartTempMemory);
-    ClearArenaToSnapshot(Transient, StartTempMemory);
 }

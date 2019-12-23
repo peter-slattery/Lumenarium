@@ -12,11 +12,10 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
                                  string AssemblyName,
                                  v3 RootPosition,
                                  r32 Scale,
-                                 u8* MemoryBase,
-                                 s32 MemorySize)
+                                 memory_arena Arena)
 {
     assembly Assembly = {};
-    Assembly.Arena = CreateMemoryArena(MemoryBase, MemorySize);
+    Assembly.Arena = Arena;
     
     Assembly.Name = MakeString(PushArray(&Assembly.Arena, char, AssemblyName.Length), AssemblyName.Length);
     CopyStringTo(AssemblyName, &Assembly.Name);

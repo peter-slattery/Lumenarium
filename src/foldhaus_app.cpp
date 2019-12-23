@@ -122,12 +122,10 @@ SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
 internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
-    arena_snapshot TempMemorySnapshot = TakeSnapshotOfArena(*State->Transient);
-    
     platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
     Assert(TestAssemblyFile.Size > 0);
     
-    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, State->Transient);
+    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
     
     Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
     
@@ -136,21 +134,19 @@ LoadAssembly (app_state* State, context Context, char* Path)
     string FileName = Substring(PathString, IndexOfLastSlash + 1);
     
     r32 Scale = 100;
-    s32 AssemblyMemorySize = GetAssemblyMemorySizeFromDefinition(AssemblyDefinition, FileName);
-    u8* AssemblyMemory = Context.PlatformAlloc(AssemblyMemorySize);
+    memory_arena AssemblyArena = {};
+    AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     
     assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
                                                            FileName, 
                                                            v3{0, 0, 0}, 
                                                            Scale, 
-                                                           AssemblyMemory,
-                                                           AssemblyMemorySize);
+                                                           AssemblyArena);
     array_entry_handle NewAssemblyHandle = PushElement(NewAssembly, &State->AssemblyList);
     PushElement(NewAssemblyHandle, &State->ActiveAssemblyIndecies);
     
     State->TotalLEDsCount += NewAssembly.LEDCount;
-    
-    ClearArenaToSnapshot(State->Transient, TempMemorySnapshot);
 }
 
 internal void
@@ -158,7 +154,7 @@ UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
 {
     assembly* Assembly = GetElementAtIndex(AssemblyIndex, State->AssemblyList);
     State->TotalLEDsCount -= Assembly->LEDCount;
-    Context.PlatformFree(Assembly->Arena.Base, Assembly->Arena.Size);
+    FreeMemoryArena(&Assembly->Arena, (gs_memory_free*)Context.PlatformFree);
     
     RemoveElementAtIndex(AssemblyIndex, &State->AssemblyList);
     for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
@@ -193,27 +189,22 @@ RELOAD_STATIC_DATA(ReloadStaticData)
 INITIALIZE_APPLICATION(InitializeApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
-    u8* MemoryCursor = Context.MemoryBase + sizeof(app_state);
-    s32 PermanentStorageSize = Context.MemorySize; //Megabytes(32);
-    //s32 TransientStorageSize = Context.MemorySize - PermanentStorageSize;
-    State->Permanent = BootstrapArenaIntoMemory(MemoryCursor, PermanentStorageSize);
-    //State->Transient = BootstrapArenaIntoMemory(MemoryCursor + PermanentStorageSize, TransientStorageSize);
+    State->Permanent = {};
+    State->Permanent.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    State->Permanent.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    State->Transient = {};
+State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     
-    u8* TransientMemory = Context.PlatformAlloc(Megabytes(32));
-    InitMemoryArena(&State->TransientMemory, TransientMemory, Megabytes(32), Context.PlatformAlloc);
-    State->Transient = &State->TransientMemory;
-    
-    InitMemoryArena(&State->SACNMemory, 0, 0, Context.PlatformAlloc);
-    
-    InitializeInputCommandRegistry(&State->DefaultInputCommandRegistry, 32, State->Permanent);
+    InitializeInputCommandRegistry(&State->DefaultInputCommandRegistry, 32, &State->Permanent);
     
     s32 CommandQueueSize = 32;
-    command_queue_entry* CommandQueueMemory = PushArray(State->Permanent, 
+    command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent, 
                                                         command_queue_entry, 
                                                         CommandQueueSize);
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
-    State->ActiveTextEntry.Buffer = MakeString(PushArray(State->Permanent, char, 256), 0, 256);
+    State->ActiveTextEntry.Buffer = MakeString(PushArray(&State->Permanent, char, 256), 0, 256);
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -221,12 +212,12 @@ INITIALIZE_APPLICATION(InitializeApplication)
         platform_memory_result FontFile = Context.PlatformReadEntireFile("Anonymous Pro.ttf");
         if (FontFile.Size)
         {
-            bitmap_font* Font = PushStruct(State->Permanent, bitmap_font);
+            bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
             
             Font->BitmapWidth = 512;
             Font->BitmapHeight = 512;
             Font->BitmapBytesPerPixel = 4;
-            Font->BitmapMemory = PushArray(State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
+            Font->BitmapMemory = PushArray(&State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
             Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
             GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
             
@@ -239,8 +230,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
             
             Font->CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
             Font->CodepointDictionaryCount = 0;
-            Font->CodepointKeys = PushArray(State->Permanent, char, Font->CodepointDictionarySize);
-            Font->CodepointValues = PushArray(State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
+            Font->CodepointKeys = PushArray(&State->Permanent, char, Font->CodepointDictionarySize);
+            Font->CodepointValues = PushArray(&State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
             
             for (s32 Codepoint = FontInfo.CodepointStart;
                  Codepoint < FontInfo.CodepointOnePastLast;
@@ -296,7 +287,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->AssemblyList.FreeList.Next = &State->AssemblyList.FreeList;
     State->ActiveAssemblyIndecies.BucketSize = 32;
 #if 1
-    char Path[] = "blumen_lumen.fold";
+    char Path[] = "radialumia.fold";
     LoadAssembly(State, Context, Path);
 #endif
     
@@ -308,10 +299,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     { // MODES PLAYGROUND
         State->Modes.ActiveModesCount = 0;
-        
-        s32 ModesMemorySize = Kilobytes(32);
-        u8* ModesMemory = PushSize(State->Permanent, ModesMemorySize);
-        InitMemoryArena(&State->Modes.Arena, ModesMemory, ModesMemorySize, 0);
+        State->Modes.Arena = {};
+        State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+        State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+        State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
     }
 }
 
@@ -413,7 +404,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically 
     // incorrect to clear the arena, and then access the memory later.
-    ClearArena(State->Transient);
+    ClearArena(&State->Transient);
     
     HandleInput(State, InputQueue, Mouse);
     
@@ -515,7 +506,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
         assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, State->Transient);
+        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, &State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
     
@@ -535,7 +526,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     CurrentDMXBuffer = CurrentDMXBuffer->Next;
                 }
                 
-                send_sacn_job_data* Job = PushStruct(State->Transient, send_sacn_job_data);
+                send_sacn_job_data* Job = PushStruct(&State->Transient, send_sacn_job_data);
                 Job->SendSocket = State->SACN.SendSocket;
                 Job->SendTo = Context.PlatformSendTo;
                 Job->DMXBuffers = DMXBuffers;
@@ -584,7 +575,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 for (s32 Job = 0; Job < JobsNeeded; Job++)
                 {
-                    draw_leds_job_data* JobData = PushStruct(State->Transient, draw_leds_job_data);
+                    draw_leds_job_data* JobData = PushStruct(&State->Transient, draw_leds_job_data);
                     JobData->LEDs = Assembly.LEDs;
                     JobData->Colors = Assembly.Colors;
                     JobData->StartIndex = Job * MaxLEDsPerJob;
@@ -630,7 +621,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                                            MakeStringLiteral("Load Assembly"), 
                                                            State->Interface, Mouse);
             
-            string InterfaceString = MakeString(PushArray(State->Transient, char, 256), 256);
+            string InterfaceString = MakeString(PushArray(&State->Transient, char, 256), 256);
             for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
             {
                 array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
@@ -669,7 +660,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         DrawDebugInterface(RenderBuffer, 25,
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
-                           Context.DeltaTime, State, State->Camera, Mouse, State->Transient);
+                           Context.DeltaTime, State, State->Camera, Mouse, &State->Transient);
+    }
+    
+    // Checking for overflows
+    {
+        DEBUG_TRACK_SCOPE(OverflowChecks);
+    AssertAllocationsNoOverflow(State->Permanent);
+    for (s32 i = 0; i < State->AssemblyList.Used; i++)
+    {
+        assembly* Assembly = GetElementAtIndex(i, State->AssemblyList);
+        AssertAllocationsNoOverflow(Assembly->Arena);
+        }
     }
 }
 

@@ -28,7 +28,7 @@ ActivateOperationMode (operation_mode_system* System)
     Assert(System->ActiveModesCount < OPERATION_MODES_MAX);
     s32 ModeIndex = System->ActiveModesCount++;
     
-    System->ModeMemorySnapshots[ModeIndex] = TakeSnapshotOfArena(System->Arena);
+    System->ModeMemorySnapshots[ModeIndex] = TakeSnapshotOfArena(&System->Arena);
     
     operation_mode NewMode = {};
     System->ActiveModes[ModeIndex] = NewMode;
