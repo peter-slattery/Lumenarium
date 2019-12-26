@@ -290,11 +290,14 @@ DrawPanelOrRecurse(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 Wind
     if (Panel->SplitDirection == PanelSplit_NoSplit)
     {
         RenderPanel(Panel, PanelMin, PanelMax, WindowMin, WindowMax, RenderBuffer, State, Context, Mouse);
-        v4 BorderColor = v4{0, 1, 1, 1};
+        v4 BorderColor = v4{0, 0, 0, 1};
+        
+        #if 0
         if (PointIsInRange(Mouse.Pos, PanelMin, PanelMax))
         {
             BorderColor = v4{1, 0, 1, 1};
         }
+#endif
         
 PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
 DrawPanelBorder(*Panel, PanelMin, PanelMax, BorderColor, RenderBuffer);

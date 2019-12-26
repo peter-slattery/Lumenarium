@@ -62,3 +62,52 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
     Assert(Assembly.LEDCount == Definition.TotalLEDCount);
     return Assembly;
 }
+
+internal void
+LoadAssembly (app_state* State, context Context, char* Path)
+{
+    platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
+    Assert(TestAssemblyFile.Size > 0);
+    
+    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
+    
+    Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
+    
+    string PathString = MakeStringLiteral(Path);
+    s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
+    string FileName = Substring(PathString, IndexOfLastSlash + 1);
+    
+    r32 Scale = 100;
+    memory_arena AssemblyArena = {};
+    AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    
+    assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
+                                                           FileName, 
+                                                           v3{0, 0, 0}, 
+                                                           Scale, 
+                                                           AssemblyArena);
+    array_entry_handle NewAssemblyHandle = PushElement(NewAssembly, &State->AssemblyList);
+    PushElement(NewAssemblyHandle, &State->ActiveAssemblyIndecies);
+    
+    State->TotalLEDsCount += NewAssembly.LEDCount;
+}
+
+internal void
+UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
+{
+    assembly* Assembly = GetElementAtIndex(AssemblyIndex, State->AssemblyList);
+    State->TotalLEDsCount -= Assembly->LEDCount;
+    FreeMemoryArena(&Assembly->Arena, (gs_memory_free*)Context.PlatformFree);
+    
+    RemoveElementAtIndex(AssemblyIndex, &State->AssemblyList);
+    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    {
+        array_entry_handle Handle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        if (Handle.Index == AssemblyIndex)
+        {
+            RemoveElementAtIndex(i, &State->ActiveAssemblyIndecies);
+            break;
+        }
+    }
+}

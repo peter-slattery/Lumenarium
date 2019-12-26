@@ -1,3 +1,7 @@
+input_command SculptureView_Commands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, Begin3DViewMouseRotate },
+};
+
 PANEL_INIT_PROC(SculptureView_Init)
 {
     
