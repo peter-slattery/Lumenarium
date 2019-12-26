@@ -21,6 +21,8 @@ typedef struct app_state app_state;
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_operation_mode.h"
 
+#include "animation/foldhaus_animation.h"
+
 #include "foldhaus_text_entry.h"
 
 #include "foldhaus_search_lister.h"
@@ -59,12 +61,101 @@ struct app_state
     bitmap_font* Font;
     interface_config Interface;
     
-    r32 GreenIter;
-    r32 BlueIter;
-    r32 RedIter;
+    animation_system AnimationSystem;
+    animation_block_handle SelectedAnimationBlockHandle;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
+
+// BEGIN TEMPORARY PATTERNS
+internal void
+TestPatternOne(app_state* State, r32 Time)
+{
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            TestAssembly.Colors[LED.Index].R = 255;
+            TestAssembly.Colors[LED.Index].B = 255;
+            TestAssembly.Colors[LED.Index].G = 255;
+        }
+    }
+}
+
+internal void
+TestPatternTwo(app_state* State, r32 Time)
+{
+    if (Time > 2 * PI * 100) { Time = 0; }
+    r32 SinAdjusted = 0.5f + (GSSin(Time * 0.01f) * .5f);
+    u8 Brightness = (u8)(GSClamp01(SinAdjusted) * 255);
+    
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            TestAssembly.Colors[LED.Index].R = Brightness;
+            TestAssembly.Colors[LED.Index].B = 0;
+            TestAssembly.Colors[LED.Index].G = Brightness;
+        }
+    }
+}
+
+internal void
+TestPatternThree(app_state* State, r32 Time)
+{
+r32 GreenSize = 20.0f;
+    r32 BlueSize = 25.0f;
+    r32 RedSize = 25.0f;
+
+    r32 GreenPosition = -GreenSize + (Time * 45);
+    r32 BluePosition = -BlueSize + (Time * 25);
+    r32 RedPosition = (100 + RedSize) + (Time * -35);
+    
+    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
+    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
+    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    {
+        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+             LEDIdx < LEDUniverseRange.RangeOnePastLast;
+             LEDIdx++)
+        {
+            led LED = TestAssembly.LEDs[LEDIdx];
+            u8 Red = 0;
+            u8 Green = 0;
+            u8 Blue = 0;
+            
+            r32 GreenDistance = GSAbs(LED.Position.z - GreenPosition);
+            r32 GreenBrightness = GSClamp(0.0f, GreenSize - GreenDistance, GreenSize) / GreenSize;
+            Green = (u8)(GreenBrightness * 255);
+            
+            r32 BlueDistance = GSAbs(LED.Position.z - BluePosition);
+            r32 BlueBrightness = GSClamp(0.0f, BlueSize - BlueDistance, BlueSize) / BlueSize;
+            Blue = (u8)(BlueBrightness * 255);
+            
+            r32 RedDistance = GSAbs(LED.Position.z - RedPosition);
+            r32 RedBrightness = GSClamp(0.0f, RedSize - RedDistance, RedSize) / RedSize;
+            Red = (u8)(RedBrightness * 255);
+            
+            TestAssembly.Colors[LED.Index].R = Red;
+            TestAssembly.Colors[LED.Index].B = Blue;
+            TestAssembly.Colors[LED.Index].G = Green;
+        }
+    }
+}
+// END TEMPORARY PATTERNS
 
 #include "foldhaus_assembly.cpp"
 
@@ -74,3 +165,4 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 #include "foldhaus_search_lister.cpp"
 
 #include "foldhaus_interface.cpp"
+#include "animation/foldhaus_animation_interface.h"

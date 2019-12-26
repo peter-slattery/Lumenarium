@@ -40,7 +40,7 @@ Hardening
 - Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel
 update functions
 - memory visualization
--  - Log memory allocations
+-  x Log memory allocations
 - separate rendering thread
 - cache led positions. Only update if they are moving
 - :HotCodeReloading

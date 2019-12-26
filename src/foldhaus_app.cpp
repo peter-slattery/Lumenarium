@@ -183,6 +183,7 @@ RELOAD_STATIC_DATA(ReloadStaticData)
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_MouseLeftButton, Command_Began, KeyCode_Invalid,
                                 Begin3DViewMouseRotate);
         RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
+        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_X, Command_Ended, KeyCode_Invalid, DeleteAnimationBlock);
     }
 }
 
@@ -297,13 +298,36 @@ State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     
     ReloadStaticData(Context, GlobalDebugServices, Alloc, Free);
     
-    { // MODES PLAYGROUND
+    // Setup Operation Modes
         State->Modes.ActiveModesCount = 0;
         State->Modes.Arena = {};
         State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
         State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
         State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
-    }
+    
+    { // MODES PLAYGROUND
+        InitializeAnimationSystem(&State->AnimationSystem);
+    
+        animation_block BlockZero = {0}; 
+        BlockZero.StartTime = 0;
+    BlockZero.EndTime = 2;
+    BlockZero.Proc = TestPatternOne;
+    AddAnimationBlock(BlockZero, &State->AnimationSystem);
+
+animation_block BlockOne = {0}; 
+BlockOne.StartTime = 3;
+    BlockOne.EndTime = 5;
+        BlockOne.Proc = TestPatternTwo;
+    AddAnimationBlock(BlockOne, &State->AnimationSystem);
+
+animation_block BlockTwo = {0};
+BlockTwo.StartTime = 5;
+    BlockTwo.EndTime = 8;
+    BlockTwo.Proc = TestPatternThree;
+        AddAnimationBlock(BlockTwo, &State->AnimationSystem);
+        
+        State->AnimationSystem.AnimationEnd = 10;
+    } // End Animation Playground
 }
 
 internal void
@@ -408,97 +432,27 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     HandleInput(State, InputQueue, Mouse);
     
-    r32 GreenSize = 20.0f;
-    r32 BlueSize = 25.0f;
-    r32 RedSize = 25.0f;
-    
-    State->GreenIter += Context.DeltaTime * 45;
-    State->BlueIter += Context.DeltaTime * 25;
-    State->RedIter += Context.DeltaTime * -35;
-    
-    
-    
-#define PATTERN_THREE
-    
-#ifdef PATTERN_ONE
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    if (State->AnimationSystem.TimelineShouldAdvance) { 
+    State->AnimationSystem.Time += Context.DeltaTime;
+    if (State->AnimationSystem.Time > State->AnimationSystem.AnimationEnd)
     {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
-             LEDIdx < LEDUniverseRange.RangeOnePastLast;
-             LEDIdx++)
-        {
-            led LED = TestAssembly.LEDs[LEDIdx];
-            TestAssembly.Colors[LED.Index].R = 255;
-            TestAssembly.Colors[LED.Index].B = 255;
-            TestAssembly.Colors[LED.Index].G = 255;
-        }
+        State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
     }
-#endif
     
-#ifdef PATTERN_TWO
-    if (State->GreenIter > 2 * PI * 100) { State->GreenIter = 0; }
-    r32 SinAdjusted = 0.5f + (GSSin(State->GreenIter * 0.01f) * .5f);
-    u8 Brightness = (u8)(GSClamp01(SinAdjusted) * 255);
-    
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
-    {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
-             LEDIdx < LEDUniverseRange.RangeOnePastLast;
-             LEDIdx++)
+        for (u32 i = 0; i < State->AnimationSystem.BlocksCount; i++)
         {
-            led LED = TestAssembly.LEDs[LEDIdx];
-            TestAssembly.Colors[LED.Index].R = Brightness;
-            TestAssembly.Colors[LED.Index].B = Brightness;
-            TestAssembly.Colors[LED.Index].G = Brightness;
-        }
-    }
-#endif
-    
-#ifdef PATTERN_THREE
-    if(State->GreenIter > 100 + GreenSize) { State->GreenIter = -GreenSize; }
-    if(State->BlueIter > 100 + BlueSize) { State->BlueIter = -BlueSize; }
-    if(State->RedIter < 0 - RedSize) { State->RedIter = 100 + RedSize; }
-    
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
-    {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
-             LEDIdx < LEDUniverseRange.RangeOnePastLast;
-             LEDIdx++)
+            animation_block_entry BlockEntry = State->AnimationSystem.Blocks[i];
+            if (!AnimationBlockIsFree(BlockEntry))
+            {
+                animation_block Block = BlockEntry.Block;
+        if (State->AnimationSystem.Time >= Block.StartTime
+            && State->AnimationSystem.Time <= Block.EndTime)
         {
-            led LED = TestAssembly.LEDs[LEDIdx];
-            u8 Red = 0;
-            u8 Green = 0;
-            u8 Blue = 0;
-            
-            r32 GreenDistance = GSAbs(LED.Position.z - State->GreenIter);
-            r32 GreenBrightness = GSClamp(0.0f, GreenSize - GreenDistance, GreenSize) / GreenSize;
-            Green = (u8)(GreenBrightness * 255);
-            
-            r32 BlueDistance = GSAbs(LED.Position.z - State->BlueIter);
-            r32 BlueBrightness = GSClamp(0.0f, BlueSize - BlueDistance, BlueSize) / BlueSize;
-            Blue = (u8)(BlueBrightness * 255);
-            
-            r32 RedDistance = GSAbs(LED.Position.z - State->RedIter);
-            r32 RedBrightness = GSClamp(0.0f, RedSize - RedDistance, RedSize) / RedSize;
-            Red = (u8)(RedBrightness * 255);
-            
-            TestAssembly.Colors[LED.Index].R = Red;
-            TestAssembly.Colors[LED.Index].B = Blue;
-            TestAssembly.Colors[LED.Index].G = Green;
-        }
+            Block.Proc(State, State->AnimationSystem.Time - Block.StartTime);
+                }
+            }
     }
-#endif
-    
-    // Update Visuals Here
+    }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
@@ -649,6 +603,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
             }
         }
         
+        v2 TimelineMin = v2{0, 0};
+        v2 TimelineMax = v2{Context.WindowWidth, 125};
+        animation_block_handle NewSelection = DrawAnimationPanel(&State->AnimationSystem, 
+TimelineMin, TimelineMax, 
+State->SelectedAnimationBlockHandle, 
+                                                                    RenderBuffer, State->Interface, Mouse);
+        State->SelectedAnimationBlockHandle = NewSelection;
+
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {
             operation_mode OperationMode = State->Modes.ActiveModes[m];

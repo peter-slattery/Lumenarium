@@ -1,14 +1,13 @@
-#include "gs_language.h"
+#define GS_LANGUAGE_NO_PROFILER_DEFINES
+#include <gs_language.h>
 #include "gs_platform.h"
 #include "gs_array.h"
 
-#include "foldhaus_memory.h"
-
 #define GS_MEMORY_TRACK_ALLOCATIONS
 #define GS_MEMORY_NO_STD_LIBS
-#include "gs_memory_arena.h"
+#include <gs_memory_arena.h>
 
-#include "gs_string.h"
+#include <gs_string.h>
 #include "foldhaus_debug.h"
 
 global_variable debug_services* GlobalDebugServices;
@@ -16,7 +15,7 @@ global_variable debug_services* GlobalDebugServices;
 global_variable platform_alloc* GSAlloc;
 global_variable platform_free* GSFree;
 
-#include "gs_vector_matrix.h"
+#include <gs_vector_matrix.h>
 
 #include "gs_input.h"
 
