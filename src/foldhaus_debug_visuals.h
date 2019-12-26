@@ -1,4 +1,4 @@
-
+#if 0
 internal void
 RenderProfiler_ScopeVisualization(render_command_buffer* RenderBuffer,
                                   interface_config Interface, mouse_state Mouse,
@@ -188,6 +188,7 @@ DrawDebugFrameList (render_command_buffer* RenderBuffer, interface_config Interf
                                          VisibleFrame, Memory);
     }
 }
+#endif
 
 internal void
 DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, app_state* State, camera Camera, mouse_state Mouse, memory_arena* Transient)
@@ -311,7 +312,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
         v2 ProfilerMin = v2{TopOfDebugView.x, TopOfDebugView.y - 500};
         v2 ProfilerMax = v2{TopOfDebugView.x + 700, TopOfDebugView.y - 64};
         PushRenderQuad2D(RenderBuffer, ProfilerMin, ProfilerMax, v4{0, 0, 0, .8f});
-        DrawDebugFrameList(RenderBuffer, Interface, Mouse, ProfilerMin, ProfilerMax, Transient);
+        //DrawDebugFrameList(RenderBuffer, Interface, Mouse, ProfilerMin, ProfilerMax, Transient);
         
 #if 0
         r32 ColumnsStartX = TopOfScreenLinePos.x;

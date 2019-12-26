@@ -22,68 +22,6 @@ MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, r32 WindowWidth, r32 Win
     return WorldPosition;
 }
 
-struct draw_leds_job_data
-{
-    led* LEDs;
-    pixel* Colors;
-    s32 StartIndex;
-    s32 OnePastLastIndex;
-    
-    render_quad_batch_constructor* Batch;
-    
-    m44 FaceCameraMatrix;
-    m44 ModelViewMatrix;
-    r32 LEDHalfWidth;
-};
-
-internal void
-DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    draw_leds_job_data* Data = (draw_leds_job_data*)JobData;
-    
-    s32 LEDCount = Data->OnePastLastIndex - Data->StartIndex;
-    
-    quad_batch_constructor_reserved_range BatchReservedRange = ThreadSafeReserveRangeInQuadConstructor(Data->Batch, LEDCount * 2);
-    s32 TrisUsed = 0;
-    
-    r32 HalfWidth = Data->LEDHalfWidth;
-    
-    v4 P0_In = v4{-HalfWidth, -HalfWidth, 0, 1};
-    v4 P1_In = v4{HalfWidth, -HalfWidth, 0, 1};
-    v4 P2_In = v4{HalfWidth, HalfWidth, 0, 1};
-    v4 P3_In = v4{-HalfWidth, HalfWidth, 0, 1};
-    
-    v2 UV0 = v2{0, 0};
-    v2 UV1 = v2{1, 0};
-    v2 UV2 = v2{1, 1};
-    v2 UV3 = v2{0, 1};
-    
-    led* LED = Data->LEDs + Data->StartIndex;
-    for (s32 LEDIdx = 0;
-         LEDIdx < LEDCount;
-         LEDIdx++)
-    {
-        pixel PixelColor = Data->Colors[LED->Index];
-        v4 Color = v4{PixelColor.R / 255.f, PixelColor.G / 255.f, PixelColor.B / 255.f, 1.0f};
-        
-        v4 V4Position = LED->Position;
-        V4Position.w = 0;
-        v4 P0 = P0_In + V4Position;
-        v4 P1 = P1_In + V4Position;
-        v4 P2 = P2_In + V4Position;
-        v4 P3 = P3_In + V4Position;
-        
-        SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
-                        P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
-        SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
-                        P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
-        
-        LED++;
-    }
-}
-
 struct send_sacn_job_data
 {
     
@@ -194,7 +132,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Permanent.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Permanent.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     State->Transient = {};
-State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     
     InitializeInputCommandRegistry(&State->DefaultInputCommandRegistry, 32, &State->Permanent);
@@ -244,12 +182,12 @@ State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
                 
                 u32 CodepointW, CodepointH;
                 Context.PlatformDrawFontCodepoint(
-                    Font->BitmapMemory,
-                    Font->BitmapWidth, 
-                    Font->BitmapHeight,
-                    CodepointX, CodepointY, 
-                    Codepoint, FontInfo,
-                    &CodepointW, &CodepointH);
+                                                  Font->BitmapMemory,
+                                                  Font->BitmapWidth, 
+                                                  Font->BitmapHeight,
+                                                  CodepointX, CodepointY, 
+                                                  Codepoint, FontInfo,
+                                                  &CodepointW, &CodepointH);
                 
                 AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
             }
@@ -299,35 +237,44 @@ State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     ReloadStaticData(Context, GlobalDebugServices, Alloc, Free);
     
     // Setup Operation Modes
-        State->Modes.ActiveModesCount = 0;
-        State->Modes.Arena = {};
-        State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-        State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
-        State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
+    State->Modes.ActiveModesCount = 0;
+    State->Modes.Arena = {};
+    State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
     
     { // MODES PLAYGROUND
         InitializeAnimationSystem(&State->AnimationSystem);
-    
+        
         animation_block BlockZero = {0}; 
         BlockZero.StartTime = 0;
-    BlockZero.EndTime = 2;
-    BlockZero.Proc = TestPatternOne;
-    AddAnimationBlock(BlockZero, &State->AnimationSystem);
-
-animation_block BlockOne = {0}; 
-BlockOne.StartTime = 3;
-    BlockOne.EndTime = 5;
+        BlockZero.EndTime = 2;
+        BlockZero.Proc = TestPatternOne;
+        AddAnimationBlock(BlockZero, &State->AnimationSystem);
+        
+        animation_block BlockOne = {0}; 
+        BlockOne.StartTime = 3;
+        BlockOne.EndTime = 5;
         BlockOne.Proc = TestPatternTwo;
-    AddAnimationBlock(BlockOne, &State->AnimationSystem);
-
-animation_block BlockTwo = {0};
-BlockTwo.StartTime = 5;
-    BlockTwo.EndTime = 8;
-    BlockTwo.Proc = TestPatternThree;
+        AddAnimationBlock(BlockOne, &State->AnimationSystem);
+        
+        animation_block BlockTwo = {0};
+        BlockTwo.StartTime = 5;
+        BlockTwo.EndTime = 8;
+        BlockTwo.Proc = TestPatternThree;
         AddAnimationBlock(BlockTwo, &State->AnimationSystem);
         
         State->AnimationSystem.AnimationEnd = 10;
     } // End Animation Playground
+    
+    
+    { // Panels Playground
+        InitializePanelLayout(&State->PanelLayout);
+panel* Panel = TakeNewPanel(&State->PanelLayout);
+        SetPanelDefinition(Panel, GlobalPanelDefs[0]);
+        SplitPanelVertically(Panel, .5f, v2{0, 0}, v2{Context.WindowWidth, Context.WindowHeight}, &State->PanelLayout);
+        SetPanelDefinition(&Panel->Right->Panel, GlobalPanelDefs[1]);
+    } // End Panels Playground
 }
 
 internal void
@@ -433,25 +380,25 @@ UPDATE_AND_RENDER(UpdateAndRender)
     HandleInput(State, InputQueue, Mouse);
     
     if (State->AnimationSystem.TimelineShouldAdvance) { 
-    State->AnimationSystem.Time += Context.DeltaTime;
-    if (State->AnimationSystem.Time > State->AnimationSystem.AnimationEnd)
-    {
-        State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
-    }
-    
+        State->AnimationSystem.Time += Context.DeltaTime;
+        if (State->AnimationSystem.Time > State->AnimationSystem.AnimationEnd)
+        {
+            State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
+        }
+        
         for (u32 i = 0; i < State->AnimationSystem.BlocksCount; i++)
         {
             animation_block_entry BlockEntry = State->AnimationSystem.Blocks[i];
             if (!AnimationBlockIsFree(BlockEntry))
             {
                 animation_block Block = BlockEntry.Block;
-        if (State->AnimationSystem.Time >= Block.StartTime
-            && State->AnimationSystem.Time <= Block.EndTime)
-        {
-            Block.Proc(State, State->AnimationSystem.Time - Block.StartTime);
+                if (State->AnimationSystem.Time >= Block.StartTime
+                    && State->AnimationSystem.Time <= Block.EndTime)
+                {
+                    Block.Proc(State, State->AnimationSystem.Time - Block.StartTime);
                 }
             }
-    }
+        }
     }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
@@ -486,20 +433,28 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 Job->DMXBuffers = DMXBuffers;
                 
                 Context.GeneralWorkQueue->PushWorkOnQueue(
-                    Context.GeneralWorkQueue,
-                    SACNSendDMXBufferListJob,
-                    Job);
+                                                          Context.GeneralWorkQueue,
+                                                          SACNSendDMXBufferListJob,
+                                                          Job);
             }break;
             
             InvalidDefaultCase;
         }
     }
     
+PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight);
+        PushRenderClearScreen(RenderBuffer);
+    v2 WindowMin = v2{0, 0};
+    v2 WindowMax = v2{Context.WindowWidth, Context.WindowHeight};
+    HandleMousePanelInteraction(&State->PanelLayout, WindowMin, WindowMax, Mouse);
+    DrawAllPanels(State->PanelLayout, WindowMin, WindowMax, RenderBuffer, State->Interface, Mouse, State, Context);
+    
     ////////////////////////////////
     //   Render Assembly
     ///////////////////////////////
     if (Context.WindowIsVisible)
     {
+    #if 0
         State->Camera.AspectRatio = (r32)Context.WindowWidth / (r32)Context.WindowHeight;
         
         m44 ModelViewMatrix = GetCameraModelViewMatrix(State->Camera);
@@ -507,7 +462,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         r32 LEDHalfWidth = .5f;
         
-        PushRenderPerspective(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight, State->Camera);
+        PushRenderPerspective(RenderBuffer, 0, 0, Context.WindowWidth / 2, Context.WindowHeight, State->Camera);
         PushRenderClearScreen(RenderBuffer);
         
         // TODO(Peter): Pretty sure this isn't working right now
@@ -540,9 +495,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     JobData->LEDHalfWidth = LEDHalfWidth;
                     
                     Context.GeneralWorkQueue->PushWorkOnQueue(
-                        Context.GeneralWorkQueue,
-                        DrawLEDsInBufferRangeJob,
-                        JobData);
+                                                              Context.GeneralWorkQueue,
+                                                              DrawLEDsInBufferRangeJob,
+                                                              JobData);
                 }
             }
             
@@ -561,7 +516,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
         ///////////////////////////////////////
         //     Menu Bar
         //////////////////////////////////////
-        
         r32 TopBarHeight = 40;
         {
             panel_result TopBarPanel = EvaluatePanel(RenderBuffer, 
@@ -606,11 +560,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
         v2 TimelineMin = v2{0, 0};
         v2 TimelineMax = v2{Context.WindowWidth, 125};
         animation_block_handle NewSelection = DrawAnimationPanel(&State->AnimationSystem, 
-TimelineMin, TimelineMax, 
-State->SelectedAnimationBlockHandle, 
-                                                                    RenderBuffer, State->Interface, Mouse);
+                                                                 TimelineMin, TimelineMax, 
+                                                                 State->SelectedAnimationBlockHandle, 
+                                                                 RenderBuffer, State->Interface, Mouse);
         State->SelectedAnimationBlockHandle = NewSelection;
-
+        
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {
             operation_mode OperationMode = State->Modes.ActiveModes[m];
@@ -623,16 +577,17 @@ State->SelectedAnimationBlockHandle,
         DrawDebugInterface(RenderBuffer, 25,
                            State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
                            Context.DeltaTime, State, State->Camera, Mouse, &State->Transient);
+#endif
     }
     
     // Checking for overflows
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
-    AssertAllocationsNoOverflow(State->Permanent);
-    for (s32 i = 0; i < State->AssemblyList.Used; i++)
-    {
-        assembly* Assembly = GetElementAtIndex(i, State->AssemblyList);
-        AssertAllocationsNoOverflow(Assembly->Arena);
+        AssertAllocationsNoOverflow(State->Permanent);
+        for (s32 i = 0; i < State->AssemblyList.Used; i++)
+        {
+            assembly* Assembly = GetElementAtIndex(i, State->AssemblyList);
+            AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }
 }

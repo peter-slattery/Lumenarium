@@ -191,7 +191,7 @@ enum gs_memory_find_address_rule
 
 typedef void* gs_memory_alloc(gs_mem_u32 Size);
 typedef void* gs_memory_realloc(void* Address, gs_mem_u32 OldSize, gs_mem_u32 NewSize);
-typedef void gs_memory_free(void* Address, gs_mem_u32 Size);
+typedef void  gs_memory_free(void* Address, gs_mem_u32 Size);
 
 #ifndef GS_MEMORY_BUFFER_SIZE
 #define GS_MEMORY_BUFFER_SIZE 1024

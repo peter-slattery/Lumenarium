@@ -17,6 +17,8 @@
 
 typedef struct app_state app_state;
 
+#include "foldhaus_panel.h"
+
 #include "foldhaus_command_dispatch.h"
 #include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_operation_mode.h"
@@ -40,7 +42,7 @@ struct app_state
     memory_arena Permanent; 
     memory_arena Transient;
     
-    s32 NetworkProtocolHeaderSize;
+s32 NetworkProtocolHeaderSize;
     network_protocol NetworkProtocol;
     
     streaming_acn SACN;
@@ -63,6 +65,8 @@ struct app_state
     
     animation_system AnimationSystem;
     animation_block_handle SelectedAnimationBlockHandle;
+    
+    panel_layout PanelLayout;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
@@ -166,3 +170,11 @@ r32 GreenSize = 20.0f;
 
 #include "foldhaus_interface.cpp"
 #include "animation/foldhaus_animation_interface.h"
+
+#include "panels/foldhaus_panel_sculpture_view.h"
+#include "panels/foldhaus_panel_profiler.h"
+#include "panels/foldhaus_panel_dmx_view.h"
+#include "panels/foldhaus_panel_animation_timeline.h"
+
+#include "generated/foldhaus_panels_generated.h"
+#include "foldhaus_panel.cpp"
