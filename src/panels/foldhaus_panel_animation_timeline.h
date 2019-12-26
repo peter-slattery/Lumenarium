@@ -1,3 +1,12 @@
+// TODO
+// [] - Moving animation blocks
+// [] - dragging beginning and end of time blocks
+// [] - creating a timeblock with a specific animation
+// [x] - play, pause, stop, 
+// [] - setting the start and end of the animation system
+// [] - displaying multiple layers
+// [] - 
+
 PANEL_INIT_PROC(AnimationTimeline_Init)
 {
     

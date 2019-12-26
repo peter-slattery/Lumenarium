@@ -1,6 +1,85 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
+internal void
+SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPanelDefinitionIndex)
+{
+    if(OldPanelDefinitionIndex >= 0)
+    {
+        GlobalPanelDefs[OldPanelDefinitionIndex].Cleanup(Panel);
+    }
+    GlobalPanelDefs[NewPanelDefinitionIndex].Init(Panel);
+}
+
+
+internal void
+DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, v2 FooterMin, v2 FooterMax, interface_config Interface, mouse_state Mouse)
+{
+    PushRenderQuad2D(RenderBuffer, FooterMin, v2{FooterMax.x, FooterMin.y + 25}, v4{.5f, .5f, .5f, 1.f});
+    PushRenderQuad2D(RenderBuffer, FooterMin, FooterMin + v2{25, 25}, WhiteV4);
+    
+    v2 PanelSelectButtonMin = FooterMin + v2{30, 1};
+    v2 PanelSelectButtonMax = PanelSelectButtonMin + v2{100, 23};
+    
+    if (Panel->PanelSelectionMenuOpen)
+    {
+        v2 ButtonDimension = v2{100, 25};
+        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterMax.y};
+        
+        v2 MenuMin = ButtonMin;
+        v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
+        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
+            && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
+    {
+        Panel->PanelSelectionMenuOpen = false;
+    }
+
+
+for (s32 i = 0; i < GlobalPanelDefsCount; i++)
+        {
+            panel_definition Def = GlobalPanelDefs[i];
+            string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
+            button_result DefinitionButton = EvaluateButton(RenderBuffer,
+                                                            ButtonMin, ButtonMin + ButtonDimension,
+                                                            DefName, Interface, Mouse);
+            if (DefinitionButton.Pressed)
+            {
+                SetPanelDefinition(Panel, i);
+                Panel->PanelSelectionMenuOpen = false;
+            }
+            
+            ButtonMin.y += ButtonDimension.y;
+        }
+    }
+
+button_result ButtonResult = EvaluateButton(RenderBuffer,
+                                                PanelSelectButtonMin, 
+PanelSelectButtonMax,
+                                                MakeStringLiteral("Select"), Interface, Mouse);
+    if (ButtonResult.Pressed)
+    {
+        Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
+    }
+    
+}
+
+internal void
+RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 WindowMax, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+{
+    Assert(Panel->PanelDefinitionIndex >= 0);
+    
+v2 FooterMin = PanelMin;
+        v2 FooterMax = v2{PanelMax.x, PanelMin.y + 25};
+    v2 PanelViewMin = v2{PanelMin.x, FooterMax.y};
+        v2 PanelViewMax = PanelMax;
+        
+panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
+    Definition.Render(*Panel, PanelMin, PanelMax, RenderBuffer, State, Context, Mouse);
+    
+PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
+DrawPanelFooter(Panel, RenderBuffer, FooterMin, FooterMax, State->Interface, Mouse);
+}
+
 internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, r32 WindowWidth, r32 WindowHeight)
 {
@@ -271,9 +350,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     { // Panels Playground
         InitializePanelLayout(&State->PanelLayout);
 panel* Panel = TakeNewPanel(&State->PanelLayout);
-        SetPanelDefinition(Panel, GlobalPanelDefs[0]);
+        SetPanelDefinition(Panel, 0);
         SplitPanelVertically(Panel, .5f, v2{0, 0}, v2{Context.WindowWidth, Context.WindowHeight}, &State->PanelLayout);
-        SetPanelDefinition(&Panel->Right->Panel, GlobalPanelDefs[1]);
+        SetPanelDefinition(&Panel->Right->Panel, 1);
     } // End Panels Playground
 }
 
@@ -557,14 +636,13 @@ PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHe
             }
         }
         
-        v2 TimelineMin = v2{0, 0};
-        v2 TimelineMax = v2{Context.WindowWidth, 125};
-        animation_block_handle NewSelection = DrawAnimationPanel(&State->AnimationSystem, 
-                                                                 TimelineMin, TimelineMax, 
-                                                                 State->SelectedAnimationBlockHandle, 
-                                                                 RenderBuffer, State->Interface, Mouse);
-        State->SelectedAnimationBlockHandle = NewSelection;
-        
+        DrawDebugInterface(RenderBuffer, 25,
+                           State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
+                           Context.DeltaTime, State, State->Camera, Mouse, &State->Transient);
+#endif
+    }
+
+
         for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
         {
             operation_mode OperationMode = State->Modes.ActiveModes[m];
@@ -574,11 +652,6 @@ PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHe
             }
         }
         
-        DrawDebugInterface(RenderBuffer, 25,
-                           State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
-                           Context.DeltaTime, State, State->Camera, Mouse, &State->Transient);
-#endif
-    }
     
     // Checking for overflows
     {

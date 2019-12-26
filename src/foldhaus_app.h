@@ -17,6 +17,7 @@
 
 typedef struct app_state app_state;
 
+
 #include "foldhaus_panel.h"
 
 #include "foldhaus_command_dispatch.h"
@@ -171,10 +172,27 @@ r32 GreenSize = 20.0f;
 #include "foldhaus_interface.cpp"
 #include "animation/foldhaus_animation_interface.h"
 
+#define PANEL_INIT_PROC(name) void name(panel* Panel)
+typedef PANEL_INIT_PROC(panel_init_proc);
+
+#define PANEL_CLEANUP_PROC(name) void name(panel* Panel)
+typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
+
+#define PANEL_RENDER_PROC(name) void name(panel Panel, v2 PanelMin, v2 PanelMax, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+typedef PANEL_RENDER_PROC(panel_render_proc);
+
+struct panel_definition
+{
+    char* PanelName;
+    s32 PanelNameLength;
+    panel_init_proc* Init;
+    panel_cleanup_proc* Cleanup;
+    panel_render_proc* Render;
+};
+
 #include "panels/foldhaus_panel_sculpture_view.h"
 #include "panels/foldhaus_panel_profiler.h"
 #include "panels/foldhaus_panel_dmx_view.h"
 #include "panels/foldhaus_panel_animation_timeline.h"
 
 #include "generated/foldhaus_panels_generated.h"
-#include "foldhaus_panel.cpp"
