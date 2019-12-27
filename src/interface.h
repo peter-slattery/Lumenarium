@@ -8,12 +8,14 @@ enum string_alignment
 internal void
 DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 MinY, codepoint_bitmap CodepointInfo, v4 Color)
 {
-    r32 MaxX = MinX + (CodepointInfo.Width);
-    r32 MaxY = MinY + (CodepointInfo.Height);
+    s32 AlignedMinX = (s32)(MinX);
+    s32 AlignedMinY = (s32)(MinY);
+s32 AlignedMaxX = AlignedMinX + (CodepointInfo.Width);
+    s32 AlignedMaxY = AlignedMinY + (CodepointInfo.Height);
     
     PushQuad2DOnBatch(BatchConstructor, 
-                      v2{MinX, MinY}, v2{MaxX, MinY}, 
-                      v2{MaxX, MaxY}, v2{MinX, MaxY},  
+                      v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY}, 
+                      v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},  
                       CodepointInfo.UVMin, CodepointInfo.UVMax, 
                       Color);
 }

@@ -21,7 +21,7 @@ v4 LineBGColors[] = {
     v4 LineBGHoverColor = { .22f, .22f, .22f, 1.f };
     
     r32 LineHeight = State->Interface.Font->PixelHeight + 8;
-    v2 LineMin = v2{PanelMin.x + State->Interface.Margin.x, PanelMax.y - LineHeight};
+    v2 LineMin = v2{PanelMin.x, PanelMax.y - LineHeight};
     v2 LineMax = LineMin + v2{PanelWidth, LineHeight};
     v2 TextOffset = v2{10, 4};
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);

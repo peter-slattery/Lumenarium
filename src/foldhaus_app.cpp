@@ -275,6 +275,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     { // MODES PLAYGROUND
         InitializeAnimationSystem(&State->AnimationSystem);
+        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         
         animation_block BlockZero = {0}; 
         BlockZero.StartTime = 0;
@@ -415,7 +416,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
         {
             State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
         }
-        
+    }
+
+s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.SecondsPerFrame);
+        if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
+        {
+            State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
+            r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
+            
         for (u32 i = 0; i < State->AnimationSystem.BlocksCount; i++)
         {
             animation_block_entry BlockEntry = State->AnimationSystem.Blocks[i];
@@ -425,11 +433,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 if (State->AnimationSystem.Time >= Block.StartTime
                     && State->AnimationSystem.Time <= Block.EndTime)
                 {
-                    Block.Proc(State, State->AnimationSystem.Time - Block.StartTime);
+                    Block.Proc(State, FrameTime  - Block.StartTime);
                 }
             }
+            }
         }
-    }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;

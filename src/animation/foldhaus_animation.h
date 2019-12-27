@@ -39,8 +39,12 @@ struct animation_system
     free_list FreeList;
 u32 BlocksCount;
     
-r32 Time;
-    b32 TimelineShouldAdvance;
+    r32 Time;
+    s32 LastUpdatedFrame;
+    r32 SecondsPerFrame;
+
+b32 TimelineShouldAdvance;
+
 // :Temporary
     r32 AnimationEnd;
 };
