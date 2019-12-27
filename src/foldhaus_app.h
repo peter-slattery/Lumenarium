@@ -74,51 +74,85 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 
 // BEGIN TEMPORARY PATTERNS
 internal void
-TestPatternOne(app_state* State, r32 Time)
+TestPatternOne(assembly* Assembly, r32 Time)
 {
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
         {
-            led LED = TestAssembly.LEDs[LEDIdx];
-            TestAssembly.Colors[LED.Index].R = 255;
-            TestAssembly.Colors[LED.Index].B = 255;
-            TestAssembly.Colors[LED.Index].G = 255;
+            led LED = Assembly->LEDs[LEDIdx];
+            Assembly->Colors[LED.Index].R = 255;
+            Assembly->Colors[LED.Index].B = 255;
+            Assembly->Colors[LED.Index].G = 255;
         }
-    }
+        }
 }
 
 internal void
-TestPatternTwo(app_state* State, r32 Time)
+TestPatternTwo(assembly* Assembly, r32 Time)
 {
-    if (Time > 2 * PI * 100) { Time = 0; }
-    r32 SinAdjusted = 0.5f + (GSSin(Time * 0.01f) * .5f);
-    u8 Brightness = (u8)(GSClamp01(SinAdjusted) * 255);
+    r32 PeriodicTime = (Time / PI) * 2;
+
+    r32 ZeroOneSin = (GSSin(PeriodicTime) * .5f) + .5f;
+r32 ZeroOneCos = (GSCos(PeriodicTime) * .5f) + .5f;
+    pixel Color = { (u8)(ZeroOneSin * 255), 0, (u8)(ZeroOneCos * 255) };
     
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    v4 Center = v4{0, 0, 0, 1};
+    r32 ThetaZ = Time / 2;
+    v4 Normal = v4{GSCos(ThetaZ), 0, GSSin(ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
+    v4 Right = Cross(Normal, v4{0, 1, 0, 0});
+    
+    v4 FrontCenter = Center + (Normal * 25);
+    v4 BackCenter = Center - (Normal * 25);
+    
+    r32 OuterRadiusSquared = 1000000;
+    r32 InnerRadiusSquared = 0;
+    
+for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+    leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
+for (s32 LEDIdx = LEDUniverseRange.RangeStart;
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
         {
-            led LED = TestAssembly.LEDs[LEDIdx];
-            TestAssembly.Colors[LED.Index].R = Brightness;
-            TestAssembly.Colors[LED.Index].B = 0;
-            TestAssembly.Colors[LED.Index].G = Brightness;
+            led LED = Assembly->LEDs[LEDIdx];
+
+        v4 Position = LED.Position;
+        
+        v4 ToFront = Position + FrontCenter;
+        v4 ToBack = Position + BackCenter;
+        
+        r32 ToFrontDotNormal = Dot(ToFront, Normal);
+        r32 ToBackDotNormal = Dot(ToBack, Normal);
+        
+        ToFrontDotNormal = GSClamp01(ToFrontDotNormal * 1000);
+        ToBackDotNormal = GSClamp01(ToBackDotNormal * 1000);
+        
+        r32 SqDistToCenter = MagSqr(Position);
+        if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
+        {
+            if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
+            {
+                    Assembly->Colors[LED.Index] = Color;
+                }
+                else
+                {
+                    Assembly->Colors[LED.Index] = {};
+                }
+        }
+else
+                {
+                    Assembly->Colors[LED.Index] = {};
+                }
         }
     }
 }
 
 internal void
-TestPatternThree(app_state* State, r32 Time)
+TestPatternThree(assembly* Assembly, r32 Time)
 {
 r32 GreenSize = 20.0f;
     r32 BlueSize = 25.0f;
@@ -128,16 +162,14 @@ r32 GreenSize = 20.0f;
     r32 BluePosition = -BlueSize + (Time * 25);
     r32 RedPosition = (100 + RedSize) + (Time * -35);
     
-    array_entry_handle TestAssemblyHandle = *GetElementAtIndex(0, State->ActiveAssemblyIndecies);
-    assembly TestAssembly = *GetElementWithHandle(TestAssemblyHandle, State->AssemblyList);
-    for (s32 Range = 0; Range < TestAssembly.LEDUniverseMapCount; Range++)
+    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
-        leds_in_universe_range LEDUniverseRange = TestAssembly.LEDUniverseMap[Range];
+        leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
         {
-            led LED = TestAssembly.LEDs[LEDIdx];
+            led LED = Assembly->LEDs[LEDIdx];
             u8 Red = 0;
             u8 Green = 0;
             u8 Blue = 0;
@@ -154,9 +186,9 @@ r32 GreenSize = 20.0f;
             r32 RedBrightness = GSClamp(0.0f, RedSize - RedDistance, RedSize) / RedSize;
             Red = (u8)(RedBrightness * 255);
             
-            TestAssembly.Colors[LED.Index].R = Red;
-            TestAssembly.Colors[LED.Index].B = Blue;
-            TestAssembly.Colors[LED.Index].G = Green;
+            Assembly->Colors[LED.Index].R = Red;
+            Assembly->Colors[LED.Index].B = Blue;
+            Assembly->Colors[LED.Index].G = Green;
         }
     }
 }

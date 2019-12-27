@@ -147,7 +147,6 @@ RemoveElementAtIndex (s32 Index, element_type##_array* Buffer) \
     Entry->Free.Next = Buffer->FreeList.Next; \
     Buffer->FreeList.Next = &Entry->Free; \
     \
-    --Buffer->Used; \
 } \
 
 // END OF CRAZY MACRO
@@ -183,9 +182,13 @@ GrowBuffer(element_type##_contiguous_array* Buffer) \
 \
 internal element_type* \
 GetElementAtIndex (s32 Index, element_type##_contiguous_array Buffer) \
-{ \
-    bucket_index BucketIndex = GetBucketIndexForIndex(Index, Buffer.BucketSize); \
-    element_type* Entry = Buffer.Buckets[BucketIndex.Bucket] + BucketIndex.IndexInBucket; \
+                   { \
+                       element_type* Entry = 0; \
+                       if (Index <= Buffer.Used) \
+                       { \
+bucket_index BucketIndex = GetBucketIndexForIndex(Index, Buffer.BucketSize); \
+                           Entry = Buffer.Buckets[BucketIndex.Bucket] + BucketIndex.IndexInBucket; \
+                       } \
     return Entry; \
 } \
 \

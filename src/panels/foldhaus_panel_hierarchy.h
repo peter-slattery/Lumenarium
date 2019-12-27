@@ -51,7 +51,7 @@ array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyI
             if (MouseButtonTransitionedUp(Mouse.LeftButtonState) 
                 && PointIsInRange(Mouse.Pos, XLowerLeft, LineMax))
             {
-                UnloadAssembly(i, State, Context);
+                UnloadAssembly(AssemblyHandle.Index, State, Context);
             }
         }
         else if (i == State->ActiveAssemblyIndecies.Used)

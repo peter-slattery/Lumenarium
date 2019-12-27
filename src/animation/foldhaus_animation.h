@@ -5,7 +5,7 @@
 // [] - will need a way to create an empty layer
 // [] - get a list of all animation procs
 
-#define ANIMATION_PROC(name) void name(app_state* State, r32 Time)
+#define ANIMATION_PROC(name) void name(assembly* Assembly, r32 Time)
 typedef ANIMATION_PROC(animation_proc);
 
 struct animation_block
@@ -46,7 +46,8 @@ u32 BlocksCount;
 b32 TimelineShouldAdvance;
 
 // :Temporary
-    r32 AnimationEnd;
+    r32 AnimationStart;
+r32 AnimationEnd;
 };
 
 internal b32 

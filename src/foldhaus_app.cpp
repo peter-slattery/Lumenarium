@@ -275,27 +275,22 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     { // MODES PLAYGROUND
         InitializeAnimationSystem(&State->AnimationSystem);
-        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        
-        animation_block BlockZero = {0}; 
-        BlockZero.StartTime = 0;
-        BlockZero.EndTime = 2;
-        BlockZero.Proc = TestPatternOne;
-        AddAnimationBlock(BlockZero, &State->AnimationSystem);
+State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         
         animation_block BlockOne = {0}; 
-        BlockOne.StartTime = 3;
-        BlockOne.EndTime = 5;
+        BlockOne.StartTime = 0;
+        BlockOne.EndTime = 8;
         BlockOne.Proc = TestPatternTwo;
         AddAnimationBlock(BlockOne, &State->AnimationSystem);
         
         animation_block BlockTwo = {0};
-        BlockTwo.StartTime = 5;
-        BlockTwo.EndTime = 8;
+        BlockTwo.StartTime = 8;
+        BlockTwo.EndTime = 15;
         BlockTwo.Proc = TestPatternThree;
         AddAnimationBlock(BlockTwo, &State->AnimationSystem);
         
-        State->AnimationSystem.AnimationEnd = 10;
+        State->AnimationSystem.AnimationStart = 0;
+        State->AnimationSystem.AnimationEnd = 15;
     } // End Animation Playground
     
     
@@ -303,8 +298,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
         InitializePanelLayout(&State->PanelLayout);
 panel* Panel = TakeNewPanel(&State->PanelLayout);
         SetPanelDefinition(Panel, 0);
-        SplitPanelVertically(Panel, .5f, v2{0, 0}, v2{Context.WindowWidth, Context.WindowHeight}, &State->PanelLayout);
-        SetPanelDefinition(&Panel->Right->Panel, 1);
     } // End Panels Playground
 }
 
@@ -365,10 +358,11 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
         leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
         
         dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-        NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
+NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
         NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
         NewBuffer->Buffer.TotalSize = BufferSize;
         NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
+        NewBuffer->Next = 0;
         
         // Append
         if (!Result) { 
@@ -433,7 +427,12 @@ s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.Se
                 if (State->AnimationSystem.Time >= Block.StartTime
                     && State->AnimationSystem.Time <= Block.EndTime)
                 {
-                    Block.Proc(State, FrameTime  - Block.StartTime);
+                    for (s32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
+                    {
+                        array_entry_handle* AssemblyHandle = GetElementAtIndex(j, State->ActiveAssemblyIndecies);
+                        assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
+                        Block.Proc(Assembly, FrameTime  - Block.StartTime);
+                    }
                 }
             }
             }
@@ -441,12 +440,17 @@ s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.Se
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
+    if (State->ActiveAssemblyIndecies.Used > 1)
+    {
+        s32 f = 4;
+    }
+    
     for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-        assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(Assembly, HeaderSize, &State->Transient);
-        DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
+        array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
+        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
+            DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
     
     DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
@@ -566,9 +570,10 @@ PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHe
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
         AssertAllocationsNoOverflow(State->Permanent);
-        for (s32 i = 0; i < State->AssemblyList.Used; i++)
+        for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
         {
-            assembly* Assembly = GetElementAtIndex(i, State->AssemblyList);
+            array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+            assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
             AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }
