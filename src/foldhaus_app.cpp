@@ -11,79 +11,6 @@ SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPan
     GlobalPanelDefs[NewPanelDefinitionIndex].Init(Panel);
 }
 
-
-internal void
-DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBounds, interface_config Interface, mouse_state Mouse)
-{
-    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
-    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
-    
-    v2 PanelSelectButtonMin = FooterBounds.Min + v2{30, 1};
-    v2 PanelSelectButtonMax = PanelSelectButtonMin + v2{100, 23};
-    
-    if (Panel->PanelSelectionMenuOpen)
-    {
-        v2 ButtonDimension = v2{100, 25};
-        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterBounds.Max.y};
-        
-        v2 MenuMin = ButtonMin;
-        v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
-            && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
-        {
-            Panel->PanelSelectionMenuOpen = false;
-        }
-        
-        
-        for (s32 i = 0; i < GlobalPanelDefsCount; i++)
-        {
-            panel_definition Def = GlobalPanelDefs[i];
-            string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-            button_result DefinitionButton = EvaluateButton(RenderBuffer,
-                                                            ButtonMin, ButtonMin + ButtonDimension,
-                                                            DefName, Interface, Mouse);
-            if (DefinitionButton.Pressed)
-            {
-                SetPanelDefinition(Panel, i);
-                Panel->PanelSelectionMenuOpen = false;
-            }
-            
-            ButtonMin.y += ButtonDimension.y;
-        }
-    }
-    
-    button_result ButtonResult = EvaluateButton(RenderBuffer,
-                                                PanelSelectButtonMin, 
-                                                PanelSelectButtonMax,
-                                                MakeStringLiteral("Select"), Interface, Mouse);
-    if (ButtonResult.Pressed)
-    {
-        Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
-    }
-    
-}
-
-internal void
-RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
-{
-    Assert(Panel->PanelDefinitionIndex >= 0);
-    
-    rect FooterBounds = rect{
-        PanelBounds.Min,
-        v2{PanelBounds.Max.x, PanelBounds.Min.y + 25},
-    };
-    rect PanelViewBounds = rect{
-        v2{PanelBounds.Min.x, FooterBounds.Max.y},
-        PanelBounds.Max,
-    };
-    
-    panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
-    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context, Mouse);
-    
-    PushRenderOrthographic(RenderBuffer, WindowBounds.Min.x, WindowBounds.Min.y, WindowBounds.Max.x, WindowBounds.Max.y);
-    DrawPanelFooter(Panel, RenderBuffer, FooterBounds, State->Interface, Mouse);
-}
-
 internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
 {
@@ -297,42 +224,46 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
 {
     DEBUG_TRACK_FUNCTION;
     
-    input_command_registry ActiveCommands = {};
-    if (State->Modes.ActiveModesCount > 0)
+    b32 PanelSystemHandledInput = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
+    if (!PanelSystemHandledInput)
     {
-        ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
-    }
-    else
-    {
-        panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
-        if (!PanelWithMouseOverIt.Panel) { return; }
-        
-        panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
-        if (!PanelDefinition.InputCommands) { return; }
-        
-        ActiveCommands.Commands = PanelDefinition.InputCommands;
-        ActiveCommands.Size = sizeof(*PanelDefinition.InputCommands) / sizeof(PanelDefinition.InputCommands[0]);
-        ActiveCommands.Used = ActiveCommands.Size;
-    }
-    
-    for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
-    {
-        input_entry Event = InputQueue.Entries[EventIdx];
-        
-        // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
-        // Down and Up over Held. In other words, we don't want to call a Held command on the 
-        // frame when the button was released, even if the command is registered to both events
-        if (KeyTransitionedDown(Event))
+        input_command_registry ActiveCommands = {};
+        if (State->Modes.ActiveModesCount > 0)
         {
-            FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+            ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
         }
-        else if (KeyTransitionedUp(Event))
+        else
         {
-            FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+            panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
+            if (!PanelWithMouseOverIt.Panel) { return; }
+            
+            panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
+            if (!PanelDefinition.InputCommands) { return; }
+            
+            ActiveCommands.Commands = PanelDefinition.InputCommands;
+            ActiveCommands.Size = sizeof(*PanelDefinition.InputCommands) / sizeof(PanelDefinition.InputCommands[0]);
+            ActiveCommands.Used = ActiveCommands.Size;
         }
-        else if (KeyHeldDown(Event))
+        
+        for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
-            FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
+            input_entry Event = InputQueue.Entries[EventIdx];
+            
+            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
+            // Down and Up over Held. In other words, we don't want to call a Held command on the 
+            // frame when the button was released, even if the command is registered to both events
+            if (KeyTransitionedDown(Event))
+            {
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+            }
+            else if (KeyTransitionedUp(Event))
+            {
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+            }
+            else if (KeyHeldDown(Event))
+            {
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
+            }
         }
     }
     
@@ -392,152 +323,6 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
     }
     
     return Result;
-}
-
-#define PANEL_EDGE_CLICK_MAX_DISTANCE 6
-
-internal void
-HandleMousePanelInteractionOrRecurse(panel* Panel, rect PanelBounds, panel_system* PanelLayout, mouse_state Mouse)
-{
-    // TODO(Peter): Need a way to calculate this button's position more systemically
-    if (Panel->SplitDirection == PanelSplit_NoSplit 
-        && PointIsInRange(Mouse.DownPos, PanelBounds.Min, PanelBounds.Min + v2{25, 25}))
-    {
-        r32 XDistance = GSAbs(Mouse.Pos.x - Mouse.DownPos.x);
-        r32 YDistance = GSAbs(Mouse.Pos.y - Mouse.DownPos.y);
-        
-        if (XDistance > YDistance)
-        {
-            r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Width(PanelBounds);
-            SplitPanelVertically(Panel, XPercent, PanelBounds, PanelLayout);
-        }
-        else
-        {
-            r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Height(PanelBounds);
-            SplitPanelHorizontally(Panel, YPercent, PanelBounds, PanelLayout);
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
-    {
-        r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent);
-        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.y - SplitY);
-        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
-        {
-            r32 NewSplitY = Mouse.Pos.y;
-            if (NewSplitY <= PanelBounds.Min.y)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Top, PanelLayout);
-            }
-            else if (NewSplitY >= PanelBounds.Max.y)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, PanelLayout);
-            }
-            else
-            {
-                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Height(PanelBounds);
-            }
-        }
-        else
-        {
-            rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-            rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-            HandleMousePanelInteractionOrRecurse(&Panel->Bottom->Panel, BottomPanelBounds, PanelLayout, Mouse);
-            HandleMousePanelInteractionOrRecurse(&Panel->Top->Panel, TopPanelBounds, PanelLayout, Mouse);
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent);
-        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.x - SplitX);
-        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
-        {
-            r32 NewSplitX = Mouse.Pos.x;
-            if (NewSplitX <= PanelBounds.Min.x)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Right, PanelLayout);
-            }
-            else if (NewSplitX >= PanelBounds.Max.x)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Left, PanelLayout);
-            }
-            else
-            {
-                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Width(PanelBounds); 
-            }
-        }
-        else
-        {
-            rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-            rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-            HandleMousePanelInteractionOrRecurse(&Panel->Left->Panel, LeftPanelBounds, PanelLayout, Mouse);
-            HandleMousePanelInteractionOrRecurse(&Panel->Right->Panel, RightPanelBounds, PanelLayout, Mouse);
-        }
-    }
-}
-
-internal void
-HandleMousePanelInteraction(panel_system* PanelSystem, rect WindowBounds,mouse_state Mouse)
-{
-    if (MouseButtonTransitionedUp(Mouse.LeftButtonState))
-    {
-        Assert(PanelSystem->PanelsUsed > 0);
-        panel* FirstPanel = &PanelSystem->Panels[0].Panel;
-        HandleMousePanelInteractionOrRecurse(FirstPanel, WindowBounds, PanelSystem, Mouse);
-    }
-}
-
-internal void
-DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mouse, render_command_buffer* RenderBuffer)
-{
-    r32 MouseLeftEdgeDistance = GSAbs(Mouse.Pos.x - PanelMin.x);
-    r32 MouseRightEdgeDistance = GSAbs(Mouse.Pos.x - PanelMax.x);
-    r32 MouseTopEdgeDistance = GSAbs(Mouse.Pos.y - PanelMax.y);
-    r32 MouseBottomEdgeDistance = GSAbs(Mouse.Pos.y - PanelMin.y);
-    
-    PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
-    v4 HighlightColor = v4{.3f, .3f, .3f, 1.f};
-    r32 HighlightThickness = 1;
-    if (MouseLeftEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
-    {
-        v2 LeftEdgeMin = PanelMin;
-        v2 LeftEdgeMax = v2{PanelMin.x + HighlightThickness, PanelMax.y};
-        PushRenderQuad2D(RenderBuffer, LeftEdgeMin, LeftEdgeMax, HighlightColor);
-    }
-    else if (MouseRightEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
-    {
-        v2 RightEdgeMin = v2{PanelMax.x - HighlightThickness, PanelMin.y};
-        v2 RightEdgeMax = PanelMax;
-        PushRenderQuad2D(RenderBuffer, RightEdgeMin, RightEdgeMax, HighlightColor);
-    }
-    else if (MouseTopEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
-    {
-        v2 TopEdgeMin = v2{PanelMin.x, PanelMax.y - HighlightThickness};
-        v2 TopEdgeMax = PanelMax;
-        PushRenderQuad2D(RenderBuffer, TopEdgeMin, TopEdgeMax, HighlightColor);
-    }
-    else if (MouseBottomEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
-    {
-        v2 BottomEdgeMin = PanelMin;
-        v2 BottomEdgeMax = v2{PanelMax.x, PanelMin.y + HighlightThickness};
-        PushRenderQuad2D(RenderBuffer, BottomEdgeMin, BottomEdgeMax, HighlightColor);
-    }
-}
-
-internal void
-DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state Mouse, app_state* State, context Context)
-{
-    for (u32 i = 0; i < PanelLayout.PanelsCount; i++)
-    {
-        panel_with_layout PanelWithLayout = PanelLayout.Panels[i];
-        panel* Panel = PanelWithLayout.Panel;
-        rect PanelBounds = PanelWithLayout.Bounds;
-        
-        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, Mouse);
-        v4 BorderColor = v4{0, 0, 0, 1};
-        
-        PushRenderOrthographic(RenderBuffer, State->WindowBounds.Min.x, State->WindowBounds.Min.y, State->WindowBounds.Max.x, State->WindowBounds.Max.y);
-        DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, Mouse, RenderBuffer);
-    }
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -631,8 +416,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     PushRenderOrthographic(RenderBuffer, 0, 0, Width(State->WindowBounds), Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
-    
-    HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse);
     
     panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
     DrawAllPanels(PanelsToRender, RenderBuffer, Mouse, State, Context);

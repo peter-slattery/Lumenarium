@@ -198,8 +198,6 @@ TestPatternThree(assembly* Assembly, r32 Time)
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"
 
-#include "foldhaus_interface.cpp"
-
 #define PANEL_INIT_PROC(name) void name(panel* Panel)
 typedef PANEL_INIT_PROC(panel_init_proc);
 
@@ -216,3 +214,5 @@ typedef PANEL_RENDER_PROC(panel_render_proc);
 #include "panels/foldhaus_panel_hierarchy.h"
 
 #include "generated/foldhaus_panels_generated.h"
+
+#include "foldhaus_interface.cpp"

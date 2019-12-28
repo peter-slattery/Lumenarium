@@ -72,7 +72,7 @@ DeactivateCurrentOperationMode (operation_mode_system* System)
 (stateType*)CreateOperationState_(mode, modeSystem, sizeof(stateType))
 
 #define GetCurrentOperationState(modeSystem, stateType) \
-(stateType*)State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].OpStateMemory;
+(stateType*)(modeSystem).ActiveModes[(modeSystem).ActiveModesCount - 1].OpStateMemory;
 
 
 internal u8*
