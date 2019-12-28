@@ -134,6 +134,17 @@ FreePanelEntry(panel_entry* Entry, panel_system* PanelSystem)
 }
 
 internal void
+FreePanelEntryRecursive(panel_entry* Entry, panel_system* PanelSystem)
+{
+    if (Entry->Panel.SplitDirection != PanelSplit_NoSplit)
+    {
+        FreePanelEntryRecursive(Entry->Panel.Left, PanelSystem);
+        FreePanelEntryRecursive(Entry->Panel.Right, PanelSystem);
+    }
+    FreePanelEntry(Entry, PanelSystem);
+}
+
+internal void
 FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
 {
     Assert(Index > 0 && Index < (s32)PanelSystem->PanelsUsed);
@@ -182,11 +193,12 @@ ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_sys
     panel_entry* LeftChild = Parent->Left;
     panel_entry* RightChild = Parent->Right;
     
-    *Parent = PanelEntryToKeep->Panel;
-    Parent->SplitDirection = PanelSplit_NoSplit;
+    panel_entry* PanelEntryToDestroy = PanelEntryToKeep == LeftChild ? RightChild : LeftChild;
     
-    FreePanelEntry(LeftChild, PanelSystem);
-    FreePanelEntry(RightChild, PanelSystem);
+    *Parent = PanelEntryToKeep->Panel;
+    
+    FreePanelEntry(PanelEntryToKeep, PanelSystem);
+    FreePanelEntryRecursive(PanelEntryToDestroy, PanelSystem);
 }
 
 internal void

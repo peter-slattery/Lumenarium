@@ -370,6 +370,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = KeyState_IsDown & ~KeyState_WasDown;
+            Mouse->DownPos = Mouse->Pos;
         }break;
         
         case WM_LBUTTONUP:

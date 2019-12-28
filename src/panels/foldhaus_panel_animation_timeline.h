@@ -5,7 +5,6 @@
 // [x] - play, pause, stop, 
 // [] - setting the start and end of the animation system
 // [] - displaying multiple layers
-// [] - 
 
 inline r32
 GetTimeFromPointInAnimationPanel(v2 Point, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
