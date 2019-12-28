@@ -110,13 +110,13 @@ RenderProfiler_ListVisualization(render_command_buffer* RenderBuffer,
 PANEL_RENDER_PROC(ProfilerView_Render)
 {
     memory_arena* Memory = &State->Transient;
-string String = InitializeEmptyString(PushArray(Memory, char, 256), 256);
+    string String = InitializeEmptyString(PushArray(Memory, char, 256), 256);
     
     v4 FrameColors[] = { GreenV4, YellowV4, RedV4, WhiteV4 };
     
     r32 FrameListHeight = 64;
-    v2 FrameListMin = v2{PanelMin.x + 16, PanelMax.y - (16 + FrameListHeight)};
-    v2 FrameListMax = v2{PanelMax.x - 16, PanelMax.y - 16};
+    v2 FrameListMin = v2{PanelBounds.Min.x + 16, PanelBounds.Max.y - (16 + FrameListHeight)};
+    v2 FrameListMax = v2{PanelBounds.Max.x - 16, PanelBounds.Max.y - 16};
     
     r32 FrameListPadding = 4;
     r32 FrameListInnerWidth = (FrameListMax.x - FrameListMin.x) - (FrameListPadding * 2);
@@ -181,7 +181,7 @@ string String = InitializeEmptyString(PushArray(Memory, char, 256), 256);
     if (ActivateScopeView.Pressed) { GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER; }
     if (ActivateListView.Pressed) { GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST; }
     
-    v2 ViewModeMin = v2{FrameListMin.x, PanelMin.y};
+    v2 ViewModeMin = v2{FrameListMin.x, PanelBounds.Min.y};
     v2 ViewModeMax = v2{FrameListMax.x, FrameListMin.y - 96};
     
     if (GlobalDebugServices->Interface.FrameView == FRAME_VIEW_PROFILER)

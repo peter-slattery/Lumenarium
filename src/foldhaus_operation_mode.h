@@ -1,5 +1,7 @@
 typedef struct operation_mode operation_mode;
 
+#define OPERATION_STATE_DEF(name) struct name
+
 #define OPERATION_RENDER_PROC(name) void name(app_state* State, render_command_buffer* RenderBuffer, operation_mode Operation,  mouse_state Mouse)
 typedef OPERATION_RENDER_PROC(operation_render_proc);
 
@@ -23,8 +25,10 @@ struct operation_mode_system
 };
 
 internal operation_mode*
-ActivateOperationMode (operation_mode_system* System)
+ActivateOperationMode (operation_mode_system* System, operation_render_proc* RenderProc)
 {
+    operation_mode* Result = 0;
+    
     Assert(System->ActiveModesCount < OPERATION_MODES_MAX);
     s32 ModeIndex = System->ActiveModesCount++;
     
@@ -33,16 +37,18 @@ ActivateOperationMode (operation_mode_system* System)
     operation_mode NewMode = {};
     System->ActiveModes[ModeIndex] = NewMode;
     
-    return &System->ActiveModes[ModeIndex];
+    Result = &System->ActiveModes[ModeIndex];
+    Result->Render = RenderProc;
+    return Result;
 }
 
-#define ActivateOperationModeWithCommands(sys, cmds) \
-ActivateOperationModeWithCommands_(sys, cmds, (s32)(sizeof(cmds) / sizeof(cmds[0])));
+#define ActivateOperationModeWithCommands(sys, cmds, render) \
+ActivateOperationModeWithCommands_(sys, cmds, (s32)(sizeof(cmds) / sizeof(cmds[0])), render);
 
 internal operation_mode*
-ActivateOperationModeWithCommands_(operation_mode_system* System, input_command* Commands, s32 CommandsCount)
+ActivateOperationModeWithCommands_(operation_mode_system* System, input_command* Commands, s32 CommandsCount, operation_render_proc* RenderProc)
 {
-    operation_mode* NewMode = ActivateOperationMode(System);
+    operation_mode* NewMode = ActivateOperationMode(System, RenderProc);
     
     InitializeInputCommandRegistry(&NewMode->Commands, CommandsCount, &System->Arena);
     for (s32 i = 0; i < CommandsCount; i++)

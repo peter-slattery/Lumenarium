@@ -70,13 +70,15 @@ RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 WindowMax, 
     
     v2 FooterMin = PanelMin;
     v2 FooterMax = v2{PanelMax.x, PanelMin.y + 25};
-    v2 PanelViewMin = v2{PanelMin.x, FooterMax.y};
-    v2 PanelViewMax = PanelMax;
+    rect PanelBounds = rect{
+        v2{PanelMin.x, FooterMax.y},
+        PanelMax,
+    };
     
     panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
     
     
-    Definition.Render(*Panel, PanelMin, PanelMax, RenderBuffer, State, Context, Mouse);
+    Definition.Render(*Panel, PanelBounds, RenderBuffer, State, Context, Mouse);
     
     PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
     DrawPanelFooter(Panel, RenderBuffer, FooterMin, FooterMax, State->Interface, Mouse);

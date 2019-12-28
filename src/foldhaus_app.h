@@ -206,7 +206,7 @@ typedef PANEL_INIT_PROC(panel_init_proc);
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
-#define PANEL_RENDER_PROC(name) void name(panel Panel, v2 PanelMin, v2 PanelMax, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+#define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 
 #include "panels/foldhaus_panel_sculpture_view.h"

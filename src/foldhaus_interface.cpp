@@ -117,8 +117,7 @@ input_command UniverseViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
 {
-    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommands);
-    UniverseViewMode->Render = RenderUniverseView;
+    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommands, RenderUniverseView);
     
     // State Setup
     universe_view_operation_state* OpState = CreateOperationState(UniverseViewMode, 

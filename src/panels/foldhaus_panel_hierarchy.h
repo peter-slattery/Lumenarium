@@ -10,18 +10,18 @@ PANEL_CLEANUP_PROC(HierarchyView_Cleanup)
 
 PANEL_RENDER_PROC(HierarchyView_Render)
 {
-    r32 PanelWidth = PanelMax.x - PanelMin.x;
-    r32 PanelHeight = PanelMax.y - PanelMin.y;
+    r32 PanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
+    r32 PanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
     
     s32 LineBGColorsCount = 2;
-v4 LineBGColors[] = {
+    v4 LineBGColors[] = {
         { .16f, .16f, .16f, 1.f },
         { .18f, .18f, .18f, 1.f },
     };
     v4 LineBGHoverColor = { .22f, .22f, .22f, 1.f };
     
     r32 LineHeight = State->Interface.Font->PixelHeight + 8;
-    v2 LineMin = v2{PanelMin.x, PanelMax.y - LineHeight};
+    v2 LineMin = v2{PanelBounds.Min.x, PanelBounds.Max.y - LineHeight};
     v2 LineMax = LineMin + v2{PanelWidth, LineHeight};
     v2 TextOffset = v2{10, 4};
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
@@ -34,13 +34,13 @@ v4 LineBGColors[] = {
         {
             Color = LineBGHoverColor;
         }
-PushRenderQuad2D(RenderBuffer, LineMin, LineMax, Color);
+        PushRenderQuad2D(RenderBuffer, LineMin, LineMax, Color);
         if (i < State->ActiveAssemblyIndecies.Used)
         {
-array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-        assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
-        PrintF(&TempString, "%S", Assembly.Name);
-        
+            array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+            assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
+            PrintF(&TempString, "%S", Assembly.Name);
+            
             DrawString(RenderBuffer, TempString, State->Interface.Font, LineMin + TextOffset, WhiteV4);
             
             PrintF(&TempString, "X");
@@ -71,8 +71,8 @@ array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyI
                 }
             }
         }
-
-        LineMin.y = GSMax(PanelMin.y, LineMin.y - LineHeight);
-        LineMax.y = GSMax(PanelMin.y, LineMax.y - LineHeight);
+        
+        LineMin.y = GSMax(PanelBounds.Min.y, LineMin.y - LineHeight);
+        LineMax.y = GSMax(PanelBounds.Min.y, LineMax.y - LineHeight);
     }
 }

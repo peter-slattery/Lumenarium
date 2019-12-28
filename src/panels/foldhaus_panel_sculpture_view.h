@@ -1,7 +1,7 @@
 
 // 3D Mouse View
 
-struct mouse_rotate_view_operation_state
+OPERATION_STATE_DEF(mouse_rotate_view_operation_state)
 {
     v4 CameraStartPos;
 };
@@ -30,9 +30,7 @@ input_command MouseRotateViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
 {
-    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands);
-    RotateViewMode->Render = Update3DViewMouseRotate;
-    
+    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands, Update3DViewMouseRotate);
     mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,
                                                                       &State->Modes,
                                                                       mouse_rotate_view_operation_state);
@@ -122,8 +120,8 @@ PANEL_RENDER_PROC(SculptureView_Render)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
     
-    r32 PanelWidth = PanelMax.x - PanelMin.x;
-    r32 PanelHeight = PanelMax.y - PanelMin.y;
+    r32 PanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
+    r32 PanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
     State->Camera.AspectRatio = PanelWidth / PanelHeight;
     
     m44 ModelViewMatrix = GetCameraModelViewMatrix(State->Camera);
@@ -131,7 +129,7 @@ PANEL_RENDER_PROC(SculptureView_Render)
     
     r32 LEDHalfWidth = .5f;
     
-    PushRenderPerspective(RenderBuffer, PanelMin.x, PanelMin.y, PanelWidth, PanelHeight, State->Camera);
+    PushRenderPerspective(RenderBuffer, PanelBounds.Min.x, PanelBounds.Min.y, PanelWidth, PanelHeight, State->Camera);
     
     // TODO(Peter): Pretty sure this isn't working right now
     m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
