@@ -6,7 +6,7 @@ Creation Date: 2019-12-26
 
 Usage:
 Include this file in ONE file in your project. 
-Define both RenderPanel and SetPanelDefinitionExternal
+Define SetPanelDefinitionExternal
 
 */
 
@@ -56,7 +56,7 @@ struct panel_entry
 };
 
 #define PANELS_MAX 16
-struct panel_layout
+struct panel_system
 {
     panel_entry Panels[PANELS_MAX];
     u32 PanelsUsed;
@@ -64,9 +64,23 @@ struct panel_layout
     panel_entry FreeList;
 };
 
-internal void SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPanelDefinitionIndex);
-internal void RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 WindowMax, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse);
+// NOTE(Peter): This representation is used to let external code render and interact
+// with panels. It shouldn't be stored across frame boundaries  as the pointers to 
+// Panel's are liable to change. 
+struct panel_with_layout
+{
+    panel* Panel;
+    rect Bounds;
+};
 
+struct panel_layout
+{
+    panel_with_layout* Panels;
+    u32 PanelsCount;
+    u32 PanelsMax;
+};
+
+internal void SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPanelDefinitionIndex);
 
 /////////////////////////////////
 //
@@ -75,33 +89,33 @@ internal void RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, 
 /////////////////////////////////
 
 internal void
-InitializePanelLayout(panel_layout* Layout)
+InitializePanelSystem(panel_system* PanelSystem)
 {
-    Layout->FreeList.Free.Next = &Layout->FreeList;
+    PanelSystem->FreeList.Free.Next = &PanelSystem->FreeList;
 }
 
 internal panel_entry*
-TakeNewPanelEntry(panel_layout* Layout)
+TakeNewPanelEntry(panel_system* PanelSystem)
 {
     panel_entry* FreeEntry = 0;
-    if (Layout->FreeList.Free.Next != &Layout->FreeList)
+    if (PanelSystem->FreeList.Free.Next != &PanelSystem->FreeList)
     {
-        FreeEntry = Layout->FreeList.Free.Next;
-        Layout->FreeList.Free.Next = FreeEntry->Free.Next;
+        FreeEntry = PanelSystem->FreeList.Free.Next;
+        PanelSystem->FreeList.Free.Next = FreeEntry->Free.Next;
     }
     else
     {
-        Assert(Layout->PanelsUsed < PANELS_MAX);
-        FreeEntry = Layout->Panels + Layout->PanelsUsed++;
+        Assert(PanelSystem->PanelsUsed < PANELS_MAX);
+        FreeEntry = PanelSystem->Panels + PanelSystem->PanelsUsed++;
     }
     return FreeEntry;
 }
 
 internal panel*
-TakeNewPanel(panel_layout* Layout)
+TakeNewPanel(panel_system* PanelSystem)
 {
     panel* Result = 0;
-    panel_entry* FreeEntry = TakeNewPanelEntry(Layout);
+    panel_entry* FreeEntry = TakeNewPanelEntry(PanelSystem);
     Result = &FreeEntry->Panel;
     
     *Result = {0};
@@ -111,25 +125,25 @@ TakeNewPanel(panel_layout* Layout)
 }
 
 internal void
-FreePanelEntry(panel_entry* Entry, panel_layout* Layout)
+FreePanelEntry(panel_entry* Entry, panel_system* PanelSystem)
 {
-    Assert(Entry >= Layout->Panels && Entry <= Layout->Panels + PANELS_MAX);
+    Assert(Entry >= PanelSystem->Panels && Entry <= PanelSystem->Panels + PANELS_MAX);
     Entry->Panel = {0};
-    Entry->Free.Next = Layout->FreeList.Free.Next;
-    Layout->FreeList.Free.Next = Entry;
+    Entry->Free.Next = PanelSystem->FreeList.Free.Next;
+    PanelSystem->FreeList.Free.Next = Entry;
 }
 
 internal void
-FreePanelAtIndex(s32 Index, panel_layout* Layout)
+FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
 {
-    Assert(Index > 0 && Index < (s32)Layout->PanelsUsed);
-    panel_entry* EntryToFree = Layout->Panels + Index;
-    EntryToFree->Free.Next = Layout->FreeList.Free.Next;
-    Layout->FreeList.Free.Next = EntryToFree;
+    Assert(Index > 0 && Index < (s32)PanelSystem->PanelsUsed);
+    panel_entry* EntryToFree = PanelSystem->Panels + Index;
+    EntryToFree->Free.Next = PanelSystem->FreeList.Free.Next;
+    PanelSystem->FreeList.Free.Next = EntryToFree;
 }
 
 internal void
-SplitPanelVertically(panel* Parent, r32 Percent, rect ParentBounds, panel_layout* Layout)
+SplitPanelVertically(panel* Parent, r32 Percent, rect ParentBounds, panel_system* PanelSystem)
 {
     r32 SplitX = GSLerp(ParentBounds.Min.x, ParentBounds.Max.x, Percent);
     if (SplitX > ParentBounds.Min.x && SplitX < ParentBounds.Max.x)
@@ -137,16 +151,16 @@ SplitPanelVertically(panel* Parent, r32 Percent, rect ParentBounds, panel_layout
         Parent->SplitDirection = PanelSplit_Vertical;
         Parent->SplitPercent = Percent;
         
-        Parent->Left = TakeNewPanelEntry(Layout);
+        Parent->Left = TakeNewPanelEntry(PanelSystem);
         Parent->Left->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
         
-        Parent->Right = TakeNewPanelEntry(Layout);
+        Parent->Right = TakeNewPanelEntry(PanelSystem);
         Parent->Right->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
     }
 }
 
 internal void
-SplitPanelHorizontally(panel* Parent, r32 Percent, rect ParentBounds, panel_layout* Layout)
+SplitPanelHorizontally(panel* Parent, r32 Percent, rect ParentBounds, panel_system* PanelSystem)
 {
     r32 SplitY = GSLerp(ParentBounds.Min.y, ParentBounds.Max.y, Percent);
     if (SplitY > ParentBounds.Min.y && SplitY < ParentBounds.Max.y)
@@ -154,16 +168,16 @@ SplitPanelHorizontally(panel* Parent, r32 Percent, rect ParentBounds, panel_layo
         Parent->SplitDirection = PanelSplit_Horizontal;
         Parent->SplitPercent = Percent;
         
-        Parent->Bottom = TakeNewPanelEntry(Layout);
+        Parent->Bottom = TakeNewPanelEntry(PanelSystem);
         Parent->Bottom->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
         
-        Parent->Top = TakeNewPanelEntry(Layout);
+        Parent->Top = TakeNewPanelEntry(PanelSystem);
         Parent->Top->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
     }
 }
 
 internal void
-ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_layout* Layout)
+ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_system* PanelSystem)
 {
     panel_entry* LeftChild = Parent->Left;
     panel_entry* RightChild = Parent->Right;
@@ -171,8 +185,8 @@ ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_lay
     *Parent = PanelEntryToKeep->Panel;
     Parent->SplitDirection = PanelSplit_NoSplit;
     
-    FreePanelEntry(LeftChild, Layout);
-    FreePanelEntry(RightChild, Layout);
+    FreePanelEntry(LeftChild, PanelSystem);
+    FreePanelEntry(RightChild, PanelSystem);
 }
 
 internal void
@@ -237,6 +251,43 @@ GetLeftPanelBounds(panel* Panel, rect PanelBounds)
     return Result;
 }
 
+internal void
+LayoutPanel(panel* Panel, rect PanelBounds, panel_layout* Layout)
+{
+    if (Panel->SplitDirection == PanelSplit_NoSplit)
+    {
+        panel_with_layout* WithLayout = Layout->Panels + Layout->PanelsCount++;
+        WithLayout->Panel = Panel;
+        WithLayout->Bounds = PanelBounds;
+    }
+    else if (Panel->SplitDirection == PanelSplit_Horizontal)
+    {
+        rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
+        rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+        LayoutPanel(&Panel->Top->Panel, TopPanelBounds, Layout);
+        LayoutPanel(&Panel->Bottom->Panel, BottomPanelBounds, Layout);
+    }
+    else if (Panel->SplitDirection == PanelSplit_Vertical)
+    {
+        rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
+        rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+        LayoutPanel(&Panel->Left->Panel, LeftPanelBounds, Layout);
+        LayoutPanel(&Panel->Right->Panel, RightPanelBounds, Layout);
+    }
+}
+
+internal panel_layout
+GetPanelLayout(panel_system* System, rect WindowBounds, memory_arena* Storage)
+{
+    panel_layout Result = {};
+    Result.PanelsMax = System->PanelsUsed;
+    Result.Panels = PushArray(Storage, panel_with_layout, Result.PanelsMax);
+    
+    LayoutPanel(&System->Panels[0].Panel, WindowBounds, &Result);
+    
+    return Result;
+}
+
 struct panel_and_bounds
 {
     panel* Panel;
@@ -286,156 +337,12 @@ GetPanelContainingPoint(v2 Point, panel* Panel, rect PanelBounds)
 }
 
 internal panel_and_bounds
-GetPanelContainingPoint(v2 Point, panel_layout* Layout, rect WindowBounds)
+GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect WindowBounds)
 {
     panel_and_bounds Result = {0};
-    if (Layout->PanelsUsed > 0)
+    if (PanelSystem->PanelsUsed > 0)
     {
-        Result = GetPanelContainingPoint(Point, &Layout->Panels[0].Panel, WindowBounds);
+        Result = GetPanelContainingPoint(Point, &PanelSystem->Panels[0].Panel, WindowBounds);
     }
     return Result;
-}
-
-internal void
-HandleMousePanelInteractionOrRecurse(panel* Panel, rect PanelBounds, panel_layout* PanelLayout, mouse_state Mouse)
-{
-    r32 PanelEdgeClickMaxDistance = 4;
-    
-    // TODO(Peter): Need a way to calculate this button's position more systemically
-    if (Panel->SplitDirection == PanelSplit_NoSplit 
-        && PointIsInRange(Mouse.DownPos, PanelBounds.Min, PanelBounds.Min + v2{25, 25}))
-    {
-        r32 XDistance = GSAbs(Mouse.Pos.x - Mouse.DownPos.x);
-        r32 YDistance = GSAbs(Mouse.Pos.y - Mouse.DownPos.y);
-        
-        if (XDistance > YDistance)
-        {
-            r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Width(PanelBounds);
-            SplitPanelVertically(Panel, XPercent, PanelBounds, PanelLayout);
-        }
-        else
-        {
-            r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Height(PanelBounds);
-            SplitPanelHorizontally(Panel, YPercent, PanelBounds, PanelLayout);
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
-    {
-        r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent);
-        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.y - SplitY);
-        if (ClickDistanceFromSplit < PanelEdgeClickMaxDistance)
-        {
-            r32 NewSplitY = Mouse.Pos.y;
-            if (NewSplitY <= PanelBounds.Min.y)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Top, PanelLayout);
-            }
-            else if (NewSplitY >= PanelBounds.Max.y)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, PanelLayout);
-            }
-            else
-            {
-                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Height(PanelBounds);
-            }
-        }
-        else
-        {
-            rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-            rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-            HandleMousePanelInteractionOrRecurse(&Panel->Bottom->Panel, BottomPanelBounds, PanelLayout, Mouse);
-            HandleMousePanelInteractionOrRecurse(&Panel->Top->Panel, TopPanelBounds, PanelLayout, Mouse);
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent);
-        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.x - SplitX);
-        if (ClickDistanceFromSplit < PanelEdgeClickMaxDistance)
-        {
-            r32 NewSplitX = Mouse.Pos.x;
-            if (NewSplitX <= PanelBounds.Min.x)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Right, PanelLayout);
-            }
-            else if (NewSplitX >= PanelBounds.Max.x)
-            {
-                ConsolidatePanelsKeepOne(Panel, Panel->Left, PanelLayout);
-            }
-            else
-            {
-                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Width(PanelBounds); 
-            }
-        }
-        else
-        {
-            rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-            rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-            HandleMousePanelInteractionOrRecurse(&Panel->Left->Panel, LeftPanelBounds, PanelLayout, Mouse);
-            HandleMousePanelInteractionOrRecurse(&Panel->Right->Panel, RightPanelBounds, PanelLayout, Mouse);
-        }
-    }
-}
-
-internal void
-HandleMousePanelInteraction(panel_layout* PanelLayout, rect WindowBounds, mouse_state Mouse)
-{
-    r32 PanelEdgeClickMaxDistance = 4;
-    
-    if (MouseButtonTransitionedUp(Mouse.LeftButtonState))
-    {
-        Assert(PanelLayout->PanelsUsed > 0);
-        panel* FirstPanel = &PanelLayout->Panels[0].Panel;
-        HandleMousePanelInteractionOrRecurse(FirstPanel, WindowBounds, PanelLayout, Mouse);
-    }
-}
-
-internal void
-DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, render_command_buffer* RenderBuffer)
-{
-    PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
-}
-
-internal void
-DrawPanelOrRecurse(panel* Panel, rect PanelBounds, rect WindowRect, render_command_buffer* RenderBuffer, interface_config Interface, mouse_state Mouse, app_state* State, context Context)
-{
-    if (Panel->SplitDirection == PanelSplit_NoSplit)
-    {
-        RenderPanel(Panel, PanelBounds.Min, PanelBounds.Max, WindowRect.Min, WindowRect.Max, RenderBuffer, State, Context, Mouse);
-        v4 BorderColor = v4{0, 0, 0, 1};
-        
-#if 0
-        if (PointIsInRange(Mouse.Pos, PanelMin, PanelMax))
-        {
-            BorderColor = v4{1, 0, 1, 1};
-        }
-#endif
-        
-        PushRenderOrthographic(RenderBuffer, WindowRect.Min.x, WindowRect.Min.y, WindowRect.Max.x, WindowRect.Max.y);
-        DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, RenderBuffer);
-    }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
-    {
-        rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-        rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-        
-        DrawPanelOrRecurse(&Panel->Bottom->Panel, BottomPanelBounds, WindowRect, RenderBuffer, Interface, Mouse, State, Context);
-        DrawPanelOrRecurse(&Panel->Top->Panel, TopPanelBounds, WindowRect, RenderBuffer, Interface, Mouse, State, Context);
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-        rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-        
-        DrawPanelOrRecurse(&Panel->Left->Panel, LeftPanelBounds, WindowRect, RenderBuffer, Interface, Mouse, State, Context);
-        DrawPanelOrRecurse(&Panel->Right->Panel, RightPanelBounds, WindowRect, RenderBuffer, Interface, Mouse, State, Context);
-    }
-}
-
-internal void
-DrawAllPanels(panel_layout* PanelLayout, rect WindowBounds, render_command_buffer* RenderBuffer, interface_config Interface, mouse_state Mouse, app_state* State, context Context)
-{
-    Assert(PanelLayout->PanelsUsed > 0);
-    panel* FirstPanel = &PanelLayout->Panels[0].Panel;
-    DrawPanelOrRecurse(FirstPanel, WindowBounds, WindowBounds, RenderBuffer, Interface, Mouse, State, Context);
 }

@@ -78,7 +78,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 {
     drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
     
-    panel_and_bounds AnimationPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelLayout, State->WindowBounds);
+    panel_and_bounds AnimationPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
     Assert(AnimationPanel.Panel);
     
     s32 ClipInitialStartTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialStartTime, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
@@ -136,7 +136,7 @@ SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelSt
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
-    panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelLayout, State->WindowBounds);
+    panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
     r32 MouseDownPositionPercent = (Mouse.Pos.x - ActivePanel.Bounds.Min.x) / Width(ActivePanel.Bounds);
     r32 NewBlockTimeStart = MouseDownPositionPercent * State->AnimationSystem.AnimationEnd;
 #define NEW_BLOCK_DURATION 1

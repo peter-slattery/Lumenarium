@@ -14,12 +14,12 @@
 #include "assembly_parser.cpp"
 #include "test_patterns.h"
 
-typedef struct app_state app_state;
-
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
 // perform operations on, like panel_draw_requests = { bounds, panel* } etc.
 #include "foldhaus_panel.h"
+
+typedef struct app_state app_state;
 
 #include "foldhaus_command_dispatch.h"
 #include "foldhaus_operation_mode.h"
@@ -66,7 +66,7 @@ struct app_state
     animation_system AnimationSystem;
     animation_block_handle SelectedAnimationBlockHandle;
     
-    panel_layout PanelLayout;
+    panel_system PanelSystem;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);

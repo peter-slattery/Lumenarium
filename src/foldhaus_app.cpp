@@ -13,18 +13,18 @@ SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPan
 
 
 internal void
-DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, v2 FooterMin, v2 FooterMax, interface_config Interface, mouse_state Mouse)
+DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBounds, interface_config Interface, mouse_state Mouse)
 {
-    PushRenderQuad2D(RenderBuffer, FooterMin, v2{FooterMax.x, FooterMin.y + 25}, v4{.5f, .5f, .5f, 1.f});
-    PushRenderQuad2D(RenderBuffer, FooterMin, FooterMin + v2{25, 25}, WhiteV4);
+    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
+    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
     
-    v2 PanelSelectButtonMin = FooterMin + v2{30, 1};
+    v2 PanelSelectButtonMin = FooterBounds.Min + v2{30, 1};
     v2 PanelSelectButtonMax = PanelSelectButtonMin + v2{100, 23};
     
     if (Panel->PanelSelectionMenuOpen)
     {
         v2 ButtonDimension = v2{100, 25};
-        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterMax.y};
+        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterBounds.Max.y};
         
         v2 MenuMin = ButtonMin;
         v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
@@ -64,24 +64,24 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, v2 FooterMin,
 }
 
 internal void
-RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 WindowMax, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     Assert(Panel->PanelDefinitionIndex >= 0);
     
-    v2 FooterMin = PanelMin;
-    v2 FooterMax = v2{PanelMax.x, PanelMin.y + 25};
-    rect PanelBounds = rect{
-        v2{PanelMin.x, FooterMax.y},
-        PanelMax,
+    rect FooterBounds = rect{
+        PanelBounds.Min,
+        v2{PanelBounds.Max.x, PanelBounds.Min.y + 25},
+    };
+    rect PanelViewBounds = rect{
+        v2{PanelBounds.Min.x, FooterBounds.Max.y},
+        PanelBounds.Max,
     };
     
     panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
+    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context, Mouse);
     
-    
-    Definition.Render(*Panel, PanelBounds, RenderBuffer, State, Context, Mouse);
-    
-    PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
-    DrawPanelFooter(Panel, RenderBuffer, FooterMin, FooterMax, State->Interface, Mouse);
+    PushRenderOrthographic(RenderBuffer, WindowBounds.Min.x, WindowBounds.Min.y, WindowBounds.Max.x, WindowBounds.Max.y);
+    DrawPanelFooter(Panel, RenderBuffer, FooterBounds, State->Interface, Mouse);
 }
 
 internal v4
@@ -287,8 +287,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     } // End Animation Playground
     
     
-    InitializePanelLayout(&State->PanelLayout);
-    panel* Panel = TakeNewPanel(&State->PanelLayout);
+    InitializePanelSystem(&State->PanelSystem);
+    panel* Panel = TakeNewPanel(&State->PanelSystem);
     SetPanelDefinition(Panel, 0);
 }
 
@@ -304,7 +304,7 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
     }
     else
     {
-        panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelLayout, WindowBounds);
+        panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
         if (!PanelWithMouseOverIt.Panel) { return; }
         
         panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
@@ -394,6 +394,152 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
     return Result;
 }
 
+#define PANEL_EDGE_CLICK_MAX_DISTANCE 6
+
+internal void
+HandleMousePanelInteractionOrRecurse(panel* Panel, rect PanelBounds, panel_system* PanelLayout, mouse_state Mouse)
+{
+    // TODO(Peter): Need a way to calculate this button's position more systemically
+    if (Panel->SplitDirection == PanelSplit_NoSplit 
+        && PointIsInRange(Mouse.DownPos, PanelBounds.Min, PanelBounds.Min + v2{25, 25}))
+    {
+        r32 XDistance = GSAbs(Mouse.Pos.x - Mouse.DownPos.x);
+        r32 YDistance = GSAbs(Mouse.Pos.y - Mouse.DownPos.y);
+        
+        if (XDistance > YDistance)
+        {
+            r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Width(PanelBounds);
+            SplitPanelVertically(Panel, XPercent, PanelBounds, PanelLayout);
+        }
+        else
+        {
+            r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Height(PanelBounds);
+            SplitPanelHorizontally(Panel, YPercent, PanelBounds, PanelLayout);
+        }
+    }
+    else if (Panel->SplitDirection == PanelSplit_Horizontal)
+    {
+        r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent);
+        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.y - SplitY);
+        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
+        {
+            r32 NewSplitY = Mouse.Pos.y;
+            if (NewSplitY <= PanelBounds.Min.y)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Top, PanelLayout);
+            }
+            else if (NewSplitY >= PanelBounds.Max.y)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, PanelLayout);
+            }
+            else
+            {
+                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Height(PanelBounds);
+            }
+        }
+        else
+        {
+            rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
+            rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+            HandleMousePanelInteractionOrRecurse(&Panel->Bottom->Panel, BottomPanelBounds, PanelLayout, Mouse);
+            HandleMousePanelInteractionOrRecurse(&Panel->Top->Panel, TopPanelBounds, PanelLayout, Mouse);
+        }
+    }
+    else if (Panel->SplitDirection == PanelSplit_Vertical)
+    {
+        r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent);
+        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.x - SplitX);
+        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
+        {
+            r32 NewSplitX = Mouse.Pos.x;
+            if (NewSplitX <= PanelBounds.Min.x)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Right, PanelLayout);
+            }
+            else if (NewSplitX >= PanelBounds.Max.x)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Left, PanelLayout);
+            }
+            else
+            {
+                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Width(PanelBounds); 
+            }
+        }
+        else
+        {
+            rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
+            rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+            HandleMousePanelInteractionOrRecurse(&Panel->Left->Panel, LeftPanelBounds, PanelLayout, Mouse);
+            HandleMousePanelInteractionOrRecurse(&Panel->Right->Panel, RightPanelBounds, PanelLayout, Mouse);
+        }
+    }
+}
+
+internal void
+HandleMousePanelInteraction(panel_system* PanelSystem, rect WindowBounds,mouse_state Mouse)
+{
+    if (MouseButtonTransitionedUp(Mouse.LeftButtonState))
+    {
+        Assert(PanelSystem->PanelsUsed > 0);
+        panel* FirstPanel = &PanelSystem->Panels[0].Panel;
+        HandleMousePanelInteractionOrRecurse(FirstPanel, WindowBounds, PanelSystem, Mouse);
+    }
+}
+
+internal void
+DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mouse, render_command_buffer* RenderBuffer)
+{
+    r32 MouseLeftEdgeDistance = GSAbs(Mouse.Pos.x - PanelMin.x);
+    r32 MouseRightEdgeDistance = GSAbs(Mouse.Pos.x - PanelMax.x);
+    r32 MouseTopEdgeDistance = GSAbs(Mouse.Pos.y - PanelMax.y);
+    r32 MouseBottomEdgeDistance = GSAbs(Mouse.Pos.y - PanelMin.y);
+    
+    PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
+    v4 HighlightColor = v4{.3f, .3f, .3f, 1.f};
+    r32 HighlightThickness = 1;
+    if (MouseLeftEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 LeftEdgeMin = PanelMin;
+        v2 LeftEdgeMax = v2{PanelMin.x + HighlightThickness, PanelMax.y};
+        PushRenderQuad2D(RenderBuffer, LeftEdgeMin, LeftEdgeMax, HighlightColor);
+    }
+    else if (MouseRightEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 RightEdgeMin = v2{PanelMax.x - HighlightThickness, PanelMin.y};
+        v2 RightEdgeMax = PanelMax;
+        PushRenderQuad2D(RenderBuffer, RightEdgeMin, RightEdgeMax, HighlightColor);
+    }
+    else if (MouseTopEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 TopEdgeMin = v2{PanelMin.x, PanelMax.y - HighlightThickness};
+        v2 TopEdgeMax = PanelMax;
+        PushRenderQuad2D(RenderBuffer, TopEdgeMin, TopEdgeMax, HighlightColor);
+    }
+    else if (MouseBottomEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 BottomEdgeMin = PanelMin;
+        v2 BottomEdgeMax = v2{PanelMax.x, PanelMin.y + HighlightThickness};
+        PushRenderQuad2D(RenderBuffer, BottomEdgeMin, BottomEdgeMax, HighlightColor);
+    }
+}
+
+internal void
+DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state Mouse, app_state* State, context Context)
+{
+    for (u32 i = 0; i < PanelLayout.PanelsCount; i++)
+    {
+        panel_with_layout PanelWithLayout = PanelLayout.Panels[i];
+        panel* Panel = PanelWithLayout.Panel;
+        rect PanelBounds = PanelWithLayout.Bounds;
+        
+        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, Mouse);
+        v4 BorderColor = v4{0, 0, 0, 1};
+        
+        PushRenderOrthographic(RenderBuffer, State->WindowBounds.Min.x, State->WindowBounds.Min.y, State->WindowBounds.Max.x, State->WindowBounds.Max.y);
+        DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, Mouse, RenderBuffer);
+    }
+}
+
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -444,11 +590,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
-    if (State->ActiveAssemblyIndecies.Used > 1)
-    {
-        s32 f = 4;
-    }
-    
     for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
         array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
@@ -490,9 +631,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     PushRenderOrthographic(RenderBuffer, 0, 0, Width(State->WindowBounds), Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
-    HandleMousePanelInteraction(&State->PanelLayout, State->WindowBounds, Mouse);
     
-    DrawAllPanels(&State->PanelLayout, State->WindowBounds, RenderBuffer, State->Interface, Mouse, State, Context);
+    HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse);
+    
+    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
+    DrawAllPanels(PanelsToRender, RenderBuffer, Mouse, State, Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
     {
