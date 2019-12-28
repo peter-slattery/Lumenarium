@@ -13,15 +13,15 @@
 #include "foldhaus_node.h"
 #include "assembly_parser.cpp"
 #include "test_patterns.h"
-#include "foldhaus_interface.h"
 
 typedef struct app_state app_state;
 
-
+// TODO(Peter): something we can do later is to remove all reliance on app_state and context
+// from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
+// perform operations on, like panel_draw_requests = { bounds, panel* } etc.
 #include "foldhaus_panel.h"
 
 #include "foldhaus_command_dispatch.h"
-#include "foldhaus_command_dispatch.cpp"
 #include "foldhaus_operation_mode.h"
 
 #include "animation/foldhaus_animation.h"
@@ -40,16 +40,17 @@ enum network_protocol
 
 struct app_state
 {
+    rect WindowBounds;
+    
     memory_arena Permanent; 
     memory_arena Transient;
     
-s32 NetworkProtocolHeaderSize;
+    s32 NetworkProtocolHeaderSize;
     network_protocol NetworkProtocol;
     
     streaming_acn SACN;
     
     s32 TotalLEDsCount;
-    
     assembly_array AssemblyList;
     array_entry_handle_contiguous_array ActiveAssemblyIndecies;
     
@@ -57,11 +58,9 @@ s32 NetworkProtocolHeaderSize;
     r32 PixelsToWorldScale;
     
     operation_mode_system Modes;
-    input_command_registry DefaultInputCommandRegistry;
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
     
-    bitmap_font* Font;
     interface_config Interface;
     
     animation_system AnimationSystem;
@@ -88,16 +87,16 @@ TestPatternOne(assembly* Assembly, r32 Time)
             Assembly->Colors[LED.Index].B = 255;
             Assembly->Colors[LED.Index].G = 255;
         }
-        }
+    }
 }
 
 internal void
 TestPatternTwo(assembly* Assembly, r32 Time)
 {
     r32 PeriodicTime = (Time / PI) * 2;
-
+    
     r32 ZeroOneSin = (GSSin(PeriodicTime) * .5f) + .5f;
-r32 ZeroOneCos = (GSCos(PeriodicTime) * .5f) + .5f;
+    r32 ZeroOneCos = (GSCos(PeriodicTime) * .5f) + .5f;
     pixel Color = { (u8)(ZeroOneSin * 255), 0, (u8)(ZeroOneCos * 255) };
     
     v4 Center = v4{0, 0, 0, 1};
@@ -111,42 +110,42 @@ r32 ZeroOneCos = (GSCos(PeriodicTime) * .5f) + .5f;
     r32 OuterRadiusSquared = 1000000;
     r32 InnerRadiusSquared = 0;
     
-for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
+    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
-    leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
-for (s32 LEDIdx = LEDUniverseRange.RangeStart;
+        leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
+        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
         {
             led LED = Assembly->LEDs[LEDIdx];
-
-        v4 Position = LED.Position;
-        
-        v4 ToFront = Position + FrontCenter;
-        v4 ToBack = Position + BackCenter;
-        
-        r32 ToFrontDotNormal = Dot(ToFront, Normal);
-        r32 ToBackDotNormal = Dot(ToBack, Normal);
-        
-        ToFrontDotNormal = GSClamp01(ToFrontDotNormal * 1000);
-        ToBackDotNormal = GSClamp01(ToBackDotNormal * 1000);
-        
-        r32 SqDistToCenter = MagSqr(Position);
-        if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
-        {
-            if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
+            
+            v4 Position = LED.Position;
+            
+            v4 ToFront = Position + FrontCenter;
+            v4 ToBack = Position + BackCenter;
+            
+            r32 ToFrontDotNormal = Dot(ToFront, Normal);
+            r32 ToBackDotNormal = Dot(ToBack, Normal);
+            
+            ToFrontDotNormal = GSClamp01(ToFrontDotNormal * 1000);
+            ToBackDotNormal = GSClamp01(ToBackDotNormal * 1000);
+            
+            r32 SqDistToCenter = MagSqr(Position);
+            if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
             {
+                if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
+                {
                     Assembly->Colors[LED.Index] = Color;
                 }
                 else
                 {
                     Assembly->Colors[LED.Index] = {};
                 }
-        }
-else
-                {
-                    Assembly->Colors[LED.Index] = {};
-                }
+            }
+            else
+            {
+                Assembly->Colors[LED.Index] = {};
+            }
         }
     }
 }
@@ -154,10 +153,10 @@ else
 internal void
 TestPatternThree(assembly* Assembly, r32 Time)
 {
-r32 GreenSize = 20.0f;
+    r32 GreenSize = 20.0f;
     r32 BlueSize = 25.0f;
     r32 RedSize = 25.0f;
-
+    
     r32 GreenPosition = -GreenSize + (Time * 45);
     r32 BluePosition = -BlueSize + (Time * 25);
     r32 RedPosition = (100 + RedSize) + (Time * -35);
@@ -196,13 +195,10 @@ r32 GreenSize = 20.0f;
 
 #include "foldhaus_assembly.cpp"
 
-#include "foldhaus_debug_visuals.h"
-//#include "foldhaus_sacn_view.cpp"
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"
 
 #include "foldhaus_interface.cpp"
-#include "animation/foldhaus_animation_interface.h"
 
 #define PANEL_INIT_PROC(name) void name(panel* Panel)
 typedef PANEL_INIT_PROC(panel_init_proc);

@@ -1,3 +1,46 @@
+
+// 3D Mouse View
+
+struct mouse_rotate_view_operation_state
+{
+    v4 CameraStartPos;
+};
+
+OPERATION_RENDER_PROC(Update3DViewMouseRotate)
+{
+    mouse_rotate_view_operation_state* OpState = (mouse_rotate_view_operation_state*)Operation.OpStateMemory;
+    
+    v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
+    
+    m44 XRotation = GetXRotation(-TotalDeltaPos.y * State->PixelsToWorldScale);
+    m44 YRotation = GetYRotation(TotalDeltaPos.x * State->PixelsToWorldScale);
+    m44 Combined = XRotation * YRotation;
+    
+    State->Camera.Position = V3(Combined * OpState->CameraStartPos);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(End3DViewMouseRotate)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command MouseRotateViewCommands [] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, End3DViewMouseRotate},
+};
+
+FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
+{
+    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands);
+    RotateViewMode->Render = Update3DViewMouseRotate;
+    
+    mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,
+                                                                      &State->Modes,
+                                                                      mouse_rotate_view_operation_state);
+    OpState->CameraStartPos = V4(State->Camera.Position, 1);
+}
+
+// ----------------
+
 input_command SculptureView_Commands[] = {
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, Begin3DViewMouseRotate },
 };
@@ -79,7 +122,7 @@ PANEL_RENDER_PROC(SculptureView_Render)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
     
-r32 PanelWidth = PanelMax.x - PanelMin.x;
+    r32 PanelWidth = PanelMax.x - PanelMin.x;
     r32 PanelHeight = PanelMax.y - PanelMin.y;
     State->Camera.AspectRatio = PanelWidth / PanelHeight;
     

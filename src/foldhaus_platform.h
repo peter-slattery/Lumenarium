@@ -122,8 +122,7 @@ struct context
     u32 MemorySize;
     
     b32 WindowIsVisible;
-    r32 WindowWidth;
-    r32 WindowHeight;
+    rect WindowBounds;
     r32 DeltaTime;
     
     // Application Services

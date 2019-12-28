@@ -7,6 +7,62 @@
 // [] - displaying multiple layers
 // [] - 
 
+internal void
+DeleteAnimationBlock(animation_block_handle AnimationBlockHandle, app_state* State)
+{
+    RemoveAnimationBlock(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
+    State->SelectedAnimationBlockHandle = {0};
+}
+
+internal void
+SelectAnimationBlock(animation_block_handle BlockHandle, app_state* State)
+{
+    State->SelectedAnimationBlockHandle = BlockHandle;
+}
+
+internal void
+SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, app_state* State)
+{
+    SelectAnimationBlock(BlockHandle, State);
+    // TODO(Peter): Begin Dragging Mode
+}
+
+internal void
+DeselectCurrentAnimationBlock(app_state* State)
+{
+    State->SelectedAnimationBlockHandle = {};
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
+{
+    if (AnimationBlockHandleIsValid(State->SelectedAnimationBlockHandle))
+    {
+        DeleteAnimationBlock(State->SelectedAnimationBlockHandle, State);
+    }
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
+{
+    panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelLayout, State->WindowBounds);
+    r32 MouseDownPositionPercent = (Mouse.Pos.x - ActivePanel.Bounds.Min.x) / Width(ActivePanel.Bounds);
+    r32 NewBlockTimeStart = MouseDownPositionPercent * State->AnimationSystem.AnimationEnd;
+#define NEW_BLOCK_DURATION 1
+    r32 NewBlockTimeEnd = NewBlockTimeStart + NEW_BLOCK_DURATION;
+    
+    animation_block Block = {0};
+    Block.StartTime = NewBlockTimeStart;
+    Block.EndTime = NewBlockTimeEnd;
+    Block.Proc = TestPatternThree;
+    
+    animation_block_handle NewBlockHandle = AddAnimationBlock(Block, &State->AnimationSystem);
+    SelectAnimationBlock(NewBlockHandle, State);
+}
+
+input_command AnimationTimeline_Commands[] = {
+    { KeyCode_X, KeyCode_Invalid, Command_Began, DeleteAnimationBlockCommand },
+    { KeyCode_A, KeyCode_Invalid, Command_Began, AddAnimationBlockCommand },
+};
+
 PANEL_INIT_PROC(AnimationTimeline_Init)
 {
     
@@ -139,15 +195,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
             && MouseButtonTransitionedDown(Mouse.LeftButtonState))
         {
             MouseDownAndNotHandled = false;
-            if (AnimationBlockHandlesAreEqual(SelectedBlockHandle, CurrentBlockHandle))
-            {
-                // If the block is already selected, deselect it.
-                Result = {0};
-            }
-            else
-            {
-                Result = CurrentBlockHandle;
-            }
+            SelectAndBeginDragAnimationBlock(CurrentBlockHandle, State);
         }
     }
     
@@ -171,18 +219,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     
     if (MouseDownAndNotHandled && PointIsInRange(Mouse.Pos, TimelineMin, TimelineMax))
     {
-        r32 MouseDownPositionPercent = (Mouse.Pos.x - PanelMin.x) / AnimationPanelWidth;
-        r32 NewBlockTimeStart = MouseDownPositionPercent * AnimationSystem->AnimationEnd;
-#define NEW_BLOCK_DURATION 1
-        r32 NewBlockTimeEnd = NewBlockTimeStart + NEW_BLOCK_DURATION;
-        
-        animation_block Block = {0};
-        Block.StartTime = NewBlockTimeStart;
-        Block.EndTime = NewBlockTimeEnd;
-        Block.Proc = TestPatternThree;
-        
-        animation_block_handle NewBlockHandle = AddAnimationBlock(Block, AnimationSystem);
-        Result = NewBlockHandle;
+        DeselectCurrentAnimationBlock(State);
     }
     return Result;
 }
@@ -245,6 +282,4 @@ PANEL_RENDER_PROC(AnimationTimeline_Render)
         State->AnimationSystem.TimelineShouldAdvance = false;
         State->AnimationSystem.Time = 0;
     }
-    
-    State->SelectedAnimationBlockHandle = SelectedBlockHandle;
 }

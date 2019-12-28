@@ -1,7 +1,12 @@
 TODO FOLDHAUS
 
-YOU WERE IN THE MIDDLE OF
+Animation Timeline
+- click to drag time marker
+- drag ends of animation clips to change start and end times
+- 
 
+Reimplement Node View
+- probably want to take a fresh pass at nodes all together
 
 Assembly -> SACN interface
 x you need to rebuild the map from leds -> universes
@@ -89,16 +94,13 @@ Resource Management
 - Icons
 
 Animation
-- timeline
-- create clips that play
+x timeline
+x create clips that play
 - clips can have parameters that drive them?
 - clips should have prerequesites
 -  - channels active
 -  - patterns active in the channel
 -  - when a clip is playing, it should just take over the whole structure
-
-Command Line
-- select a channel/pattern
 
 Optimization
 - investigate the memory access pattern of the SACN / LED systems. Guessing they are very slow

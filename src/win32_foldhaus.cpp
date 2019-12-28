@@ -488,11 +488,11 @@ Win32GetThreadId()
 
 int WINAPI
 WinMain (
-HINSTANCE HInstance,
-HINSTANCE HPrevInstance,
-PSTR CmdLineArgs,
-INT NCmdShow
-)
+         HINSTANCE HInstance,
+         HINSTANCE HPrevInstance,
+         PSTR CmdLineArgs,
+         INT NCmdShow
+         )
 {
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
@@ -560,15 +560,14 @@ INT NCmdShow
     context Context = {};
     Context.MemorySize = InitialMemorySize;
     Context.MemoryBase = InitialMemory;
-    Context.WindowWidth = MainWindow.Width;
-    Context.WindowHeight = MainWindow.Height;
+    Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
     
     // Platform functions
     Context.GeneralWorkQueue = &WorkQueue;
     Context.PlatformAlloc = Win32Alloc;
     Context.PlatformFree = Win32Free;
     Context.PlatformRealloc = Win32Realloc;
-Context.PlatformReadEntireFile = Win32ReadEntireFile;
+    Context.PlatformReadEntireFile = Win32ReadEntireFile;
     Context.PlatformWriteEntireFile = Win32WriteEntireFile;
     Context.PlatformGetFilePath = Win32SystemDialogueOpenFile;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
@@ -634,11 +633,7 @@ Context.PlatformReadEntireFile = Win32ReadEntireFile;
             HandleWindowMessage(Message, &MainWindow, &InputQueue, &Mouse);
         }
         
-        // TODO(Peter): We shouldn't need to do this translation. the platform layer knows about win32_windows. We should just make that the interface
-        // to all windows.
-        // TODO(Peter): Decide which we want to use, context or renderbuffer. Should only be one
-        Context.WindowWidth = MainWindow.Width;
-        Context.WindowHeight = MainWindow.Height;
+        Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
         RenderBuffer.ViewWidth = MainWindow.Width;
         RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;

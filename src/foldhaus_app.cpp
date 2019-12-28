@@ -30,12 +30,12 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, v2 FooterMin,
         v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
             && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
-    {
-        Panel->PanelSelectionMenuOpen = false;
-    }
-
-
-for (s32 i = 0; i < GlobalPanelDefsCount; i++)
+        {
+            Panel->PanelSelectionMenuOpen = false;
+        }
+        
+        
+        for (s32 i = 0; i < GlobalPanelDefsCount; i++)
         {
             panel_definition Def = GlobalPanelDefs[i];
             string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
@@ -51,10 +51,10 @@ for (s32 i = 0; i < GlobalPanelDefsCount; i++)
             ButtonMin.y += ButtonDimension.y;
         }
     }
-
-button_result ButtonResult = EvaluateButton(RenderBuffer,
+    
+    button_result ButtonResult = EvaluateButton(RenderBuffer,
                                                 PanelSelectButtonMin, 
-PanelSelectButtonMax,
+                                                PanelSelectButtonMax,
                                                 MakeStringLiteral("Select"), Interface, Mouse);
     if (ButtonResult.Pressed)
     {
@@ -68,26 +68,26 @@ RenderPanel(panel* Panel, v2 PanelMin, v2 PanelMax, v2 WindowMin, v2 WindowMax, 
 {
     Assert(Panel->PanelDefinitionIndex >= 0);
     
-v2 FooterMin = PanelMin;
-        v2 FooterMax = v2{PanelMax.x, PanelMin.y + 25};
+    v2 FooterMin = PanelMin;
+    v2 FooterMax = v2{PanelMax.x, PanelMin.y + 25};
     v2 PanelViewMin = v2{PanelMin.x, FooterMax.y};
-        v2 PanelViewMax = PanelMax;
-        
-panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
+    v2 PanelViewMax = PanelMax;
     
-
-Definition.Render(*Panel, PanelMin, PanelMax, RenderBuffer, State, Context, Mouse);
+    panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
     
-PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
-DrawPanelFooter(Panel, RenderBuffer, FooterMin, FooterMax, State->Interface, Mouse);
+    
+    Definition.Render(*Panel, PanelMin, PanelMax, RenderBuffer, State, Context, Mouse);
+    
+    PushRenderOrthographic(RenderBuffer, WindowMin.x, WindowMin.y, WindowMax.x, WindowMax.y);
+    DrawPanelFooter(Panel, RenderBuffer, FooterMin, FooterMax, State->Interface, Mouse);
 }
 
 internal v4
-MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, r32 WindowWidth, r32 WindowHeight)
+MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
 {
     DEBUG_TRACK_SCOPE(MouseToWorldRay);
-    r32 X = ((2.0f * MouseX) / WindowWidth) - 1;
-    r32 Y = ((2.0f * MouseY) / WindowHeight) - 1;
+    r32 X = ((2.0f * MouseX) / Width(WindowBounds)) - 1;
+    r32 Y = ((2.0f * MouseY) / Height(WindowBounds)) - 1;
     
     v4 ScreenPos = v4{X, Y, -1, 1};
     
@@ -147,12 +147,6 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     GlobalDebugServices = DebugServices;
     GSAlloc = Alloc;
     GSFree = Free;
-    
-    if (State->DefaultInputCommandRegistry.Size > 0)
-    {
-        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_U, Command_Began, KeyCode_Invalid, OpenUniverseView);
-        RegisterKeyPressCommand(&State->DefaultInputCommandRegistry, KeyCode_X, Command_Ended, KeyCode_Invalid, DeleteAnimationBlock);
-    }
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -164,8 +158,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Transient = {};
     State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
-    
-    InitializeInputCommandRegistry(&State->DefaultInputCommandRegistry, 32, &State->Permanent);
     
     s32 CommandQueueSize = 32;
     command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent, 
@@ -223,7 +215,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
             }
             
             State->Interface.Font = Font;
-            State->Font = Font;
             
             Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
                                                                             Font->BitmapWidth, Font->BitmapHeight);
@@ -246,7 +237,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
     
     State->Camera.FieldOfView = DegreesToRadians(45.0f);
-    State->Camera.AspectRatio = (r32)Context.WindowWidth / (r32)Context.WindowHeight;
+    State->Camera.AspectRatio = AspectRatio(State->WindowBounds);
     State->Camera.Near = 1.0f;
     State->Camera.Far = 100.0f;
     State->Camera.Position = v3{0, 0, -250};
@@ -273,9 +264,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
     
-    { // MODES PLAYGROUND
+    { // Animation PLAYGROUND
         InitializeAnimationSystem(&State->AnimationSystem);
-State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
+        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         
         animation_block BlockOne = {0}; 
         BlockOne.StartTime = 0;
@@ -294,22 +285,32 @@ State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
     } // End Animation Playground
     
     
-    { // Panels Playground
-        InitializePanelLayout(&State->PanelLayout);
-panel* Panel = TakeNewPanel(&State->PanelLayout);
-        SetPanelDefinition(Panel, 0);
-    } // End Panels Playground
+    InitializePanelLayout(&State->PanelLayout);
+    panel* Panel = TakeNewPanel(&State->PanelLayout);
+    SetPanelDefinition(Panel, 0);
 }
 
 internal void
-HandleInput (app_state* State, input_queue InputQueue, mouse_state Mouse)
+HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_state Mouse)
 {
     DEBUG_TRACK_FUNCTION;
     
-    input_command_registry ActiveCommands = State->DefaultInputCommandRegistry;
+    input_command_registry ActiveCommands = {};
     if (State->Modes.ActiveModesCount > 0)
     {
         ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
+    }
+    else
+    {
+        panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelLayout, WindowBounds);
+        if (!PanelWithMouseOverIt.Panel) { return; }
+        
+        panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
+        if (!PanelDefinition.InputCommands) { return; }
+        
+        ActiveCommands.Commands = PanelDefinition.InputCommands;
+        ActiveCommands.Size = sizeof(*PanelDefinition.InputCommands) / sizeof(PanelDefinition.InputCommands[0]);
+        ActiveCommands.Used = ActiveCommands.Size;
     }
     
     for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
@@ -358,7 +359,7 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
         leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
         
         dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
+        NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
         NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
         NewBuffer->Buffer.TotalSize = BufferSize;
         NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
@@ -395,6 +396,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
     app_state* State = (app_state*)Context.MemoryBase;
+    State->WindowBounds = Context.WindowBounds;
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
@@ -402,7 +404,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(&State->Transient);
     
-    HandleInput(State, InputQueue, Mouse);
+    HandleInput(State, State->WindowBounds, InputQueue, Mouse);
     
     if (State->AnimationSystem.TimelineShouldAdvance) { 
         State->AnimationSystem.Time += Context.DeltaTime;
@@ -411,13 +413,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
             State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
         }
     }
-
-s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.SecondsPerFrame);
-        if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
-        {
-            State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
-            r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
-            
+    
+    s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.SecondsPerFrame);
+    if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
+    {
+        State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
+        r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
+        
         for (u32 i = 0; i < State->AnimationSystem.BlocksCount; i++)
         {
             animation_block_entry BlockEntry = State->AnimationSystem.Blocks[i];
@@ -435,8 +437,8 @@ s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.Se
                     }
                 }
             }
-            }
         }
+    }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
@@ -450,7 +452,7 @@ s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.Se
         array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
         assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
         dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
-            DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
+        DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
     
     DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
@@ -484,87 +486,20 @@ s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.Se
         }
     }
     
-PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight);
-        PushRenderClearScreen(RenderBuffer);
-    v2 WindowMin = v2{0, 0};
-    v2 WindowMax = v2{Context.WindowWidth, Context.WindowHeight};
-    HandleMousePanelInteraction(&State->PanelLayout, WindowMin, WindowMax, Mouse);
-    DrawAllPanels(State->PanelLayout, WindowMin, WindowMax, RenderBuffer, State->Interface, Mouse, State, Context);
+    PushRenderOrthographic(RenderBuffer, 0, 0, Width(State->WindowBounds), Height(State->WindowBounds));
+    PushRenderClearScreen(RenderBuffer);
+    HandleMousePanelInteraction(&State->PanelLayout, State->WindowBounds, Mouse);
     
-    ////////////////////////////////
-    //   Render Assembly
-    ///////////////////////////////
-    if (Context.WindowIsVisible)
+    DrawAllPanels(&State->PanelLayout, State->WindowBounds, RenderBuffer, State->Interface, Mouse, State, Context);
+    
+    for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
     {
-    #if 0
-        ///////////////////////////////////////
-        //           Interface
-        //////////////////////////////////////
-        
-        DEBUG_TRACK_SCOPE(DrawInterface);
-        
-        PushRenderOrthographic(RenderBuffer, 0, 0, Context.WindowWidth, Context.WindowHeight);
-        
-        ///////////////////////////////////////
-        //     Menu Bar
-        //////////////////////////////////////
-        r32 TopBarHeight = 40;
+        operation_mode OperationMode = State->Modes.ActiveModes[m];
+        if (OperationMode.Render != 0)
         {
-            panel_result TopBarPanel = EvaluatePanel(RenderBuffer, 
-                                                     v2{0, Context.WindowHeight - TopBarHeight},
-                                                     v2{Context.WindowWidth, Context.WindowHeight},
-                                                     0, State->Interface);
-            
-            v2 ButtonDim = v2{200, (r32)NewLineYOffset(*State->Interface.Font) + 10};
-            v2 ButtonPos = v2{State->Interface.Margin.x, Context.WindowHeight - (ButtonDim.y + 10)};
-            button_result LoadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim, 
-                                                           MakeStringLiteral("Load Assembly"), 
-                                                           State->Interface, Mouse);
-            
-            string InterfaceString = MakeString(PushArray(&State->Transient, char, 256), 256);
-            for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
-            {
-                array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-                assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
-                PrintF(&InterfaceString, "Unload %.*s", Assembly.Name.Length, Assembly.Name.Memory);
-                
-                ButtonPos.x += ButtonDim.x + 10;
-                button_result UnloadAssemblyBtn = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
-                                                                 InterfaceString, State->Interface, Mouse);
-                
-                if (UnloadAssemblyBtn.Pressed)
-                {
-                    UnloadAssembly(i, State, Context);
-                }
-            }
-            
-            if (LoadAssemblyBtn.Pressed)
-            {
-                char FilePath[256];
-                b32 Success = Context.PlatformGetFilePath(FilePath, 256, "Foldhaus Files\0*.fold\0\0");
-                if (Success)
-                {
-                    LoadAssembly(State, Context, FilePath);
-                }
-            }
+            OperationMode.Render(State, RenderBuffer, OperationMode, Mouse);
         }
-        
-        DrawDebugInterface(RenderBuffer, 25,
-                           State->Interface, Context.WindowWidth, Context.WindowHeight - TopBarHeight,
-                           Context.DeltaTime, State, State->Camera, Mouse, &State->Transient);
-#endif
     }
-
-
-        for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
-        {
-            operation_mode OperationMode = State->Modes.ActiveModes[m];
-            if (OperationMode.Render != 0)
-            {
-                OperationMode.Render(State, RenderBuffer, OperationMode, Mouse);
-            }
-        }
-        
     
     // Checking for overflows
     {
