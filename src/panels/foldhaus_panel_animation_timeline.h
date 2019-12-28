@@ -61,6 +61,48 @@ FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 }
 
 //
+// Drag Time Marker
+//
+
+OPERATION_STATE_DEF(drag_time_marker_operation_state)
+{
+    rect TimelineBounds;
+    s32 StartFrame;
+    s32 EndFrame;
+};
+
+OPERATION_RENDER_PROC(UpdateDragTimeMarker)
+{
+    drag_time_marker_operation_state* OpState = (drag_time_marker_operation_state*)Operation.OpStateMemory;
+    r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->StartFrame, OpState->EndFrame, State->AnimationSystem.SecondsPerFrame);
+    State->AnimationSystem.Time = TimeAtMouseX;
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndDragTimeMarker)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command DragTimeMarkerCommands [] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDragTimeMarker },
+};
+
+internal void
+StartDragTimeMarker(rect TimelineBounds, s32 PanelStartFrame, s32 PanelEndFrame, app_state* State)
+{
+    operation_mode* DragTimeMarkerMode = ActivateOperationModeWithCommands(&State->Modes, DragTimeMarkerCommands, UpdateDragTimeMarker);
+    
+    drag_time_marker_operation_state* OpState = CreateOperationState(DragTimeMarkerMode,
+                                                                     &State->Modes,
+                                                                     drag_time_marker_operation_state);
+    OpState->StartFrame = PanelStartFrame;
+    OpState->EndFrame = PanelEndFrame ;
+    OpState->TimelineBounds = TimelineBounds;
+}
+
+// --------------------
+
+//
 // Drag Animation Clip
 //
 
@@ -167,7 +209,7 @@ PANEL_CLEANUP_PROC(AnimationTimeline_Cleanup)
 }
 
 internal r32
-DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBuffer, s32 StartFrame, s32 EndFrame, rect PanelBounds, interface_config Interface, mouse_state Mouse)
+DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBuffer, s32 StartFrame, s32 EndFrame, rect PanelBounds, mouse_state Mouse, app_state* State)
 {
     MakeStringBuffer(TempString, 256);
     
@@ -180,11 +222,10 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
     PushRenderQuad2D(RenderBuffer, FrameBarMin, FrameBarMax, v4{.16f, .16f, .16f, 1.f});
     
     // Mouse clicked inside frame nubmer bar -> change current frame on timeline
-    if (MouseButtonHeldDown(Mouse.LeftButtonState)
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
         && PointIsInRange(Mouse.DownPos, FrameBarMin, FrameBarMax))
     {
-        r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.DownPos, PanelBounds, StartFrame, EndFrame, AnimationSystem->SecondsPerFrame);
-        AnimationSystem->Time = TimeAtMouseX;
+        StartDragTimeMarker(rect{FrameBarMin, FrameBarMax}, StartFrame, EndFrame, State);
     }
     
     // Frame Ticks
@@ -196,7 +237,7 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
         r32 FramePercent = (r32)f / (r32)FrameCount;
         r32 FrameX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, FramePercent);
         v2 FrameTextPos = v2{FrameX, FrameBarMin.y + 2};
-        DrawString(RenderBuffer, TempString, Interface.Font, FrameTextPos, WhiteV4);
+        DrawString(RenderBuffer, TempString, State->Interface.Font, FrameTextPos, WhiteV4);
         
         // Frame Vertical Slices
         v2 LineTop = v2{FrameX, FrameBarMin.y};
@@ -256,7 +297,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
         PushRenderQuad2D(RenderBuffer, PlayableMin, PlayableMax, v4{.22f, .22f, .22f, 1.f});
     }
     
-    r32 FrameBarBottom = DrawFrameBar(AnimationSystem, RenderBuffer, StartFrame, EndFrame, PanelBounds, State->Interface, Mouse);
+    r32 FrameBarBottom = DrawFrameBar(AnimationSystem, RenderBuffer, StartFrame, EndFrame, PanelBounds, Mouse, State);
     
     // Animation Blocks
     v2 TimelineMin = PanelBounds.Min;

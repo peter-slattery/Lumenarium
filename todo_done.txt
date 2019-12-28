@@ -44,3 +44,7 @@ x go back to calling SpecificationIndex Type
 
 Hardening
 x input context changes
+
+Animation Timeline
+x drag ends of animation clips to change start and end times
+x click to drag time marker

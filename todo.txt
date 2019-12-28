@@ -1,10 +1,5 @@
 TODO FOLDHAUS
 
-Animation Timeline
-- click to drag time marker
-- drag ends of animation clips to change start and end times
-- 
-
 Reimplement Node View
 - probably want to take a fresh pass at nodes all together
 
