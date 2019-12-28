@@ -1,6 +1,6 @@
 // TODO
-// [] - Moving animation blocks
-// [] - dragging beginning and end of time blocks
+// [x] - Moving animation blocks
+// [x] - dragging beginning and end of time blocks
 // [] - creating a timeblock with a specific animation
 // [x] - play, pause, stop, 
 // [] - setting the start and end of the animation system
@@ -22,6 +22,15 @@ GetFrameFromPointInAnimationPanel (v2 Point, rect PanelBounds, s32 StartFrame, s
     r32 TimeAtPoint = GetTimeFromPointInAnimationPanel(Point, PanelBounds, StartFrame, EndFrame, SecondsPerFrame);
     s32 FrameAtPoint = (s32)(TimeAtPoint * SecondsPerFrame);
     return FrameAtPoint;
+}
+
+inline s32
+GetXPositionFromTimeInAnimationPanel (r32 Time, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
+{
+    r32 StartFrameTime = (r32)StartFrame * SecondsPerFrame;
+    r32 EndFrameTime = (r32)EndFrame * SecondsPerFrame;
+    s32 XPositionAtTime = GSRemap(Time, StartFrameTime, EndFrameTime, PanelBounds.Min.x, PanelBounds.Max.x);
+    return XPositionAtTime;
 }
 
 internal void
@@ -55,6 +64,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 // Drag Animation Clip
 //
 
+#define CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE 10
+
 OPERATION_STATE_DEF(drag_animation_clip_state)
 {
     r32 AnimationPanel_StartFrame;
@@ -70,13 +81,28 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     panel_and_bounds AnimationPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelLayout, State->WindowBounds);
     Assert(AnimationPanel.Panel);
     
+    s32 ClipInitialStartTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialStartTime, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    s32 ClipInitialEndTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialEndTime, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    
     r32 TimeAtMouseDownX = GetTimeFromPointInAnimationPanel(Mouse.DownPos, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
     r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
     r32 TimeOffset = TimeAtMouseX - TimeAtMouseDownX;
     
     animation_block* AnimationBlock = GetAnimationBlockWithHandle(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
-    AnimationBlock->StartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
-    AnimationBlock->EndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+    
+    if (GSAbs(Mouse.DownPos.x - ClipInitialStartTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
+    {
+        AnimationBlock->StartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
+    }
+    else if (GSAbs(Mouse.DownPos.x - ClipInitialEndTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
+    {
+        AnimationBlock->EndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+    }
+    else
+    {
+        AnimationBlock->StartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
+        AnimationBlock->EndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+    }
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndDragAnimationClip)
