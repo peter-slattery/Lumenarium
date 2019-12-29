@@ -1,5 +1,5 @@
 # Lumenarium by Foldhaus
-![Image of Lumenarium](./docs/images/hero-0.png)
+![Image of Lumenarium](./docs/images/hero-0.PNG)
 
 ## What Is Lumenarium?
 Lumenarium is our custom build light and motion control software. It allows us to design light and motion patterns for our sculptures, visualize the output long before the sculpture is built, and iterate in real time to achieve the best visual results quickly.
