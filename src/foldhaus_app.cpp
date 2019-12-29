@@ -196,10 +196,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     { // Animation PLAYGROUND
         InitializeAnimationSystem(&State->AnimationSystem);
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        
-        AddAnimationBlock(0, 8, TestPatternTwo, &State->AnimationSystem);
-        AddAnimationBlock(8, 15, TestPatternThree, &State->AnimationSystem);
-        
         State->AnimationSystem.AnimationStart = 0;
         State->AnimationSystem.AnimationEnd = 15;
     } // End Animation Playground
