@@ -39,16 +39,16 @@ The visualization runs in real time, and mirrors the DMX output the sculptures w
 One goal of Lumenarium is to enable fine-grained control over procedural light and motion patterns. Patterns can be arranged on a timeline for manual sequencing. 
 
 Coming Soon
-[] - Pattern Fading/Cross fading
-[] - Pattern parameter controls
+* Pattern Fading/Cross fading
+* Pattern parameter controls
 
 ***
 ### Node Based Pattern Creation
 Pattern creation also happens within Lumenarium. Rather than program individual patterns in code, Lumenarium provides a node based interface to combine small units of functionality to create patterns. These patterns are available for sequencing in the animation timeline.
 
 Coming Soon
-[] - compilation of node based patterns
-[] - more nodes!
+* compilation of node based patterns
+* more nodes!
 
 ***
 ### Live Compilation Reload
