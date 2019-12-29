@@ -10,13 +10,12 @@ GetAssemblyMemorySizeFromDefinition(assembly_definition Definition, string Name)
 internal assembly
 ConstructAssemblyFromDefinition (assembly_definition Definition,
                                  string AssemblyName,
-                                 v3 RootPosition,
+                                 v4 RootPosition,
                                  r32 Scale,
-                                 u8* MemoryBase,
-                                 s32 MemorySize)
+                                 memory_arena Arena)
 {
     assembly Assembly = {};
-    Assembly.Arena = CreateMemoryArena(MemoryBase, MemorySize);
+    Assembly.Arena = Arena;
     
     Assembly.Name = MakeString(PushArray(&Assembly.Arena, char, AssemblyName.Length), AssemblyName.Length);
     CopyStringTo(AssemblyName, &Assembly.Name);
@@ -44,8 +43,8 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
         // now. The assert is to remind you to create more cases when necessary
         Assert(StripDef.InterpolationType == StripInterpolate_Points);
         
-        v4 WS_StripStart = V4(StripDef.InterpolatePositionStart * Scale, 1);
-        v4 WS_StripEnd = V4(StripDef.InterpolatePositionEnd * Scale, 1);
+        v4 WS_StripStart = RootPosition + V4(StripDef.InterpolatePositionStart * Scale, 1);
+        v4 WS_StripEnd = RootPosition + V4(StripDef.InterpolatePositionEnd * Scale, 1);
         s32 LEDsInStripCount = StripDef.LEDsPerStrip;
         
         Assert(Assembly.LEDCount + LEDsInStripCount <= Definition.TotalLEDCount);
@@ -62,4 +61,57 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
     // NOTE(Peter): Did we create the correct number of LEDs?
     Assert(Assembly.LEDCount == Definition.TotalLEDCount);
     return Assembly;
+}
+
+static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 0, 75, 0} };
+s32 TempAssemblyOffsetsCount = 3;
+
+internal void
+LoadAssembly (app_state* State, context Context, char* Path)
+{
+    platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
+    Assert(TestAssemblyFile.Size > 0);
+    
+    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
+    
+    Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
+    
+    string PathString = MakeStringLiteral(Path);
+    s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
+    string FileName = Substring(PathString, IndexOfLastSlash + 1);
+    
+    r32 Scale = 100;
+    memory_arena AssemblyArena = {};
+    AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+    AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    
+    v4 Offset = TempAssemblyOffsets[State->ActiveAssemblyIndecies.Used % TempAssemblyOffsetsCount];
+    assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
+                                                           FileName, 
+                                                           Offset, 
+                                                           Scale, 
+                                                           AssemblyArena);
+    array_entry_handle NewAssemblyHandle = PushElement(NewAssembly, &State->AssemblyList);
+    PushElement(NewAssemblyHandle, &State->ActiveAssemblyIndecies);
+    
+    State->TotalLEDsCount += NewAssembly.LEDCount;
+}
+
+internal void
+UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
+{
+    assembly* Assembly = GetElementAtIndex(AssemblyIndex, State->AssemblyList);
+    State->TotalLEDsCount -= Assembly->LEDCount;
+    FreeMemoryArena(&Assembly->Arena, (gs_memory_free*)Context.PlatformFree);
+    
+    RemoveElementAtIndex(AssemblyIndex, &State->AssemblyList);
+    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    {
+        array_entry_handle Handle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        if (Handle.Index == AssemblyIndex)
+        {
+            RemoveElementAtIndex(i, &State->ActiveAssemblyIndecies);
+            break;
+        }
+    }
 }

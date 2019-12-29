@@ -330,8 +330,8 @@ SACNGetUniverseSendAddress(s32 Universe)
     u8 MulticastAddressBuffer[4] = {};
     MulticastAddressBuffer[0] = 239;
     MulticastAddressBuffer[1] = 255;
-    MulticastAddressBuffer[2] = (u8)(Universe & 0xff00); // high bit
-    MulticastAddressBuffer[3] = (u8)((Universe & 0x00ff) >> 8); // low bit
+    MulticastAddressBuffer[2] = (u8)((Universe & 0xff00) >> 8); // high bit
+    MulticastAddressBuffer[3] = (u8)((Universe & 0x00ff)); // low bit
     
     u_long V4Address = (u_long)UpackB4(MulticastAddressBuffer);
     return V4Address;

@@ -1,8 +1,13 @@
-#include "gs_language.h"
+#define GS_LANGUAGE_NO_PROFILER_DEFINES
+#include <gs_language.h>
 #include "gs_platform.h"
+#include "gs_array.h"
 
-#include "foldhaus_memory.h"
-#include "gs_string.h"
+#define GS_MEMORY_TRACK_ALLOCATIONS
+#define GS_MEMORY_NO_STD_LIBS
+#include <gs_memory_arena.h>
+
+#include <gs_string.h>
 #include "foldhaus_debug.h"
 
 global_variable debug_services* GlobalDebugServices;
@@ -10,7 +15,7 @@ global_variable debug_services* GlobalDebugServices;
 global_variable platform_alloc* GSAlloc;
 global_variable platform_free* GSFree;
 
-#include "gs_vector_matrix.h"
+#include <gs_vector_matrix.h>
 
 #include "gs_input.h"
 
@@ -117,8 +122,7 @@ struct context
     u32 MemorySize;
     
     b32 WindowIsVisible;
-    r32 WindowWidth;
-    r32 WindowHeight;
+    rect WindowBounds;
     r32 DeltaTime;
     
     // Application Services
@@ -132,6 +136,7 @@ struct context
     
     platform_alloc* PlatformAlloc;
     platform_free* PlatformFree;
+    platform_realloc* PlatformRealloc;
     platform_read_entire_file* PlatformReadEntireFile;
     platform_write_entire_file* PlatformWriteEntireFile;
     platform_get_file_path* PlatformGetFilePath;
@@ -139,7 +144,6 @@ struct context
     platform_get_font_info* PlatformGetFontInfo;
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
     platform_get_socket_handle* PlatformGetSocketHandle;
-    platform_get_send_address* PlatformGetSendAddress;
     platform_set_socket_option* PlatformSetSocketOption;
     platform_send_to* PlatformSendTo;
     platform_close_socket* PlatformCloseSocket;

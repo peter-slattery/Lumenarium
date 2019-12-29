@@ -1,7 +1,7 @@
 TODO FOLDHAUS
 
-YOU WERE IN THE MIDDLE OF
-
+Reimplement Node View
+- probably want to take a fresh pass at nodes all together
 
 Assembly -> SACN interface
 x you need to rebuild the map from leds -> universes
@@ -36,14 +36,13 @@ Switch To Nodes
 - evaluation step (one node at a time)
 
 Hardening
-- turn the default sculpture view into an operation mode ? (have to think about this)
+x turn the default sculpture view into an operation mode ? (have to think about this)
 - Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel
 update functions
 - memory visualization
--  - Log memory allocations
+-  x Log memory allocations
 - separate rendering thread
 - cache led positions. Only update if they are moving
-- :HotCodeReloading
 
 UI Improvements
 - highlight node field under active edit
@@ -89,16 +88,9 @@ Resource Management
 - Icons
 
 Animation
-- timeline
-- create clips that play
+x timeline
+x create clips that play
 - clips can have parameters that drive them?
-- clips should have prerequesites
--  - channels active
--  - patterns active in the channel
--  - when a clip is playing, it should just take over the whole structure
-
-Command Line
-- select a channel/pattern
 
 Optimization
 - investigate the memory access pattern of the SACN / LED systems. Guessing they are very slow

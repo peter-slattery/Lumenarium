@@ -158,41 +158,6 @@ PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
     return (platform_socket_handle)NewSocketIndex;
 }
 
-#define NETWORK_ADDRESS_DICTIONARY_GROW_SIZE 32
-s32 Win32NetworkAddressHandleMax;
-s32 Win32NetworkAddressHandleCount;
-sockaddr_in* NetworkAddressValues;
-
-PLATFORM_GET_SEND_ADDRESS_HANDLE(Win32GetSendAddress)
-{
-    if (Win32NetworkAddressHandleCount >= Win32NetworkAddressHandleMax)
-    {
-        s32 NewDictionaryMax = Win32NetworkAddressHandleMax + NETWORK_ADDRESS_DICTIONARY_GROW_SIZE;
-        s32 NewDictionaryDataSize = NewDictionaryMax *  sizeof(sockaddr_in);
-        u8* DictionaryMemory = Win32Alloc(NewDictionaryDataSize);
-        Assert(DictionaryMemory);
-        
-        sockaddr_in* NewValues = (sockaddr_in*)(DictionaryMemory);
-        if (NetworkAddressValues)
-        {
-            GSMemCopy(NetworkAddressValues, NewValues, sizeof(win32_socket) * NewDictionaryMax);
-            Win32Free((u8*)NetworkAddressValues, sizeof(win32_socket) * Win32NetworkAddressHandleCount);
-        }
-        NetworkAddressValues = NewValues;
-        
-        Win32NetworkAddressHandleMax = NewDictionaryMax;
-    }
-    
-    Assert(Win32NetworkAddressHandleCount < Win32NetworkAddressHandleMax);
-    s32 NewAddressIndex = Win32NetworkAddressHandleCount++;
-    
-    NetworkAddressValues[NewAddressIndex].sin_family = AddressFamily;
-    NetworkAddressValues[NewAddressIndex].sin_port = HostToNetU16(Port);
-    NetworkAddressValues[NewAddressIndex].sin_addr.s_addr = HostToNetU32(Address);
-    
-    return (platform_network_address_handle)NewAddressIndex;
-}
-
 PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
 {
     s32 SocketIndex = (s32)SocketHandle;
@@ -211,10 +176,12 @@ PLATFORM_SEND_TO(Win32SendTo)
     s32 SocketIndex = (s32)SocketHandle;
     Assert(SocketIndex < Win32SocketHandleCount);
     
-    s32 AddressIndex = (s32)AddressHandle;
-    Assert(AddressIndex < Win32NetworkAddressHandleCount);
+    sockaddr_in SockAddress = {};
+    SockAddress.sin_family = Address.Family;
+    SockAddress.sin_port = HostToNetU16(Address.Port);
+    SockAddress.sin_addr.s_addr = HostToNetU32(Address.Address);
     
-    s32 LengthSent = sendto(SocketValues[SocketIndex].Socket, Buffer, BufferLength, Flags, (sockaddr*)&NetworkAddressValues[AddressIndex], sizeof(sockaddr_in));
+    s32 LengthSent = sendto(SocketValues[SocketIndex].Socket, Buffer, BufferLength, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     
     if (LengthSent == SOCKET_ERROR)
     {
@@ -232,7 +199,6 @@ PLATFORM_CLOSE_SOCKET(Win32CloseSocket)
     
     closesocket(SocketValues[SocketIndex].Socket);
 }
-
 
 HDC FontDrawingDC;
 HBITMAP FontBitmap;
@@ -404,6 +370,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = KeyState_IsDown & ~KeyState_WasDown;
+            Mouse->DownPos = Mouse->Pos;
         }break;
         
         case WM_LBUTTONUP:
@@ -522,11 +489,11 @@ Win32GetThreadId()
 
 int WINAPI
 WinMain (
-HINSTANCE HInstance,
-HINSTANCE HPrevInstance,
-PSTR CmdLineArgs,
-INT NCmdShow
-)
+         HINSTANCE HInstance,
+         HINSTANCE HPrevInstance,
+         PSTR CmdLineArgs,
+         INT NCmdShow
+         )
 {
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
@@ -594,19 +561,18 @@ INT NCmdShow
     context Context = {};
     Context.MemorySize = InitialMemorySize;
     Context.MemoryBase = InitialMemory;
-    Context.WindowWidth = MainWindow.Width;
-    Context.WindowHeight = MainWindow.Height;
+    Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
     
     // Platform functions
     Context.GeneralWorkQueue = &WorkQueue;
     Context.PlatformAlloc = Win32Alloc;
     Context.PlatformFree = Win32Free;
+    Context.PlatformRealloc = Win32Realloc;
     Context.PlatformReadEntireFile = Win32ReadEntireFile;
     Context.PlatformWriteEntireFile = Win32WriteEntireFile;
     Context.PlatformGetFilePath = Win32SystemDialogueOpenFile;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
-    Context.PlatformGetSendAddress = Win32GetSendAddress;
     Context.PlatformSetSocketOption = Win32SetSocketOption;
     Context.PlatformSendTo = Win32SendTo;
     Context.PlatformCloseSocket = Win32CloseSocket;
@@ -668,11 +634,7 @@ INT NCmdShow
             HandleWindowMessage(Message, &MainWindow, &InputQueue, &Mouse);
         }
         
-        // TODO(Peter): We shouldn't need to do this translation. the platform layer knows about win32_windows. We should just make that the interface
-        // to all windows.
-        // TODO(Peter): Decide which we want to use, context or renderbuffer. Should only be one
-        Context.WindowWidth = MainWindow.Width;
-        Context.WindowHeight = MainWindow.Height;
+        Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
         RenderBuffer.ViewWidth = MainWindow.Width;
         RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;

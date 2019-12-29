@@ -61,6 +61,7 @@ internal void          Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer
 
 internal PLATFORM_ALLOC(Win32Alloc);
 internal PLATFORM_FREE(Win32Free);
+internal PLATFORM_REALLOC(Win32Realloc);
 
 // File IO
 internal PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile);
@@ -608,6 +609,17 @@ PLATFORM_FREE(Win32Free)
         InvalidCodePath;
     }
     return Result;
+}
+
+PLATFORM_REALLOC(Win32Realloc)
+{
+    u8* NewMemory = Win32BasicAlloc(NewSize);
+    if (Base)
+    {
+    GSMemCopy(Base, NewMemory, OldSize);
+        Win32Free(Base, OldSize);
+    }
+    return NewMemory;
 }
 
 // File IO

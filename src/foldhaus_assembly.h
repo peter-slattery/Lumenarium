@@ -24,7 +24,7 @@ struct leds_in_universe_range
 
 struct assembly
 {
-    static_memory_arena Arena;
+    memory_arena Arena;
     
     string Name;
     string FilePath;
@@ -36,3 +36,5 @@ struct assembly
     s32 LEDUniverseMapCount;
     leds_in_universe_range* LEDUniverseMap;
 };
+
+TYPEDEF_ARRAY(assembly);

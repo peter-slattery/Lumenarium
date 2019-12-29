@@ -105,5 +105,7 @@ MouseButtonTransitionedUp (b32 MouseButtonState)
 internal b32
 MouseButtonHeldDown (b32 MouseButtonState)
 {
-    return (KeyWasDown(MouseButtonState) && KeyIsDown(MouseButtonState));
+    b32 WasDown = KeyWasDown(MouseButtonState);
+    b32 IsDown = KeyIsDown(MouseButtonState);
+    return (WasDown && IsDown);
 }

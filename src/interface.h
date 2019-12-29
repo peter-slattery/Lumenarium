@@ -8,12 +8,14 @@ enum string_alignment
 internal void
 DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 MinY, codepoint_bitmap CodepointInfo, v4 Color)
 {
-    r32 MaxX = MinX + (CodepointInfo.Width);
-    r32 MaxY = MinY + (CodepointInfo.Height);
+    s32 AlignedMinX = (s32)(MinX);
+    s32 AlignedMinY = (s32)(MinY);
+    s32 AlignedMaxX = AlignedMinX + (CodepointInfo.Width);
+    s32 AlignedMaxY = AlignedMinY + (CodepointInfo.Height);
     
     PushQuad2DOnBatch(BatchConstructor, 
-                      v2{MinX, MinY}, v2{MaxX, MinY}, 
-                      v2{MaxX, MaxY}, v2{MinX, MaxY},  
+                      v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY}, 
+                      v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},  
                       CodepointInfo.UVMin, CodepointInfo.UVMax, 
                       Color);
 }
@@ -432,139 +434,53 @@ enum selection_state
     Selection_Deselected,
 };
 
-struct scroll_list_result
+struct interface_list
 {
-    s32 IndexSelected;
-    s32 StartIndex;
-    selection_state Selection;
+    rect ListBounds;
+    
+    v2 ListElementDimensions;
+    v2 ElementLabelIndent;
+    
+    v4 TextColor;
+    v4* LineBGColors;
+    s32 LineBGColorsCount;
+    v4 LineBGHoverColor;
+    
+    s32 ListElementsCount;
 };
 
-internal scroll_list_result
-DrawOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max, 
-                string* Options, s32 OptionsCount,
-                s32 Start, interface_config Config, mouse_state Mouse)
+internal rect
+DrawListElementBackground(interface_list* List, mouse_state Mouse, render_command_buffer* RenderBuffer)
 {
-    scroll_list_result Result = {};
-    Result.IndexSelected = -1;
-    Result.StartIndex = Start;
-    Result.Selection = Selection_None;
+    rect LineBounds = {};
+    LineBounds.Min = v2{
+        List->ListBounds.Min.x,
+        List->ListBounds.Max.y - (List->ListElementDimensions.y * (List->ListElementsCount + 1))
+    };
+    LineBounds.Max = LineBounds.Min + List->ListElementDimensions;
     
-    r32 OptionHeight = NewLineYOffset(*Config.Font) + (2 * Config.Margin.y);
-    r32 OptionOffset = OptionHeight + Config.Margin.y;
-    
-    s32 OptionsToDisplay = ((Max.y - Min.y) / OptionHeight) - 2;
-    OptionsToDisplay = GSMin(OptionsToDisplay, (OptionsCount - Start));
-    
-    v2 ButtonMin = v2{Min.x, Max.y - OptionHeight};
-    v2 ButtonMax = v2{Max.x, Max.y};
-    
-    string* OptionCursor = Options + Start;
-    for (s32 i = 0; i < OptionsToDisplay; i++)
+    v4 Color = List->LineBGColors[List->ListElementsCount % List->LineBGColorsCount];
+    if (PointIsInRange(Mouse.Pos, LineBounds.Min, LineBounds.Max))
     {
-        button_result Button = EvaluateButton(RenderBuffer, ButtonMin, ButtonMax,
-                                              *OptionCursor,
-                                              Config, Mouse);
-        if (Button.Pressed)
-        {
-            Result.IndexSelected = Start + i;
-            Result.Selection = Selection_Selected;
-        }
-        OptionCursor++;
-        ButtonMin.y -= OptionOffset;
-        ButtonMax.y -= OptionOffset;
+        Color = List->LineBGHoverColor;
     }
     
-    r32 HalfWidthWithMargin = ((Max.x - Min.x) / 2.0f) - Config.Margin.x;
-    string DownArrowString = MakeStringLiteral(" v ");
-    string UpArrowString = MakeStringLiteral(" ^ ");
-    button_result Down = EvaluateButton(RenderBuffer, Min, v2{Min.x + HalfWidthWithMargin, Min.y + OptionHeight},
-                                        DownArrowString, Config, Mouse);
-    button_result Up = EvaluateButton(RenderBuffer, v2{Min.x + HalfWidthWithMargin + Config.Margin.x, Min.y},
-                                      v2{Max.x, Min.y + OptionHeight},
-                                      UpArrowString, Config, Mouse);
-    if (Down.Pressed)
-    {
-        Result.StartIndex += 1;
-    }
-    if (Up.Pressed)
-    {
-        Result.StartIndex -= 1;
-    }
-    
-    Result.StartIndex = GSClamp(0, Result.StartIndex, OptionsCount);
-    
-    return Result;
+    PushRenderQuad2D(RenderBuffer, LineBounds.Min, LineBounds.Max, Color);
+    return LineBounds;
 }
 
-internal scroll_list_result
-DrawSelectableOptionsList(render_command_buffer* RenderBuffer, v2 Min, v2 Max, 
-                          string* Options, s32 OptionsCount,
-                          s32 Start, s32 Selected, interface_config Config, mouse_state Mouse)
+internal rect
+DrawListElement(string Label, interface_list* List, mouse_state Mouse, render_command_buffer* RenderBuffer, interface_config Interface)
 {
-    scroll_list_result Result = {};
-    Result.IndexSelected = Selected;
-    Result.StartIndex = Start;
-    Result.Selection = Selection_None;
+    rect Bounds = DrawListElementBackground(List, Mouse, RenderBuffer);
     
-    r32 OptionHeight = NewLineYOffset(*Config.Font) + (2 * Config.Margin.y);
-    r32 OptionOffset = OptionHeight + Config.Margin.y;
+    v2 LabelPosition = Bounds.Min + List->ElementLabelIndent;
+    DrawString(RenderBuffer, Label, Interface.Font, LabelPosition, List->TextColor);
     
-    s32 OptionsToDisplay = ((Max.y - Min.y) / OptionHeight) - 2;
-    OptionsToDisplay = GSMin(OptionsToDisplay, (OptionsCount - Start));
-    
-    string* OptionCursor = 0;
-    OptionCursor = Options + Start;
-    
-    v2 ButtonMin = v2{Min.x, Max.y - OptionHeight};
-    v2 ButtonMax = v2{Max.x, Max.y};
-    
-    for (s32 i = 0; i < OptionsToDisplay; i++)
-    {
-        button_result Button = EvaluateSelectableButton(RenderBuffer, ButtonMin, ButtonMax,
-                                                        *OptionCursor,
-                                                        Config, Mouse, (Selected == Start + i));
-        if (Button.Pressed)
-        {
-            s32 SelectedIndex = Start + i;
-            if (SelectedIndex == Result.IndexSelected)
-            {
-                Result.Selection = Selection_Deselected;
-                Result.IndexSelected = -1;
-            }
-            else
-            {
-                Result.Selection = Selection_Selected;
-                Result.IndexSelected = Start + i;
-            }
-        }
-        
-        OptionCursor++;
-        
-        ButtonMin.y -= OptionOffset;
-        ButtonMax.y -= OptionOffset;
-    }
-    
-    r32 HalfWidthWithMargin = ((Max.x - Min.x) / 2.0f) - Config.Margin.x;
-    string DownArrowString = MakeStringLiteral(" v ");
-    string UpArrowString = MakeStringLiteral(" ^ ");
-    button_result Down = EvaluateButton(RenderBuffer, Min, v2{Min.x + HalfWidthWithMargin, Min.y + OptionHeight},
-                                        DownArrowString, Config, Mouse);
-    button_result Up = EvaluateButton(RenderBuffer, v2{Min.x + HalfWidthWithMargin + Config.Margin.x, Min.y},
-                                      v2{Max.x, Min.y + OptionHeight},
-                                      UpArrowString, Config, Mouse);
-    if (Down.Pressed)
-    {
-        Result.StartIndex += 1;
-    }
-    if (Up.Pressed)
-    {
-        Result.StartIndex -= 1;
-    }
-    
-    Result.StartIndex = GSClamp(0, Result.StartIndex, OptionsCount);
-    
-    return Result;
+    List->ListElementsCount++;
+    return Bounds;
 }
+
 
 internal r32
 EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask, v2 Min, v2 Max, r32 Current, mouse_state Mouse)

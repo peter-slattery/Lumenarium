@@ -1,5 +1,6 @@
 #ifndef GS_MEMORY_H
 
+#if 0
 #ifndef GS_LANGUAGE_H
 
 typedef uint8_t u8;
@@ -230,6 +231,7 @@ ClearArenaToSnapshot (memory_arena* Arena, arena_snapshot Snapshot)
     Assert(RegionCursor == Snapshot.CurrentRegion);
     RegionCursor->Used = Snapshot.UsedAtSnapshot;
 }
+#endif
 
 //
 //  Basic Memory Arena
@@ -253,6 +255,7 @@ CreateMemoryArena (u8* Base, u32 Size)
     return Result;
 }
 
+#define PushArrayOnStaticArena(arena, type, length) (type*)PushSize_((arena), sizeof(type) * length)
 static u8* 
 PushSize_ (static_memory_arena* Arena, u32 Size)
 {
@@ -261,81 +264,6 @@ PushSize_ (static_memory_arena* Arena, u32 Size)
     Arena->Used += Size;
     return Result;
 }
-
-//
-//  Tracked Array Implementation
-//
-
-#define ARRAY_CHECKSUM 0x51bada7b
-struct array_header_
-{
-    u32 Size;
-    s32 ElementMax;
-    s32 ElementCount;
-    s32 ElementSize;
-    u32 Checksum;
-};
-
-#define gs_PushArray(arena, type, size) (type*)gs_PushArray_(arena, sizeof(type), size)
-
-static u8*
-gs_PushArray_ (memory_arena* Arena, u32 StepSize, u32 Count)
-{
-    u32 ArrayFootprint = sizeof(array_header_) + (StepSize * Count);
-    array_header_* Header = (array_header_*)PushSize_(Arena, ArrayFootprint);
-    
-    array_header_* Body = Header + 1;
-    u8* Result = (u8*)(Body);
-    
-    Header->Size = Count * StepSize;
-    Header->ElementMax = Count;
-    Header->ElementSize = StepSize;
-    Header->ElementCount = 0;
-    Header->Checksum = ARRAY_CHECKSUM;
-    
-    return Result;
-}
-
-#define gs_ArrayHeader_(array) (((array_header_*)array) - 1)
-
-#ifdef DEBUG
-#define gs_ArrayCheck(array) Assert(!array || gs_ArrayHeader_(array)->Checksum == ARRAY_CHECKSUM)
-#else
-#define gs_ArrayCheck(array) 
-#endif
-
-#define gs_ArrayCount(array) gs_ArrayCount_((u8*)array)
-static s32
-gs_ArrayCount_ (u8* Base)
-{
-    gs_ArrayCheck(Base);
-    return gs_ArrayHeader_(Base)->ElementCount;
-}
-
-#define gs_ArrayMax(array) gs_ArrayMax_((u8*)array)
-static s32
-gs_ArrayMax_ (u8* Base)
-{
-    gs_ArrayCheck(Base);
-    return gs_ArrayHeader_(Base)->ElementMax;
-}
-
-#define gs_ArrayAdd(array) ( gs_PushArrayElement_((u8*)array), (array) + (gs_ArrayCount(array) - 1) )
-#define gs_ArrayPush(array, ele) *( gs_ArrayAdd(array) ) = (ele)
-
-static void*
-gs_PushArrayElement_ (u8* Base)
-{
-    gs_ArrayCheck(Base);
-    Assert(gs_ArrayHeader_(Base)->ElementCount + 1 <= gs_ArrayHeader_(Base)->ElementMax);
-    
-    void* Result = (void*)(Base + (gs_ArrayHeader_(Base)->ElementCount * gs_ArrayHeader_(Base)->ElementSize));
-    gs_ArrayHeader_(Base)->ElementCount++;
-    
-    return Result;
-}
-
-
 
 #define GS_MEMORY_H
 #endif // GS_MEMORY_H

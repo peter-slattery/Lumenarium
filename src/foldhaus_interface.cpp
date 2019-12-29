@@ -117,8 +117,7 @@ input_command UniverseViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
 {
-    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommands);
-    UniverseViewMode->Render = RenderUniverseView;
+    operation_mode* UniverseViewMode = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommands, RenderUniverseView);
     
     // State Setup
     universe_view_operation_state* OpState = CreateOperationState(UniverseViewMode, 
@@ -130,542 +129,458 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenUniverseView)
 
 ////////////////////////////////////////
 //
-//     Node Lister
+//     Panels
 //
 ///////////////////////////////////////
 
-struct node_lister_operation_state
+enum panel_edit_mode
 {
-    search_lister SearchLister;
-    v2 ListPosition;
+    PanelEdit_Modify,
+    PanelEdit_Destroy,
+    
+    PanelEdit_Count,
 };
 
-OPERATION_RENDER_PROC(RenderNodeLister)
+//
+// Drag Panel Border Operation Mode
+
+OPERATION_STATE_DEF(drag_panel_border_operation_state)
 {
-    node_lister_operation_state* OpState = (node_lister_operation_state*)Operation.OpStateMemory;
+    panel* Panel;
     
-    v2 TopLeft = OpState->ListPosition;
-    v2 Dimension = v2{300, 30};
-    
-    // Filter the lister
-    OpState->SearchLister.Filter = State->ActiveTextEntry.Buffer;
-    FilterSearchLister(&OpState->SearchLister);
-    
-    // Display Search Lister
-    search_lister_result NodeListerResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
-                                                                  MakeStringLiteral("Nodes List"),
-                                                                  OpState->SearchLister.SourceList,
-                                                                  OpState->SearchLister.FilteredIndexLUT,
-                                                                  OpState->SearchLister.FilteredListCount,
-                                                                  OpState->SearchLister.HotItem,
-                                                                  &State->ActiveTextEntry.Buffer,
-                                                                  State->ActiveTextEntry.CursorPosition,
-                                                                  State->Font, State->Interface, Mouse);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(NodeListerNextItem)
-{
-    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
-    OpState->SearchLister.HotItem = GetNextFilteredItem(OpState->SearchLister);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(NodeListerPrevItem)
-{
-    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
-    OpState->SearchLister.HotItem = GetPrevFilteredItem(OpState->SearchLister);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeLister)
-{
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(SelectAndCloseNodeLister)
-{
-    node_lister_operation_state* OpState = GetCurrentOperationState(State->Modes, node_lister_operation_state);
-    s32 FilteredNodeIndex = OpState->SearchLister.HotItem;
-    if (FilteredNodeIndex >= 0)
-    {
-        s32 NodeIndex = OpState->SearchLister.FilteredIndexLUT[FilteredNodeIndex];
-        PushNodeOnListFromSpecification(State->NodeList, (node_type)NodeIndex,
-                                        Mouse.Pos, State->Permanent);
-    }
-    CloseNodeLister(State, Event, Mouse);
-}
-
-input_command UniverseViewCommads [] = {
-    { KeyCode_DownArrow, KeyCode_Invalid, Command_Began, NodeListerNextItem },
-    { KeyCode_UpArrow, KeyCode_Invalid, Command_Began, NodeListerPrevItem },
-    { KeyCode_Enter, KeyCode_Invalid, Command_Began, SelectAndCloseNodeLister },
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, CloseNodeLister },
-    { KeyCode_Esc, KeyCode_Invalid, Command_Began, CloseNodeLister },
-    DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY,
+    // NOTE(Peter): InitialPanelBounds is the bounds of the panel we are modifying,
+    // it stores the value calculated when the operation mode is kicked off.
+    rect InitialPanelBounds;
+    panel_split_direction PanelEdgeDirection;
+    panel_edit_mode PanelEditMode;
 };
 
-FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
+OPERATION_RENDER_PROC(UpdateAndRenderDragPanelBorder)
 {
-    operation_mode* AddNodeOperation = ActivateOperationModeWithCommands(&State->Modes, UniverseViewCommads);
+    drag_panel_border_operation_state* OpState = (drag_panel_border_operation_state*)Operation.OpStateMemory;
+    rect PanelBounds = OpState->InitialPanelBounds;
     
-    AddNodeOperation->Render = RenderNodeLister;
-    
-    node_lister_operation_state* OpState = CreateOperationState(AddNodeOperation, 
-                                                                &State->Modes, 
-                                                                node_lister_operation_state);
+    if (OpState->PanelEditMode == PanelEdit_Modify)
     {
-        OpState->SearchLister.SourceListCount = NodeSpecificationsCount;
-        OpState->SearchLister.SourceList = PushArray(&State->Modes.Arena, string, OpState->SearchLister.SourceListCount);
+        v4 EdgePreviewColor = v4{.3f, .3f, .3f, 1.f};
+        
+        v2 EdgePreviewMin = {};
+        v2 EdgePreviewMax = {};
+        if (OpState->PanelEdgeDirection == PanelSplit_Horizontal)
         {
-            for (s32 i = 0; i < OpState->SearchLister.SourceListCount; i++)
+            EdgePreviewMin = v2{PanelBounds.Min.x, Mouse.Pos.y};
+            EdgePreviewMax = v2{PanelBounds.Max.x, Mouse.Pos.y + 1};
+        }
+        else if (OpState->PanelEdgeDirection == PanelSplit_Vertical)
+        {
+            EdgePreviewMin = v2{Mouse.Pos.x, PanelBounds.Min.y};
+            EdgePreviewMax = v2{Mouse.Pos.x + 1, PanelBounds.Max.y};
+        }
+        
+        PushRenderQuad2D(RenderBuffer, EdgePreviewMin, EdgePreviewMax, EdgePreviewColor);
+    }
+    else if (OpState->PanelEditMode == PanelEdit_Destroy)
+    {
+        rect PanelToDeleteBounds = {};
+        if (OpState->PanelEdgeDirection == PanelSplit_Horizontal)
+        {
+            r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, OpState->Panel->SplitPercent);
+            if (Mouse.Pos.y > SplitY)
             {
-                OpState->SearchLister.SourceList[i] = MakeString(
-                    NodeSpecifications[i].Name,
-                    NodeSpecifications[i].NameLength);
+                PanelToDeleteBounds = GetTopPanelBounds(OpState->Panel, PanelBounds);
+            }
+            else
+            {
+                PanelToDeleteBounds = GetBottomPanelBounds(OpState->Panel, PanelBounds);
             }
         }
-        OpState->SearchLister.Filter = MakeString(PushArray(&State->Modes.Arena, char, 64), 0, 64);
-        
-        OpState->SearchLister.FilteredListMax = OpState->SearchLister.SourceListCount;
-        OpState->SearchLister.FilteredListCount = 0;
-        OpState->SearchLister.FilteredIndexLUT = PushArray(&State->Modes.Arena, s32, OpState->SearchLister.SourceListCount);
-    }
-    
-    OpState->ListPosition = Mouse.Pos;
-    SetTextInputDestinationToString(&State->ActiveTextEntry, &OpState->SearchLister.Filter);
-}
-
-////////////////////////////////////////
-//
-//    Node Color Picker
-//
-///////////////////////////////////////
-
-struct color_picker_operation_state
-{
-    v4* ValueAddr;
-};
-
-internal void
-CloseColorPicker(app_state* State)
-{
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(CloseColorPickerCommand)
-{
-    CloseColorPicker(State);
-}
-
-OPERATION_RENDER_PROC(RenderColorPicker)
-{
-    color_picker_operation_state* OpState = (color_picker_operation_state*)Operation.OpStateMemory;
-    
-    
-    b32 ShouldClose = EvaluateColorPicker(RenderBuffer, OpState->ValueAddr, 
-                                          v2{200, 200}, State->Interface, Mouse);
-    
-    if (ShouldClose)
-    {
-        CloseColorPicker(State);
+        else if (OpState->PanelEdgeDirection == PanelSplit_Vertical)
+        {
+            r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, OpState->Panel->SplitPercent);
+            if (Mouse.Pos.x > SplitX)
+            {
+                PanelToDeleteBounds = GetRightPanelBounds(OpState->Panel, PanelBounds);
+            }
+            else
+            {
+                PanelToDeleteBounds = GetLeftPanelBounds(OpState->Panel, PanelBounds);
+            }
+        }
+        v4 OverlayColor = v4{0, 0, 0, .3f};
+        PushRenderQuad2D(RenderBuffer, PanelToDeleteBounds.Min, PanelToDeleteBounds.Max, OverlayColor);
     }
 }
 
-input_command ColorPickerCommands [] = {
-    { KeyCode_Esc, KeyCode_Invalid, Command_Began, CloseColorPickerCommand },
-};
-
-internal void
-OpenColorPicker(app_state* State, node_connection* Connection)
+FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
 {
-    operation_mode* ColorPickerMode = ActivateOperationModeWithCommands(&State->Modes, ColorPickerCommands);
-    ColorPickerMode->Render = RenderColorPicker;
+    drag_panel_border_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_panel_border_operation_state);
+    panel* Panel = OpState->Panel;
+    rect PanelBounds = OpState->InitialPanelBounds;
     
-    color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
-                                                                 &State->Modes, 
-                                                                 color_picker_operation_state);
-    OpState->ValueAddr = Connection->V4ValuePtr;
-}
-
-
-////////////////////////////////////////
-//
-//    Node Field Text Edit
-//
-///////////////////////////////////////
-
-FOLDHAUS_INPUT_COMMAND_PROC(EndNodeFieldTextEdit)
-{
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
-input_command NodeFieldTextEditCommands [] = {
-    { KeyCode_Enter, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit },
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, EndNodeFieldTextEdit },
-    DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY,
-};
-
-internal void
-BeginNodeFieldTextEdit(app_state* State, node_connection* Connection)
-{
-    operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes, 
-                                                                              NodeFieldTextEditCommands);
-    
-    SetTextInputDestinationToFloat(&State->ActiveTextEntry, Connection->R32ValuePtr);
-}
-
-////////////////////////////////////////
-//
-//    Node Port Mouse Drag
-//
-///////////////////////////////////////
-
-struct drag_node_port_operation_state
-{
-    node_interaction Interaction;
-};
-
-OPERATION_RENDER_PROC(RenderDraggingNodePort)
-{
-    drag_node_port_operation_state* OpState = (drag_node_port_operation_state*)Operation.OpStateMemory;
-    UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList, 
-                           State->NodeRenderSettings, RenderBuffer);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(EndDraggingNodePort)
-{
-    drag_node_port_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_port_operation_state);
-    
-    TryConnectNodes(OpState->Interaction, Mouse.Pos, State->NodeList, State->NodeRenderSettings);
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
-input_command DragNodePortInputCommands[] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDraggingNodePort },
-};
-
-internal void
-BeginDraggingNodePort(app_state* State, node_interaction Interaction)
-{
-    operation_mode* DragNodePortMode = ActivateOperationModeWithCommands(
-        &State->Modes, 
-        DragNodePortInputCommands);
-    DragNodePortMode->Render = RenderDraggingNodePort;
-    
-    drag_node_port_operation_state* OpState = CreateOperationState(DragNodePortMode, 
-                                                                   &State->Modes, 
-                                                                   drag_node_port_operation_state);
-    OpState->Interaction = Interaction;
-}
-
-////////////////////////////////////////
-//
-//    Node Field Mouse Drag
-//
-///////////////////////////////////////
-
-OPERATION_RENDER_PROC(RenderDragNodeField)
-{
-    // TODO(Peter): 
-    //UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, OpState->Interaction, State->NodeList, State->NodeRenderSettings, State);
-}
-
-internal void
-BeginInteractWithNodeField(app_state* State, node_interaction Interaction)
-{
-    // TODO(Peter): 
-}
-
-////////////////////////////////////////
-//
-//    Node Mouse Drag
-//
-///////////////////////////////////////
-
-struct drag_node_operation_state
-{
-    node_interaction Interaction;
-};
-
-OPERATION_RENDER_PROC(RenderDraggingNode)
-{
-    drag_node_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_operation_state);
-    UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList, 
-                       State->NodeRenderSettings);
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(EndDraggingNode)
-{
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
-input_command DragNodeInputCommands[] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDraggingNode },
-};
-
-internal void
-BeginDraggingNode(app_state* State, node_interaction Interaction)
-{
-    operation_mode* DragNodeMode = ActivateOperationModeWithCommands(
-        &State->Modes, 
-        DragNodeInputCommands);
-    DragNodeMode->Render = RenderDraggingNode;
-    
-    drag_node_operation_state* OpState = CreateOperationState(DragNodeMode, 
-                                                              &State->Modes, 
-                                                              drag_node_operation_state);
-    OpState->Interaction = Interaction;
-}
-
-////////////////////////////////////////
-//
-//    Node View
-//
-///////////////////////////////////////
-
-struct node_view_operation_state
-{
-    s32 SelectedNodeHandle;
-};
-
-FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
-{
-    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
-    
-    node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
-    if (Node)
+    if (OpState->PanelEditMode == PanelEdit_Modify)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(Node, 
-                                                                 Mouse.Pos, 
-                                                                 State->NodeRenderSettings);
-        if (IsDraggingNodePort(NewInteraction))
+        if (Panel->SplitDirection == PanelSplit_Horizontal)
         {
-            BeginDraggingNodePort(State, NewInteraction);
+            r32 NewSplitY = Mouse.Pos.y;
+            if (NewSplitY <= PanelBounds.Min.y)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Top, &State->PanelSystem);
+            }
+            else if (NewSplitY >= PanelBounds.Max.y)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, &State->PanelSystem);
+            }
+            else
+            {
+                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Height(PanelBounds);
+            }
         }
-        else if(IsDraggingNodeValue(NewInteraction))
+        else if (Panel->SplitDirection == PanelSplit_Vertical)
         {
-            // TODO(Peter): This probably wants to live in a mouse held action
-            // the first frame we realize we're held over a field, just transition to 
-            // drag node field
-            //BeginInteractWithNodeField(State, NewInteraction, State->NodeRenderSettings);
+            r32 NewSplitX = Mouse.Pos.x;
+            if (NewSplitX <= PanelBounds.Min.x)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Right, &State->PanelSystem);
+            }
+            else if (NewSplitX >= PanelBounds.Max.x)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Left, &State->PanelSystem);
+            }
+            else
+            {
+                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Width(PanelBounds); 
+            }
         }
-        else // IsDraggingNode
+    }
+    else // PanelEdit_Destroy
+    {
+        if (OpState->PanelEdgeDirection == PanelSplit_Horizontal)
         {
-            OpState->SelectedNodeHandle = Node->Handle;
-            BeginDraggingNode(State, NewInteraction);
+            r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, OpState->Panel->SplitPercent);
+            if (Mouse.Pos.y > SplitY)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, &State->PanelSystem);
+            }
+            else
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Top, &State->PanelSystem);
+            }
         }
+        else if (OpState->PanelEdgeDirection == PanelSplit_Vertical)
+        {
+            r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, OpState->Panel->SplitPercent);
+            if (Mouse.Pos.x > SplitX)
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Left, &State->PanelSystem);
+            }
+            else
+            {
+                ConsolidatePanelsKeepOne(Panel, Panel->Right, &State->PanelSystem);
+            }
+        }
+    }
+    
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+input_command DragPanelBorderCommands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDragPanelBorderOperation },
+    { KeyCode_MouseRightButton, KeyCode_Invalid, Command_Ended, EndDragPanelBorderOperation },
+};
+
+internal void
+BeginDragPanelBorder(panel* Panel, panel_edit_mode PanelEditMode, rect PanelBounds, panel_split_direction PanelEdgeDirection, mouse_state Mouse, app_state* State)
+{
+    operation_mode* DragPanelBorder = ActivateOperationModeWithCommands(&State->Modes, DragPanelBorderCommands, UpdateAndRenderDragPanelBorder);
+    drag_panel_border_operation_state* OpState = CreateOperationState(DragPanelBorder, &State->Modes, drag_panel_border_operation_state);
+    OpState->Panel = Panel;
+    OpState->InitialPanelBounds = PanelBounds;
+    OpState->PanelEdgeDirection = PanelEdgeDirection;
+    OpState->PanelEditMode = PanelEditMode;
+}
+
+// ----------------
+
+//
+// Drag To Split Panel Operation
+
+
+OPERATION_STATE_DEF(split_panel_operation_state)
+{
+    panel* Panel;
+    
+    // NOTE(Peter): InitialPanelBounds is the bounds of the panel we are modifying,
+    // it stores the value calculated when the operation mode is kicked off.
+    rect InitialPanelBounds;
+};
+
+OPERATION_RENDER_PROC(UpdateAndRenderSplitPanel)
+{
+    split_panel_operation_state* OpState = (split_panel_operation_state*)Operation.OpStateMemory;
+    rect PanelBounds = OpState->InitialPanelBounds;
+    v4 EdgePreviewColor = v4{.3f, .3f, .3f, 1.f};
+    
+    r32 MouseDeltaX = GSAbs(Mouse.Pos.x - Mouse.DownPos.x);
+    r32 MouseDeltaY = GSAbs(Mouse.Pos.y - Mouse.DownPos.y);
+    
+    v2 EdgePreviewMin = {};
+    v2 EdgePreviewMax = {};
+    if (MouseDeltaY > MouseDeltaX) // Horizontal Split
+    {
+        EdgePreviewMin = v2{PanelBounds.Min.x, Mouse.Pos.y};
+        EdgePreviewMax = v2{PanelBounds.Max.x, Mouse.Pos.y + 1};
+    }
+    else // Vertical Split
+    {
+        EdgePreviewMin = v2{Mouse.Pos.x, PanelBounds.Min.y};
+        EdgePreviewMax = v2{Mouse.Pos.x + 1, PanelBounds.Max.y};
+    }
+    
+    PushRenderQuad2D(RenderBuffer, EdgePreviewMin, EdgePreviewMax, EdgePreviewColor);
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
+{
+    split_panel_operation_state* OpState = GetCurrentOperationState(State->Modes, split_panel_operation_state);
+    panel* Panel = OpState->Panel;
+    rect PanelBounds = OpState->InitialPanelBounds;
+    
+    r32 XDistance = GSAbs(Mouse.Pos.x - Mouse.DownPos.x);
+    r32 YDistance = GSAbs(Mouse.Pos.y - Mouse.DownPos.y);
+    
+    if (XDistance > YDistance)
+    {
+        r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Width(PanelBounds);
+        SplitPanelVertically(Panel, XPercent, PanelBounds, &State->PanelSystem);
     }
     else
     {
-        OpState->SelectedNodeHandle = 0;
+        r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Height(PanelBounds);
+        SplitPanelHorizontally(Panel, YPercent, PanelBounds, &State->PanelSystem);
     }
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
-{
-    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
     
-    node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
-    if (Node)
-    {
-        node_interaction NewInteraction = GetNodeInteractionType(Node, 
-                                                                 Mouse.Pos, 
-                                                                 State->NodeRenderSettings);
-        if(IsDraggingNodeValue(NewInteraction))
-        {
-            node_connection* Connection = Node->Connections + NewInteraction.InputValue;
-            struct_member_type InputType = Connection->Type;
-            
-            if (InputType == MemberType_r32)
-            {
-                BeginNodeFieldTextEdit(State, Connection);
-            }
-            else if (InputType == MemberType_v4)
-            {
-                OpenColorPicker(State, Connection);
-            }
-        }
-    }
-}
-
-OPERATION_RENDER_PROC(RenderNodeView)
-{
-    node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
-    
-    DEBUG_TRACK_FUNCTION;
-    
-    MakeStringBuffer(NodeHeaderBuffer, 128);
-    
-    node_header* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
-    
-    node_list_iterator NodeIter = GetNodeListIterator(*State->NodeList);
-    while (NodeIteratorIsValid(NodeIter))
-    {
-        node_header* Node = NodeIter.At;
-        
-        rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
-        b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);
-        
-        if (Node == SelectedNode)
-        {
-            PushRenderQuad2D(RenderBuffer, NodeBounds.Min - v2{2, 2}, NodeBounds.Max + v2{2, 2}, WhiteV4);
-        }
-        
-        PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
-        
-        // TODO(Peter): This is just for debug purposes. We can remove and go back to just having
-        // Node->Name in DrawString
-        string NodeName = GetNodeName(*Node);
-        PrintF(&NodeHeaderBuffer, "%.*s: %d", NodeName.Length, NodeName.Memory, Node->Handle);
-        DrawString(RenderBuffer, NodeHeaderBuffer, State->NodeRenderSettings.Font,
-                   v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
-                   WhiteV4);
-        
-        for (s32 Connection = 0; Connection < Node->ConnectionsCount; Connection++)
-        {
-            v4 PortColor = State->NodeRenderSettings.PortColors[Node->Connections[Connection].Type];
-            
-            // Inputs
-            if (ConnectionIsInput(Node, Connection))
-            {
-                rect PortBounds = CalculateNodeInputPortBounds(Node, Connection, State->NodeRenderSettings);
-                DrawPort(RenderBuffer, PortBounds, PortColor);
-                
-                //
-                // TODO(Peter): I don't like excluding OutputNode, feels too much like a special case
-                // but I don't want to get in to the meta programming right now. 
-                // We should just generate a spec and struct member types for NodeType_OutputNode
-                //
-                // :ExcludingOutputNodeSpecialCase
-                //
-                if (Node->Type != NodeType_OutputNode && DrawFields)
-                {
-                    node_specification Spec = NodeSpecifications[Node->Type];
-                    node_struct_member Member = Spec.MemberList[Connection];
-                    DrawString(RenderBuffer, MakeString(Member.Name), 
-                               State->NodeRenderSettings.Font,
-                               v2{PortBounds.Min.x - 8, PortBounds.Min.y}, WhiteV4, Align_Right);
-                }
-                
-                rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
-                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
-                
-                // NOTE(Peter): its way easier to draw the connection on the input port b/c its a 1:1 relationship,
-                // whereas output ports might have many connections, they really only know about the most recent one
-                // Not sure if this is a problem. We mostly do everything backwards here, starting at the 
-                // most downstream node and working back up to find dependencies.
-                if (ConnectionHasUpstreamConnection(Node, Connection))
-                {
-                    rect ConnectedPortBounds = GetBoundsOfPortConnectedToInput(Node, Connection, State->NodeList, State->NodeRenderSettings);
-                    v2 InputCenter = CalculateRectCenter(PortBounds);
-                    v2 OutputCenter = CalculateRectCenter(ConnectedPortBounds);
-                    PushRenderLine2D(RenderBuffer, OutputCenter, InputCenter, 1, WhiteV4);
-                }
-            }
-            
-            // Outputs
-            if (ConnectionIsOutput(Node, Connection))
-            {
-                rect PortBounds = CalculateNodeOutputPortBounds(Node, Connection, State->NodeRenderSettings);
-                DrawPort(RenderBuffer, PortBounds, PortColor);
-                
-                if (DrawFields)
-                {
-                    node_specification Spec = NodeSpecifications[Node->Type];
-                    node_struct_member Member = Spec.MemberList[Connection];
-                    DrawString(RenderBuffer, MakeString(Member.Name), 
-                               State->NodeRenderSettings.Font,
-                               v2{PortBounds.Max.x + 8, PortBounds.Min.y}, WhiteV4);
-                }
-                
-                rect ValueBounds = CalculateNodeOutputValueBounds(Node, Connection, State->NodeRenderSettings);
-                DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
-            }
-            
-            for (s32 Button = 0; Button < 3; Button++)
-            {
-                rect ButtonRect = CalculateNodeDragHandleBounds(NodeBounds, Button, State->NodeRenderSettings);
-                PushRenderQuad2D(RenderBuffer, ButtonRect.Min, ButtonRect.Max, DragButtonColors[Button]);
-            }
-        }
-        
-        Next(&NodeIter);
-    }
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(NodeViewDeleteNode)
-{
-    node_view_operation_state* OpState = GetCurrentOperationState(State->Modes, node_view_operation_state);
-    if (OpState->SelectedNodeHandle > 0)
-    {
-        node_header* SelectedNode = GetNodeWithHandle(State->NodeList, OpState->SelectedNodeHandle);
-        FreeNodeOnList(State->NodeList, SelectedNode);
-    }
-}
-
-FOLDHAUS_INPUT_COMMAND_PROC(CloseNodeView)
-{
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-input_command NodeViewCommands [] = {
-    { KeyCode_Tab, KeyCode_Invalid, Command_Began, CloseNodeView},
-    { KeyCode_A, KeyCode_Invalid, Command_Began, OpenNodeLister},
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, NodeViewBeginMouseDragInteraction},
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, NodeViewBeginMouseSelectInteraction},
-    { KeyCode_X, KeyCode_Invalid, Command_Began, NodeViewDeleteNode},
+input_command SplitPanelCommands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndSplitPanelOperation },
 };
 
-FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
+internal void
+BeginSplitPanelOperation(panel* Panel, rect PanelBounds, mouse_state Mouse, app_state* State)
 {
-    operation_mode* NodeViewMode = ActivateOperationModeWithCommands(&State->Modes, NodeViewCommands);
-    NodeViewMode->Render = RenderNodeView;
-    
-    node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
-                                                              &State->Modes, 
-                                                              node_view_operation_state);
-    
-    OpState->SelectedNodeHandle = 0;
+    operation_mode* SplitPanel = ActivateOperationModeWithCommands(&State->Modes, SplitPanelCommands, UpdateAndRenderSplitPanel);
+    split_panel_operation_state* OpState = CreateOperationState(SplitPanel, &State->Modes, split_panel_operation_state);
+    OpState->Panel = Panel;
+    OpState->InitialPanelBounds = PanelBounds;
 }
 
-////////////////////////////////////////
-//
-//     3D View Mouse Rotate
-//
-///////////////////////////////////////
 
-struct mouse_rotate_view_operation_state
-{
-    v4 CameraStartPos;
-};
+// ----------------
 
-OPERATION_RENDER_PROC(Update3DViewMouseRotate)
+#define PANEL_EDGE_CLICK_MAX_DISTANCE 6
+
+internal b32
+HandleMouseDownPanelInteractionOrRecurse(panel* Panel, panel_edit_mode PanelEditMode, rect PanelBounds, mouse_state Mouse, app_state* State)
 {
-    mouse_rotate_view_operation_state* OpState = (mouse_rotate_view_operation_state*)Operation.OpStateMemory;
+    b32 HandledMouseInput = false;
     
-    v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
+    if (Panel->SplitDirection == PanelSplit_NoSplit
+        && PointIsInRange(Mouse.DownPos, PanelBounds.Min, PanelBounds.Min + v2{25, 25}))
+    {
+        BeginSplitPanelOperation(Panel, PanelBounds, Mouse, State);
+        HandledMouseInput = true;
+    }
+    else if (Panel->SplitDirection == PanelSplit_Horizontal)
+    {
+        r32 SplitY = GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent);
+        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.y - SplitY);
+        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
+        {
+            BeginDragPanelBorder(Panel, PanelEditMode, PanelBounds, PanelSplit_Horizontal, Mouse, State);
+            HandledMouseInput = true;
+        }
+        else
+        {
+            rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
+            rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+            if (PointIsInRect(Mouse.DownPos, BottomPanelBounds))
+            {
+                HandleMouseDownPanelInteractionOrRecurse(&Panel->Bottom->Panel, PanelEditMode, BottomPanelBounds, Mouse, State);
+            }
+            if (PointIsInRect(Mouse.DownPos, TopPanelBounds))
+            {
+                HandleMouseDownPanelInteractionOrRecurse(&Panel->Top->Panel, PanelEditMode, TopPanelBounds, Mouse, State);
+            }
+        }
+    }
+    else if (Panel->SplitDirection == PanelSplit_Vertical)
+    {
+        r32 SplitX = GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent);
+        r32 ClickDistanceFromSplit = GSAbs(Mouse.DownPos.x - SplitX);
+        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
+        {
+            BeginDragPanelBorder(Panel, PanelEditMode, PanelBounds, PanelSplit_Vertical, Mouse, State);
+            HandledMouseInput = true;
+        }
+        else
+        {
+            rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
+            rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+            if (PointIsInRect(Mouse.DownPos, LeftPanelBounds))
+            {
+                HandleMouseDownPanelInteractionOrRecurse(&Panel->Left->Panel, PanelEditMode, LeftPanelBounds, Mouse, State);
+            }
+            if (PointIsInRect(Mouse.DownPos, RightPanelBounds))
+            {
+                HandleMouseDownPanelInteractionOrRecurse(&Panel->Right->Panel, PanelEditMode, RightPanelBounds, Mouse, State);
+            }
+        }
+    }
     
-    m44 XRotation = GetXRotation(-TotalDeltaPos.y * State->PixelsToWorldScale);
-    m44 YRotation = GetYRotation(TotalDeltaPos.x * State->PixelsToWorldScale);
-    m44 Combined = XRotation * YRotation;
-    
-    State->Camera.Position = V3(Combined * OpState->CameraStartPos);
+    return HandledMouseInput;
 }
 
-FOLDHAUS_INPUT_COMMAND_PROC(End3DViewMouseRotate)
+internal b32
+HandleMousePanelInteraction(panel_system* PanelSystem, rect WindowBounds, mouse_state Mouse, app_state* State)
 {
-    DeactivateCurrentOperationMode(&State->Modes);
+    b32 HandledMouseInput = false;
+    
+    panel* FirstPanel = &PanelSystem->Panels[0].Panel;
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
+    {
+        HandledMouseInput = HandleMouseDownPanelInteractionOrRecurse(FirstPanel, PanelEdit_Modify, WindowBounds, Mouse, State);
+    }
+    else if (MouseButtonTransitionedDown(Mouse.RightButtonState))
+    {
+        HandledMouseInput = HandleMouseDownPanelInteractionOrRecurse(FirstPanel, PanelEdit_Destroy, WindowBounds, Mouse, State);
+    }
+    
+    return HandledMouseInput;
 }
 
-input_command MouseRotateViewCommands [] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, End3DViewMouseRotate},
-};
-
-FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
+internal void
+DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mouse, render_command_buffer* RenderBuffer)
 {
-    operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands);
-    RotateViewMode->Render = Update3DViewMouseRotate;
+    r32 MouseLeftEdgeDistance = GSAbs(Mouse.Pos.x - PanelMin.x);
+    r32 MouseRightEdgeDistance = GSAbs(Mouse.Pos.x - PanelMax.x);
+    r32 MouseTopEdgeDistance = GSAbs(Mouse.Pos.y - PanelMax.y);
+    r32 MouseBottomEdgeDistance = GSAbs(Mouse.Pos.y - PanelMin.y);
     
-    mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,
-                                                                      &State->Modes,
-                                                                      mouse_rotate_view_operation_state);
-    OpState->CameraStartPos = V4(State->Camera.Position, 1);
+    PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
+    v4 HighlightColor = v4{.3f, .3f, .3f, 1.f};
+    r32 HighlightThickness = 1;
+    if (MouseLeftEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 LeftEdgeMin = PanelMin;
+        v2 LeftEdgeMax = v2{PanelMin.x + HighlightThickness, PanelMax.y};
+        PushRenderQuad2D(RenderBuffer, LeftEdgeMin, LeftEdgeMax, HighlightColor);
+    }
+    else if (MouseRightEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 RightEdgeMin = v2{PanelMax.x - HighlightThickness, PanelMin.y};
+        v2 RightEdgeMax = PanelMax;
+        PushRenderQuad2D(RenderBuffer, RightEdgeMin, RightEdgeMax, HighlightColor);
+    }
+    else if (MouseTopEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 TopEdgeMin = v2{PanelMin.x, PanelMax.y - HighlightThickness};
+        v2 TopEdgeMax = PanelMax;
+        PushRenderQuad2D(RenderBuffer, TopEdgeMin, TopEdgeMax, HighlightColor);
+    }
+    else if (MouseBottomEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
+    {
+        v2 BottomEdgeMin = PanelMin;
+        v2 BottomEdgeMax = v2{PanelMax.x, PanelMin.y + HighlightThickness};
+        PushRenderQuad2D(RenderBuffer, BottomEdgeMin, BottomEdgeMax, HighlightColor);
+    }
+}
+
+internal void
+DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBounds, interface_config Interface, mouse_state Mouse)
+{
+    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
+    PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
+    
+    v2 PanelSelectButtonMin = FooterBounds.Min + v2{30, 1};
+    v2 PanelSelectButtonMax = PanelSelectButtonMin + v2{100, 23};
+    
+    if (Panel->PanelSelectionMenuOpen)
+    {
+        v2 ButtonDimension = v2{100, 25};
+        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterBounds.Max.y};
+        
+        v2 MenuMin = ButtonMin;
+        v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
+        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
+            && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
+        {
+            Panel->PanelSelectionMenuOpen = false;
+        }
+        
+        
+        for (s32 i = 0; i < GlobalPanelDefsCount; i++)
+        {
+            panel_definition Def = GlobalPanelDefs[i];
+            string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
+            button_result DefinitionButton = EvaluateButton(RenderBuffer,
+                                                            ButtonMin, ButtonMin + ButtonDimension,
+                                                            DefName, Interface, Mouse);
+            if (DefinitionButton.Pressed)
+            {
+                SetPanelDefinition(Panel, i);
+                Panel->PanelSelectionMenuOpen = false;
+            }
+            
+            ButtonMin.y += ButtonDimension.y;
+        }
+    }
+    
+    button_result ButtonResult = EvaluateButton(RenderBuffer,
+                                                PanelSelectButtonMin, 
+                                                PanelSelectButtonMax,
+                                                MakeStringLiteral("Select"), Interface, Mouse);
+    if (ButtonResult.Pressed)
+    {
+        Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
+    }
+    
+}
+
+internal void
+RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+{
+    Assert(Panel->PanelDefinitionIndex >= 0);
+    
+    rect FooterBounds = rect{
+        PanelBounds.Min,
+        v2{PanelBounds.Max.x, PanelBounds.Min.y + 25},
+    };
+    rect PanelViewBounds = rect{
+        v2{PanelBounds.Min.x, FooterBounds.Max.y},
+        PanelBounds.Max,
+    };
+    
+    panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
+    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context, Mouse);
+    
+    PushRenderOrthographic(RenderBuffer, WindowBounds.Min.x, WindowBounds.Min.y, WindowBounds.Max.x, WindowBounds.Max.y);
+    DrawPanelFooter(Panel, RenderBuffer, FooterBounds, State->Interface, Mouse);
+}
+
+internal void
+DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state Mouse, app_state* State, context Context)
+{
+    for (u32 i = 0; i < PanelLayout.PanelsCount; i++)
+    {
+        panel_with_layout PanelWithLayout = PanelLayout.Panels[i];
+        panel* Panel = PanelWithLayout.Panel;
+        rect PanelBounds = PanelWithLayout.Bounds;
+        
+        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, Mouse);
+        v4 BorderColor = v4{0, 0, 0, 1};
+        
+        PushRenderOrthographic(RenderBuffer, State->WindowBounds.Min.x, State->WindowBounds.Min.y, State->WindowBounds.Max.x, State->WindowBounds.Max.y);
+        DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, Mouse, RenderBuffer);
+    }
 }
