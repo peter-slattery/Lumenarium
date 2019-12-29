@@ -197,17 +197,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
         InitializeAnimationSystem(&State->AnimationSystem);
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         
-        animation_block BlockOne = {0}; 
-        BlockOne.StartTime = 0;
-        BlockOne.EndTime = 8;
-        BlockOne.Proc = TestPatternTwo;
-        AddAnimationBlock(BlockOne, &State->AnimationSystem);
-        
-        animation_block BlockTwo = {0};
-        BlockTwo.StartTime = 8;
-        BlockTwo.EndTime = 15;
-        BlockTwo.Proc = TestPatternThree;
-        AddAnimationBlock(BlockTwo, &State->AnimationSystem);
+        AddAnimationBlock(0, 8, TestPatternTwo, &State->AnimationSystem);
+        AddAnimationBlock(8, 15, TestPatternThree, &State->AnimationSystem);
         
         State->AnimationSystem.AnimationStart = 0;
         State->AnimationSystem.AnimationEnd = 15;

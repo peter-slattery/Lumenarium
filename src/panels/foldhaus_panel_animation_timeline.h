@@ -33,6 +33,24 @@ GetXPositionFromTimeInAnimationPanel (r32 Time, rect PanelBounds, s32 StartFrame
 }
 
 internal void
+AddAnimationBlock(r32 StartTime, r32 EndTime, animation_proc* Proc, animation_system* AnimationSystem)
+{
+    animation_block NewBlock = {0};
+    NewBlock.StartTime = StartTime;
+    NewBlock.EndTime = EndTime;
+    NewBlock.Proc = Proc;
+    AddAnimationBlock(NewBlock, AnimationSystem);
+}
+
+#define NEW_ANIMATION_BLOCK_DURATION 3
+internal void
+AddAnimationBlockAtCurrentTime (animation_proc* Proc, animation_system* System)
+{
+    r32 CurrentTime = System->Time;
+    AddAnimationBlock(CurrentTime, CurrentTime + NEW_ANIMATION_BLOCK_DURATION, Proc, System);
+}
+
+internal void
 DeleteAnimationBlock(animation_block_handle AnimationBlockHandle, app_state* State)
 {
     RemoveAnimationBlock(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
@@ -109,6 +127,7 @@ StartDragTimeMarker(rect TimelineBounds, s32 PanelStartFrame, s32 PanelEndFrame,
 
 OPERATION_STATE_DEF(drag_animation_clip_state)
 {
+    rect TimelineBounds;
     r32 AnimationPanel_StartFrame;
     r32 AnimationPanel_EndFrame;
     r32 SelectedClip_InitialStartTime;
@@ -119,14 +138,11 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 {
     drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
     
-    panel_and_bounds AnimationPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
-    Assert(AnimationPanel.Panel);
+    s32 ClipInitialStartTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialStartTime, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    s32 ClipInitialEndTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialEndTime, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
     
-    s32 ClipInitialStartTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialStartTime, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    s32 ClipInitialEndTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialEndTime, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    
-    r32 TimeAtMouseDownX = GetTimeFromPointInAnimationPanel(Mouse.DownPos, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, AnimationPanel.Bounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    r32 TimeAtMouseDownX = GetTimeFromPointInAnimationPanel(Mouse.DownPos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
     r32 TimeOffset = TimeAtMouseX - TimeAtMouseDownX;
     
     animation_block* AnimationBlock = GetAnimationBlockWithHandle(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
@@ -156,7 +172,7 @@ input_command DragAnimationClipCommands [] = {
 };
 
 internal void
-SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelStartFrame, s32 PanelEndFrame, app_state* State)
+SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelStartFrame, s32 PanelEndFrame, rect TimelineBounds, app_state* State)
 {
     SelectAnimationBlock(BlockHandle, State);
     
@@ -165,6 +181,7 @@ SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelSt
     drag_animation_clip_state* OpState = CreateOperationState(DragAnimationClipMode,
                                                               &State->Modes,
                                                               drag_animation_clip_state);
+    OpState->TimelineBounds = TimelineBounds;
     OpState->AnimationPanel_StartFrame = PanelStartFrame;
     OpState->AnimationPanel_EndFrame = PanelEndFrame ;
     
@@ -248,11 +265,11 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
 }
 
 internal rect
-DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPerFrame, s32 FrameCount, s32 StartFrame, v2 TimelineMin, v2 TimelineMax, render_command_buffer* RenderBuffer)
+DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPerFrame, s32 FrameCount, s32 StartFrame, rect TimelineBounds, render_command_buffer* RenderBuffer)
 {
     rect BlockBounds = {};
     
-    r32 TimelineWidth = TimelineMax.x - TimelineMin.x;
+    r32 TimelineWidth = Width(TimelineBounds);
     
     s32 BlockStartFrame = AnimationBlock.StartTime / SecondsPerFrame;
     r32 StartFramePercent = (r32)(BlockStartFrame - StartFrame) / (r32)FrameCount;
@@ -262,8 +279,8 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPe
     r32 EndFramePercent = (r32)(BlockEndFrame - StartFrame) / (r32)FrameCount;
     r32 EndPosition = TimelineWidth * EndFramePercent;
     
-    BlockBounds.Min = TimelineMin + v2{StartPosition, 25};
-    BlockBounds.Max = TimelineMin + v2{EndPosition, 75};
+    BlockBounds.Min = TimelineBounds.Min + v2{StartPosition, 25};
+    BlockBounds.Max = TimelineBounds.Min + v2{EndPosition, 75};
     
     PushRenderQuad2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, BlockColor);
     PushRenderBoundingBox2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, 1, WhiteV4);
@@ -299,8 +316,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     r32 FrameBarBottom = DrawFrameBar(AnimationSystem, RenderBuffer, StartFrame, EndFrame, PanelBounds, Mouse, State);
     
     // Animation Blocks
-    v2 TimelineMin = PanelBounds.Min;
-    v2 TimelineMax = v2{PanelBounds.Max.x, FrameBarBottom};
+    rect TimelineBounds = rect{ PanelBounds.Min, v2{PanelBounds.Max.x, FrameBarBottom} };
     b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Mouse.LeftButtonState);
     for (u32 i = 0; i < AnimationSystem->BlocksCount; i++)
     {
@@ -319,13 +335,13 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
             BlockColor = PinkV4;
         }
         
-        rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AnimationSystem->SecondsPerFrame, FrameCount, StartFrame, TimelineMin, TimelineMax, RenderBuffer);
+        rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AnimationSystem->SecondsPerFrame, FrameCount, StartFrame, TimelineBounds, RenderBuffer);
         
         if (PointIsInRange(Mouse.Pos, BlockBounds.Min, BlockBounds.Max)
             && MouseButtonTransitionedDown(Mouse.LeftButtonState))
         {
             MouseDownAndNotHandled = false;
-            SelectAndBeginDragAnimationBlock(CurrentBlockHandle, StartFrame, EndFrame, State);
+            SelectAndBeginDragAnimationBlock(CurrentBlockHandle, StartFrame, EndFrame, TimelineBounds, State);
         }
     }
     
@@ -347,11 +363,64 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     PrintF(&TempString, "%d", SliderFrame);
     DrawString(RenderBuffer, TempString, State->Interface.Font, HeadMin + v2{4, 4}, WhiteV4);
     
-    if (MouseDownAndNotHandled && PointIsInRange(Mouse.Pos, TimelineMin, TimelineMax))
+    if (MouseDownAndNotHandled && PointIsInRect(Mouse.Pos, TimelineBounds))
     {
         DeselectCurrentAnimationBlock(State);
     }
     return Result;
+}
+
+struct animation_clip
+{
+    char* Name;
+    s32 NameLength;
+    animation_proc* Proc;
+};
+
+s32 GlobalAnimationClipsCount = 3;
+animation_clip GlobalAnimationClips[] = {
+    { "Test Pattern One", 16, TestPatternOne  },
+    { "Test Pattern Two", 16, TestPatternTwo },
+    { "Test Pattern Three", 18, TestPatternThree },
+};
+
+internal void
+DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffer* RenderBuffer, app_state* State)
+{
+    v4 LineBGColors[] = {
+        { .16f, .16f, .16f, 1.f },
+        { .18f, .18f, .18f, 1.f },
+    };
+    
+    interface_list List = {};
+    
+    List.LineBGColors = LineBGColors;
+    List.LineBGColorsCount = sizeof(LineBGColors) / sizeof(LineBGColors[0]);
+    List.LineBGHoverColor = v4{ .22f, .22f, .22f, 1.f };
+    List.TextColor = WhiteV4;
+    List.ListBounds = PanelBounds;
+    List.ListElementDimensions = v2{
+        Width(PanelBounds), 
+        (r32)(State->Interface.Font->PixelHeight + 8),
+    };
+    List.ElementLabelIndent = v2{10, 4};
+    
+    string TitleString = MakeStringLiteral("Animation Clips");
+    DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface);
+    
+    for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
+    {
+        animation_clip Clip = GlobalAnimationClips[i];
+        string ClipName = MakeString(Clip.Name, Clip.NameLength);
+        rect ElementBounds = DrawListElement(ClipName, &List, Mouse, RenderBuffer, State->Interface);
+        
+        if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
+            && PointIsInRect(Mouse.DownPos, ElementBounds))
+        {
+            AddAnimationBlockAtCurrentTime(Clip.Proc, &State->AnimationSystem);
+        }
+    }
+    
 }
 
 PANEL_RENDER_PROC(AnimationTimeline_Render)
@@ -359,12 +428,18 @@ PANEL_RENDER_PROC(AnimationTimeline_Render)
     animation_block_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
     
     r32 OptionsRowHeight = 25;
-    rect TimelineBounds = rect{
+    rect AnimationClipListBounds = rect{
         PanelBounds.Min,
-        v2{PanelBounds.Max.x, PanelBounds.Max.y - OptionsRowHeight}
+        v2{PanelBounds.Min.x + 300, PanelBounds.Max.y - OptionsRowHeight},
+    };
+    rect TimelineBounds = rect{
+        v2{AnimationClipListBounds.Max.x, PanelBounds.Min.y},
+        v2{PanelBounds.Max.x, PanelBounds.Max.y - OptionsRowHeight},
     };
     if (Height(TimelineBounds) > 0)
     {
+        DrawAnimationClipsList(AnimationClipListBounds, Mouse, RenderBuffer, State);
+        
         s32 FrameStart = (s32)(State->AnimationSystem.AnimationStart / State->AnimationSystem.SecondsPerFrame);
         s32 FrameEnd = (s32)(State->AnimationSystem.AnimationEnd / State->AnimationSystem.SecondsPerFrame);
         SelectedBlockHandle = DrawAnimationTimeline(&State->AnimationSystem, 
