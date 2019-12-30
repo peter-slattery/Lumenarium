@@ -169,9 +169,9 @@ struct node_specification
     s32 NameLength;
     
     node_struct_member* MemberList;
-    s32 DataStructSize;
+    u32 DataStructSize;
     
-    s32 MemberListLength;
+    u32 MemberListLength;
     b32 IsPattern;
 };
 

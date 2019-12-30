@@ -34,6 +34,9 @@ struct panel
     // Probably belongs in a more generalized PanelInterfaceState or something
     b32 PanelSelectionMenuOpen;
     
+    u8* PanelStateMemory;
+    u32 PanelStateMemorySize;
+    
     union{
         panel_entry* Left;
         panel_entry* Top;
@@ -79,8 +82,6 @@ struct panel_layout
     u32 PanelsCount;
     u32 PanelsMax;
 };
-
-internal void SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPanelDefinitionIndex);
 
 /////////////////////////////////
 //
@@ -199,14 +200,6 @@ ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_sys
     
     FreePanelEntry(PanelEntryToKeep, PanelSystem);
     FreePanelEntryRecursive(PanelEntryToDestroy, PanelSystem);
-}
-
-internal void
-SetPanelDefinition(panel* Panel, s32 NewDefinitionIndex)
-{
-    s32 OldDefinitionIndex = Panel->PanelDefinitionIndex;
-    Panel->PanelDefinitionIndex = NewDefinitionIndex;
-    SetPanelDefinitionExternal(Panel, OldDefinitionIndex, NewDefinitionIndex);
 }
 
 /////////////////////////////////

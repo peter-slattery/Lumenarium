@@ -189,7 +189,7 @@ PushNodeOnListFromSpecification (node_list* List, node_type Type, v2 Min, memory
     Node->PersistentData = PushArray(Storage, u8, Spec.DataStructSize);
     
     node_struct_member* MemberList = Spec.MemberList;
-    for (s32 MemberIdx = 0; MemberIdx < Spec.MemberListLength; MemberIdx++)
+    for (u32 MemberIdx = 0; MemberIdx < Spec.MemberListLength; MemberIdx++)
     {
         node_struct_member Member = MemberList[MemberIdx];
         InitializeNodeConnection(Node->Connections + MemberIdx, Member, Node);

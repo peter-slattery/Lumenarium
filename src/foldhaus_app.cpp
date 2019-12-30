@@ -1,16 +1,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-internal void
-SetPanelDefinitionExternal(panel* Panel, s32 OldPanelDefinitionIndex, s32 NewPanelDefinitionIndex)
-{
-    if(OldPanelDefinitionIndex >= 0)
-    {
-        GlobalPanelDefs[OldPanelDefinitionIndex].Cleanup(Panel);
-    }
-    GlobalPanelDefs[NewPanelDefinitionIndex].Init(Panel);
-}
-
 internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
 {
@@ -203,7 +193,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, 0);
+    SetPanelDefinition(Panel, 0, State);
 }
 
 internal void
@@ -223,6 +213,7 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
         {
             panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
             if (!PanelWithMouseOverIt.Panel) { return; }
+            State->HotPanel = PanelWithMouseOverIt.Panel;
             
             panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
             if (!PanelDefinition.InputCommands) { return; }

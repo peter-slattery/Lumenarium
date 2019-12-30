@@ -141,6 +141,19 @@ enum panel_edit_mode
     PanelEdit_Count,
 };
 
+internal void
+SetPanelDefinition(panel* Panel, s32 NewPanelDefinitionIndex, app_state* State)
+{
+    s32 OldPanelDefinitionIndex = Panel->PanelDefinitionIndex;
+    Panel->PanelDefinitionIndex = NewPanelDefinitionIndex;
+    
+    if(OldPanelDefinitionIndex >= 0)
+    {
+        GlobalPanelDefs[OldPanelDefinitionIndex].Cleanup(Panel, State);
+    }
+    GlobalPanelDefs[NewPanelDefinitionIndex].Init(Panel, State);
+}
+
 //
 // Drag Panel Border Operation Mode
 
@@ -359,6 +372,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
         SplitPanelHorizontally(Panel, YPercent, PanelBounds, &State->PanelSystem);
     }
     
+    Panel->Left->Panel.PanelDefinitionIndex = Panel->PanelDefinitionIndex;
+    Panel->Left->Panel.PanelStateMemory = Panel->PanelStateMemory;
+    Panel->Left->Panel.PanelStateMemorySize = Panel->PanelStateMemorySize;
+    
+    SetPanelDefinition(&Panel->Right->Panel, Panel->PanelDefinitionIndex, State);
+    
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
@@ -497,7 +516,7 @@ DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mou
 }
 
 internal void
-DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBounds, interface_config Interface, mouse_state Mouse)
+DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBounds, mouse_state Mouse, app_state* State)
 {
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
@@ -525,10 +544,10 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
             string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
             button_result DefinitionButton = EvaluateButton(RenderBuffer,
                                                             ButtonMin, ButtonMin + ButtonDimension,
-                                                            DefName, Interface, Mouse);
+                                                            DefName, State->Interface, Mouse);
             if (DefinitionButton.Pressed)
             {
-                SetPanelDefinition(Panel, i);
+                SetPanelDefinition(Panel, i, State);
                 Panel->PanelSelectionMenuOpen = false;
             }
             
@@ -539,7 +558,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
     button_result ButtonResult = EvaluateButton(RenderBuffer,
                                                 PanelSelectButtonMin, 
                                                 PanelSelectButtonMax,
-                                                MakeStringLiteral("Select"), Interface, Mouse);
+                                                MakeStringLiteral("Select"), State->Interface, Mouse);
     if (ButtonResult.Pressed)
     {
         Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
@@ -565,7 +584,7 @@ RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_bu
     Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context, Mouse);
     
     PushRenderOrthographic(RenderBuffer, WindowBounds.Min.x, WindowBounds.Min.y, WindowBounds.Max.x, WindowBounds.Max.y);
-    DrawPanelFooter(Panel, RenderBuffer, FooterBounds, State->Interface, Mouse);
+    DrawPanelFooter(Panel, RenderBuffer, FooterBounds, Mouse, State);
 }
 
 internal void

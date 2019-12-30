@@ -10,7 +10,9 @@
 #include "foldhaus_assembly.h"
 
 #include "assembly_parser.h"
+
 #include "foldhaus_node.h"
+
 #include "assembly_parser.cpp"
 #include "test_patterns.h"
 
@@ -67,6 +69,7 @@ struct app_state
     animation_block_handle SelectedAnimationBlockHandle;
     
     panel_system PanelSystem;
+    panel* HotPanel;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
@@ -198,10 +201,19 @@ TestPatternThree(assembly* Assembly, r32 Time)
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"
 
-#define PANEL_INIT_PROC(name) void name(panel* Panel)
+#include "foldhaus_default_nodes.h"
+#include "generated/foldhaus_nodes_generated.cpp"
+#include "foldhaus_node.cpp"
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+#define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_INIT_PROC(panel_init_proc);
 
-#define PANEL_CLEANUP_PROC(name) void name(panel* Panel)
+#define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
 #define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
@@ -212,6 +224,7 @@ typedef PANEL_RENDER_PROC(panel_render_proc);
 #include "panels/foldhaus_panel_dmx_view.h"
 #include "panels/foldhaus_panel_animation_timeline.h"
 #include "panels/foldhaus_panel_hierarchy.h"
+#include "panels/foldhaus_panel_node_graph.h"
 
 #include "generated/foldhaus_panels_generated.h"
 
