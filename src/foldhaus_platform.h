@@ -4,6 +4,7 @@
 #include <gs_language.h>
 #include "gs_platform.h"
 #include <gs_list.h>
+#include <gs_bucket.h>
 
 #define GS_MEMORY_TRACK_ALLOCATIONS
 #define GS_MEMORY_NO_STD_LIBS

@@ -90,15 +90,6 @@ struct node_header
     u8* PersistentData;
 };
 
-// TODO(Peter): @Remove Confirm we don't need it first
-struct node_free_list_member
-{
-    s32 Handle; // NOTE(Peter): this will always be zero, and must come first to match node_header
-    s32 Size;
-    node_free_list_member* Next;
-    s32 OldHandle;
-};
-
 struct node_list_buffer
 {
     node_header* Headers;
@@ -181,6 +172,36 @@ struct node_render_settings
     bitmap_font* Font;
     b32 Display;
 };
+
+// ^^ OLD ^^
+
+struct pattern_node
+{
+    // TODO(Peter): Something to think about further down the line is the fact that
+    // SpecificationIndex doesn't have to stay static throughout a single instance of 
+    // an application, let alone across separate runs. If you recompile (hot load or not)
+    // with a new specification, the indecies all get thrown off. Should we hash the spec
+    // names or something?
+    u32 SpecificationIndex;
+};
+
+struct pattern_node_connection
+{
+    gs_list_handle UpstreamNodeHandle;
+    gs_list_handle DownstreamNodeHandle;
+    
+    u32 UpstreamPortIndex;
+    u32 DownstreamPortIndex;
+};
+
+struct pattern_node_workspace
+{
+    gs_list<pattern_node> Nodes;
+    gs_bucket<pattern_node_connection> Connections;
+};
+
+
+// vv OLD vv
 
 v4 DragButtonColors[] = {
     v4{.7f, .7f, .7f, 1},

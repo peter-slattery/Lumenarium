@@ -70,6 +70,8 @@ struct app_state
     
     panel_system PanelSystem;
     panel* HotPanel;
+    
+    pattern_node_workspace NodeWorkspace;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);

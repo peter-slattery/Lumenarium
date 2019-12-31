@@ -3,53 +3,11 @@ struct node_graph_state
     v2 ViewOffset;
 };
 
-
-struct temp_node_connection
-{
-    u32 DownstreamNodeIndex;
-    u32 DownstreamNodePort;
-    
-    u32 UpstreamNodeIndex;
-    u32 UpstreamNodePort;
-};
-
 struct visual_node
 {
     node_specification Spec;
     v2 Position;
 };
-
-#define TEMP_NODE_LIST_MAX 10
-global_variable u32 TEMP_NodeListUsed = 0;
-global_variable node_specification TEMP_NodeList[TEMP_NODE_LIST_MAX];
-
-#define TEMP_CONNECTIONS_LIST_MAX 10
-global_variable u32 TEMP_NodeConnectionsUsed = 0;
-global_variable temp_node_connection TEMP_NodeConnections[TEMP_CONNECTIONS_LIST_MAX];
-
-internal void
-PushNodeOnNodeList(node_specification Spec)
-{
-    if (TEMP_NodeListUsed < TEMP_NODE_LIST_MAX)
-    {
-        u32 Index = TEMP_NodeListUsed++;
-        TEMP_NodeList[Index] = Spec;
-    }
-}
-
-internal void
-PushConnectionOnConnectionsList(u32 UpstreamNodeIndex, u32 UpstreamNodePort, u32 DownstreamNodeIndex, u32 DownstreamNodePort)
-{
-    if (TEMP_NodeConnectionsUsed < TEMP_CONNECTIONS_LIST_MAX)
-    {
-        u32 Index = TEMP_NodeConnectionsUsed++;
-        TEMP_NodeConnections[Index].DownstreamNodeIndex = DownstreamNodeIndex;
-        TEMP_NodeConnections[Index].DownstreamNodePort = DownstreamNodePort;
-        TEMP_NodeConnections[Index].UpstreamNodeIndex = UpstreamNodeIndex;
-        TEMP_NodeConnections[Index].UpstreamNodePort = UpstreamNodePort;;
-    }
-}
-
 
 //
 // Pan Node Graph
@@ -273,46 +231,105 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     return PortClicked;
 }
 
-internal visual_node*
-ArrangeNodes(node_specification* NodeList, u32 NodesCount, temp_node_connection* ConnectionList, u32 ConnectionsCount, r32 NodeWidth, r32 LayerDistance, memory_arena* Storage)
+struct node_layout
 {
-    // Figure out how to arrange nodes
-    u32 LayerCount = 1;
+    // NOTE(Peter): This Map is a sparse array.
+    // index i corresponds to index i in some list of nodes
+    // the value at index i is the index of that node in a compressed list
+    // if the value at i is -1, that means the entry is free
+    s32* SparseToContiguousNodeMap;
+    u32  SparseToContiguousNodeMapCount;
     
-    u32* NodeLayers = PushArray(Storage, u32, NodesCount);
-    GSZeroMemory((u8*)NodeLayers, sizeof(u32) * NodesCount);
+    visual_node* VisualNodes;
+    u32*         VisualNodeLayers;
+    u32          VisualNodesCount;
     
-    for (u32 c = 0; c < ConnectionsCount; c++)
+    u32 LayerCount;
+    v2* LayerPositions;
+};
+
+internal u32
+FindLayerForNodeInList(gs_list_handle NodeHandle, gs_bucket<gs_list_handle> NodeLUT)
+{
+    u32 Index = 0;
+    // TODO(Peter): This is turning this layout code into an n^2 lookup
+    for (u32 i = 0; i < NodeLUT.Used; i++)
     {
-        temp_node_connection Connection = TEMP_NodeConnections[c];
+        gs_list_handle Handle = *NodeLUT.GetElementAtIndex(i);
+        if (GSListHandlesAreEqual(Handle, NodeHandle))
+        {
+            Index = i;
+            break;
+        }
+    }
+    return Index;
+}
+
+internal node_layout
+ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, memory_arena* Storage)
+{
+    node_layout Result = {};
+    
+    Result.SparseToContiguousNodeMapCount = Workspace.Nodes.OnePastLastUsed;
+    Result.SparseToContiguousNodeMap = PushArray(Storage, s32, Result.SparseToContiguousNodeMapCount);
+    u32 DestinationIndex = 0;
+    for (u32 i = 0; i < Result.SparseToContiguousNodeMapCount; i++)
+    {
+        gs_list_entry<pattern_node>* Entry = Workspace.Nodes.GetEntryAtIndex(i);
+        if (!EntryIsFree(Entry)) 
+        { 
+            Result.SparseToContiguousNodeMap[i] = DestinationIndex++;
+        }
+        else
+        {
+            Result.SparseToContiguousNodeMap[i] = -1;
+        }
+    }
+    
+    // Figure out how to arrange nodes
+    Result.LayerCount = 1;
+    
+    Result.VisualNodeLayers = PushArray(Storage, u32, Workspace.Nodes.Used);
+    GSZeroMemory((u8*)Result.VisualNodeLayers, sizeof(u32) * Workspace.Nodes.Used);
+    
+    for (u32 c = 0; c < Workspace.Connections.Used; c++)
+    {
+        pattern_node_connection Connection = *Workspace.Connections.GetElementAtIndex(c);
         
-        u32 UpstreamNodeInitialLayer = NodeLayers[Connection.UpstreamNodeIndex];
-        u32 DownstreamNodeLayer = NodeLayers[Connection.DownstreamNodeIndex];
+        u32 UpstreamNodeLayerIndex = Result.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
+        u32 DownstreamNodeLayerIndex = Result.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
         
-        NodeLayers[Connection.UpstreamNodeIndex] = GSMax(UpstreamNodeInitialLayer, DownstreamNodeLayer + 1);
-        LayerCount = GSMax(NodeLayers[Connection.UpstreamNodeIndex] + 1, LayerCount);
+        u32 UpstreamNodeInitialLayer = Result.VisualNodeLayers[UpstreamNodeLayerIndex];
+        u32 DownstreamNodeLayer = Result.VisualNodeLayers[DownstreamNodeLayerIndex];
+        
+        Result.VisualNodeLayers[UpstreamNodeLayerIndex] = GSMax(UpstreamNodeInitialLayer, DownstreamNodeLayer + 1);
+        Result.LayerCount = GSMax(Result.VisualNodeLayers[UpstreamNodeLayerIndex] + 1, Result.LayerCount);
     }
     
     // Place Layer Columns
-    v2* LayerPositions = PushArray(Storage, v2, LayerCount);
-    for (u32 l = 0; l < LayerCount; l++)
+    Result.LayerPositions = PushArray(Storage, v2, Result.LayerCount);
+    for (u32 l = 0; l < Result.LayerCount; l++)
     {
-        u32 FromRight = LayerCount - l;
-        LayerPositions[l] = v2{ (NodeWidth + LayerDistance) * FromRight, 0 };
+        u32 FromRight = Result.LayerCount - l;
+        Result.LayerPositions[l] = v2{ (NodeWidth + LayerDistance) * FromRight, 0 };
     }
     
     // Place nodes
-    visual_node* VisualNodes = PushArray(Storage, visual_node, NodesCount);
-    for (u32 n = 0; n < NodesCount; n++)
+    Result.VisualNodesCount = Workspace.Nodes.Used;
+    Result.VisualNodes = PushArray(Storage, visual_node, Result.VisualNodesCount);
+    for (u32 n = 0; n < Workspace.Nodes.Used; n++)
     {
-        VisualNodes[n].Spec = TEMP_NodeList[n];
+        u32 NodeIndex = Result.SparseToContiguousNodeMap[n];
+        pattern_node* Node = Workspace.Nodes.GetElementAtIndex(NodeIndex);
+        u32 SpecIndex = Node->SpecificationIndex;
+        Result.VisualNodes[n].Spec = NodeSpecifications[SpecIndex];
         
-        u32 NodeLayer = NodeLayers[n];
-        VisualNodes[n].Position = LayerPositions[NodeLayer];
-        LayerPositions[NodeLayer].y -= 200;
+        u32 NodeLayer = Result.VisualNodeLayers[n];
+        Result.VisualNodes[n].Position = Result.LayerPositions[NodeLayer];
+        Result.LayerPositions[NodeLayer].y -= 200;
     }
     
-    return VisualNodes;
+    return Result;
 }
 
 internal 
@@ -333,29 +350,30 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     r32 LayerDistance = 100;
     r32 LineHeight = (State->Interface.Font->PixelHeight + (2 * State->Interface.Margin.y));
     
-    visual_node* VisualNodes = ArrangeNodes(&TEMP_NodeList[0], TEMP_NodeListUsed, 
-                                            &TEMP_NodeConnections[0], TEMP_NodeConnectionsUsed,
-                                            NodeWidth, LayerDistance,
-                                            &State->Transient);
+    node_layout NodeLayout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, &State->Transient);
     
     DrawGrid(GraphState->ViewOffset, v2{100, 100}, GraphBounds, RenderBuffer);
     
-    render_quad_batch_constructor ConnectionsLayer = PushRenderQuad2DBatch(RenderBuffer, TEMP_NodeConnectionsUsed);
-    for (u32 i = 0; i < TEMP_NodeConnectionsUsed; i++)
+    render_quad_batch_constructor ConnectionsLayer = PushRenderQuad2DBatch(RenderBuffer, State->NodeWorkspace.Connections.Used);
+    for (u32 i = 0; i < State->NodeWorkspace.Connections.Used; i++)
     {
-        temp_node_connection Connection = TEMP_NodeConnections[i];
-        visual_node UpstreamNode = VisualNodes[Connection.UpstreamNodeIndex];
-        visual_node DownstreamNode = VisualNodes[Connection.DownstreamNodeIndex];
+        pattern_node_connection Connection = *State->NodeWorkspace.Connections.GetElementAtIndex(i);
         
-        v2 LineStart = GraphState->ViewOffset + UpstreamNode.Position + v2{NodeWidth, 0} - (v2{0, LineHeight} * (Connection.UpstreamNodePort + 2)) + v2{0, LineHeight / 3};
-        v2 LineEnd = GraphState->ViewOffset + DownstreamNode.Position - (v2{0, LineHeight} * (Connection.DownstreamNodePort + 2)) + v2{0, LineHeight / 3};
+        u32 UpstreamNodeVisualIndex = NodeLayout.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
+        u32 DownstreamNodeVisualIndex = NodeLayout.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
+        
+        visual_node UpstreamNode = NodeLayout.VisualNodes[UpstreamNodeVisualIndex];
+        visual_node DownstreamNode = NodeLayout.VisualNodes[DownstreamNodeVisualIndex];
+        
+        v2 LineStart = GraphState->ViewOffset + UpstreamNode.Position + v2{NodeWidth, 0} - (v2{0, LineHeight} * (Connection.UpstreamPortIndex + 2)) + v2{0, LineHeight / 3};
+        v2 LineEnd = GraphState->ViewOffset + DownstreamNode.Position - (v2{0, LineHeight} * (Connection.DownstreamPortIndex + 2)) + v2{0, LineHeight / 3};
         
         PushLine2DOnBatch(&ConnectionsLayer, LineStart, LineEnd, 1.5f, WhiteV4);
     }
     
-    for (u32 i = 0; i < TEMP_NodeListUsed; i++)
+    for (u32 i = 0; i < NodeLayout.VisualNodesCount; i++)
     {
-        visual_node VisualNode = VisualNodes[i];
+        visual_node VisualNode = NodeLayout.VisualNodes[i];
         s32 PortClicked = DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
         if (PortClicked >= 0)
         {
@@ -393,7 +411,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
             && PointIsInRect(Mouse.DownPos, ElementBounds))
         {
-            PushNodeOnNodeList(Spec);
+            PushNodeOnWorkspace(i, &State->NodeWorkspace);
         }
     }
 }

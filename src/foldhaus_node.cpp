@@ -1,3 +1,19 @@
+internal void
+PushNodeOnWorkspace(s32 NodeSpecificationIndex, pattern_node_workspace* Workspace)
+{
+    pattern_node* NewNode = Workspace->Nodes.TakeElement();
+    NewNode->SpecificationIndex = NodeSpecificationIndex;
+}
+
+
+
+
+
+
+
+
+// vv Old vv
+
 internal node_list_iterator
 GetNodeListIterator(node_list List)
 {
