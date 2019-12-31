@@ -91,26 +91,26 @@ LoadAssembly (app_state* State, context Context, char* Path)
                                                            Offset, 
                                                            Scale, 
                                                            AssemblyArena);
-    array_entry_handle NewAssemblyHandle = PushElement(NewAssembly, &State->AssemblyList);
-    PushElement(NewAssemblyHandle, &State->ActiveAssemblyIndecies);
+    gs_list_handle NewAssemblyHandle = State->AssemblyList.PushElementOnList(NewAssembly);
+    State->ActiveAssemblyIndecies.PushElementOnList(NewAssemblyHandle);
     
     State->TotalLEDsCount += NewAssembly.LEDCount;
 }
 
 internal void
-UnloadAssembly (s32 AssemblyIndex, app_state* State, context Context)
+UnloadAssembly (u32 AssemblyIndex, app_state* State, context Context)
 {
-    assembly* Assembly = GetElementAtIndex(AssemblyIndex, State->AssemblyList);
+    assembly* Assembly = State->AssemblyList.GetElementAtIndex(AssemblyIndex);
     State->TotalLEDsCount -= Assembly->LEDCount;
     FreeMemoryArena(&Assembly->Arena, (gs_memory_free*)Context.PlatformFree);
     
-    RemoveElementAtIndex(AssemblyIndex, &State->AssemblyList);
-    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    State->AssemblyList.FreeElementAtIndex(AssemblyIndex);
+    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        array_entry_handle Handle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
+        gs_list_handle Handle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
         if (Handle.Index == AssemblyIndex)
         {
-            RemoveElementAtIndex(i, &State->ActiveAssemblyIndecies);
+            State->ActiveAssemblyIndecies.FreeElementAtIndex(i);
             break;
         }
     }

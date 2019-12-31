@@ -39,7 +39,7 @@ AddAnimationBlock(r32 StartTime, r32 EndTime, animation_proc* Proc, animation_sy
     NewBlock.StartTime = StartTime;
     NewBlock.EndTime = EndTime;
     NewBlock.Proc = Proc;
-    AddAnimationBlock(NewBlock, AnimationSystem);
+    AnimationSystem->Blocks.PushElementOnList(NewBlock);
 }
 
 #define NEW_ANIMATION_BLOCK_DURATION 3
@@ -51,14 +51,14 @@ AddAnimationBlockAtCurrentTime (animation_proc* Proc, animation_system* System)
 }
 
 internal void
-DeleteAnimationBlock(animation_block_handle AnimationBlockHandle, app_state* State)
+DeleteAnimationBlock(gs_list_handle AnimationBlockHandle, app_state* State)
 {
-    RemoveAnimationBlock(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
+    State->AnimationSystem.Blocks.FreeElementWithHandle(AnimationBlockHandle);
     State->SelectedAnimationBlockHandle = {0};
 }
 
 internal void
-SelectAnimationBlock(animation_block_handle BlockHandle, app_state* State)
+SelectAnimationBlock(gs_list_handle BlockHandle, app_state* State)
 {
     State->SelectedAnimationBlockHandle = BlockHandle;
 }
@@ -71,10 +71,7 @@ DeselectCurrentAnimationBlock(app_state* State)
 
 FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 {
-    if (AnimationBlockHandleIsValid(State->SelectedAnimationBlockHandle))
-    {
-        DeleteAnimationBlock(State->SelectedAnimationBlockHandle, State);
-    }
+    DeleteAnimationBlock(State->SelectedAnimationBlockHandle, State);
 }
 
 //
@@ -145,7 +142,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
     r32 TimeOffset = TimeAtMouseX - TimeAtMouseDownX;
     
-    animation_block* AnimationBlock = GetAnimationBlockWithHandle(State->SelectedAnimationBlockHandle, &State->AnimationSystem);
+    animation_block* AnimationBlock = State->AnimationSystem.Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
     
     if (GSAbs(Mouse.DownPos.x - ClipInitialStartTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
@@ -162,17 +159,12 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     }
 }
 
-FOLDHAUS_INPUT_COMMAND_PROC(EndDragAnimationClip)
-{
-    DeactivateCurrentOperationMode(&State->Modes);
-}
-
 input_command DragAnimationClipCommands [] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndDragAnimationClip },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndCurrentOperationMode },
 };
 
 internal void
-SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelStartFrame, s32 PanelEndFrame, rect TimelineBounds, app_state* State)
+SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, s32 PanelStartFrame, s32 PanelEndFrame, rect TimelineBounds, app_state* State)
 {
     SelectAnimationBlock(BlockHandle, State);
     
@@ -185,7 +177,7 @@ SelectAndBeginDragAnimationBlock(animation_block_handle BlockHandle, s32 PanelSt
     OpState->AnimationPanel_StartFrame = PanelStartFrame;
     OpState->AnimationPanel_EndFrame = PanelEndFrame ;
     
-    animation_block* SelectedBlock = GetAnimationBlockWithHandle(BlockHandle, &State->AnimationSystem);
+    animation_block* SelectedBlock = State->AnimationSystem.Blocks.GetElementWithHandle(BlockHandle);
     OpState->SelectedClip_InitialStartTime = SelectedBlock->StartTime;
     OpState->SelectedClip_InitialEndTime = SelectedBlock->EndTime;
 }
@@ -205,7 +197,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
     Block.EndTime = NewBlockTimeEnd;
     Block.Proc = TestPatternThree;
     
-    animation_block_handle NewBlockHandle = AddAnimationBlock(Block, &State->AnimationSystem);
+    gs_list_handle NewBlockHandle = State->AnimationSystem.Blocks.PushElementOnList(Block);
     SelectAnimationBlock(NewBlockHandle, State);
 }
 
@@ -288,13 +280,13 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPe
     return BlockBounds;
 }
 
-internal animation_block_handle
-DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 EndFrame, rect PanelBounds, animation_block_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
+internal gs_list_handle
+DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 EndFrame, rect PanelBounds, gs_list_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
 {
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
     s32 FrameCount = EndFrame - StartFrame;
     
-    animation_block_handle Result = SelectedBlockHandle;
+    gs_list_handle Result = SelectedBlockHandle;
     
     r32 AnimationPanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
     r32 AnimationPanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
@@ -318,19 +310,16 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     // Animation Blocks
     rect TimelineBounds = rect{ PanelBounds.Min, v2{PanelBounds.Max.x, FrameBarBottom} };
     b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Mouse.LeftButtonState);
-    for (u32 i = 0; i < AnimationSystem->BlocksCount; i++)
+    for (u32 i = 0; i < AnimationSystem->Blocks.Used; i++)
     {
-        animation_block_entry* AnimationBlockEntry = GetEntryAtIndex(i, AnimationSystem);
-        if (AnimationBlockIsFree(*AnimationBlockEntry)) { continue; }
+        gs_list_entry<animation_block>* AnimationBlockEntry = AnimationSystem->Blocks.GetEntryAtIndex(i);
+        if (AnimationBlockEntry->Free.NextFreeEntry != 0) { continue; }
         
-        animation_block_handle CurrentBlockHandle = {};
-        CurrentBlockHandle.Index = i;
-        CurrentBlockHandle.Generation = AnimationBlockEntry->Generation;
-        
-        animation_block AnimationBlockAt = AnimationBlockEntry->Block;
+        gs_list_handle CurrentBlockHandle = AnimationBlockEntry->Handle;
+        animation_block AnimationBlockAt = AnimationBlockEntry->Value;
         
         v4 BlockColor = BlackV4;
-        if (AnimationBlockHandlesAreEqual(SelectedBlockHandle, CurrentBlockHandle))
+        if (GSListHandlesAreEqual(SelectedBlockHandle, CurrentBlockHandle))
         {
             BlockColor = PinkV4;
         }
@@ -425,7 +414,7 @@ DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffe
 
 PANEL_RENDER_PROC(AnimationTimeline_Render)
 {
-    animation_block_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
+    gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
     
     r32 OptionsRowHeight = 25;
     rect AnimationClipListBounds = rect{

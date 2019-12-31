@@ -53,8 +53,8 @@ struct app_state
     streaming_acn SACN;
     
     s32 TotalLEDsCount;
-    assembly_array AssemblyList;
-    array_entry_handle_contiguous_array ActiveAssemblyIndecies;
+    gs_list<assembly> AssemblyList;
+    gs_list<gs_list_handle> ActiveAssemblyIndecies;
     
     camera Camera;
     r32 PixelsToWorldScale;
@@ -66,7 +66,7 @@ struct app_state
     interface_config Interface;
     
     animation_system AnimationSystem;
-    animation_block_handle SelectedAnimationBlockHandle;
+    gs_list_handle SelectedAnimationBlockHandle;
     
     panel_system PanelSystem;
     panel* HotPanel;

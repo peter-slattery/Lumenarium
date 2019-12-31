@@ -1,7 +1,9 @@
+#include <windows.h>
+
 #define GS_LANGUAGE_NO_PROFILER_DEFINES
 #include <gs_language.h>
 #include "gs_platform.h"
-#include "gs_array.h"
+#include <gs_list.h>
 
 #define GS_MEMORY_TRACK_ALLOCATIONS
 #define GS_MEMORY_NO_STD_LIBS

@@ -138,10 +138,10 @@ PANEL_RENDER_PROC(SculptureView_Render)
     s32 MaxLEDsPerJob = 2048;
     render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
     
-    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-        assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
+        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
+        assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
         s32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
         
         for (s32 Job = 0; Job < JobsNeeded; Job++)

@@ -162,9 +162,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
     
-    State->AssemblyList.BucketSize = 32;
-    State->AssemblyList.FreeList.Next = &State->AssemblyList.FreeList;
-    State->ActiveAssemblyIndecies.BucketSize = 32;
 #if 1
     char Path[] = "radialumia.fold";
     LoadAssembly(State, Context, Path);
@@ -331,19 +328,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
         
-        for (u32 i = 0; i < State->AnimationSystem.BlocksCount; i++)
+        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
-            animation_block_entry BlockEntry = State->AnimationSystem.Blocks[i];
-            if (!AnimationBlockIsFree(BlockEntry))
+            gs_list_entry<animation_block>* BlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+            if (!EntryIsFree(BlockEntry))
             {
-                animation_block Block = BlockEntry.Block;
+                animation_block Block = BlockEntry->Value;
                 if (State->AnimationSystem.Time >= Block.StartTime
                     && State->AnimationSystem.Time <= Block.EndTime)
                 {
-                    for (s32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
+                    for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
                     {
-                        array_entry_handle* AssemblyHandle = GetElementAtIndex(j, State->ActiveAssemblyIndecies);
-                        assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
+                        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
+                        assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
                         Block.Proc(Assembly, FrameTime  - Block.StartTime);
                     }
                 }
@@ -353,10 +350,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
-    for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-        assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
+        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
+        assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
         dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
@@ -411,10 +408,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
         AssertAllocationsNoOverflow(State->Permanent);
-        for (s32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+        for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
         {
-            array_entry_handle* AssemblyHandle = GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-            assembly* Assembly = GetElementWithHandle(*AssemblyHandle, State->AssemblyList);
+            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
+            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
             AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }

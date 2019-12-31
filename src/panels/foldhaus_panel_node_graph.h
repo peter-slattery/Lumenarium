@@ -4,6 +4,53 @@ struct node_graph_state
 };
 
 
+struct temp_node_connection
+{
+    u32 DownstreamNodeIndex;
+    u32 DownstreamNodePort;
+    
+    u32 UpstreamNodeIndex;
+    u32 UpstreamNodePort;
+};
+
+struct visual_node
+{
+    node_specification Spec;
+    v2 Position;
+};
+
+#define TEMP_NODE_LIST_MAX 10
+global_variable u32 TEMP_NodeListUsed = 0;
+global_variable node_specification TEMP_NodeList[TEMP_NODE_LIST_MAX];
+
+#define TEMP_CONNECTIONS_LIST_MAX 10
+global_variable u32 TEMP_NodeConnectionsUsed = 0;
+global_variable temp_node_connection TEMP_NodeConnections[TEMP_CONNECTIONS_LIST_MAX];
+
+internal void
+PushNodeOnNodeList(node_specification Spec)
+{
+    if (TEMP_NodeListUsed < TEMP_NODE_LIST_MAX)
+    {
+        u32 Index = TEMP_NodeListUsed++;
+        TEMP_NodeList[Index] = Spec;
+    }
+}
+
+internal void
+PushConnectionOnConnectionsList(u32 UpstreamNodeIndex, u32 UpstreamNodePort, u32 DownstreamNodeIndex, u32 DownstreamNodePort)
+{
+    if (TEMP_NodeConnectionsUsed < TEMP_CONNECTIONS_LIST_MAX)
+    {
+        u32 Index = TEMP_NodeConnectionsUsed++;
+        TEMP_NodeConnections[Index].DownstreamNodeIndex = DownstreamNodeIndex;
+        TEMP_NodeConnections[Index].DownstreamNodePort = DownstreamNodePort;
+        TEMP_NodeConnections[Index].UpstreamNodeIndex = UpstreamNodeIndex;
+        TEMP_NodeConnections[Index].UpstreamNodePort = UpstreamNodePort;;
+    }
+}
+
+
 //
 // Pan Node Graph
 //
@@ -37,6 +84,41 @@ FOLDHAUS_INPUT_COMMAND_PROC(BeginPanNodeGraph)
     node_graph_state* NodeGraphState = (node_graph_state*)NodeGraphPanel->PanelStateMemory;
     OpState->InitialViewOffset = NodeGraphState->ViewOffset;
     OpState->ViewOffset = &NodeGraphState->ViewOffset;
+}
+
+//
+// Connect Nodes
+//
+
+OPERATION_STATE_DEF(connect_nodes_operation_state)
+{
+    u32 NodeIndex;
+    u32 PortIndex;
+};
+
+OPERATION_RENDER_PROC(UpdateConnectNodeOperation)
+{
+    
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
+{
+    connect_nodes_operation_state* OpState = GetCurrentOperationState(State->Modes, connect_nodes_operation_state);
+    
+    EndCurrentOperationMode(State, Event, Mouse);
+}
+
+input_command ConnectNodesOperationCommands[] = {
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, EndConnectNodesOperation },
+};
+
+internal void
+BeginConnectNodesOperation(u32 NodeIndex, u32 PortIndex, app_state* State)
+{
+    operation_mode* ConnectNodesOperation = ActivateOperationModeWithCommands(&State->Modes, ConnectNodesOperationCommands, UpdateConnectNodeOperation);
+    connect_nodes_operation_state* OpState = CreateOperationState(ConnectNodesOperation, &State->Modes, connect_nodes_operation_state);
+    OpState->NodeIndex = NodeIndex;
+    OpState->PortIndex = PortIndex;
 }
 
 //
@@ -96,9 +178,13 @@ DrawGrid (v2 Offset, v2 GridSquareDim, rect PanelBounds, render_command_buffer* 
     
 }
 
-internal void
-DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer)
+internal s32
+DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
+    s32 PortClicked = -1;
+    
+    rect PortBounds = rect{v2{0, 0}, v2{6, 6}};
+    
     v2 LinePosition = Position;
     for (u32 i = 0; i < Spec.MemberListLength; i++)
     {
@@ -108,15 +194,36 @@ DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeigh
             string MemberName = MakeString(Member.Name, CharArrayLength(Member.Name));
             DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, TextAlign);
             
+            rect PositionedPortBounds = PortBounds;
+            PositionedPortBounds.Min += LinePosition + v2{0, LineHeight / 4};
+            PositionedPortBounds.Max += LinePosition + v2{0, LineHeight / 4};
+            if (TextAlign == Align_Left)
+            {
+                PositionedPortBounds.Min -= v2{PortBounds.Max.x, 0};
+                PositionedPortBounds.Max -= v2{PortBounds.Max.x, 0};
+            }
+            
+            
+            PushRenderQuad2D(RenderBuffer, PositionedPortBounds.Min, PositionedPortBounds.Max, WhiteV4);
+            
+            if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
+                && PointIsInRect(Mouse.DownPos, PositionedPortBounds))
+            {
+                PortClicked = i;
+            }
+            
             LinePosition.y -= LineHeight;
         }
     }
     
+    return PortClicked;
 }
 
-internal void
-DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer)
+internal s32
+DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
+    s32 PortClicked = -1;
+    
     u32 InputMembers = 0;
     u32 OutputMembers = 0;
     for (u32 i = 0; i < NodeSpecification.MemberListLength; i++)
@@ -147,44 +254,23 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     LinePosition.y -= LineHeight;
     
     // Draw Ports
-    DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer);
+    s32 InputPortClicked = DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer, Mouse);
     
     v2 OutputLinePosition = v2{LinePosition.x + NodeDim.x, LinePosition.y };
     v2 OutputTextOffset = v2{-TextOffset.x, TextOffset.y};
-    DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer);
-}
-
-struct temp_node_connection
-{
-    u32 DownstreamNodeIndex;
-    u32 DownstreamNodePort;
+    s32 OutputPortClicked = DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer, Mouse);
     
-    u32 UpstreamNodeIndex;
-    u32 UpstreamNodePort;
-};
-
-struct visual_node
-{
-    node_specification Spec;
-    v2 Position;
-};
-
-#define TEMP_NODE_LIST_MAX 10
-global_variable u32 TEMP_NodeListUsed = 0;
-global_variable node_specification TEMP_NodeList[TEMP_NODE_LIST_MAX];
-
-#define TEMP_CONNECTIONS_LIST_MAX 10
-global_variable u32 TEMP_NodeConnectionsUsed = 0;
-global_variable temp_node_connection TEMP_NodeConnections[TEMP_CONNECTIONS_LIST_MAX];
-
-internal void
-PushNodeOnNodeList(node_specification Spec)
-{
-    if (TEMP_NodeListUsed < TEMP_NODE_LIST_MAX)
+    
+    if (InputPortClicked >= 0)
     {
-        u32 Index = TEMP_NodeListUsed++;
-        TEMP_NodeList[Index] = Spec;
+        PortClicked = InputPortClicked;
     }
+    else if (OutputPortClicked >= 0)
+    {
+        PortClicked = OutputPortClicked;
+    }
+    
+    return PortClicked;
 }
 
 internal visual_node*
@@ -270,7 +356,11 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     for (u32 i = 0; i < TEMP_NodeListUsed; i++)
     {
         visual_node VisualNode = VisualNodes[i];
-        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer);
+        s32 PortClicked = DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
+        if (PortClicked >= 0)
+        {
+            BeginConnectNodesOperation(i, PortClicked, State);
+        }
     }
     
     // Node Selection Panel

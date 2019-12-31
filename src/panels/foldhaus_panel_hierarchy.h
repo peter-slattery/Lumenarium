@@ -31,15 +31,15 @@ PANEL_RENDER_PROC(HierarchyView_Render)
     v2 TextOffset = v2{10, 4};
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
     
-    s32 LineCount = (s32)(PanelHeight / List.ListElementDimensions.y) + 1;
-    for (s32 i = 0; i < LineCount; i++)
+    u32 LineCount = (u32)(PanelHeight / List.ListElementDimensions.y) + 1;
+    for (u32 i = 0; i < LineCount; i++)
     {
         rect ElementBounds = DrawListElementBackground(&List, Mouse, RenderBuffer);
         
         if (i < State->ActiveAssemblyIndecies.Used)
         {
-            array_entry_handle AssemblyHandle = *GetElementAtIndex(i, State->ActiveAssemblyIndecies);
-            assembly Assembly = *GetElementWithHandle(AssemblyHandle, State->AssemblyList);
+            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
+            assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
             PrintF(&TempString, "%S", Assembly.Name);
             
             DrawString(RenderBuffer, TempString, State->Interface.Font, ElementBounds.Min + TextOffset, WhiteV4);
