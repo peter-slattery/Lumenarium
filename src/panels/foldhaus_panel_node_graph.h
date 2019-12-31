@@ -11,6 +11,14 @@ struct visual_port
     rect PortBounds;
 };
 
+struct visual_connection
+{
+    u32 UpstreamVisualPortIndex;
+    u32 DownstreamVisualPortIndex;
+    v2 UpstreamPosition;
+    v2 DownstreamPosition;
+};
+
 struct node_layout
 {
     // NOTE(Peter): This Map is a sparse array.
@@ -26,6 +34,9 @@ struct node_layout
     
     visual_port* VisualPorts;
     u32          VisualPortsCount;
+    
+    visual_connection* VisualConnections;
+    u32                VisualConnectionsCount;
     
     u32 LayerCount;
     v2* LayerPositions;
@@ -269,6 +280,24 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer, Mouse);
 }
 
+internal s32
+GetVisualPortIndexForNode(gs_list_handle SparseNodeHandle, u32 PortIndex, node_layout Layout)
+{
+    s32 Result = -1;
+    
+    for (u32 i = 0; i < Layout.VisualPortsCount; i++)
+    {
+        visual_port Port = Layout.VisualPorts[i];
+        if (GSListHandlesAreEqual(Port.SparseNodeHandle, SparseNodeHandle) && Port.PortIndex == PortIndex)
+        {
+            Result = i;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
 internal node_layout
 ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, memory_arena* Storage)
 {
@@ -374,6 +403,23 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         }
     }
     
+    Result.VisualConnectionsCount = Workspace.Connections.Used;
+    Result.VisualConnections = PushArray(Storage, visual_connection, Result.VisualConnectionsCount);
+    for (u32 c = 0; c < Workspace.Connections.Used; c++)
+    {
+        pattern_node_connection* Connection = Workspace.Connections.GetElementAtIndex(c);
+        
+        visual_connection* VisualConnection = Result.VisualConnections + c;
+        VisualConnection->UpstreamVisualPortIndex = GetVisualPortIndexForNode(Connection->UpstreamNodeHandle, Connection->UpstreamPortIndex, Result);
+        VisualConnection->DownstreamVisualPortIndex = GetVisualPortIndexForNode(Connection->DownstreamNodeHandle, Connection->DownstreamPortIndex, Result);
+        
+        visual_port UpstreamPort = Result.VisualPorts[VisualConnection->UpstreamVisualPortIndex];
+        visual_port DownstreamPort = Result.VisualPorts[VisualConnection->DownstreamVisualPortIndex];
+        
+        VisualConnection->UpstreamPosition = CalculateRectCenter(UpstreamPort.PortBounds);
+        VisualConnection->DownstreamPosition = CalculateRectCenter(DownstreamPort.PortBounds);
+    }
+    
     return Result;
 }
 
@@ -410,29 +456,21 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     
     DrawGrid(GraphState->ViewOffset, v2{100, 100}, GraphBounds, RenderBuffer);
     
-    render_quad_batch_constructor ConnectionsLayer = PushRenderQuad2DBatch(RenderBuffer, State->NodeWorkspace.Connections.Used + 1);
-    for (u32 i = 0; i < State->NodeWorkspace.Connections.Used; i++)
+    for (u32 i = 0; i < GraphState->Layout.VisualConnectionsCount; i++)
     {
-        pattern_node_connection Connection = *State->NodeWorkspace.Connections.GetElementAtIndex(i);
+        visual_connection Connection = GraphState->Layout.VisualConnections[i];
         
-        u32 UpstreamNodeVisualIndex = GraphState->Layout.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
-        u32 DownstreamNodeVisualIndex = GraphState->Layout.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
-        
-        visual_node UpstreamNode = GraphState->Layout.VisualNodes[UpstreamNodeVisualIndex];
-        visual_node DownstreamNode = GraphState->Layout.VisualNodes[DownstreamNodeVisualIndex];
-        
-        v2 LineStart = GraphState->ViewOffset + UpstreamNode.Position + v2{NodeWidth, 0} - (v2{0, LineHeight} * (Connection.UpstreamPortIndex + 2)) + v2{0, LineHeight / 3};
-        v2 LineEnd = GraphState->ViewOffset + DownstreamNode.Position - (v2{0, LineHeight} * (Connection.DownstreamPortIndex + 2)) + v2{0, LineHeight / 3};
-        
-        PushLine2DOnBatch(&ConnectionsLayer, LineStart, LineEnd, 1.5f, WhiteV4);
+        v2 Start = GraphState->ViewOffset + Connection.UpstreamPosition;
+        v2 End = GraphState->ViewOffset + Connection.DownstreamPosition;
+        PushRenderLine2D(RenderBuffer, Start, End, 1.5f, WhiteV4);
     }
     
     if (GraphState->Layout.ConnectionIsInProgress)
     {
-        PushLine2DOnBatch(&ConnectionsLayer, 
-                          GraphState->Layout.InProgressConnectionStart, 
-                          GraphState->Layout.InProgressConnectionEnd,
-                          1.5f, WhiteV4);
+        PushRenderLine2D(RenderBuffer, 
+                         GraphState->Layout.InProgressConnectionStart, 
+                         GraphState->Layout.InProgressConnectionEnd,
+                         1.5f, WhiteV4);
     }
     
     for (u32 i = 0; i < GraphState->Layout.VisualNodesCount; i++)
