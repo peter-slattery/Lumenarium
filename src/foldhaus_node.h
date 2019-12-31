@@ -144,6 +144,15 @@ struct node_interaction
     s32 OutputValue;
 };
 
+struct node_render_settings
+{
+    v4 PortColors[MemberTypeCount];
+    bitmap_font* Font;
+    b32 Display;
+};
+
+// ^^ OLD ^^
+
 struct node_struct_member
 {
     struct_member_type Type;
@@ -161,19 +170,10 @@ struct node_specification
     
     node_struct_member* MemberList;
     u32 DataStructSize;
-    
     u32 MemberListLength;
+    
     b32 IsPattern;
 };
-
-struct node_render_settings
-{
-    v4 PortColors[MemberTypeCount];
-    bitmap_font* Font;
-    b32 Display;
-};
-
-// ^^ OLD ^^
 
 struct pattern_node
 {

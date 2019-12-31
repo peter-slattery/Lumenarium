@@ -4,6 +4,13 @@ struct visual_node
     v2 Position;
 };
 
+struct visual_port
+{
+    u32 SparseNodeIndex;
+    u32 PortIndex;
+    rect PortBounds;
+};
+
 struct node_layout
 {
     // NOTE(Peter): This Map is a sparse array.
@@ -17,8 +24,15 @@ struct node_layout
     u32*         VisualNodeLayers;
     u32          VisualNodesCount;
     
+    visual_port* VisualPorts;
+    u32          VisualPortsCount;
+    
     u32 LayerCount;
     v2* LayerPositions;
+    
+    b32 ConnectionIsInProgress;
+    v2 InProgressConnectionStart;
+    v2 InProgressConnectionEnd;
 };
 
 struct node_graph_state
@@ -72,33 +86,65 @@ FOLDHAUS_INPUT_COMMAND_PROC(BeginPanNodeGraph)
 
 OPERATION_STATE_DEF(connect_nodes_operation_state)
 {
-    u32 NodeIndex;
-    u32 PortIndex;
+    visual_port VisualPort;
+    u32 VisualPortIndex;
+    b32 IsInput;
 };
 
 OPERATION_RENDER_PROC(UpdateConnectNodeOperation)
 {
+    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
     
+    GraphState->Layout.InProgressConnectionEnd = Mouse.Pos;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
 {
     connect_nodes_operation_state* OpState = GetCurrentOperationState(State->Modes, connect_nodes_operation_state);
     
+    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
+    GraphState->Layout.ConnectionIsInProgress = false;
+    
+    for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
+    {
+        visual_port VisualPort = GraphState->Layout.VisualPorts[p];
+        rect ViewAdjustedBounds = RectOffsetByVector(VisualPort.PortBounds, GraphState->ViewOffset);
+        if (PointIsInRect(Mouse.Pos, ViewAdjustedBounds))
+        {
+            pattern_node_connection Connection = {};
+            visual_port UpstreamPort = (OpState->IsInput & IsInputMember) ? VisualPort : OpState->VisualPort;
+            visual_port DownstreamPort = (OpState->IsInput & IsInputMember) ? OpState->VisualPort : VisualPort;
+            
+            // Make Connection
+            // TODO(Peter): START HERE
+            //start here;
+            // You were working on connection UpstreamPort and DownstreamPort
+            // You need to get each node's handle and add a new connection to the connection bucket
+        }
+    }
+    
     EndCurrentOperationMode(State, Event, Mouse);
 }
 
 input_command ConnectNodesOperationCommands[] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, EndConnectNodesOperation },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndConnectNodesOperation },
 };
 
 internal void
-BeginConnectNodesOperation(u32 NodeIndex, u32 PortIndex, app_state* State)
+BeginConnectNodesOperation(visual_port VisualPort, u32 VisualPortIndex, mouse_state Mouse, app_state* State)
 {
     operation_mode* ConnectNodesOperation = ActivateOperationModeWithCommands(&State->Modes, ConnectNodesOperationCommands, UpdateConnectNodeOperation);
     connect_nodes_operation_state* OpState = CreateOperationState(ConnectNodesOperation, &State->Modes, connect_nodes_operation_state);
-    OpState->NodeIndex = NodeIndex;
-    OpState->PortIndex = PortIndex;
+    OpState->VisualPort = VisualPort;
+    OpState->VisualPortIndex = VisualPortIndex;
+    
+    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
+    
+    GraphState->Layout.ConnectionIsInProgress = true;
+    GraphState->Layout.InProgressConnectionStart = CalculateRectCenter(VisualPort.PortBounds);
 }
 
 //
@@ -106,7 +152,7 @@ BeginConnectNodesOperation(u32 NodeIndex, u32 PortIndex, app_state* State)
 //
 
 input_command NodeGraph_Commands[] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, BeginPanNodeGraph }
+    { 0 }
 };
 
 PANEL_INIT_PROC(NodeGraph_Init)
@@ -161,11 +207,9 @@ DrawGrid (v2 Offset, v2 GridSquareDim, rect PanelBounds, render_command_buffer* 
     
 }
 
-internal s32
+internal void
 DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
-    s32 PortClicked = -1;
-    
     rect PortBounds = rect{v2{0, 0}, v2{6, 6}};
     
     v2 LinePosition = Position;
@@ -174,39 +218,18 @@ DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeigh
         node_struct_member Member = Spec.MemberList[i];
         if ((Member.IsInput & InputMask) > 0)
         {
+            // TODO(Peter): Can we make this rely on the same data that we use to 
+            // render the actual connection points?
             string MemberName = MakeString(Member.Name, CharArrayLength(Member.Name));
             DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, TextAlign);
-            
-            rect PositionedPortBounds = PortBounds;
-            PositionedPortBounds.Min += LinePosition + v2{0, LineHeight / 4};
-            PositionedPortBounds.Max += LinePosition + v2{0, LineHeight / 4};
-            if (TextAlign == Align_Left)
-            {
-                PositionedPortBounds.Min -= v2{PortBounds.Max.x, 0};
-                PositionedPortBounds.Max -= v2{PortBounds.Max.x, 0};
-            }
-            
-            
-            PushRenderQuad2D(RenderBuffer, PositionedPortBounds.Min, PositionedPortBounds.Max, WhiteV4);
-            
-            if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
-                && PointIsInRect(Mouse.DownPos, PositionedPortBounds))
-            {
-                PortClicked = i;
-            }
-            
             LinePosition.y -= LineHeight;
         }
     }
-    
-    return PortClicked;
 }
 
-internal s32
+internal void
 DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
-    s32 PortClicked = -1;
-    
     u32 InputMembers = 0;
     u32 OutputMembers = 0;
     for (u32 i = 0; i < NodeSpecification.MemberListLength; i++)
@@ -236,57 +259,32 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     DrawString(RenderBuffer, NodeName, Interface.Font, LinePosition + TextOffset, WhiteV4);
     LinePosition.y -= LineHeight;
     
-    // Draw Ports
-    s32 InputPortClicked = DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer, Mouse);
+    DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer, Mouse);
     
     v2 OutputLinePosition = v2{LinePosition.x + NodeDim.x, LinePosition.y };
     v2 OutputTextOffset = v2{-TextOffset.x, TextOffset.y};
-    s32 OutputPortClicked = DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer, Mouse);
-    
-    
-    if (InputPortClicked >= 0)
-    {
-        PortClicked = InputPortClicked;
-    }
-    else if (OutputPortClicked >= 0)
-    {
-        PortClicked = OutputPortClicked;
-    }
-    
-    return PortClicked;
-}
-
-internal u32
-FindLayerForNodeInList(gs_list_handle NodeHandle, gs_bucket<gs_list_handle> NodeLUT)
-{
-    u32 Index = 0;
-    // TODO(Peter): This is turning this layout code into an n^2 lookup
-    for (u32 i = 0; i < NodeLUT.Used; i++)
-    {
-        gs_list_handle Handle = *NodeLUT.GetElementAtIndex(i);
-        if (GSListHandlesAreEqual(Handle, NodeHandle))
-        {
-            Index = i;
-            break;
-        }
-    }
-    return Index;
+    DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer, Mouse);
 }
 
 internal node_layout
-ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, memory_arena* Storage)
+ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, memory_arena* Storage)
 {
     node_layout Result = {};
     
     Result.SparseToContiguousNodeMapCount = Workspace.Nodes.OnePastLastUsed;
     Result.SparseToContiguousNodeMap = PushArray(Storage, s32, Result.SparseToContiguousNodeMapCount);
     u32 DestinationIndex = 0;
+    Result.VisualPortsCount = 0;
     for (u32 i = 0; i < Result.SparseToContiguousNodeMapCount; i++)
     {
         gs_list_entry<pattern_node>* Entry = Workspace.Nodes.GetEntryAtIndex(i);
         if (!EntryIsFree(Entry)) 
         { 
             Result.SparseToContiguousNodeMap[i] = DestinationIndex++;
+            
+            pattern_node Node = Entry->Value;
+            node_specification Spec = NodeSpecifications[Node.SpecificationIndex];
+            Result.VisualPortsCount += Spec.MemberListLength;
         }
         else
         {
@@ -322,19 +320,53 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         Result.LayerPositions[l] = v2{ (NodeWidth + LayerDistance) * FromRight, 0 };
     }
     
-    // Place nodes
+    // Place nodes and connections
     Result.VisualNodesCount = Workspace.Nodes.Used;
     Result.VisualNodes = PushArray(Storage, visual_node, Result.VisualNodesCount);
-    for (u32 n = 0; n < Workspace.Nodes.Used; n++)
+    
+    u32 VisualPortsUsed = 0;
+    Result.VisualPorts = PushArray(Storage, visual_port, Result.VisualPortsCount);
+    
+    for (u32 n = 0; n < Result.SparseToContiguousNodeMapCount; n++)
     {
         u32 NodeIndex = Result.SparseToContiguousNodeMap[n];
         pattern_node* Node = Workspace.Nodes.GetElementAtIndex(NodeIndex);
         u32 SpecIndex = Node->SpecificationIndex;
-        Result.VisualNodes[n].Spec = NodeSpecifications[SpecIndex];
-        
+        node_specification Spec = NodeSpecifications[SpecIndex];
         u32 NodeLayer = Result.VisualNodeLayers[n];
-        Result.VisualNodes[n].Position = Result.LayerPositions[NodeLayer];
+        
+        visual_node* VisualNode = Result.VisualNodes + n;
+        VisualNode->Spec = Spec;
+        VisualNode->Position = Result.LayerPositions[NodeLayer];
         Result.LayerPositions[NodeLayer].y -= 200;
+        
+        // NOTE(Peter): These start at 2 to account for the offset past the node title
+        s32 InputsCount = 2; 
+        s32 OutputsCount = 2;
+        for (u32 p = 0; p < Spec.MemberListLength; p++)
+        {
+            node_struct_member Member = Spec.MemberList[p];
+            
+            rect PortBounds = {0};
+            v2 PortDim = v2{8, 8};
+            PortBounds.Min = VisualNode->Position + v2{0, PortDim.y / 2}; 
+            if ((Member.IsInput & IsInputMember) > 0)
+            {
+                PortBounds.Min.y -= LineHeight * InputsCount++;
+                PortBounds.Min.x -= PortDim.x;
+            }
+            else if ((Member.IsInput & IsOutputMember) > 0)
+            {
+                PortBounds.Min.y -= LineHeight * OutputsCount++;
+                PortBounds.Min.x += NodeWidth;
+            }
+            PortBounds.Max = PortBounds.Min + v2{8, 8};
+            
+            visual_port* VisualPort = Result.VisualPorts + VisualPortsUsed++;
+            VisualPort->SparseNodeIndex = n;
+            VisualPort->PortIndex = p;
+            VisualPort->PortBounds = PortBounds;
+        }
     }
     
     return Result;
@@ -344,6 +376,7 @@ internal
 PANEL_RENDER_PROC(NodeGraph_Render)
 {
     node_graph_state* GraphState = (node_graph_state*)Panel.PanelStateMemory;
+    b32 MouseHandled = false;
     
     rect NodeSelectionWindowBounds = rect{
         PanelBounds.Min,
@@ -366,13 +399,13 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         ClearArena(&GraphState->LayoutMemory);
         GraphState->Layout = {};
         
-        GraphState->Layout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, &GraphState->LayoutMemory);
+        GraphState->Layout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, LineHeight, &GraphState->LayoutMemory);
         GraphState->LayoutIsDirty = false;
     }
     
     DrawGrid(GraphState->ViewOffset, v2{100, 100}, GraphBounds, RenderBuffer);
     
-    render_quad_batch_constructor ConnectionsLayer = PushRenderQuad2DBatch(RenderBuffer, State->NodeWorkspace.Connections.Used);
+    render_quad_batch_constructor ConnectionsLayer = PushRenderQuad2DBatch(RenderBuffer, State->NodeWorkspace.Connections.Used + 1);
     for (u32 i = 0; i < State->NodeWorkspace.Connections.Used; i++)
     {
         pattern_node_connection Connection = *State->NodeWorkspace.Connections.GetElementAtIndex(i);
@@ -389,14 +422,38 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         PushLine2DOnBatch(&ConnectionsLayer, LineStart, LineEnd, 1.5f, WhiteV4);
     }
     
+    if (GraphState->Layout.ConnectionIsInProgress)
+    {
+        PushLine2DOnBatch(&ConnectionsLayer, 
+                          GraphState->Layout.InProgressConnectionStart, 
+                          GraphState->Layout.InProgressConnectionEnd,
+                          1.5f, WhiteV4);
+    }
+    
     for (u32 i = 0; i < GraphState->Layout.VisualNodesCount; i++)
     {
         visual_node VisualNode = GraphState->Layout.VisualNodes[i];
-        s32 PortClicked = DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
-        if (PortClicked >= 0)
+        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
+    }
+    
+    for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
+    {
+        visual_port VisualPort = GraphState->Layout.VisualPorts[p];
+        VisualPort.PortBounds.Min += GraphState->ViewOffset;
+        VisualPort.PortBounds.Max += GraphState->ViewOffset;
+        
+        v4 PortColor = WhiteV4;
+        if (PointIsInRange(Mouse.Pos, VisualPort.PortBounds.Min, VisualPort.PortBounds.Max))
         {
-            BeginConnectNodesOperation(i, PortClicked, State);
+            PortColor = PinkV4;
+            if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
+            {
+                BeginConnectNodesOperation(VisualPort, p, Mouse, State);
+                MouseHandled = true;
+            }
         }
+        
+        PushRenderQuad2D(RenderBuffer, VisualPort.PortBounds.Min, VisualPort.PortBounds.Max, PortColor);
     }
     
     // Node Selection Panel
@@ -431,6 +488,12 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         {
             PushNodeOnWorkspace(i, &State->NodeWorkspace);
             GraphState->LayoutIsDirty = true;
+            MouseHandled = true;
         }
+    }
+    
+    if (!MouseHandled && MouseButtonTransitionedDown(Mouse.LeftButtonState))
+    {
+        BeginPanNodeGraph(State, {}, Mouse);
     }
 }
