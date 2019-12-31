@@ -6,7 +6,7 @@ struct visual_node
 
 struct visual_port
 {
-    u32 SparseNodeIndex;
+    gs_list_handle SparseNodeHandle;
     u32 PortIndex;
     rect PortBounds;
 };
@@ -113,15 +113,18 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
         rect ViewAdjustedBounds = RectOffsetByVector(VisualPort.PortBounds, GraphState->ViewOffset);
         if (PointIsInRect(Mouse.Pos, ViewAdjustedBounds))
         {
-            pattern_node_connection Connection = {};
             visual_port UpstreamPort = (OpState->IsInput & IsInputMember) ? VisualPort : OpState->VisualPort;
             visual_port DownstreamPort = (OpState->IsInput & IsInputMember) ? OpState->VisualPort : VisualPort;
             
             // Make Connection
-            // TODO(Peter): START HERE
-            //start here;
-            // You were working on connection UpstreamPort and DownstreamPort
-            // You need to get each node's handle and add a new connection to the connection bucket
+            pattern_node_connection Connection = {};
+            Connection.UpstreamNodeHandle = UpstreamPort.SparseNodeHandle;
+            Connection.DownstreamNodeHandle = DownstreamPort.SparseNodeHandle;
+            Connection.UpstreamPortIndex = UpstreamPort.PortIndex;
+            Connection.DownstreamPortIndex = DownstreamPort.PortIndex;
+            
+            State->NodeWorkspace.Connections.PushElementOnBucket(Connection);
+            GraphState->LayoutIsDirty = true;
         }
     }
     
@@ -330,8 +333,10 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
     for (u32 n = 0; n < Result.SparseToContiguousNodeMapCount; n++)
     {
         u32 NodeIndex = Result.SparseToContiguousNodeMap[n];
-        pattern_node* Node = Workspace.Nodes.GetElementAtIndex(NodeIndex);
-        u32 SpecIndex = Node->SpecificationIndex;
+        gs_list_entry<pattern_node>* NodeEntry = Workspace.Nodes.GetEntryAtIndex(NodeIndex);
+        pattern_node Node = NodeEntry->Value;
+        
+        u32 SpecIndex = Node.SpecificationIndex;
         node_specification Spec = NodeSpecifications[SpecIndex];
         u32 NodeLayer = Result.VisualNodeLayers[n];
         
@@ -363,7 +368,7 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
             PortBounds.Max = PortBounds.Min + v2{8, 8};
             
             visual_port* VisualPort = Result.VisualPorts + VisualPortsUsed++;
-            VisualPort->SparseNodeIndex = n;
+            VisualPort->SparseNodeHandle = NodeEntry->Handle;
             VisualPort->PortIndex = p;
             VisualPort->PortBounds = PortBounds;
         }

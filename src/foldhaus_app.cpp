@@ -181,7 +181,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
     
     { // Animation PLAYGROUND
-        InitializeAnimationSystem(&State->AnimationSystem);
+        State->AnimationSystem = {};
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         State->AnimationSystem.AnimationStart = 0;
         State->AnimationSystem.AnimationEnd = 15;

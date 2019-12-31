@@ -33,9 +33,3 @@ struct animation_system
     r32 AnimationStart;
     r32 AnimationEnd;
 };
-
-internal void
-InitializeAnimationSystem(animation_system* System)
-{
-    *System = {0};
-}

@@ -47,6 +47,7 @@ node_struct_member MemberList_sin_wave_data[] = {
 
 node_struct_member MemberList_multiply_patterns_data[] = {
 { MemberType_NODE_COLOR_BUFFER, "ALEDs", (u64)&((multiply_patterns_data*)0)->ALEDs, IsInputMember  },
+{ MemberType_NODE_COLOR_BUFFER, "BLEDs", (u64)&((multiply_patterns_data*)0)->BLEDs, IsInputMember  },
 { MemberType_NODE_COLOR_BUFFER, "ResultLEDs", (u64)&((multiply_patterns_data*)0)->ResultLEDs,   IsOutputMember},
 };
 
@@ -82,8 +83,8 @@ node_specification NodeSpecifications[] = {
 { NodeType_VectorValue, "VectorValue", 11, MemberList_vector_data, 32, 5, false},
 { NodeType_MultiplyNodeProc, "MultiplyNodeProc", 16, MemberList_multiply_data, 12, 3, false},
 { NodeType_AddNodeProc, "AddNodeProc", 11, MemberList_add_data, 48, 3, false},
-{ NodeType_SinWave, "SinWave", 7, MemberList_sin_wave_data, 16, 4, false},
-{ NodeType_MultiplyPatterns, "MultiplyPatterns", 16, MemberList_multiply_patterns_data, 40, 2, false},
+{ NodeType_SinWave, "SinWave", 7, MemberList_sin_wave_data, 20, 4, false},
+{ NodeType_MultiplyPatterns, "MultiplyPatterns", 16, MemberList_multiply_patterns_data, 60, 3, false},
 { NodeType_OutputNode, "OutputNode", 10, MemberList_output_node_data, 20, 1, false},
 { NodeType_SolidColorProc, "SolidColorProc", 14, MemberList_solid_color_data, 36, 2, false},
 { NodeType_VerticalColorFadeProc, "VerticalColorFadeProc", 21, MemberList_vertical_color_fade_data, 44, 4, false},
@@ -91,12 +92,12 @@ node_specification NodeSpecifications[] = {
 };
 s32 NodeSpecificationsCount = 10;
 
-internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
-                        {
-                        node_specification Spec = NodeSpecifications[Node->Type];
-                        switch (Spec.Type)
-                        {
-                        case NodeType_FloatValue: { FloatValue((float_value_data*)Data, DeltaTime); } break; 
+internal void CallNodeProc(u32 SpecificationIndex, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)
+{
+node_specification Spec = NodeSpecifications[SpecificationIndex];
+switch (Spec.Type)
+{
+case NodeType_FloatValue: { FloatValue((float_value_data*)Data, DeltaTime); } break; 
 case NodeType_VectorValue: { VectorValue((vector_data*)Data, DeltaTime); } break; 
 case NodeType_MultiplyNodeProc: { MultiplyNodeProc((multiply_data*)Data, DeltaTime); } break; 
 case NodeType_AddNodeProc: { AddNodeProc((add_data*)Data, DeltaTime); } break; 

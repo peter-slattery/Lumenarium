@@ -1,21 +1,19 @@
-#include "..\src\gs_language.h"
-#include "..\src\foldhaus_memory.h"
+#include <windows.h>
+#include <stdio.h>
+
+#include <gs_language.h>
+#include "..\src\gs_platform.h"
+#include <gs_memory_arena.h>
 #include "..\src\gs_string.h"
 
 #include "gs_meta_error.h"
 #include "gs_meta_lexer.h"
 
-#include <windows.h>
-#include <stdio.h>
-
 error_list GlobalErrorList = {};
 
 PLATFORM_ALLOC(StdAlloc)
 {
-    platform_memory_result Result = {};
-    Result.Base = (u8*)malloc(Size);
-    Result.Size = Size;
-    Result.Error = 0;
+    u8* Result = (u8*)malloc(Size);
     return Result;
 }
 
@@ -26,11 +24,79 @@ struct source_code_file
     string Contents;
 };
 
-struct code_block_builder
+#define STRING_BUILDER_BUFFER_CAPACITY 4096
+struct string_builder_buffer
 {
-    memory_arena Data;
+    u8* BufferMemory;
     string String;
+    string_builder_buffer* Next;
 };
+
+struct string_builder
+{
+    string_builder_buffer* Buffers;
+    string_builder_buffer* Head;
+};
+
+internal void
+GrowStringBuilder(string_builder* StringBuilder)
+{
+    u8* BufferAndHeader = (u8*)malloc(sizeof(string_builder_buffer) + STRING_BUILDER_BUFFER_CAPACITY);
+    string_builder_buffer* NewBuffer = (string_builder_buffer*)BufferAndHeader;
+    *NewBuffer = {0};
+    
+    NewBuffer->BufferMemory = (u8*)(NewBuffer + 1);
+    NewBuffer->String = MakeString((char*)NewBuffer->BufferMemory, 0, STRING_BUILDER_BUFFER_CAPACITY);
+    
+    if (!StringBuilder->Buffers)
+    {
+        StringBuilder->Buffers = NewBuffer;
+        StringBuilder->Head = NewBuffer;
+    } 
+    else
+    {
+        StringBuilder->Head->Next = NewBuffer;
+        StringBuilder->Head = NewBuffer;
+    }
+}
+
+internal void
+Write(string Text, string_builder* StringBuilder)
+{
+    string TextLeft = Text;
+    
+    if (StringBuilder->Buffers == 0)
+    {
+        GrowStringBuilder(StringBuilder);
+    }
+    
+    while (TextLeft.Length > 0)
+    {
+        // Copy what there is room for
+        s32 SpaceAvailable  = StringBuilder->Head->String.Max - StringBuilder->Head->String.Length;
+        
+        ConcatString(TextLeft, GSMin(SpaceAvailable, TextLeft.Length), &StringBuilder->Head->String);
+        TextLeft.Memory += SpaceAvailable;
+        TextLeft.Length -= SpaceAvailable;
+        
+        if (TextLeft.Length > 0)
+        {
+            GrowStringBuilder(StringBuilder);
+        }
+    }
+}
+
+internal void
+WriteStringBuilderToFile(string_builder StringBuilder, FILE* WriteFile)
+{
+    string_builder_buffer* BufferAt = StringBuilder.Buffers;
+    while (BufferAt)
+    {
+        string String = BufferAt->String;
+        fwrite(String.Memory, 1, String.Length, WriteFile);
+        BufferAt = BufferAt->Next;
+    }
+}
 
 #define TYPE_TABLE_IDENTIFIER_MAX_LENGTH 128
 #define TYPE_TABLE_BUFFER_MAX 64
@@ -56,9 +122,7 @@ AddTypeToTable (string Identifier, s32 Size, type_table* Table)
 {
     if (!Table->Head || Table->TotalUsed >= Table->TotalMax)
     {
-        s32 NewHeadSize = sizeof(type_table_buffer) + ((sizeof(string) + TYPE_TABLE_IDENTIFIER_MAX_LENGTH + sizeof(s32)) * TYPE_TABLE_BUFFER_MAX);
-        u8* NewHeadBuffer = (u8*)malloc(NewHeadSize);
-        static_memory_arena Memory = CreateMemoryArena(NewHeadBuffer, NewHeadSize);
+        memory_arena Memory = {};
         
         type_table_buffer* NewHead = PushStruct(&Memory, type_table_buffer);
         NewHead->IdentifiersBackbuffer = PushArray(&Memory, u8, TYPE_TABLE_IDENTIFIER_MAX_LENGTH * TYPE_TABLE_BUFFER_MAX);
@@ -117,44 +181,6 @@ GetSizeOfType (string Identifier, type_table* TypeTable)
     }
     
     return Result;
-}
-
-internal code_block_builder
-InitCodeBlockBuilder()
-{
-    code_block_builder Result = {};
-    InitMemoryArena(&Result.Data, 0, 0, StdAlloc);
-    return Result;
-}
-
-internal void
-CodeBlockPrint (code_block_builder* Block, string Source)
-{
-    char* NewCode = PushArray(&Block->Data, char, Source.Length);
-    GSMemCopy(Source.Memory, NewCode, Source.Length);
-    if (Block->String.Memory == 0)
-    {
-        Block->String.Memory = NewCode;
-    }
-    Block->String.Max += Source.Length;
-    Block->String.Length += Source.Length;
-}
-
-internal void
-WriteMemoryRegionToFile (memory_region* Region, FILE* WriteFile)
-{
-    if (Region->PreviousRegion)
-    {
-        WriteMemoryRegionToFile(Region->PreviousRegion, WriteFile);
-    }
-    fwrite(Region->Base, 1, Region->Used, WriteFile);
-}
-
-internal void
-WriteCodeBlockToFile(code_block_builder CodeBlock, FILE* WriteFile)
-{
-    memory_region* Region = CodeBlock.Data.CurrentRegion;
-    WriteMemoryRegionToFile (Region, WriteFile);
 }
 
 internal s32
@@ -240,7 +266,7 @@ FindSeenStructInList (seen_node_struct* SeenStructList, string Name)
 }
 
 internal void
-ParseNodeStruct (token* NodeStruct, code_block_builder* NodeMembersBlock, seen_node_struct* SeenStruct, type_table* TypeTable)
+ParseNodeStruct (token* NodeStruct, string_builder* NodeMembersBlock, seen_node_struct* SeenStruct, type_table* TypeTable)
 {
     token* OpenParen = NodeStruct->Next;
     token* StructName = OpenParen->Next;
@@ -251,7 +277,7 @@ ParseNodeStruct (token* NodeStruct, code_block_builder* NodeMembersBlock, seen_n
     
     PrintF(&Buffer, "node_struct_member MemberList_%.*s[] = {\n", 
            StructName->Text.Length, StructName->Text.Memory);
-    CodeBlockPrint(NodeMembersBlock, Buffer);
+    Write(Buffer, NodeMembersBlock);
     
     token* Token = StructName->Next;
     while (Token->Type != Token_RightCurlyBracket)
@@ -343,14 +369,14 @@ ParseNodeStruct (token* NodeStruct, code_block_builder* NodeMembersBlock, seen_n
                    (IsInput ? "IsInputMember" : ""),
                    (IsInput && IsOutput ? "|" : ""),
                    (IsOutput ? "IsOutputMember" : ""));
-            CodeBlockPrint(NodeMembersBlock, Buffer);
+            Write(Buffer, NodeMembersBlock);
             
             SeenStruct->MembersCount++;
             Token = GetNextTokenOfType(Token, Token_Semicolon)->Next;
         }
     }
     
-    CodeBlockPrint(NodeMembersBlock, MakeStringLiteral("};\n\n"));
+    Write(MakeStringLiteral("};\n\n"), NodeMembersBlock);
 }
 
 internal s32
@@ -460,9 +486,9 @@ ParseTypedefs (token* Tokens, type_table* TypeTable)
 
 internal void
 ParseNodeProc (token* NodeProc, 
-               code_block_builder* NodeTypeBlock,
-               code_block_builder* NodeSpecificationsBlock,
-               code_block_builder* CallNodeProcBlock,
+               string_builder* NodeTypeBlock,
+               string_builder* NodeSpecificationsBlock,
+               string_builder* CallNodeProcBlock,
                seen_node_struct* SeenStructs,
                b32 IsPatternProc)
 {
@@ -473,7 +499,7 @@ ParseNodeProc (token* NodeProc,
     
     // Types Enum
     PrintF(&Buffer, "NodeType_%.*s,\n", ProcName->Text.Length, ProcName->Text.Memory);
-    CodeBlockPrint(NodeTypeBlock, Buffer);
+    Write(Buffer, NodeTypeBlock);
     
     // Node Specification
     string ArgName = ProcArg->Text;
@@ -487,7 +513,7 @@ ParseNodeProc (token* NodeProc,
            ArgStruct->MembersSize,
            ArgStruct->MembersCount,
            (IsPatternProc ? 4 : 5), (IsPatternProc ? "true" : "false"));
-    CodeBlockPrint(NodeSpecificationsBlock, Buffer);
+    Write(Buffer, NodeSpecificationsBlock);
     
     // Call Node Proc
     if (IsPatternProc)
@@ -500,17 +526,17 @@ ParseNodeProc (token* NodeProc,
                ProcName->Text.Length, ProcName->Text.Memory,
                ProcName->Text.Length, ProcName->Text.Memory,
                ProcArg->Text.Length, ProcArg->Text.Memory);
-        CodeBlockPrint(CallNodeProcBlock, Buffer);
+        Write(Buffer, CallNodeProcBlock);
     }
 }
 
 internal s32
 PreprocessStructsAndProcs (string StructSearchString, string ProcSearchString, b32 FindingPatterns,
                            token* Tokens, 
-                           code_block_builder* NodeMembersBlock,
-                           code_block_builder* NodeTypeBlock,
-                           code_block_builder* NodeSpecificationsBlock,
-                           code_block_builder* CallNodeProcBlock,
+                           string_builder* NodeMembersBlock,
+                           string_builder* NodeTypeBlock,
+                           string_builder* NodeSpecificationsBlock,
+                           string_builder* CallNodeProcBlock,
                            type_table* TypeTable)
 {
     // Node Structs
@@ -568,21 +594,19 @@ int main(int ArgCount, char** ArgV)
     type_table TypeTable = {};
     
     memory_arena SourceFileArena = {};
-    InitMemoryArena(&SourceFileArena, 0, 0, StdAlloc);
     
-    code_block_builder NodeTypeBlock = InitCodeBlockBuilder();
-    CodeBlockPrint(&NodeTypeBlock, MakeStringLiteral("enum node_type\n{\n"));
+    string_builder NodeTypeBlock = {};
+    Write(MakeStringLiteral("enum node_type\n{\n"), &NodeTypeBlock);
     
-    code_block_builder NodeMembersBlock = InitCodeBlockBuilder();
+    string_builder NodeMembersBlock = {};
     
-    code_block_builder NodeSpecificationsBlock = InitCodeBlockBuilder();
-    CodeBlockPrint(&NodeSpecificationsBlock, MakeStringLiteral("node_specification NodeSpecifications[] = {\n"));
+    string_builder NodeSpecificationsBlock = {};
+    Write(MakeStringLiteral("node_specification NodeSpecifications[] = {\n"), &NodeSpecificationsBlock);
     
-    code_block_builder CallNodeProcBlock = InitCodeBlockBuilder();
-    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("internal void CallNodeProc(node_header* Node, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"));
-    CodeBlockPrint(&CallNodeProcBlock,
-                   MakeStringLiteral("node_specification Spec = NodeSpecifications[Node->Type];\n"));
-    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("switch (Spec.Type)\n{\n"));
+    string_builder CallNodeProcBlock = {};
+    Write(MakeStringLiteral("internal void CallNodeProc(u32 SpecificationIndex, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"), &CallNodeProcBlock);
+    Write(MakeStringLiteral("node_specification Spec = NodeSpecifications[SpecificationIndex];\n"), &CallNodeProcBlock);
+    Write(MakeStringLiteral("switch (Spec.Type)\n{\n"), &CallNodeProcBlock);
     
     
     // Build Search Paths Array
@@ -649,7 +673,8 @@ int main(int ArgCount, char** ArgV)
             {
                 source_code_file* File = SourceFiles + SourceFilesUsed++;
                 
-                PushString(&File->Path, &SourceFileArena, SearchPathString->Length + CharArrayLength(FindFileData.cFileName));
+                u32 PathLength = SearchPathString->Length + CharArrayLength(FindFileData.cFileName);
+                File->Path = MakeString(PushArray(&SourceFileArena, char, PathLength), 0, PathLength);
                 CopyStringTo(Substring(*SearchPathString, 0, SearchPathString->Length - 2), &File->Path);
                 ConcatCharArrayToString(FindFileData.cFileName, &File->Path);
                 NullTerminate(&File->Path);
@@ -657,7 +682,8 @@ int main(int ArgCount, char** ArgV)
                 File->FileSize = FindFileData.nFileSizeLow;
                 ErrorAssert(FindFileData.nFileSizeHigh == 0, &GlobalErrorList, "File Too Big. Peter needs to handle this. File: %.*s", FileName.Length, FileName.Memory); 
                 
-                PushString(&File->Contents, &SourceFileArena, File->FileSize + 1);
+                u32 FileSize = File->FileSize + 1;
+                File->Contents = MakeString(PushArray(&SourceFileArena, char, FileSize), FileSize);
                 File->Contents.Length = ReadEntireFileAndNullTerminate(File->Path.Memory, File->Contents.Memory, File->Contents.Max);
             }
             
@@ -727,23 +753,23 @@ int main(int ArgCount, char** ArgV)
     MakeStringBuffer(Buffer, 256);
     
     // Close Types Block - overwrite the last comma and '\' newline character with newlines.
-    CodeBlockPrint(&NodeTypeBlock, MakeStringLiteral("NodeType_Count,\n};\n\n"));
+    Write(MakeStringLiteral("NodeType_Count,\n};\n\n"), &NodeTypeBlock);
     
     // Close Specifications Block
-    CodeBlockPrint(&NodeSpecificationsBlock, MakeStringLiteral("};\n"));
+    Write(MakeStringLiteral("};\n"), &NodeSpecificationsBlock);
     PrintF(&Buffer, "s32 NodeSpecificationsCount = %d;\n\n", NodeProcCount);
-    CodeBlockPrint(&NodeSpecificationsBlock, Buffer);
+    Write(Buffer, &NodeSpecificationsBlock);
     
     // Close Call Node Proc Block
-    CodeBlockPrint(&CallNodeProcBlock, MakeStringLiteral("}\n}\n"));
+    Write(MakeStringLiteral("}\n}\n"), &CallNodeProcBlock);
     
     FILE* NodeGeneratedCPP = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_nodes_generated.cpp", "w");
     if (NodeGeneratedCPP)
     {
-        WriteCodeBlockToFile(NodeTypeBlock, NodeGeneratedCPP);
-        WriteCodeBlockToFile(NodeMembersBlock, NodeGeneratedCPP);
-        WriteCodeBlockToFile(NodeSpecificationsBlock, NodeGeneratedCPP);
-        WriteCodeBlockToFile(CallNodeProcBlock, NodeGeneratedCPP);
+        WriteStringBuilderToFile(NodeTypeBlock, NodeGeneratedCPP);
+        WriteStringBuilderToFile(NodeMembersBlock, NodeGeneratedCPP);
+        WriteStringBuilderToFile(NodeSpecificationsBlock, NodeGeneratedCPP);
+        WriteStringBuilderToFile(CallNodeProcBlock, NodeGeneratedCPP);
         fclose(NodeGeneratedCPP);
     }
     
