@@ -1,12 +1,34 @@
-struct node_graph_state
-{
-    v2 ViewOffset;
-};
-
 struct visual_node
 {
     node_specification Spec;
     v2 Position;
+};
+
+struct node_layout
+{
+    // NOTE(Peter): This Map is a sparse array.
+    // index i corresponds to index i in some list of nodes
+    // the value at index i is the index of that node in a compressed list
+    // if the value at i is -1, that means the entry is free
+    s32* SparseToContiguousNodeMap;
+    u32  SparseToContiguousNodeMapCount;
+    
+    visual_node* VisualNodes;
+    u32*         VisualNodeLayers;
+    u32          VisualNodesCount;
+    
+    u32 LayerCount;
+    v2* LayerPositions;
+};
+
+struct node_graph_state
+{
+    v2 ViewOffset;
+    
+    memory_arena LayoutMemory;
+    node_layout Layout;
+    
+    b32 LayoutIsDirty;
 };
 
 //
@@ -93,11 +115,14 @@ PANEL_INIT_PROC(NodeGraph_Init)
     // taking fixed size chunks off the Memory stack and then reusing them. THis 
     // should probably live outside the paneling system.
     Panel->PanelStateMemory = (u8*)PushStruct(&State->Permanent, node_graph_state);
+    node_graph_state* GraphState = (node_graph_state*)Panel->PanelStateMemory;
+    GraphState->LayoutIsDirty = true;
 }
 
 PANEL_CLEANUP_PROC(NodeGraph_Cleanup)
 {
-    
+    node_graph_state* GraphState = (node_graph_state*)Panel->PanelStateMemory;
+    FreeMemoryArena(&GraphState->LayoutMemory);
 }
 
 internal void
@@ -231,23 +256,6 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     return PortClicked;
 }
 
-struct node_layout
-{
-    // NOTE(Peter): This Map is a sparse array.
-    // index i corresponds to index i in some list of nodes
-    // the value at index i is the index of that node in a compressed list
-    // if the value at i is -1, that means the entry is free
-    s32* SparseToContiguousNodeMap;
-    u32  SparseToContiguousNodeMapCount;
-    
-    visual_node* VisualNodes;
-    u32*         VisualNodeLayers;
-    u32          VisualNodesCount;
-    
-    u32 LayerCount;
-    v2* LayerPositions;
-};
-
 internal u32
 FindLayerForNodeInList(gs_list_handle NodeHandle, gs_bucket<gs_list_handle> NodeLUT)
 {
@@ -350,7 +358,17 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     r32 LayerDistance = 100;
     r32 LineHeight = (State->Interface.Font->PixelHeight + (2 * State->Interface.Margin.y));
     
-    node_layout NodeLayout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, &State->Transient);
+    if (GraphState->LayoutIsDirty)
+    {
+        // NOTE(Peter): Resset the LayoutMemory arena so we can use it again.
+        // If LayoutIsDirty, then we need to recalculate all the members of GraphState->Layout
+        // so we might as well just clear the whole thing (we aren't freeing, just reusing)
+        ClearArena(&GraphState->LayoutMemory);
+        GraphState->Layout = {};
+        
+        GraphState->Layout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, &GraphState->LayoutMemory);
+        GraphState->LayoutIsDirty = false;
+    }
     
     DrawGrid(GraphState->ViewOffset, v2{100, 100}, GraphBounds, RenderBuffer);
     
@@ -359,11 +377,11 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     {
         pattern_node_connection Connection = *State->NodeWorkspace.Connections.GetElementAtIndex(i);
         
-        u32 UpstreamNodeVisualIndex = NodeLayout.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
-        u32 DownstreamNodeVisualIndex = NodeLayout.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
+        u32 UpstreamNodeVisualIndex = GraphState->Layout.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
+        u32 DownstreamNodeVisualIndex = GraphState->Layout.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
         
-        visual_node UpstreamNode = NodeLayout.VisualNodes[UpstreamNodeVisualIndex];
-        visual_node DownstreamNode = NodeLayout.VisualNodes[DownstreamNodeVisualIndex];
+        visual_node UpstreamNode = GraphState->Layout.VisualNodes[UpstreamNodeVisualIndex];
+        visual_node DownstreamNode = GraphState->Layout.VisualNodes[DownstreamNodeVisualIndex];
         
         v2 LineStart = GraphState->ViewOffset + UpstreamNode.Position + v2{NodeWidth, 0} - (v2{0, LineHeight} * (Connection.UpstreamPortIndex + 2)) + v2{0, LineHeight / 3};
         v2 LineEnd = GraphState->ViewOffset + DownstreamNode.Position - (v2{0, LineHeight} * (Connection.DownstreamPortIndex + 2)) + v2{0, LineHeight / 3};
@@ -371,9 +389,9 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         PushLine2DOnBatch(&ConnectionsLayer, LineStart, LineEnd, 1.5f, WhiteV4);
     }
     
-    for (u32 i = 0; i < NodeLayout.VisualNodesCount; i++)
+    for (u32 i = 0; i < GraphState->Layout.VisualNodesCount; i++)
     {
-        visual_node VisualNode = NodeLayout.VisualNodes[i];
+        visual_node VisualNode = GraphState->Layout.VisualNodes[i];
         s32 PortClicked = DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
         if (PortClicked >= 0)
         {
@@ -412,6 +430,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
             && PointIsInRect(Mouse.DownPos, ElementBounds))
         {
             PushNodeOnWorkspace(i, &State->NodeWorkspace);
+            GraphState->LayoutIsDirty = true;
         }
     }
 }
