@@ -1,3 +1,10 @@
+//
+// File: foldhaus_panel_animation_timeline.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PANEL_ANIMATION_TIMELINE_H
+
 // TODO
 // [x] - Moving animation blocks
 // [x] - dragging beginning and end of time blocks
@@ -479,3 +486,6 @@ PANEL_RENDER_PROC(AnimationTimeline_Render)
         State->AnimationSystem.Time = 0;
     }
 }
+
+#define FOLDHAUS_PANEL_ANIMATION_TIMELINE_H
+#endif // FOLDHAUS_PANEL_ANIMATION_TIMELINE_H

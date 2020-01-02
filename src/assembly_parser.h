@@ -1,3 +1,10 @@
+//
+// File: assembly_parser.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef ASSEMBLY_PARSER_H
+
 #define LED_STRIP_COUNT_IDENTIFIER "led_strip_count"
 
 #define LED_STRIP_IDENTIFIER "led_strip"
@@ -59,3 +66,6 @@ struct assembly_definition
     s32 TotalLEDCount;
     led_strip_definition* LEDStrips;
 };
+
+#define ASSEMBLY_PARSER_H
+#endif // ASSEMBLY_PARSER_H

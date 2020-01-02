@@ -1,8 +1,15 @@
+//
+// File: foldhaus_animation.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
 // TODO
 // [] - animation blending
 // [] - delete a layer
 // [] - will need a way to create an empty layer
 // [] - get a list of all animation procs
+
+#ifndef FOLDHAUS_ANIMATION
 
 #define ANIMATION_PROC(name) void name(assembly* Assembly, r32 Time)
 typedef ANIMATION_PROC(animation_proc);
@@ -33,3 +40,6 @@ struct animation_system
     r32 AnimationStart;
     r32 AnimationEnd;
 };
+
+#define FOLDHAUS_ANIMATION
+#endif // FOLDHAUS_ANIMATION

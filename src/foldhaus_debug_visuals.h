@@ -1,3 +1,10 @@
+//
+// File: foldhaus_debug_visuals.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_DEBUG_VISUALS_H
+
 internal void
 DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_config Interface, r32 WindowWidth, r32 WindowHeight, r32 DeltaTime, app_state* State, camera Camera, mouse_state Mouse, memory_arena* Transient)
 {
@@ -113,3 +120,7 @@ DrawDebugInterface (render_command_buffer* RenderBuffer, r32 StartX, interface_c
         TopOfScreenLinePos.y -= NewLineYOffset(*Interface.Font);
     }
 }
+
+
+#define FOLDHAUS_DEBUG_VISUALS_H
+#endif // FOLDHAUS_DEBUG_VISUALS_H

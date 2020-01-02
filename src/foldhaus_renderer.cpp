@@ -1,3 +1,10 @@
+//
+// File: foldhaus_renderer.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_RENDERER_CPP
+
 internal render_command_buffer
 AllocateRenderCommandBuffer (u8* Memory, s32 Size, renderer_realloc* Realloc)
 {
@@ -178,3 +185,6 @@ ClearRenderBuffer (render_command_buffer* Buffer)
 {
     Buffer->CommandMemoryUsed = 0;
 }
+
+#define FOLDHAUS_RENDERER_CPP
+#endif // FOLDHAUS_RENDERER_CPP

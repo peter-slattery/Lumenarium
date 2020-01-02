@@ -1,3 +1,10 @@
+//
+// File: foldhaus_operation_mode.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_OPERATION_MODE_H
+
 typedef struct operation_mode operation_mode;
 
 #define OPERATION_STATE_DEF(name) struct name
@@ -81,3 +88,7 @@ CreateOperationState_ (operation_mode* Mode, operation_mode_system* System, s32 
     Mode->OpStateMemory = PushSize(&System->Arena, StateSize);
     return Mode->OpStateMemory;
 }
+
+
+#define FOLDHAUS_OPERATION_MODE_H
+#endif // FOLDHAUS_OPERATION_MODE_H

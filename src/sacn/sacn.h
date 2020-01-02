@@ -1,3 +1,10 @@
+//
+// File: sacn.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef SACN_H
+
 #define NETWORKINTID_INVALID -1
 
 #define DEFAULT_STREAMING_ACN_PORT 5568
@@ -336,3 +343,7 @@ SACNGetUniverseSendAddress(s32 Universe)
     u_long V4Address = (u_long)UpackB4(MulticastAddressBuffer);
     return V4Address;
 }
+
+
+#define SACN_H
+#endif // SACN_H

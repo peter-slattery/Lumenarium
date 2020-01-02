@@ -1,3 +1,10 @@
+//
+// File: foldhaus_assembly.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_ASSEMBLY_H
+
 struct led
 {
     s32 Index;
@@ -36,3 +43,7 @@ struct assembly
     s32 LEDUniverseMapCount;
     leds_in_universe_range* LEDUniverseMap;
 };
+
+
+#define FOLDHAUS_ASSEMBLY_H
+#endif // FOLDHAUS_ASSEMBLY_H

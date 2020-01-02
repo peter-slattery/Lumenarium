@@ -1,3 +1,10 @@
+//
+// File: interface.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef INTERFACE_H
+
 enum string_alignment
 {
     Align_Left,
@@ -613,3 +620,6 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
     
     return Result;
 }
+
+#define INTERFACE_H
+#endif // INTERFACE_H

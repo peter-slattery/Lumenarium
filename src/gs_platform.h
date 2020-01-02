@@ -1,3 +1,10 @@
+//
+// File: gs_platform.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef GS_PLATFORM_H
+
 #ifndef GS_PLATFORM_H
 
 #ifndef GS_LANGUAGE_H
@@ -384,6 +391,9 @@ GetSecondsElapsed (s64 Start, s64 End, s64 PerformanceCountFrequency)
     r32 Result = ((r32)(End - Start) / (r32) PerformanceCountFrequency);
     return Result;
 }
+
+#define GS_PLATFORM_H
+#endif // GS_PLATFORM_H
 
 #define GS_PLATFORM_H
 #endif // GS_PLATFORM_H

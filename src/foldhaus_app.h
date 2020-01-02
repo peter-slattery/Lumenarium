@@ -1,3 +1,10 @@
+//
+// File: foldhaus_app.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_APP_H
+
 #include "../meta/gs_meta_lexer.h"
 
 #include "gs_font.h"
@@ -231,3 +238,7 @@ typedef PANEL_RENDER_PROC(panel_render_proc);
 #include "generated/foldhaus_panels_generated.h"
 
 #include "foldhaus_interface.cpp"
+
+
+#define FOLDHAUS_APP_H
+#endif // FOLDHAUS_APP_H

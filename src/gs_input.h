@@ -1,3 +1,10 @@
+//
+// File: gs_input.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef GS_INPUT_H
+
 enum key_state_flags
 {
     KeyState_WasDown = 1 << 0,
@@ -109,3 +116,6 @@ MouseButtonHeldDown (b32 MouseButtonState)
     b32 IsDown = KeyIsDown(MouseButtonState);
     return (WasDown && IsDown);
 }
+
+#define GS_INPUT_H
+#endif // GS_INPUT_H

@@ -1,3 +1,10 @@
+//
+// File: DMX_H
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef DMX_H
+
 struct dmx_buffer
 {
     s32 Universe;
@@ -45,3 +52,6 @@ DMXBufferListAppend (dmx_buffer_list* AppendTo, dmx_buffer_list* Append)
     
     return Result;
 }
+
+#define DMX_H
+#endif // DMX_H

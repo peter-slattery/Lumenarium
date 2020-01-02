@@ -1,3 +1,10 @@
+//
+// File: foldhaus_command_dispatch.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_COMMAND_DISPATCH_H
+
 #define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse)
 typedef FOLDHAUS_INPUT_COMMAND_PROC(input_command_proc);
 
@@ -194,3 +201,6 @@ RegisterKeyPressCommand (input_command_registry* CommandRegistry,
     Command->Mdfr = Mdfr;
     Command->Proc = Proc;
 }
+
+#define FOLDHAUS_COMMAND_DISPATCH_H
+#endif // FOLDHAUS_COMMAND_DISPATCH_H

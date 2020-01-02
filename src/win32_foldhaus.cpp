@@ -1,3 +1,10 @@
+//
+// File: win32_foldhaus.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef WIN32_FOLDHAUS_CPP
+
 #include <Winsock2.h>
 #include <ws2tcpip.h>
 #include <intrin.h>
@@ -710,3 +717,6 @@ WinMain (
     
     return 0;
 }
+
+#define WIN32_FOLDHAUS_CPP
+#endif // WIN32_FOLDHAUS_CPP

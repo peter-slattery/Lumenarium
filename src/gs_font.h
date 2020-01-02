@@ -1,3 +1,10 @@
+//
+// File: gs_font.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef GS_FONT_H
+
 #ifndef GS_FONT_H
 
 struct codepoint_bitmap
@@ -119,3 +126,6 @@ NewLineYOffset (bitmap_font Font)
 
 #define GS_FONT_H
 #endif
+
+#define GS_FONT_H
+#endif // GS_FONT_H

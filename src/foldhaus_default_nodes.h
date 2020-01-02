@@ -1,3 +1,10 @@
+//
+// File: foldhaus_default_nodes.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_DEFAULT_NODES_H
+
 //////////////////////////////////
 //
 //   Values
@@ -135,3 +142,7 @@ NODE_PROC(MultiplyPatterns, multiply_patterns_data)
         LED++;
     }
 }
+
+
+#define FOLDHAUS_DEFAULT_NODES_H
+#endif // FOLDHAUS_DEFAULT_NODES_H

@@ -1,14 +1,13 @@
-/*
-File: foldhaus_panel.cpp
-Description: a system for laying out panels on a screen
-Author: Peter Slattery
-Creation Date: 2019-12-26
-
-Usage:
-Include this file in ONE file in your project. 
-Define SetPanelDefinitionExternal
-
-*/
+//
+// File: foldhaus_panel.h
+// Author: Peter Slattery
+// Creation Date: 2019-12-26
+//
+// Usage:
+// Include this file in ONE file in your project. 
+// Define SetPanelDefinitionExternal
+//
+#ifndef FOLDHAUS_PANEL_H
 
 typedef struct panel panel;
 
@@ -351,3 +350,7 @@ GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect WindowBounds)
     }
     return Result;
 }
+
+
+#define FOLDHAUS_PANEL_H
+#endif // FOLDHAUS_PANEL_H

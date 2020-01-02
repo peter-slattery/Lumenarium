@@ -1,3 +1,10 @@
+//
+// File: foldhaus_panel_dmx_view.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PANEL_DMX_VIEW_H
+
 PANEL_INIT_PROC(DMXView_Init)
 {
     
@@ -75,3 +82,7 @@ PANEL_RENDER_PROC(DMXView_Render)
     }
 #endif
 }
+
+
+#define FOLDHAUS_PANEL_DMX_VIEW_H
+#endif // FOLDHAUS_PANEL_DMX_VIEW_H

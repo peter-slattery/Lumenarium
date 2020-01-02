@@ -1,3 +1,10 @@
+//
+// File: foldhaus_panel_node_graph.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PANEL_NODE_GRAPH_H
+
 struct visual_node
 {
     node_specification Spec;
@@ -127,14 +134,10 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
             visual_port UpstreamPort = (OpState->IsInput & IsInputMember) ? VisualPort : OpState->VisualPort;
             visual_port DownstreamPort = (OpState->IsInput & IsInputMember) ? OpState->VisualPort : VisualPort;
             
-            // Make Connection
-            pattern_node_connection Connection = {};
-            Connection.UpstreamNodeHandle = UpstreamPort.SparseNodeHandle;
-            Connection.DownstreamNodeHandle = DownstreamPort.SparseNodeHandle;
-            Connection.UpstreamPortIndex = UpstreamPort.PortIndex;
-            Connection.DownstreamPortIndex = DownstreamPort.PortIndex;
+            PushNodeConnectionOnWorkspace(UpstreamPort.SparseNodeHandle, UpstreamPort.PortIndex,
+                                          DownstreamPort.SparseNodeHandle, DownstreamPort.PortIndex,
+                                          &State->NodeWorkspace, &State->Transient);
             
-            State->NodeWorkspace.Connections.PushElementOnBucket(Connection);
             GraphState->LayoutIsDirty = true;
         }
     }
@@ -242,7 +245,7 @@ DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeigh
 }
 
 internal void
-DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
+DrawNode (v2 Position, node_specification NodeSpecification, gs_list_handle NodeHandle, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse, memory_arena* Scratch)
 {
     u32 InputMembers = 0;
     u32 OutputMembers = 0;
@@ -269,8 +272,11 @@ DrawNode (v2 Position, node_specification NodeSpecification, r32 NodeWidth, r32 
     v2 TextOffset = v2{Interface.Margin.x, 0};
     
     PushRenderQuad2D(RenderBuffer, LinePosition, LinePosition + v2{NodeWidth, LineHeight}, v4{1.f, .24f, .39f, 1.f});
+    
     string NodeName = MakeString(NodeSpecification.Name, NodeSpecification.NameLength);
-    DrawString(RenderBuffer, NodeName, Interface.Font, LinePosition + TextOffset, WhiteV4);
+    string NodePrintName = MakeString(PushArray(Scratch, char, 256), 0, 256);
+    PrintF(&NodePrintName, "%S [%d]", NodeName, NodeHandle.Index);
+    DrawString(RenderBuffer, NodePrintName, Interface.Font, LinePosition + TextOffset, WhiteV4);
     LinePosition.y -= LineHeight;
     
     DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer, Mouse);
@@ -299,57 +305,18 @@ GetVisualPortIndexForNode(gs_list_handle SparseNodeHandle, u32 PortIndex, node_l
 }
 
 internal node_layout
-ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, memory_arena* Storage)
+ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, memory_arena* Storage, app_state* State)
 {
     node_layout Result = {};
     
-    Result.SparseToContiguousNodeMapCount = Workspace.Nodes.OnePastLastUsed;
-    Result.SparseToContiguousNodeMap = PushArray(Storage, s32, Result.SparseToContiguousNodeMapCount);
-    u32 DestinationIndex = 0;
-    Result.VisualPortsCount = 0;
-    for (u32 i = 0; i < Result.SparseToContiguousNodeMapCount; i++)
+    for (u32 n = 0; n < Workspace.Nodes.Used; n++)
     {
-        gs_list_entry<pattern_node>* Entry = Workspace.Nodes.GetEntryAtIndex(i);
-        if (!EntryIsFree(Entry)) 
-        { 
-            Result.SparseToContiguousNodeMap[i] = DestinationIndex++;
-            
-            pattern_node Node = Entry->Value;
-            node_specification Spec = NodeSpecifications[Node.SpecificationIndex];
-            Result.VisualPortsCount += Spec.MemberListLength;
-        }
-        else
-        {
-            Result.SparseToContiguousNodeMap[i] = -1;
-        }
-    }
-    
-    // Figure out how to arrange nodes
-    Result.LayerCount = 1;
-    
-    Result.VisualNodeLayers = PushArray(Storage, u32, Workspace.Nodes.Used);
-    GSZeroMemory((u8*)Result.VisualNodeLayers, sizeof(u32) * Workspace.Nodes.Used);
-    
-    for (u32 c = 0; c < Workspace.Connections.Used; c++)
-    {
-        pattern_node_connection Connection = *Workspace.Connections.GetElementAtIndex(c);
+        gs_list_handle NodeHandle = Workspace.SortedNodeHandles[n];
+        pattern_node Node = *Workspace.Nodes.GetElementWithHandle(NodeHandle);
         
-        u32 UpstreamNodeLayerIndex = Result.SparseToContiguousNodeMap[Connection.UpstreamNodeHandle.Index];
-        u32 DownstreamNodeLayerIndex = Result.SparseToContiguousNodeMap[Connection.DownstreamNodeHandle.Index];
-        
-        u32 UpstreamNodeInitialLayer = Result.VisualNodeLayers[UpstreamNodeLayerIndex];
-        u32 DownstreamNodeLayer = Result.VisualNodeLayers[DownstreamNodeLayerIndex];
-        
-        Result.VisualNodeLayers[UpstreamNodeLayerIndex] = GSMax(UpstreamNodeInitialLayer, DownstreamNodeLayer + 1);
-        Result.LayerCount = GSMax(Result.VisualNodeLayers[UpstreamNodeLayerIndex] + 1, Result.LayerCount);
-    }
-    
-    // Place Layer Columns
-    Result.LayerPositions = PushArray(Storage, v2, Result.LayerCount);
-    for (u32 l = 0; l < Result.LayerCount; l++)
-    {
-        u32 FromRight = Result.LayerCount - l;
-        Result.LayerPositions[l] = v2{ (NodeWidth + LayerDistance) * FromRight, 0 };
+        u32 SpecIndex = Node.SpecificationIndex;
+        node_specification Spec = NodeSpecifications[SpecIndex];
+        Result.VisualPortsCount += Spec.MemberListLength;
     }
     
     // Place nodes and connections
@@ -359,20 +326,17 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
     u32 VisualPortsUsed = 0;
     Result.VisualPorts = PushArray(Storage, visual_port, Result.VisualPortsCount);
     
-    for (u32 n = 0; n < Result.SparseToContiguousNodeMapCount; n++)
+    for (u32 n = 0; n < Workspace.Nodes.Used; n++)
     {
-        u32 NodeIndex = Result.SparseToContiguousNodeMap[n];
-        gs_list_entry<pattern_node>* NodeEntry = Workspace.Nodes.GetEntryAtIndex(NodeIndex);
-        pattern_node Node = NodeEntry->Value;
+        gs_list_handle NodeHandle = Workspace.SortedNodeHandles[n];
+        pattern_node Node = *Workspace.Nodes.GetElementWithHandle(NodeHandle);
         
         u32 SpecIndex = Node.SpecificationIndex;
         node_specification Spec = NodeSpecifications[SpecIndex];
-        u32 NodeLayer = Result.VisualNodeLayers[n];
         
         visual_node* VisualNode = Result.VisualNodes + n;
         VisualNode->Spec = Spec;
-        VisualNode->Position = Result.LayerPositions[NodeLayer];
-        Result.LayerPositions[NodeLayer].y -= 200;
+        VisualNode->Position = v2{(1.5f * NodeWidth) * n, 0}; 
         
         // NOTE(Peter): These start at 2 to account for the offset past the node title
         s32 InputsCount = 2; 
@@ -397,11 +361,13 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
             PortBounds.Max = PortBounds.Min + v2{8, 8};
             
             visual_port* VisualPort = Result.VisualPorts + VisualPortsUsed++;
-            VisualPort->SparseNodeHandle = NodeEntry->Handle;
+            VisualPort->SparseNodeHandle = NodeHandle;
             VisualPort->PortIndex = p;
             VisualPort->PortBounds = PortBounds;
         }
     }
+    
+    Result.VisualConnectionsCount = 0;
     
     Result.VisualConnectionsCount = Workspace.Connections.Used;
     Result.VisualConnections = PushArray(Storage, visual_connection, Result.VisualConnectionsCount);
@@ -450,7 +416,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         ClearArena(&GraphState->LayoutMemory);
         GraphState->Layout = {};
         
-        GraphState->Layout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, LineHeight, &GraphState->LayoutMemory);
+        GraphState->Layout = ArrangeNodes(State->NodeWorkspace, NodeWidth, LayerDistance, LineHeight, &GraphState->LayoutMemory, State);
         GraphState->LayoutIsDirty = false;
     }
     
@@ -463,6 +429,10 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         v2 Start = GraphState->ViewOffset + Connection.UpstreamPosition;
         v2 End = GraphState->ViewOffset + Connection.DownstreamPosition;
         PushRenderLine2D(RenderBuffer, Start, End, 1.5f, WhiteV4);
+        
+        v2 TempDim = v2{6, 6};
+        PushRenderQuad2D(RenderBuffer, Start - TempDim, Start + TempDim, PinkV4);
+        PushRenderQuad2D(RenderBuffer, End - TempDim, End + TempDim, YellowV4);
     }
     
     if (GraphState->Layout.ConnectionIsInProgress)
@@ -476,7 +446,8 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     for (u32 i = 0; i < GraphState->Layout.VisualNodesCount; i++)
     {
         visual_node VisualNode = GraphState->Layout.VisualNodes[i];
-        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse);
+        gs_list_handle NodeHandle = State->NodeWorkspace.SortedNodeHandles[i];
+        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeHandle, NodeWidth, LineHeight, State->Interface, RenderBuffer, Mouse, &State->Transient);
     }
     
     for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
@@ -529,7 +500,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
             && PointIsInRect(Mouse.DownPos, ElementBounds))
         {
-            PushNodeOnWorkspace(i, &State->NodeWorkspace);
+            PushNodeOnWorkspace(i, &State->NodeWorkspace, &State->Transient);
             GraphState->LayoutIsDirty = true;
             MouseHandled = true;
         }
@@ -540,3 +511,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
         BeginPanNodeGraph(State, {}, Mouse);
     }
 }
+
+
+#define FOLDHAUS_PANEL_NODE_GRAPH_H
+#endif // FOLDHAUS_PANEL_NODE_GRAPH_H

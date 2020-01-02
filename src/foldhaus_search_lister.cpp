@@ -1,3 +1,10 @@
+//
+// File: foldhaus_search_lister.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_SEARCH_LISTER_CPP
+
 internal b32
 NamePassesFilter (string Target, string Filter)
 {
@@ -42,3 +49,7 @@ GetPrevFilteredItem (search_lister SearchLister)
     s32 Result = GSMax(SearchLister.HotItem - 1, 0);
     return Result;
 }
+
+
+#define FOLDHAUS_SEARCH_LISTER_CPP
+#endif // FOLDHAUS_SEARCH_LISTER_CPP

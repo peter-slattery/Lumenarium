@@ -1,3 +1,10 @@
+//
+// File: foldhaus_search_lister.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_SEARCH_LISTER_H
+
 struct search_lister
 {
     // TODO(Peter): Giving up trying to just use the source list for now. At the moment
@@ -18,3 +25,7 @@ struct search_lister
     
     string Filter;
 };
+
+
+#define FOLDHAUS_SEARCH_LISTER_H
+#endif // FOLDHAUS_SEARCH_LISTER_H

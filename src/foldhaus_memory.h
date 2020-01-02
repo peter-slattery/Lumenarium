@@ -1,3 +1,10 @@
+//
+// File: foldhaus_memory.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_MEMORY_H
+
 #ifndef GS_MEMORY_H
 
 #if 0
@@ -267,3 +274,6 @@ PushSize_ (static_memory_arena* Arena, u32 Size)
 
 #define GS_MEMORY_H
 #endif // GS_MEMORY_H
+
+#define FOLDHAUS_MEMORY_H
+#endif // FOLDHAUS_MEMORY_H

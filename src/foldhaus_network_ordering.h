@@ -1,3 +1,10 @@
+//
+// File: foldhaus_network_ordering.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_NETWORK_ORDERING_H
+
 // Packs a u8 to a known big endian buffer
 inline u8*	
 PackB1(u8* ptr, u8 val)
@@ -131,3 +138,7 @@ UpackL8(const u8* ptr)
 {
 	return *((u64*)ptr);
 }
+
+
+#define FOLDHAUS_NETWORK_ORDERING_H
+#endif // FOLDHAUS_NETWORK_ORDERING_H

@@ -1,3 +1,9 @@
+//
+// File: foldhaus_node_interface.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLHAUS_NODE_INTERFACE_CPP
 
 ////////////////////////////////////////
 //
@@ -89,8 +95,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
             for (s32 i = 0; i < OpState->SearchLister.SourceListCount; i++)
             {
                 OpState->SearchLister.SourceList[i] = MakeString(
-                    NodeSpecifications[i].Name,
-                    NodeSpecifications[i].NameLength);
+                                                                 NodeSpecifications[i].Name,
+                                                                 NodeSpecifications[i].NameLength);
             }
         }
         OpState->SearchLister.Filter = MakeString(PushArray(&State->Modes.Arena, char, 64), 0, 64);
@@ -217,8 +223,8 @@ internal void
 BeginDraggingNodePort(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodePortMode = ActivateOperationModeWithCommands(
-        &State->Modes, 
-        DragNodePortInputCommands);
+                                                                         &State->Modes, 
+                                                                         DragNodePortInputCommands);
     DragNodePortMode->Render = RenderDraggingNodePort;
     
     drag_node_port_operation_state* OpState = CreateOperationState(DragNodePortMode, 
@@ -276,8 +282,8 @@ internal void
 BeginDraggingNode(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodeMode = ActivateOperationModeWithCommands(
-        &State->Modes, 
-        DragNodeInputCommands);
+                                                                     &State->Modes, 
+                                                                     DragNodeInputCommands);
     DragNodeMode->Render = RenderDraggingNode;
     
     drag_node_operation_state* OpState = CreateOperationState(DragNodeMode, 
@@ -496,3 +502,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
     
     OpState->SelectedNodeHandle = 0;
 }
+
+
+#define FOLHAUS_NODE_INTERFACE_CPP
+#endif // FOLHAUS_NODE_INTERFACE_CPP

@@ -1,3 +1,10 @@
+//
+// File: foldhaus_node.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_NODE_H
+
 typedef enum node_type node_type;
 
 #define IsInputMember 1 << 0
@@ -75,6 +82,13 @@ struct pattern_node_workspace
 {
     gs_list<pattern_node> Nodes;
     gs_bucket<pattern_node_connection> Connections;
+    
+    // This is storage for all the structures which follow.
+    // It is cleared when new nodes are added so that the 
+    // acceleration structures can be recalculated
+    memory_arena Storage;
+    s32* SparseToSortedNodeMap;
+    gs_list_handle* SortedNodeHandles;
 };
 
 
@@ -108,3 +122,6 @@ NODE_PROC(OutputNode, output_node_data)
 {
     
 }
+
+#define FOLDHAUS_NODE_H
+#endif // FOLDHAUS_NODE_H

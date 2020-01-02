@@ -1,3 +1,10 @@
+//
+// File: test_patterns.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef TEST_PATTERNS_H
+
 
 NODE_STRUCT(solid_color_data)
 {
@@ -112,3 +119,6 @@ NODE_PROC(RevolvingDiscs, revolving_discs_data)
         LED++;
     }
 }
+
+#define TEST_PATTERNS_H
+#endif // TEST_PATTERNS_H

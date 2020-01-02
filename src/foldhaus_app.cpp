@@ -1,3 +1,10 @@
+//
+// File: foldhaus_app.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_APP_CPP
+
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
@@ -422,3 +429,6 @@ CLEANUP_APPLICATION(CleanupApplication)
     app_state* State = (app_state*)Context.MemoryBase;
     SACNCleanup(&State->SACN, Context);
 }
+
+#define FOLDHAUS_APP_CPP
+#endif // FOLDHAUS_APP_CPP

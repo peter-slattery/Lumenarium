@@ -1,3 +1,10 @@
+//
+// File: foldhaus_sacn_view.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_SACN_VIEW_CPP
+
 internal void
 DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDraw, 
                         v2 TopLeft, v2 Dimension)
@@ -31,3 +38,6 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
         ++PixelsDrawn;
     }
 }
+
+#define FOLDHAUS_SACN_VIEW_CPP
+#endif // FOLDHAUS_SACN_VIEW_CPP

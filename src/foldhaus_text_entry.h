@@ -1,3 +1,10 @@
+//
+// File: foldhaus_text_entry.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_TEXT_ENTRY_H
+
 enum text_translation_type
 {
     TextTranslateTo_String,
@@ -24,3 +31,6 @@ struct text_entry
     
     text_entry_destination Destination;
 };
+
+#define FOLDHAUS_TEXT_ENTRY_H
+#endif // FOLDHAUS_TEXT_ENTRY_H

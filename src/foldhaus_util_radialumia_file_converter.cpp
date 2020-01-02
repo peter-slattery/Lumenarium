@@ -1,3 +1,10 @@
+//
+// File: foldhaus_util_radialumia_file_converter.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_UTIL_RADIALUMIA_FILE_CONVERTER_CPP
+
 #define DEBUG
 #define DEBUG_TRACK_SCOPE(name)
 
@@ -365,3 +372,6 @@ int main(int ArgCount, char* Args[])
     
     return 0;
 }
+
+#define FOLDHAUS_UTIL_RADIALUMIA_FILE_CONVERTER_CPP
+#endif // FOLDHAUS_UTIL_RADIALUMIA_FILE_CONVERTER_CPP

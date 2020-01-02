@@ -1,3 +1,9 @@
+//
+// File: foldhaus_panel_sculpture_view.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PANEL_SCULPTURE_VIEW_H
 
 // 3D Mouse View
 
@@ -166,3 +172,6 @@ PANEL_RENDER_PROC(SculptureView_Render)
     Context.GeneralWorkQueue->DoQueueWorkUntilDone(Context.GeneralWorkQueue, 0);
     Context.GeneralWorkQueue->ResetWorkQueue(Context.GeneralWorkQueue);
 }
+
+#define FOLDHAUS_PANEL_SCULPTURE_VIEW_H
+#endif // FOLDHAUS_PANEL_SCULPTURE_VIEW_H

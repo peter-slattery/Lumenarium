@@ -1,3 +1,10 @@
+//
+// File: foldhaus_renderer.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_RENDERER_H
+
 #define IMMEDIATE_MODE_RENDERING 0
 
 struct camera
@@ -24,17 +31,17 @@ GetCameraModelViewMatrix (camera Camera)
     r32 Z = Camera.Position.z;
     
     m44 RotationMatrix = M44(
-        CamRight.x, CamUp.x, CamForward.x, 0,
-        CamRight.y, CamUp.y, CamForward.y, 0,
-        CamRight.z, CamUp.z, CamForward.z, 0,
-        0,       0,    0,         1);
+                             CamRight.x, CamUp.x, CamForward.x, 0,
+                             CamRight.y, CamUp.y, CamForward.y, 0,
+                             CamRight.z, CamUp.z, CamForward.z, 0,
+                             0,       0,    0,         1);
     
     m44 PositionMatrix = M44(
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        -X, -Y, -Z, 1
-        );
+                             1, 0, 0, 0,
+                             0, 1, 0, 0,
+                             0, 0, 1, 0,
+                             -X, -Y, -Z, 1
+                             );
     
     m44 ModelViewMatrix = PositionMatrix * RotationMatrix;
     
@@ -654,3 +661,7 @@ PushRenderBoundingBox2D (render_command_buffer* Buffer, v2 Min, v2 Max, r32 Thic
     PushQuad2DOnBatch(&Batch, v2{Max.x - Thickness, Min.y}, Max, Color);
     PushQuad2DOnBatch(&Batch, Min, v2{Max.x, Min.y + Thickness}, Color);
 }
+
+
+#define FOLDHAUS_RENDERER_H
+#endif // FOLDHAUS_RENDERER_H

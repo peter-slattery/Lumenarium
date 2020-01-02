@@ -1,3 +1,10 @@
+//
+// File: foldhaus_debug.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_DEBUG_H
+
 #define SCOPE_NAME_LENGTH 256
 struct scope_record
 {
@@ -427,3 +434,7 @@ struct scope_tracker
         }
     }
 };
+
+
+#define FOLDHAUS_DEBUG_H
+#endif // FOLDHAUS_DEBUG_H

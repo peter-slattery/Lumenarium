@@ -1,3 +1,10 @@
+//
+// File: foldhaus_assembly.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_ASSEMBLY_CPP
+
 internal s32
 GetAssemblyMemorySizeFromDefinition(assembly_definition Definition, string Name)
 {
@@ -115,3 +122,7 @@ UnloadAssembly (u32 AssemblyIndex, app_state* State, context Context)
         }
     }
 }
+
+
+#define FOLDHAUS_ASSEMBLY_CPP
+#endif // FOLDHAUS_ASSEMBLY_CPP

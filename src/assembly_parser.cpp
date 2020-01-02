@@ -1,3 +1,10 @@
+//
+// File: assembly_parser.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef ASSEMBLY_PARSER_CPP
+
 
 internal assembly_token
 ParseToken (tokenizer* Tokenizer)
@@ -222,3 +229,6 @@ ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
     
     return AssemblyDefinition;
 }
+
+#define ASSEMBLY_PARSER_CPP
+#endif // ASSEMBLY_PARSER_CPP

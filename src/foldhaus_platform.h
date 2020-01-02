@@ -1,9 +1,18 @@
+//
+// File: foldhaus_platform.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PLATFORM_H
+
 #include <windows.h>
+#include <stdio.h>
 
 #define GS_LANGUAGE_NO_PROFILER_DEFINES
 #include <gs_language.h>
 #include "gs_platform.h"
 
+#include <gs_radix_sort.h>
 #include <gs_list.h>
 #include <gs_bucket.h>
 
@@ -151,3 +160,7 @@ struct context
     platform_send_to* PlatformSendTo;
     platform_close_socket* PlatformCloseSocket;
 };
+
+
+#define FOLDHAUS_PLATFORM_H
+#endif // FOLDHAUS_PLATFORM_H

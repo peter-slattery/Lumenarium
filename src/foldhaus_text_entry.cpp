@@ -1,3 +1,10 @@
+//
+// File: foldhaus_text_entry.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_TEXT_ENTRY_CPP
+
 internal void
 ResetTextInput (text_entry* Input)
 {
@@ -226,3 +233,7 @@ InitializeTextInputCommands (input_command_registry* Commands, memory_arena* Per
 { KeyCode_GreaterThan, KeyCode_Invalid, Command_Began | Command_Held, TextEntryInsertChar }, \
 { KeyCode_Tilde, KeyCode_Invalid, Command_Began | Command_Held, TextEntryInsertChar }, \
 { KeyCode_BackQuote, KeyCode_Invalid, Command_Began | Command_Held, TextEntryInsertChar }
+
+
+#define FOLDHAUS_TEXT_ENTRY_CPP
+#endif // FOLDHAUS_TEXT_ENTRY_CPP

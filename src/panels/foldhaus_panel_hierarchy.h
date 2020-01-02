@@ -1,3 +1,10 @@
+//
+// File: foldhaus_panel_hierarchy.h
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_PANEL_HIERARCHY_H
+
 PANEL_INIT_PROC(HierarchyView_Init)
 {
     
@@ -76,3 +83,7 @@ PANEL_RENDER_PROC(HierarchyView_Render)
         List.ListElementsCount++;
     }
 }
+
+
+#define FOLDHAUS_PANEL_HIERARCHY_H
+#endif // FOLDHAUS_PANEL_HIERARCHY_H

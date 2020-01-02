@@ -1,3 +1,10 @@
+//
+// File: foldhaus_interface.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef FOLDHAUS_INTERFACE_CPP
+
 ////////////////////////////////////////
 //
 //     Universe View
@@ -603,3 +610,7 @@ DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mou
         DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, Mouse, RenderBuffer);
     }
 }
+
+
+#define FOLDHAUS_INTERFACE_CPP
+#endif // FOLDHAUS_INTERFACE_CPP

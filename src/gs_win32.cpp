@@ -1,3 +1,10 @@
+//
+// File: gs_win32.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-01
+//
+#ifndef GS_WIN32_CPP
+
 #ifndef GS_WIN32_CPP
 
 struct win32_state
@@ -141,18 +148,18 @@ Win32CreateWindow (HINSTANCE HInstance, char* WindowName, s32 Width, s32 Height,
     if (RegisterClass(&Result.Class))
     {
         Result.Handle = CreateWindowEx(
-            0,
-            Result.Class.lpszClassName,
-            WindowName, 
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            Width,
-            Height,
-            0,
-            0, 
-            HInstance,
-            0);
+                                       0,
+                                       Result.Class.lpszClassName,
+                                       WindowName, 
+                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                                       CW_USEDEFAULT,
+                                       CW_USEDEFAULT,
+                                       Width,
+                                       Height,
+                                       0,
+                                       0, 
+                                       HInstance,
+                                       0);
         Result.DeviceContext = GetDC(Result.Handle);
     }
     
@@ -281,17 +288,17 @@ HandleWindowEventUnlessWouldUseDefault (HWND WindowHandle, UINT Msg, WPARAM wPar
 
 LRESULT CALLBACK
 Win32HandleWindowsEvents (
-HWND WindowHandle,
-UINT Msg,
-WPARAM wParam,
-LPARAM lParam
-)
+                          HWND WindowHandle,
+                          UINT Msg,
+                          WPARAM wParam,
+                          LPARAM lParam
+                          )
 {
     handle_window_event_result EventResult = HandleWindowEventUnlessWouldUseDefault(
-        WindowHandle, 
-        Msg, 
-        wParam, 
-        lParam);
+                                                                                    WindowHandle, 
+                                                                                    Msg, 
+                                                                                    wParam, 
+                                                                                    lParam);
     
     if (!EventResult.Handled)
     {
@@ -409,8 +416,8 @@ Win32GetKeyCode (int Win32VirtualKey, bool NumpadValid, bool TranslateToChar)
 
 internal handle_window_msg_result
 HandleWindowsMessage (
-HWND WindowHandle,
-MSG Message)
+                      HWND WindowHandle,
+                      MSG Message)
 {
     handle_window_msg_result Result = {};
     Result.NeedsUpdate = 0;
@@ -616,7 +623,7 @@ PLATFORM_REALLOC(Win32Realloc)
     u8* NewMemory = Win32BasicAlloc(NewSize);
     if (Base)
     {
-    GSMemCopy(Base, NewMemory, OldSize);
+        GSMemCopy(Base, NewMemory, OldSize);
         Win32Free(Base, OldSize);
     }
     return NewMemory;
@@ -629,13 +636,13 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
     Result.Error = PLATFORM_MEMORY_NO_ERROR;
     
     HANDLE FileHandle = CreateFileA (
-        Path,
-        GENERIC_READ,
-        0,
-        NULL,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL);
+                                     Path,
+                                     GENERIC_READ,
+                                     0,
+                                     NULL,
+                                     OPEN_EXISTING,
+                                     FILE_ATTRIBUTE_NORMAL,
+                                     NULL);
     
     if (FileHandle != INVALID_HANDLE_VALUE)
     {
@@ -671,13 +678,13 @@ PLATFORM_WRITE_ENTIRE_FILE(Win32WriteEntireFile)
 {
     b32 Result = false;
     HANDLE FileHandle = CreateFileA (
-        Path,
-        GENERIC_WRITE,
-        0,
-        NULL,
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL);
+                                     Path,
+                                     GENERIC_WRITE,
+                                     0,
+                                     NULL,
+                                     CREATE_ALWAYS,
+                                     FILE_ATTRIBUTE_NORMAL,
+                                     NULL);
     
     if (FileHandle != INVALID_HANDLE_VALUE)
     {
@@ -1013,6 +1020,9 @@ BindTexture (s32 TextureHandle)
 {
     glBindTexture(GL_TEXTURE_2D, TextureHandle);
 }
+
+#define GS_WIN32_CPP
+#endif // GS_WIN32_CPP
 
 #define GS_WIN32_CPP
 #endif // GS_WIN32_CPP
