@@ -87,7 +87,7 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 internal void
 TestPatternOne(assembly* Assembly, r32 Time)
 {
-    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
+    for (u32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
         leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;
@@ -122,7 +122,7 @@ TestPatternTwo(assembly* Assembly, r32 Time)
     r32 OuterRadiusSquared = 1000000;
     r32 InnerRadiusSquared = 0;
     
-    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
+    for (u32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
         leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;
@@ -173,7 +173,7 @@ TestPatternThree(assembly* Assembly, r32 Time)
     r32 BluePosition = -BlueSize + (Time * 25);
     r32 RedPosition = (100 + RedSize) + (Time * -35);
     
-    for (s32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
+    for (u32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
         leds_in_universe_range LEDUniverseRange = Assembly->LEDUniverseMap[Range];
         for (s32 LEDIdx = LEDUniverseRange.RangeStart;

@@ -47,23 +47,28 @@ enum strip_interpolation_type
 
 struct led_strip_definition
 {
-    s32 ControlBoxID;
-    s32 StartUniverse, StartChannel;
+    u32 ControlBoxID;
+    u32 StartUniverse;
+    u32 StartChannel;
     
     strip_interpolation_type InterpolationType;
     // Interpolate Boxes
-    s32 StartBoxIndex, EndBoxIndex;
+    u32 StartBoxIndex;
+    u32 EndBoxIndex;
+    
     // Interpolate Positions
-    v3 InterpolatePositionStart, InterpolatePositionEnd;
+    v3 InterpolatePositionStart;
+    v3 InterpolatePositionEnd;
+    
     // Universal Interpolation
-    s32 LEDsPerStrip;
+    u32 LEDsPerStrip;
 };
 
 struct assembly_definition
 {
-    s32 LEDStripSize;
-    s32 LEDStripCount;
-    s32 TotalLEDCount;
+    u32 LEDStripSize;
+    u32 LEDStripCount;
+    u32 TotalLEDCount;
     led_strip_definition* LEDStrips;
 };
 

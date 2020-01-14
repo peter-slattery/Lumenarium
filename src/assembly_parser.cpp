@@ -86,6 +86,7 @@ ParseAssemblyVector (char* String)
 internal void
 ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
 {
+    
     if (CharArraysEqualUpToLength(Tokenizer->At, LED_STRIP_COUNT_IDENTIFIER, CharArrayLength(LED_STRIP_COUNT_IDENTIFIER)))
     {
         Tokenizer->At += CharArrayLength(LED_STRIP_COUNT_IDENTIFIER);
@@ -213,21 +214,237 @@ ParseAssemblyFileBody (assembly_definition* Assembly, tokenizer* Tokenizer)
     Assert(Assembly->LEDStripCount == Assembly->LEDStripSize);
 }
 
+inline b32
+ParseTokenEquals (tokenizer* T, char* Validate)
+{
+    b32 Result = true;
+    
+    char* TAt = T->At;
+    char* VAt = Validate;
+    while (((TAt - T->Memory) < T->MemoryLength) && *VAt)
+    {
+        if (*VAt != *TAt)
+        {
+            Result = false;
+            break;
+        }
+        TAt++;
+        *VAt++;
+    }
+    
+    if (Result)
+    {
+        T->At = TAt;
+        EatWhitespace(T);
+    }
+    
+    return Result;
+}
+
+internal b32
+ParseComma(tokenizer* T)
+{
+    b32 Result = ParseTokenEquals(T, ",");
+    return Result;
+}
+
+internal b32
+ParseOpenCurlyBrace(tokenizer* T)
+{
+    b32 Result = ParseTokenEquals(T, "{");
+    return Result;
+}
+
+internal b32
+ParseCloseCurlyBrace(tokenizer* T)
+{
+    b32 Result = ParseTokenEquals(T, "}");
+    return Result;
+}
+
+internal b32
+ParseOpenParen(tokenizer* T)
+{
+    b32 Result = ParseTokenEquals(T, "(");
+    return Result;
+}
+
+internal b32
+ParseCloseParen(tokenizer* T)
+{
+    b32 Result = ParseTokenEquals(T, ")");
+    return Result;
+}
+
+internal b32
+ParseUnsignedInteger(tokenizer* T, u32* Value)
+{
+    parse_result Result = ParseUnsignedIntUnsafe(T->At);
+    *Value = Result.UnsignedIntValue;
+    T->At = Result.OnePastLast;
+    
+    // TODO(Peter): Parse functions in gs_string don't actually check for errors or
+    // whether or not they actually parsed an int.
+    // :GSStringParseErrors
+    return true;
+}
+
+internal b32
+ParseFloat(tokenizer* T, r32* Value)
+{
+    parse_result ParseResult = ParseFloatUnsafe(T->At);
+    *Value = ParseResult.FloatValue;
+    T->At = ParseResult.OnePastLast;
+    
+    // TODO(Peter):
+    // :GSStringParseErrors
+    return true;
+}
+
+internal b32
+ParseVector(tokenizer* T, v3* Value)
+{
+    b32 Result = true;
+    
+    if (ParseOpenParen(T))
+    {
+        for (u32 i = 0; i < 3; i++)
+        {
+            b32 ValueSuccess = ParseFloat(T, &(Value->E[i]));
+            if (!ValueSuccess)
+            {
+                Result = false;
+                break;
+            }
+            
+            b32 CommaSuccess = ParseComma(T);
+            if (!CommaSuccess)
+            {
+                break;
+            }
+        }
+        
+        if (!ParseCloseParen(T))
+        {
+            Result = false;
+        }
+    }
+    else
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
+// TODO(Peter): Error reporting
+#define ParseLEDStripToken(tokenizer, parse_expr, error_msg) \
+(parse_expr) && (ParseComma(tokenizer))
+
+internal b32
+ParseLEDStripCount (tokenizer* T, u32* Value)
+{
+    b32 Result = false;
+    
+    if (ParseTokenEquals(T, LED_STRIP_COUNT_IDENTIFIER))
+    {
+        EatWhitespace(T);
+        if (ParseUnsignedInteger(T, Value))
+        {
+            Result = true;
+        }
+    }
+    
+    return Result;
+}
+
+internal b32
+ParseLEDStrip (led_strip_definition* Strip, tokenizer* T, memory_arena* Arena)
+{
+    b32 Result = false;
+    
+    if (ParseTokenEquals(T, LED_STRIP_IDENTIFIER) &&
+        ParseOpenCurlyBrace(T))
+    {
+        Result = true;
+        
+        u32 ControlBoxIndex, StartUniverse, StartChannel;
+        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->ControlBoxID), "Control Box Error");
+        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->StartUniverse), "Start Universe Error");
+        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->StartChannel), "Start Channel Error");
+        
+        if (ParseTokenEquals(T, INTERPOLATE_POINTS_IDENTIFIER) &&
+            ParseComma(T))
+        {
+            Strip->InterpolationType = StripInterpolate_Points;
+            
+            ParseLEDStripToken(T, ParseVector(T, &Strip->InterpolatePositionStart), "Position Start Error");
+            ParseLEDStripToken(T, ParseVector(T, &Strip->InterpolatePositionEnd), "Position End Error");
+        }
+        
+        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->LEDsPerStrip), "LEDs Per Strip Error");
+        
+        EatWhitespace(T);
+        if (!ParseCloseCurlyBrace(T))
+        {
+            Result = false;
+        }
+    }
+    
+    return Result;
+}
+
 internal assembly_definition
 ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
 {
-    assembly_definition AssemblyDefinition = {};
+    assembly_definition Assembly = {};
     
-    tokenizer AssemblyFileTokenizer = {};
-    AssemblyFileTokenizer.At = (char*)FileBase;
-    AssemblyFileTokenizer.Memory = (char*)FileBase;
-    AssemblyFileTokenizer.MemoryLength = FileSize;
+    tokenizer Tokenizer = {};
+    Tokenizer.At = (char*)FileBase;
+    Tokenizer.Memory = (char*)FileBase;
+    Tokenizer.MemoryLength = FileSize;
     
-    ParseAssemblyFileHeader(&AssemblyDefinition, &AssemblyFileTokenizer);
-    AssemblyDefinition.LEDStrips = PushArray(Arena, led_strip_definition, AssemblyDefinition.LEDStripSize);
-    ParseAssemblyFileBody(&AssemblyDefinition, &AssemblyFileTokenizer);
+    if (ParseLEDStripCount(&Tokenizer, &Assembly.LEDStripSize))
+    {
+        Assembly.LEDStrips = PushArray(Arena, led_strip_definition, Assembly.LEDStripSize);
+        
+        while (AtValidPosition(Tokenizer))
+        {
+            EatWhitespace(&Tokenizer);
+            
+            if (Assembly.LEDStripCount < Assembly.LEDStripSize)
+            {
+                led_strip_definition* LEDStrip = Assembly.LEDStrips + Assembly.LEDStripCount++;
+                
+                if (ParseLEDStrip(LEDStrip, &Tokenizer, Arena))
+                {
+                    Assembly.TotalLEDCount += LEDStrip->LEDsPerStrip;
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
+            }
+            else
+            {
+                if (ParseTokenEquals(&Tokenizer, END_ASSEMBLY_FILE_IDENTIFIER))
+                {
+                    break;
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
+            }
+        }
+    }
+    else
+    {
+        // TODO(Peter): Error reporting
+        InvalidCodePath;
+    }
     
-    return AssemblyDefinition;
+    return Assembly;
 }
 
 #define ASSEMBLY_PARSER_CPP

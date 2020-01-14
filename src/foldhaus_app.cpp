@@ -269,7 +269,7 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
     
     s32 BufferSize = BufferHeaderSize + 512;
     
-    for (s32 Range = 0; Range < Assembly.LEDUniverseMapCount; Range++)
+    for (u32 Range = 0; Range < Assembly.LEDUniverseMapCount; Range++)
     {
         leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
         

@@ -36,7 +36,7 @@ PANEL_RENDER_PROC(HierarchyView_Render)
     };
     
     v2 TextOffset = v2{10, 4};
-    string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
+    string TempString = MakeString(PushArray(&State->Transient, char, 256), 0, 256);
     
     u32 LineCount = (u32)(PanelHeight / List.ListElementDimensions.y) + 1;
     for (u32 i = 0; i < LineCount; i++)

@@ -1,3 +1,3 @@
 @echo off
 
-remedybg build\remedy_win32_foldhaus.rdbg
+remedybg build\debug_lumenarium.rdbg

@@ -37,7 +37,7 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
     Assembly.LEDUniverseMap = PushArray(&Assembly.Arena, leds_in_universe_range, Definition.LEDStripCount);
     
     // Add LEDs
-    for (s32 StripIdx = 0; StripIdx < Definition.LEDStripCount; StripIdx++)
+    for (u32 StripIdx = 0; StripIdx < Definition.LEDStripCount; StripIdx++)
     {
         led_strip_definition StripDef = Definition.LEDStrips[StripIdx];
         

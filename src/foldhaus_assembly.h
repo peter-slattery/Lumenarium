@@ -36,11 +36,11 @@ struct assembly
     string Name;
     string FilePath;
     
-    s32 LEDCount;
+    u32 LEDCount;
     pixel* Colors;
     led* LEDs;
     
-    s32 LEDUniverseMapCount;
+    u32 LEDUniverseMapCount;
     leds_in_universe_range* LEDUniverseMap;
 };
 

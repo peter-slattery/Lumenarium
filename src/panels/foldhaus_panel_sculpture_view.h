@@ -141,16 +141,16 @@ PANEL_RENDER_PROC(SculptureView_Render)
     m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
     FaceCameraMatrix = FaceCameraMatrix;
     
-    s32 MaxLEDsPerJob = 2048;
+    u32 MaxLEDsPerJob = 2048;
     render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
     
     for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
         assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-        s32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
+        u32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
         
-        for (s32 Job = 0; Job < JobsNeeded; Job++)
+        for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
             draw_leds_job_data* JobData = PushStruct(&State->Transient, draw_leds_job_data);
             JobData->LEDs = Assembly.LEDs;

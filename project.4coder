@@ -15,6 +15,7 @@ blacklist_patterns = {
 load_paths_base = {
  { "src", .relative = true, .recursive = true, },
  { "meta", .relative = true, .recursive = true, },
+ { "C:\programs-dev\gs_libs\src", .relative = false, .recursive = true, }
 };
 load_paths = {
  { load_paths_base, .os = "win", },
@@ -39,5 +40,5 @@ command_list = {
             { "build/main.exe" , .os = "linux" },
             { "build/main.exe" , .os = "mac"   }, }, },
 };
-fkey_command[1] = "build";
-fkey_command[2] = "run";
+fkey_command[1] = "build_application";
+fkey_command[2] = "build_meta";
