@@ -2,13 +2,20 @@
 #include <stdio.h>
 
 #include <gs_language.h>
+#include <gs_bucket.h>
 #include "..\src\gs_platform.h"
 #include <gs_memory_arena.h>
+#if 1
 #include "..\src\gs_string.h"
+#else
+#include <gs_string.h>
+#endif
+#include <gs_string_builder.h>
 
 #include "gs_meta_error.h"
 #include "gs_meta_lexer.h"
 
+#include "foldhaus_meta_type_table.h"
 error_list GlobalErrorList = {};
 
 PLATFORM_ALLOC(StdAlloc)
@@ -22,166 +29,82 @@ struct source_code_file
     string Path;
     s32 FileSize;
     string Contents;
-};
-
-#define STRING_BUILDER_BUFFER_CAPACITY 4096
-struct string_builder_buffer
-{
-    u8* BufferMemory;
-    string String;
-    string_builder_buffer* Next;
-};
-
-struct string_builder
-{
-    string_builder_buffer* Buffers;
-    string_builder_buffer* Head;
-};
-
-internal void
-GrowStringBuilder(string_builder* StringBuilder)
-{
-    u8* BufferAndHeader = (u8*)malloc(sizeof(string_builder_buffer) + STRING_BUILDER_BUFFER_CAPACITY);
-    string_builder_buffer* NewBuffer = (string_builder_buffer*)BufferAndHeader;
-    *NewBuffer = {0};
     
-    NewBuffer->BufferMemory = (u8*)(NewBuffer + 1);
-    NewBuffer->String = MakeString((char*)NewBuffer->BufferMemory, 0, STRING_BUILDER_BUFFER_CAPACITY);
+    s32 FirstTokenIndex;
+    s32 LastTokenIndex;
+};
+
+struct token_iter
+{
+    gs_bucket<token>* Tokens;
+    token* TokenAt;
+    s32 TokenAtIndex;
+    s32 FirstToken;
+    s32 LastToken;
     
-    if (!StringBuilder->Buffers)
+#define TOKEN_ITER_SNAPSHOTS_MAX 64
+    u32 SnapshotsUsed;
+    u32 Snapshots[TOKEN_ITER_SNAPSHOTS_MAX];
+};
+
+internal token*
+NextToken (token_iter* Iter)
+{
+    if (Iter->TokenAtIndex < Iter->LastToken)
     {
-        StringBuilder->Buffers = NewBuffer;
-        StringBuilder->Head = NewBuffer;
-    } 
-    else
-    {
-        StringBuilder->Head->Next = NewBuffer;
-        StringBuilder->Head = NewBuffer;
+        Iter->TokenAtIndex++;
+        Iter->TokenAt = Iter->Tokens->GetElementAtIndex(Iter->TokenAtIndex);
     }
+    
+    return Iter->TokenAt;
 }
 
-internal void
-Write(string Text, string_builder* StringBuilder)
+internal b32
+TokenAtEquals(token_iter* Iter, char* String)
 {
-    string TextLeft = Text;
-    
-    if (StringBuilder->Buffers == 0)
+    b32 Result = false;
+    if (StringEqualsCharArray(Iter->TokenAt->Text, String))
     {
-        GrowStringBuilder(StringBuilder);
+        Result = true;
+        NextToken(Iter);
     }
-    
-    while (TextLeft.Length > 0)
-    {
-        // Copy what there is room for
-        s32 SpaceAvailable  = StringBuilder->Head->String.Max - StringBuilder->Head->String.Length;
-        
-        ConcatString(TextLeft, GSMin(SpaceAvailable, TextLeft.Length), &StringBuilder->Head->String);
-        TextLeft.Memory += SpaceAvailable;
-        TextLeft.Length -= SpaceAvailable;
-        
-        if (TextLeft.Length > 0)
-        {
-            GrowStringBuilder(StringBuilder);
-        }
-    }
-}
-
-internal void
-WriteStringBuilderToFile(string_builder StringBuilder, FILE* WriteFile)
-{
-    string_builder_buffer* BufferAt = StringBuilder.Buffers;
-    while (BufferAt)
-    {
-        string String = BufferAt->String;
-        fwrite(String.Memory, 1, String.Length, WriteFile);
-        BufferAt = BufferAt->Next;
-    }
-}
-
-#define TYPE_TABLE_IDENTIFIER_MAX_LENGTH 128
-#define TYPE_TABLE_BUFFER_MAX 64
-struct type_table_buffer
-{
-    u8* IdentifiersBackbuffer;
-    string* Identifiers;
-    s32* Sizes;
-    s32 Used;
-    s32 Max;
-    type_table_buffer* Next;
-};
-
-struct type_table
-{
-    type_table_buffer* Head;
-    s32 TotalUsed;
-    s32 TotalMax;
-};
-
-internal void
-AddTypeToTable (string Identifier, s32 Size, type_table* Table)
-{
-    if (!Table->Head || Table->TotalUsed >= Table->TotalMax)
-    {
-        memory_arena Memory = {};
-        
-        type_table_buffer* NewHead = PushStruct(&Memory, type_table_buffer);
-        NewHead->IdentifiersBackbuffer = PushArray(&Memory, u8, TYPE_TABLE_IDENTIFIER_MAX_LENGTH * TYPE_TABLE_BUFFER_MAX);
-        NewHead->Identifiers = PushArray(&Memory, string, TYPE_TABLE_BUFFER_MAX);
-        NewHead->Sizes = PushArray(&Memory, s32, TYPE_TABLE_BUFFER_MAX);
-        NewHead->Used = 0;
-        NewHead->Max = TYPE_TABLE_BUFFER_MAX;
-        NewHead->Next = 0;
-        
-        // Init Strings
-        for (s32 i = 0; i < NewHead->Max; i++)
-        {
-            string* String = NewHead->Identifiers + i;
-            u8* Backbuffer = NewHead->IdentifiersBackbuffer + (TYPE_TABLE_IDENTIFIER_MAX_LENGTH * i);
-            InitializeString(String, (char*)Backbuffer, 0, TYPE_TABLE_IDENTIFIER_MAX_LENGTH);
-        }
-        
-        if (Table->Head) { NewHead->Next = Table->Head; }
-        Table->Head = NewHead;
-        Table->TotalMax += NewHead->Max;
-    }
-    
-    s32 TypeIndex = Table->Head->Used++;
-    string* DestIdentifier = Table->Head->Identifiers + TypeIndex;
-    
-    CopyStringTo(Identifier, DestIdentifier);
-    Table->Head->Sizes[TypeIndex] = Size;
-}
-
-internal s32
-GetSizeOfType (string Identifier, type_table* TypeTable)
-{
-    s32 Result = -1;
-    
-    type_table_buffer* Buffer = TypeTable->Head;
-    while (Buffer)
-    {
-        for (s32 i = 0; i < Buffer->Used; i++)
-        {
-            string StoredIdentifier = Buffer->Identifiers[i];
-            if (StringsEqual(StoredIdentifier, Identifier))
-            {
-                Result = Buffer->Sizes[i];
-                break;
-            }
-        }
-        
-        if (Result > 0)
-        {
-            break;
-        }
-        else
-        {
-            Buffer = Buffer->Next;
-        }
-    }
-    
     return Result;
 }
+
+internal void
+PushSnapshot (token_iter* Iter)
+{
+    Iter->Snapshots[Iter->SnapshotsUsed++] = Iter->TokenAtIndex;
+}
+
+internal void
+PopSnapshot (token_iter* Iter)
+{
+    if (Iter->SnapshotsUsed > 0)
+    {
+        Iter->SnapshotsUsed -= 1;
+    }
+}
+
+internal void
+ApplySnapshot (token_iter* Iter)
+{
+    u32 SnapshotIndex = Iter->SnapshotsUsed;
+    u32 SnapshotPoint = Iter->Snapshots[SnapshotIndex];
+    Iter->TokenAtIndex = SnapshotPoint;
+    Iter->TokenAt = Iter->Tokens->GetElementAtIndex(SnapshotPoint);
+}
+
+internal void
+ApplySnapshotIfNotParsedAndPop(b32 ParseSuccess, token_iter* Iter)
+{
+    PopSnapshot(Iter);
+    if (!ParseSuccess)
+    {
+        ApplySnapshot(Iter);
+    }
+}
+
 
 internal s32
 GetFileSize (char* FileName)
@@ -203,30 +126,53 @@ GetFileSize (char* FileName)
 }
 
 internal s32
-ReadEntireFileAndNullTerminate (char* Filename, char* Memory, s32 MemorySize)
+ReadEntireFileAndNullTerminate (source_code_file* File)
 {
     s32 LengthRead = 0;
     
-    FILE* ReadFile = fopen(Filename, "r");
+    FILE* ReadFile = fopen(File->Path.Memory, "r");
     if (ReadFile)
     {
         fseek(ReadFile, 0, SEEK_END);
         size_t FileSize = ftell(ReadFile);
         fseek(ReadFile, 0, SEEK_SET);
-        if (FileSize <= MemorySize)
-        {
-            size_t ReadSize = fread(Memory, 1, FileSize, ReadFile);
-            Memory[FileSize] = 0;
-            LengthRead = (s32)ReadSize + 1;
-        }
+        
+        Assert(File->Contents.Memory == 0);
+        File->Contents.Max = (s32)FileSize + 1;
+        File->Contents.Memory = (char*)malloc(File->Contents.Max);
+        
+        size_t ReadSize = fread(File->Contents.Memory, 1, FileSize, ReadFile);
+        File->Contents.Memory[FileSize] = 0;
+        File->Contents.Length = (s32)ReadSize;
+        
+        LengthRead = (s32)ReadSize + 1;
         fclose(ReadFile);
     }
     else
     {
-        LogError(&GlobalErrorList, "Could Not Read File: %s", Filename);
+        LogError(&GlobalErrorList, "Could Not Read File: %.*s", StringExpand(File->Path));
     }
     
     return LengthRead;
+}
+
+internal b32
+FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
+{
+    b32 Result = false;
+    
+    for (u32 i = 0; i < SourceFiles.Used; i++)
+    {
+        source_code_file* File = SourceFiles.GetElementAtIndex(i);
+        if (StringsEqual(File->Path, Path))
+        {
+            Result = true;
+            printf("-- File already in source: %.*s\n", StringExpand(Path));
+            break;
+        }
+    }
+    
+    return Result;
 }
 
 internal void 
@@ -234,149 +180,8 @@ EatToNextLine (tokenizer* Tokenizer)
 {
     while (AtValidPosition(*Tokenizer) && !IsNewline(*Tokenizer->At))
     {
-        Tokenizer->At++;
+        EatChar(Tokenizer); 
     }
-}
-
-struct seen_node_struct
-{
-    string Name;
-    s32 MembersSize;
-    s32 MembersCount;
-    seen_node_struct* Next;
-};
-
-internal seen_node_struct*
-FindSeenStructInList (seen_node_struct* SeenStructList, string Name)
-{
-    seen_node_struct* Result = 0;
-    
-    seen_node_struct* Iter = SeenStructList;
-    while(Iter)
-    {
-        if (StringsEqual(Name, Iter->Name))
-        {
-            Result = Iter;
-            break;
-        }
-        Iter = Iter->Next;
-    }
-    
-    return Result;
-}
-
-internal void
-ParseNodeStruct (token* NodeStruct, string_builder* NodeMembersBlock, seen_node_struct* SeenStruct, type_table* TypeTable)
-{
-    token* OpenParen = NodeStruct->Next;
-    token* StructName = OpenParen->Next;
-    
-    SeenStruct->Name = StructName->Text;
-    
-    MakeStringBuffer(Buffer, 256);
-    
-    PrintF(&Buffer, "node_struct_member MemberList_%.*s[] = {\n", 
-           StructName->Text.Length, StructName->Text.Memory);
-    Write(Buffer, NodeMembersBlock);
-    
-    token* Token = StructName->Next;
-    while (Token->Type != Token_RightCurlyBracket)
-    {
-        if (Token->Type != Token_Identifier)
-        {
-            Token = Token->Next;
-        }
-        else
-        {
-            b32 IsInput = false;
-            b32 IsOutput = false;
-            
-            if (StringsEqual(MakeStringLiteral("NODE_IN"), Token->Text) ||
-                StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_IN"), Token->Text))
-            {
-                IsInput = true;
-            }
-            else if (StringsEqual(MakeStringLiteral("NODE_OUT"),  Token->Text) ||
-                     StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_OUT"), Token->Text))
-            {
-                IsOutput = true;
-            }
-            else if (StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_INOUT"), Token->Text))
-            {
-                IsInput = true;
-                IsOutput = true;
-            }
-            else
-            {
-                SeenStruct->MembersSize += GetSizeOfType(Token->Text, TypeTable);
-                Token = GetNextTokenOfType(Token, Token_Semicolon)->Next;
-                continue;
-            }
-            
-            token* TypeToken = GetNextTokenOfType(Token, Token_Identifier);
-            token* NameToken = GetNextTokenOfType(TypeToken, Token_Identifier);
-            
-            MakeStringBuffer(TypeBuffer, 64);
-            MakeStringBuffer(NameBuffer, 64);
-            
-            CopyStringTo(TypeToken->Text, &TypeBuffer);
-            CopyStringTo(NameToken->Text, &NameBuffer);
-            
-            if (StringsEqual(MakeStringLiteral("s32"), TypeToken->Text))
-            {
-                SeenStruct->MembersSize += sizeof(s32);
-            }
-            else if (StringsEqual(MakeStringLiteral("r32"), TypeToken->Text))
-            {
-                SeenStruct->MembersSize += sizeof(r32);
-            }
-            else if (StringsEqual(MakeStringLiteral("v4"), TypeToken->Text))
-            {
-                SeenStruct->MembersSize += sizeof(r32) * 4;
-            }
-            else if (StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_INOUT"), Token->Text))
-            {
-                SeenStruct->MembersSize += sizeof(u32*) + sizeof(u32*) + sizeof(s32);
-                
-                CopyStringTo(MakeStringLiteral("NODE_COLOR_BUFFER"), &TypeBuffer);
-                CopyStringTo(MakeStringLiteral("LEDs"), &NameBuffer);
-            }
-            else if (StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_IN"), Token->Text) ||
-                     StringsEqual(MakeStringLiteral("NODE_COLOR_BUFFER_OUT"), Token->Text))
-            {
-                SeenStruct->MembersSize += sizeof(u32*) + sizeof(u32*) + sizeof(s32);
-                
-                CopyStringTo(MakeStringLiteral("NODE_COLOR_BUFFER"), &TypeBuffer);
-                
-                CopyStringTo(TypeToken->Text, &NameBuffer);
-                ConcatString(MakeStringLiteral("LEDs"), &NameBuffer);
-            }
-            else
-            {
-                PrintF(&Buffer, "Invalid Type Specified for %.*s %.*s\n", 
-                       TypeToken->Text.Length, TypeToken->Text.Memory,
-                       NameToken->Text.Length, NameToken->Text.Memory);
-                NullTerminate(&Buffer);
-                printf(Buffer.Memory);
-                return;
-            }
-            
-            PrintF(&Buffer, "{ MemberType_%.*s, \"%.*s\", (u64)&((%.*s*)0)->%.*s, %s %s %s},\n", 
-                   TypeBuffer.Length, TypeBuffer.Memory, 
-                   NameBuffer.Length, NameBuffer.Memory, 
-                   StructName->Text.Length, StructName->Text.Memory,
-                   NameBuffer.Length, NameBuffer.Memory,
-                   (IsInput ? "IsInputMember" : ""),
-                   (IsInput && IsOutput ? "|" : ""),
-                   (IsOutput ? "IsOutputMember" : ""));
-            Write(Buffer, NodeMembersBlock);
-            
-            SeenStruct->MembersCount++;
-            Token = GetNextTokenOfType(Token, Token_Semicolon)->Next;
-        }
-    }
-    
-    Write(MakeStringLiteral("};\n\n"), NodeMembersBlock);
 }
 
 internal s32
@@ -459,123 +264,736 @@ GetTypedefIdentifier (token* Token)
     return Identifier;
 }
 
-internal void
-ParseTypedefs (token* Tokens, type_table* TypeTable)
+internal s64
+GetWallClock ()
 {
-    string TypedefIdentifier = MakeStringLiteral("typedef");
-    string StructIdentifier = MakeStringLiteral("struct");
-    
-    token* Token = Tokens;
-    while (Token)
+    LARGE_INTEGER Time;
+    if (!QueryPerformanceCounter(&Time))
     {
-        if (StringsEqual(Token->Text, TypedefIdentifier))
-        {
-            if (!StringsEqual(Token->Next->Text, StructIdentifier))
-            {
-                s32 Size = GetTypedefSize(Token);
-                string Identifier = GetTypedefIdentifier(Token);
-                if (Size > 0) // NOTE(Peter): This is just to skip over typedefs of structs and function pointers
-                {
-                    AddTypeToTable(Identifier, Size, TypeTable);
-                }
-            }
-        }
-        Token = Token->Next;
+        s32 Error = GetLastError();
+        InvalidCodePath;
     }
+    return (s64)Time.QuadPart;
+}
+
+internal s64
+GetPerformanceFrequency ()
+{
+    LARGE_INTEGER Frequency;
+    if (!QueryPerformanceFrequency(&Frequency))
+    {
+        s32 Error = GetLastError();
+        InvalidCodePath;
+    }
+    return (s64)Frequency.QuadPart;
+}
+
+internal r32
+GetSecondsElapsed(s64 StartCycles, s64 EndCycles)
+{
+    s64 Frequency = GetPerformanceFrequency();
+    r32 SecondsElapsed = (r32)(EndCycles - StartCycles) / (r32)(Frequency);
+    return SecondsElapsed;
 }
 
 internal void
-ParseNodeProc (token* NodeProc, 
-               string_builder* NodeTypeBlock,
-               string_builder* NodeSpecificationsBlock,
-               string_builder* CallNodeProcBlock,
-               seen_node_struct* SeenStructs,
-               b32 IsPatternProc)
+AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles)
 {
-    token* ProcName = GetNextTokenOfType(NodeProc, Token_Identifier);
-    token* ProcArg = GetNextTokenOfType(ProcName, Token_Identifier);
+    source_code_file File = {0};
     
-    MakeStringBuffer(Buffer, 256);
+    File.FirstTokenIndex = -1;
+    File.LastTokenIndex = -1;
     
-    // Types Enum
-    PrintF(&Buffer, "NodeType_%.*s,\n", ProcName->Text.Length, ProcName->Text.Memory);
-    Write(Buffer, NodeTypeBlock);
+    u32 PathLength = RelativePath.Length + 1;
+    File.Path = MakeString((char*)malloc(sizeof(char) * PathLength), 0, PathLength);
+    CopyStringTo(RelativePath, &File.Path);
+    NullTerminate(&File.Path);
     
-    // Node Specification
-    string ArgName = ProcArg->Text;
-    seen_node_struct* ArgStruct = FindSeenStructInList(SeenStructs, ArgName);
+    File.FileSize = ReadEntireFileAndNullTerminate(&File);
     
-    PrintF(&Buffer, "{ NodeType_%.*s, \"%.*s\", %d, MemberList_%.*s, %d, %d, %.*s},\n",
-           ProcName->Text.Length, ProcName->Text.Memory,
-           ProcName->Text.Length, ProcName->Text.Memory, 
-           ProcName->Text.Length,
-           ProcArg->Text.Length, ProcArg->Text.Memory,
-           ArgStruct->MembersSize,
-           ArgStruct->MembersCount,
-           (IsPatternProc ? 4 : 5), (IsPatternProc ? "true" : "false"));
-    Write(Buffer, NodeSpecificationsBlock);
-    
-    // Call Node Proc
-    if (IsPatternProc)
+    if (File.FileSize > 0)
     {
-        LogError(&GlobalErrorList, "Node Proc is no longer supported");
+        SourceFiles->PushElementOnBucket(File);
     }
     else
     {
-        PrintF(&Buffer, "case NodeType_%.*s: { %.*s((%.*s*)Data, DeltaTime); } break; \n",
-               ProcName->Text.Length, ProcName->Text.Memory,
-               ProcName->Text.Length, ProcName->Text.Memory,
-               ProcArg->Text.Length, ProcArg->Text.Memory);
-        Write(Buffer, CallNodeProcBlock);
+        printf("Error: Could not load file %.*s\n", StringExpand(RelativePath));
     }
 }
 
-internal s32
-PreprocessStructsAndProcs (string StructSearchString, string ProcSearchString, b32 FindingPatterns,
-                           token* Tokens, 
-                           string_builder* NodeMembersBlock,
-                           string_builder* NodeTypeBlock,
-                           string_builder* NodeSpecificationsBlock,
-                           string_builder* CallNodeProcBlock,
-                           type_table* TypeTable)
+internal void
+TokenizeFile (source_code_file* File, gs_bucket<token>* Tokens)
 {
-    // Node Structs
-    seen_node_struct* Structs = 0;
+    tokenizer Tokenizer = {};
+    Tokenizer.At = File->Contents.Memory;
+    Tokenizer.Memory = File->Contents.Memory;
+    Tokenizer.MemoryLength = File->Contents.Max;
     
-    token_selection_spec NodeStructSpec = {};
-    NodeStructSpec.MatchText = true;
-    NodeStructSpec.Text = StructSearchString;
-    
-    token* NodeStructToken = FindNextMatchingToken(Tokens, NodeStructSpec);
-    while (NodeStructToken)
+    token* LastToken = 0;
+    while(AtValidPosition(Tokenizer))
     {
-        seen_node_struct* SeenStruct = (seen_node_struct*)malloc(sizeof(seen_node_struct));
-        *SeenStruct = {};
-        
-        if (Structs != 0)
+        token NewToken = GetNextToken(&Tokenizer);
+        u32 TokenIndex = Tokens->PushElementOnBucket(NewToken);
+        if (File->FirstTokenIndex < 0)
         {
-            SeenStruct->Next = Structs;
+            File->FirstTokenIndex = (s32)TokenIndex;
         }
-        Structs = SeenStruct;
-        
-        ParseNodeStruct(NodeStructToken, NodeMembersBlock, SeenStruct, TypeTable);
-        NodeStructToken = FindNextMatchingToken(NodeStructToken->Next, NodeStructSpec);
     }
     
-    // Node Procs
-    token_selection_spec NodeProcSpec = {};
-    NodeProcSpec.MatchText = true;
-    NodeProcSpec.Text = ProcSearchString;
+    File->LastTokenIndex = Tokens->Used - 1;
+}
+
+internal b32
+ParseMetaTag(token_iter* Iter, gs_bucket<token*>* TagList)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
     
-    token* NodeProcToken = FindNextMatchingToken(Tokens, NodeProcSpec);
-    s32 NodeProcCount = 0;
-    while (NodeProcToken)
+    if (TokenAtEquals(Iter, "GSMetaTag") &&
+        TokenAtEquals(Iter, "("))
     {
-        NodeProcCount++;
-        ParseNodeProc(NodeProcToken, NodeTypeBlock, NodeSpecificationsBlock, CallNodeProcBlock, Structs, FindingPatterns);
-        NodeProcToken = FindNextMatchingToken(NodeProcToken->Next, NodeProcSpec);
+        if (Iter->TokenAt->Type == Token_Identifier)
+        {
+            TagList->PushElementOnBucket(Iter->TokenAt);
+            NextToken(Iter);
+            if (TokenAtEquals(Iter, ")") &&
+                TokenAtEquals(Iter, ";"))
+            {
+                Result = true;
+            }
+        }
     }
-    return NodeProcCount;
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ShortInt (token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "unsigned") ||
+        TokenAtEquals(Iter, "signed"))
+    {
+    }
+    
+    if (TokenAtEquals(Iter, "short"))
+    {
+        Result = true;
+        if (TokenAtEquals(Iter, "int"))
+        {
+            Result = true;
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (Result) 
+    { 
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("short int"), TypeTable);
+    }
+    return Result;
+}
+
+internal b32
+Int (token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "unsigned") ||
+        TokenAtEquals(Iter, "signed"))
+    {
+    }
+    
+    if (TokenAtEquals(Iter, "int"))
+    {
+        Result = true;
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (Result) 
+    { 
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("int"), TypeTable);
+    }
+    return Result;
+}
+
+internal b32
+LongInt (token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "unsigned") ||
+        TokenAtEquals(Iter, "signed"))
+    {
+        Result = true;
+    }
+    
+    if (TokenAtEquals(Iter, "long"))
+    {
+        Result = true;
+        if (TokenAtEquals(Iter, "int"))
+        {
+            Result = true;
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (Result) 
+    { 
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("long int"), TypeTable);
+    }
+    return Result;
+}
+
+internal b32
+LongLongInt (token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "unsigned") ||
+        TokenAtEquals(Iter, "signed"))
+    {
+        
+    }
+    
+    if (TokenAtEquals(Iter, "long"))
+    {
+        if (TokenAtEquals(Iter, "long"))
+        {
+            Result = true;
+            if (TokenAtEquals(Iter, "int"))
+            {
+                Result = true;
+            }
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (Result) 
+    { 
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("long long int"), TypeTable);
+    }
+    return Result;
+}
+
+internal b32
+ParseChar(token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "unsigned") ||
+        TokenAtEquals(Iter, "signed"))
+    {
+        
+    }
+    
+    if (TokenAtEquals(Iter, "char"))
+    {
+        Result = true;
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (Result) 
+    { 
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("char"), TypeTable);
+    }
+    return Result;
+}
+
+internal b32
+ParseBool(token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "bool"))
+    {
+        Result = true;
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("bool"), TypeTable);
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParseFloat(token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "float"))
+    {
+        Result = true;
+        *TypeIndexOut= GetIndexOfType(MakeStringLiteral("float"), TypeTable);
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParseDouble(token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "double"))
+    {
+        Result = true;
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("double"), TypeTable);
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+// :UndeclaredType
+// NOTE(Peter): If TypeIndexOut is -1, you need to call NextToken after this
+// function to advance past the type identifier.
+internal b32
+ParseType(token_iter* Iter, type_table* TypeTable, s32* TypeIndexOut)
+{
+    b32 Result = false;
+    *TypeIndexOut = -1;
+    PushSnapshot(Iter);
+    
+    // TODO(Peter): Store signedness, and what makes up a type
+    if (ParseChar(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    } 
+    else if (StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("wchar_t")))
+    {
+        NextToken(Iter);
+        Result = true;
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("wchar_t"), *TypeTable);
+    } 
+    else if (ParseBool(Iter, TypeIndexOut, *TypeTable))
+    {
+        NextToken(Iter);
+        Result = true;
+    } 
+    else if (ShortInt(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    }
+    else if (Int(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    }
+    else if (LongInt(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    }
+    else if (LongLongInt(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    }
+    else if (ParseFloat(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    } 
+    else if (ParseDouble(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    } 
+    else if (StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("void")))
+    {
+        NextToken(Iter);
+        Result = true;
+        *TypeIndexOut = GetIndexOfType(MakeStringLiteral("void"), *TypeTable);
+    }
+    else 
+    {
+        *TypeIndexOut = GetIndexOfType(Iter->TokenAt->Text, *TypeTable);
+        if (*TypeIndexOut >= 0)
+        {
+            Result = true;
+            NextToken(Iter);
+        }
+        else if(Iter->TokenAt->Type == Token_Identifier)
+        {
+            Result = true;
+            // NOTE(Peter): In this case, we believe we are at a type identifier,
+            // however, it hasn't been declared yet. This is due to the fact that we 
+            // tokenize files, then parse them, then import the files they include, and
+            // then begin tokenizing, parsing, etc for those files. 
+            // In the case that we get an as-of-yet undeclared type, we leave it
+            // up to the calling site to determine what to do with that information
+            // :UndeclaredType
+            *TypeIndexOut = -1;
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParsePointer (token_iter* Iter)
+{
+    b32 Result = false;
+    if (TokenAtEquals(Iter, "*"))
+    {
+        Result = true;
+    }
+    return Result;
+}
+
+internal b32
+ParseStructMember(token_iter* Iter, gs_bucket<token*>* TagList, struct_member_decl* MemberDecl, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    s32 TypeIndex = -1;
+    if (ParseType(Iter, TypeTable, &TypeIndex))
+    {
+        // :UndeclaredType
+        if (TypeIndex < 0)
+        {
+            TypeIndex = PushUndeclaredType(Iter->TokenAt->Text, TypeTable);
+            NextToken(Iter);
+        }
+        
+        MemberDecl->Pointer = ParsePointer(Iter);
+        
+        if (Iter->TokenAt->Type == Token_Identifier)
+        {
+            MemberDecl->TypeIndex = TypeIndex;
+            MemberDecl->Identifier = Iter->TokenAt->Text;
+            CopyMetaTagsAndClear(TagList, &MemberDecl->MetaTags);
+            
+            NextToken(Iter);
+            
+            // Array Notationg ie r32 x[2];
+            // NOTE(Peter): True initially because if there is no array notation, we 
+            // are still ok to proceed
+            b32 ArrayParseSuccess = true;
+            if (TokenAtEquals(Iter, "["))
+            {
+                // NOTE(Peter): Once we get to this point, we have to complete the entire
+                // array notation before we have successfully parsed, hence setting 
+                // ArrayParseSucces to false here.
+                ArrayParseSuccess = false;
+                if (Iter->TokenAt->Type == Token_Number)
+                {
+                    parse_result ArrayCount = ParseUnsignedInt(StringExpand(Iter->TokenAt->Text));
+                    MemberDecl->ArrayCount = ArrayCount.UnsignedIntValue;
+                    NextToken(Iter);
+                    
+                    if (TokenAtEquals(Iter, "]"))
+                    {
+                        ArrayParseSuccess = true;
+                    }
+                }
+            }
+            
+            // TODO(Peter): Handle comma separated members
+            // ie. r32 x, y, z;
+            if (TokenAtEquals(Iter, ";") && ArrayParseSuccess)
+            {
+                Result = true;
+            }
+        }
+        
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+StructOrUnion(token_iter* Iter, type_definition_type* Type)
+{
+    b32 Result = false;
+    if (TokenAtEquals(Iter, "struct"))
+    {
+        Result = true;
+        *Type = TypeDef_Struct;
+    }
+    else if (TokenAtEquals(Iter, "union"))
+    {
+        Result = true;
+        *Type = TypeDef_Union;
+    }
+    return Result;
+}
+
+internal b32
+ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagList, type_table* TypeTable)
+{
+    b32 Result = false;
+    *StructTypeIndexOut = -1;
+    
+    PushSnapshot(Iter);
+    
+    type_definition_type DeclType;
+    if (StructOrUnion(Iter, &DeclType))
+    {
+        string StructIdentifier = {};
+        if (Iter->TokenAt->Type == Token_Identifier)
+        {
+            StructIdentifier = Iter->TokenAt->Text;
+            NextToken(Iter);
+        }
+        
+        if (TokenAtEquals(Iter, "{"))
+        {
+            type_definition StructDecl = {};
+            StructDecl.Identifier = StructIdentifier;
+            StructDecl.Type = DeclType;
+            CopyMetaTagsAndClear(TagList, &StructDecl.MetaTags);
+            
+            while (!TokenAtEquals(Iter, "}"))
+            {
+                s32 MemberStructTypeIndex = {};
+                struct_member_decl MemberDecl = {};
+                if (ParseMetaTag(Iter, TagList))
+                {
+                    
+                }
+                else if (ParseStructMember(Iter, TagList, &MemberDecl, TypeTable))
+                {
+                    StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
+                }
+                else if (ParseStruct(Iter, &MemberStructTypeIndex, TagList, TypeTable))
+                {
+                    // NOTE(Peter): Pretty sure, since we just parsed the struct, that
+                    // MemberStructTypeIndex should never be -1 (unknown type). 
+                    // Putting this Assert here for now, but remove if there's a valid
+                    // reason that you might not be able to find a struct just parsed at
+                    // this point.
+                    Assert(MemberStructTypeIndex >= 0); 
+                    
+                    MemberDecl.TypeIndex = MemberStructTypeIndex;
+                    StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
+                }
+                else
+                {
+                    // TODO(Peter): Handle unions
+                    NextToken(Iter);
+                }
+            }
+            
+            if (TokenAtEquals(Iter, ";"))
+            {
+                Result = true;
+                *StructTypeIndexOut = TypeTable->Types.PushElementOnBucket(StructDecl);
+            }
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>* TagList, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    s32 TypeIndex = -1;
+    if (ParseType(Iter, TypeTable, &TypeIndex))
+    {
+        if (TypeIndex < 0) { NextToken(Iter); }
+        
+        b32 IsPointer = ParsePointer(Iter);
+        
+        if (Iter->TokenAt->Type == Token_Identifier)
+        {
+            *Identifier = *Iter->TokenAt;
+            NextToken(Iter);
+            if (TokenAtEquals(Iter, "("))
+            {
+                while(!TokenAtEquals(Iter, ")"))
+                {
+                    // TODO(Peter): parse function params
+                    NextToken(Iter);
+                }
+                
+                if (TokenAtEquals(Iter, ";"))
+                {
+                    Result = true;
+                }
+            }
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    if (!Result) 
+    { 
+        *Identifier = {0};
+    }
+    return Result;
+}
+
+internal b32 
+ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "typedef"))
+    {
+        token TypeToken = {0};
+        s32 TypeIndex = -1;
+        if (TokenAtEquals(Iter, "struct") &&
+            ParseStruct(Iter, &TypeIndex, TagList, TypeTable))
+        {
+            Result = true;
+        }
+        else if (ParseFunctionDeclaration(Iter, &TypeToken, TagList, TypeTable))
+        {
+            Result = true;
+            
+            printf("New Function Type: %.*s\n", StringExpand(TypeToken.Text));
+        }
+        else if (ParseType(Iter, TypeTable, &TypeIndex))
+        {
+            if (TypeIndex < 0)
+            {
+                TypeIndex = PushUndeclaredType(Iter->TokenAt->Text, TypeTable);
+                NextToken(Iter);
+            }
+            
+            b32 IsPointer = ParsePointer(Iter);
+            
+            type_definition* BasisType = TypeTable->Types.GetElementAtIndex(TypeIndex);
+            
+            type_definition NewType = {};
+            NewType.Size = BasisType->Size;
+            CopyMetaTagsAndClear(TagList, &NewType.MetaTags);
+            NewType.Type = BasisType->Type;
+            if (NewType.Type == TypeDef_Struct || 
+                NewType.Type == TypeDef_Union)
+            {
+                NewType.Struct = BasisType->Struct;
+            }
+            NewType.Pointer = BasisType->Pointer || IsPointer;
+            
+            if (Iter->TokenAt->Type == Token_Identifier)
+            {
+                NewType.Identifier = Iter->TokenAt->Text;
+                NextToken(Iter);
+                
+                printf("New Type: %.*s\n", StringExpand(NewType.Identifier));
+                
+                Result = true;
+                
+                s32 ExistingUndeclaredTypeIndex = GetIndexOfType(NewType.Identifier, *TypeTable);
+                if (ExistingUndeclaredTypeIndex < 0)
+                {
+                    TypeTable->Types.PushElementOnBucket(NewType);
+                }
+                else
+                {
+                    type_definition* ExistingTypeDef = TypeTable->Types.GetElementAtIndex(ExistingUndeclaredTypeIndex);
+                    *ExistingTypeDef = NewType;
+                }
+            }
+        }
+        else
+        {
+            printf("unhandled typedef ");
+            while (!TokenAtEquals(Iter, ";"))
+            {
+                printf("%.*s ", StringExpand(Iter->TokenAt->Text));
+                NextToken(Iter);
+            }
+            printf("\n");
+        }
+    }
+    
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal void
+PrintIndent (u32 Indent)
+{
+    for (u32 i = 0; i < Indent; i++)
+    {
+        printf("    ");
+    }
+}
+
+internal void PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent);
+
+internal void
+PrintStructMember (struct_member_decl Member, type_table TypeTable, u32 Indent = 0)
+{
+    type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member.TypeIndex);
+    if ((MemberTypeDef->Type == TypeDef_Struct || MemberTypeDef->Type == TypeDef_Union)
+        && MemberTypeDef->Identifier.Length == 0)
+    {
+        PrintStructDecl(MemberTypeDef, TypeTable, Indent);
+    }
+    else
+    {
+        PrintIndent(Indent);
+        if (Member.TypeIndex == -1)
+        {
+            printf("???? ");
+        }
+        printf("%.*s ", StringExpand(MemberTypeDef->Identifier));
+    }
+    
+    if (Member.Pointer)
+    {
+        printf("* ");
+    }
+    
+    printf("%.*s", StringExpand(Member.Identifier));
+    
+    if (Member.ArrayCount > 0)
+    {
+        printf("[%d]", Member.ArrayCount);
+    }
+    
+    printf(";");
+}
+
+internal void
+PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent = 0)
+{
+    Assert(StructDecl->Type == TypeDef_Struct ||
+           StructDecl->Type == TypeDef_Union);
+    
+    PrintIndent(Indent);
+    if (StructDecl->Type == TypeDef_Struct)
+    {
+        printf("struct ");
+    }
+    else if (StructDecl->Type == TypeDef_Union)
+    {
+        printf("union ");
+    }
+    else { InvalidCodePath; }
+    
+    if (StructDecl->Identifier.Length > 0)
+    {
+        printf("%.*s ", StringExpand(StructDecl->Identifier));
+    }
+    printf("{\n");
+    
+    for (u32 MemberIndex = 0; MemberIndex < StructDecl->Struct.MemberDecls.Used; MemberIndex++)
+    {
+        struct_member_decl* Member = StructDecl->Struct.MemberDecls.GetElementAtIndex(MemberIndex);
+        PrintStructMember(*Member, TypeTable, Indent + 1);
+        printf("\n");
+    }
+    PrintIndent(Indent);
+    printf("} ( size = %d ) ", StructDecl->Size);
 }
 
 // Step 1: Get All Tokens, for every file
@@ -585,15 +1003,17 @@ PreprocessStructsAndProcs (string StructSearchString, string ProcSearchString, b
 // Step 5: Compile
 int main(int ArgCount, char** ArgV)
 {
+    s64 TotalStart = GetWallClock();
+    
     if (ArgCount <= 1)
     {
         printf("Please supply at least one source directory to analyze.\n");
         return 0;
     }
     
-    type_table TypeTable = {};
-    
     memory_arena SourceFileArena = {};
+    gs_bucket<source_code_file> SourceFiles;
+    gs_bucket<token> Tokens;
     
     string_builder NodeTypeBlock = {};
     Write(MakeStringLiteral("enum node_type\n{\n"), &NodeTypeBlock);
@@ -608,147 +1028,128 @@ int main(int ArgCount, char** ArgV)
     Write(MakeStringLiteral("node_specification Spec = NodeSpecifications[SpecificationIndex];\n"), &CallNodeProcBlock);
     Write(MakeStringLiteral("switch (Spec.Type)\n{\n"), &CallNodeProcBlock);
     
+    string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
     
-    // Build Search Paths Array
-    s32 SearchPathsCount = 1; //ArgCount - 1;
-    string* SearchPaths = PushArray(&SourceFileArena, string, SearchPathsCount);
-    for (s32 InputPath = 0; InputPath < SearchPathsCount; InputPath++)
+    if (ArgCount > 1)
     {
-        string* SearchPathString = SearchPaths + InputPath;
-        InitializeEmptyString(SearchPathString, PushArray(&SourceFileArena, char, MAX_PATH), MAX_PATH);
+        string RootFile = MakeString(ArgV[1]);
+        AddFileToSource(RootFile, &SourceFiles);
         
-        // NOTE(Peter): Adding one to skip the default argument which is the name of the application currently running
-        CopyCharArrayToString(ArgV[InputPath + 1], SearchPathString);
-        ConcatCharArrayToString("*", SearchPathString);
-        NullTerminate(SearchPathString);
+        s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
+        Assert(LastSlash > 0);
+        
+        string RootPath = Substring(RootFile, 0, LastSlash + 1);
+        CopyStringTo(RootPath, &CurrentWorkingDirectory);
     }
     
-    // Total Source Files Count
-    s32 SourceFileCount = 0;
-    for (s32 SearchPath = 0; SearchPath < SearchPathsCount; SearchPath++)
-    {
-        string* SearchPathString = SearchPaths + SearchPath;
-        
-        WIN32_FIND_DATA FindFileData;
-        HANDLE CurrentFile = FindFirstFile(SearchPathString->Memory, &FindFileData);
-        
-        if (CurrentFile == INVALID_HANDLE_VALUE)
-        {
-            printf("Invalid File Handle\n");
-            return 0;
-        }
-        
-        do {
-            if (FindFileData.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY) 
-            { 
-                continue; // TODO(Peter): Recurse?
-            }
-            SourceFileCount++;
-        } while (FindNextFile(CurrentFile, &FindFileData));
-    }
     
-    // Allocate Source File Array
-    source_code_file* SourceFiles = PushArray(&SourceFileArena, source_code_file, SourceFileCount);
+    // NOTE(Peter): this is a temporary list of GSMetaTags. It gets copied and cleared
+    // after use
+    gs_bucket<token*> TagList;
+    type_table TypeTable = {0};
+    PopulateTableWithDefaultCPPTypes(&TypeTable);
     
-    // Populate Source File Array
-    s32 SourceFilesUsed = 0;
-    for (s32 SearchPath = 0; SearchPath < SearchPathsCount; SearchPath++)
+    for (u32 i = 0; i < TypeTable.Types.Used; i++)
     {
-        string* SearchPathString = SearchPaths + SearchPath;
-        
-        WIN32_FIND_DATA FindFileData;
-        HANDLE CurrentFile = FindFirstFile(SearchPathString->Memory, &FindFileData);
-        
-        do {
-            if (FindFileData.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY) 
-            { 
-                continue; // TODO(Peter): Recurse?
-            }
-            
-            string FileName = MakeString(FindFileData.cFileName);
-            string FileExtension = Substring(FileName, LastIndexOfChar(FileName, '.'));
-            
-            if (StringsEqual(FileExtension, MakeStringLiteral("cpp")) ||
-                StringsEqual(FileExtension, MakeStringLiteral("h")))
-            {
-                source_code_file* File = SourceFiles + SourceFilesUsed++;
-                
-                u32 PathLength = SearchPathString->Length + CharArrayLength(FindFileData.cFileName);
-                File->Path = MakeString(PushArray(&SourceFileArena, char, PathLength), 0, PathLength);
-                CopyStringTo(Substring(*SearchPathString, 0, SearchPathString->Length - 2), &File->Path);
-                ConcatCharArrayToString(FindFileData.cFileName, &File->Path);
-                NullTerminate(&File->Path);
-                
-                File->FileSize = FindFileData.nFileSizeLow;
-                ErrorAssert(FindFileData.nFileSizeHigh == 0, &GlobalErrorList, "File Too Big. Peter needs to handle this. File: %.*s", FileName.Length, FileName.Memory); 
-                
-                u32 FileSize = File->FileSize + 1;
-                File->Contents = MakeString(PushArray(&SourceFileArena, char, FileSize), FileSize);
-                File->Contents.Length = ReadEntireFileAndNullTerminate(File->Path.Memory, File->Contents.Memory, File->Contents.Max);
-            }
-            
-        } while (FindNextFile(CurrentFile, &FindFileData));
-    }
-    
-    // Tokenize All The Files
-    s32 TokensCount = 0;
-    token* Tokens = 0;
-    token** FileStartTokens = PushArray(&SourceFileArena, token*, SourceFilesUsed);
-    for (s32 SourceFileIdx = 0; SourceFileIdx < SourceFilesUsed; SourceFileIdx++)
-    {
-        source_code_file* File = SourceFiles + SourceFileIdx;
-        
-        tokenizer Tokenizer = {};
-        Tokenizer.At = File->Contents.Memory;
-        Tokenizer.Memory = File->Contents.Memory;
-        Tokenizer.MemoryLength = File->Contents.Max;
-        
-        token* LastToken = 0;
-        while(AtValidPosition(Tokenizer))
-        {
-            token* Token = PushStruct(&SourceFileArena, token);
-            if (Tokens == 0)
-            {
-                Tokens = Token;
-            }
-            
-            TokensCount++;
-            *Token = GetNextToken(&Tokenizer);
-            
-            Token->Next = 0;
-            if (LastToken) { 
-                LastToken->Next = Token; 
-            }
-            else
-            {
-                FileStartTokens[SourceFileIdx] = Token;
-            }
-            LastToken = Token;
-        }
-    }
-    
-    for (s32 SourceFile = 0; SourceFile < SourceFilesUsed; SourceFile++)
-    {
-        ParseTypedefs (FileStartTokens[SourceFile], &TypeTable);
+        type_definition* TypeDefinition = TypeTable.Types.GetElementAtIndex(i);
+        printf("%.*s\n", StringExpand(TypeDefinition->Identifier));
     }
     
     s32 NodeProcCount = 0;
-    
-    
-    for (s32 SourceFileIdx = 0; SourceFileIdx < SourceFilesUsed; SourceFileIdx++)
+    for (u32 SourceFileIdx = 0; SourceFileIdx < SourceFiles.Used; SourceFileIdx++)
     {
-        token* FileStartToken = FileStartTokens[SourceFileIdx];
-        NodeProcCount += PreprocessStructsAndProcs (MakeStringLiteral("NODE_STRUCT"), 
-                                                    MakeStringLiteral("NODE_PROC"), 
-                                                    false,
-                                                    FileStartToken, &NodeMembersBlock, &NodeTypeBlock, &NodeSpecificationsBlock, &CallNodeProcBlock, 
-                                                    &TypeTable);
-        NodeProcCount += PreprocessStructsAndProcs (MakeStringLiteral("NODE_PATTERN_STRUCT"), 
-                                                    MakeStringLiteral("NODE_PATTERN_PROC"), 
-                                                    true,
-                                                    FileStartToken, &NodeMembersBlock, &NodeTypeBlock, &NodeSpecificationsBlock, &CallNodeProcBlock,
-                                                    &TypeTable);
+        source_code_file* File = SourceFiles.GetElementAtIndex(SourceFileIdx);
+        TokenizeFile(File, &Tokens);
+        
+        token_iter Iter = {};
+        Iter.Tokens = &Tokens;
+        Iter.FirstToken = File->FirstTokenIndex;
+        Iter.LastToken = File->LastTokenIndex;
+        Iter.TokenAtIndex = Iter.FirstToken;
+        Iter.TokenAt = Tokens.GetElementAtIndex(Iter.TokenAtIndex);
+        
+        while (Iter.TokenAtIndex < Iter.LastToken)
+        {
+            b32 ParseSuccess = false;
+            
+            s32 TypeIndex = -1;
+            if (TokenAtEquals(&Iter, "#include"))
+            {
+                token* IncludeFile = Iter.TokenAt;
+                
+                // NOTE(Peter): For now we aren't going in and preprocessing the header files
+                // we include from the system
+                // Token_Operator is used to check if the include is of the form '#include <header.h>'
+                // and skip it. 
+                // TODO(Peter): This is only a rough approximation of ignoring system headers
+                // TODO(Peter): We should actually see what parsing system headers would entail
+                if (IncludeFile->Type != Token_Operator)
+                {
+                    string TempFilePath = IncludeFile->Text;
+                    
+                    // NOTE(Peter): if the path is NOT absolute ie "C:\etc
+                    if (!(IsAlpha(TempFilePath.Memory[0]) && 
+                          TempFilePath.Memory[1] == ':' && 
+                          TempFilePath.Memory[2] == '\\'))
+                    {
+                        TempFilePath = CurrentWorkingDirectory;
+                        ConcatString(IncludeFile->Text, &TempFilePath);
+                        NullTerminate(&TempFilePath);
+                    }
+                    
+                    ParseSuccess = true;
+                    if (!FileAlreadyInSource(TempFilePath, SourceFiles))
+                    {
+                        AddFileToSource(TempFilePath, &SourceFiles);
+                    }
+                }
+            }
+            else if(ParseMetaTag(&Iter, &TagList))
+            {
+                ParseSuccess = true;
+            }
+            else if (ParseStruct(&Iter, &TypeIndex, &TagList, &TypeTable))
+            {
+                ParseSuccess = true;
+            }
+            else if (ParseTypedef(&Iter, &TagList, &TypeTable))
+            {
+                ParseSuccess = true;
+            }
+            
+            if (!ParseSuccess)
+            {
+                NextToken(&Iter);
+            }
+        }
     }
+    
+    // Type Table Fixup
+    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    {
+        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
+        if (TypeDef->Type == TypeDef_Struct)
+        {
+            FixUpStructSize(TypeDef, TypeTable);
+        }
+        else if (TypeDef->Type == TypeDef_Union)
+        {
+            FixUpUnionSize(TypeDef, TypeTable);
+        }
+    }
+    
+    
+    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    {
+        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
+        if ((TypeDef->Type == TypeDef_Struct || TypeDef->Type == TypeDef_Union) && TypeDef->Identifier.Length > 0)
+        {
+            PrintStructDecl(TypeDef, TypeTable);
+            printf("\n\n");
+        }
+    }
+    
+    s64 Cycles_Preprocess = GetWallClock();
     
     MakeStringBuffer(Buffer, 256);
     
@@ -774,5 +1175,46 @@ int main(int ArgCount, char** ArgV)
     }
     
     PrintErrorList(GlobalErrorList);
+    
+    s64 TotalEnd = GetWallClock();
+    
+    r32 TotalTime = GetSecondsElapsed(TotalStart, TotalEnd);
+    
+    printf("Metaprogram Preproc Time: %.*f sec\n", 6, TotalTime);
+    
+#if 0
+    for (u32 i = 0; i < Structs.Used; i++)
+    {
+        seen_node_struct* Struct = Structs.GetElementAtIndex(i);
+        
+#ifdef PRINT_ALL_INFO
+        printf("\n");
+        for (u32 j = 0; j < Struct->MetaTags.Used; j++)
+        {
+            token* MetaTag = Struct->MetaTags.GetElementAtIndex(j);
+            printf("GSMetaTag(%.*s)\n", StringExpand(MetaTag->Text));
+        }
+#endif
+        
+        printf("struct %.*s\n", StringExpand(Struct->Name));
+        
+#ifdef PRINT_ALL_INFO
+        for (u32 j = 0; j < Struct->MemberDecls.Used; j++)
+        {
+            struct_member_decl* Member = Struct->MemberDecls.GetElementAtIndex(j);
+            
+            for (u32 k = 0; k < Member->MetaTags.Used; k++)
+            {
+                token* MetaTag = Member->MetaTags.GetElementAtIndex(k);
+                printf("    GSMetaTag(%.*s)\n", StringExpand(MetaTag->Text));
+            }
+            
+            printf("    %.*s %.*s\n", StringExpand(Member->Type), StringExpand(Member->Identifier));
+        }
+#endif
+    }
+#endif
+    
+    __debugbreak();
     return 0;
 }

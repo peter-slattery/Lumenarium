@@ -113,12 +113,12 @@ void proc_name(input_type* Data, r32 DeltaTime)
 //   OUTPUT NODE
 ///////////////////////////////////////////////
 
-NODE_STRUCT(output_node_data)
+struct output_node_data
 {
     NODE_COLOR_BUFFER_IN(Result);
 };
 
-NODE_PROC(OutputNode, output_node_data)
+void OutputNode(output_node_data* Data, r32 DeltaTime)
 {
     
 }

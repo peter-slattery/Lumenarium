@@ -1,5 +1,69 @@
 TODO FOLDHAUS
 
+Ground Up Reengineering
+- Metaprogramming
+    - refactor for speed
+    - use #include statements to crawl through the codebase
+    - generalize the system
+    - panels metaprogramming
+
+- Rendering
+    - OpenGL 3
+    - Vertex Buffers
+    - Layers
+    - Lighting
+    - Clipping (with error checking)
+
+- Asset Loading
+    - images
+    - icon system
+
+- Sculptures
+    - cache led vertex buffers
+    - custom sculpture update functions (for motion)
+    - placing sculptures
+    - editing sculpture files (change universe output)
+
+- Network
+    - Artnet
+    - Universe offsets (per sculpture)
+
+- Interface
+    - Layout functionality
+    - styling
+    - text input
+    - lister with icon options
+
+- Sculpture View
+    - mouse spatial interaction - handles, and hover for info
+    - debug capabilities (toggle strip/led/universe colors)
+
+- Animation System
+    - snapping clips
+    - blending between animation
+    - layers
+        - layer masks by sculpture
+        - blend modes
+
+- Node System
+    - automatic node layout
+    - blending node layouts
+    - workspace -> animation block
+    - generating node workspace as code
+    - compiling node workspace
+    - hotload compiled pattern sets
+
+- Serialization
+    - saving scenes
+    - saving node graphs
+    - saving animation timelines
+    - saving projects
+
+- Settings
+
+- Platform Layer
+    - Mac Platform Layer
+
 Reimplement Node View
 - probably want to take a fresh pass at nodes all together
 

@@ -12,7 +12,7 @@ ParseToken (tokenizer* Tokenizer)
     assembly_token Result = {};
     Result.Token = Tokenizer->At;
     Result.Length = 1;
-    Tokenizer->At++;
+    EatChar(Tokenizer);
     
     if (*Result.Token == ':'){ Result.Type = AssemblyToken_Colon; }
     else if (*Result.Token == ';'){ Result.Type = AssemblyToken_SemiColon; }
@@ -21,20 +21,20 @@ ParseToken (tokenizer* Tokenizer)
     else if (*Result.Token ==','){ Result.Type = AssemblyToken_Comma; }
     else if (IsNumericExtended(*Result.Token))
     {
-        while(*Tokenizer->At && IsNumericExtended(*Tokenizer->At)) { Tokenizer->At++; }
+        while(*Tokenizer->At && IsNumericExtended(*Tokenizer->At)) { EatChar(Tokenizer); }
         Result.Type = AssemblyToken_Number;
         Result.Length = Tokenizer->At - Result.Token;
     }
     else if (*Result.Token =='\"')
     {
-        while(*Tokenizer->At && *Tokenizer->At != '\"') { Tokenizer->At++; }
+        while(*Tokenizer->At && *Tokenizer->At != '\"') { EatChar(Tokenizer); }
         Result.Token++; // Skip the quote
         Result.Type = AssemblyToken_String;
         Result.Length = (Tokenizer->At - Result.Token) - 1;
     }
     else if (*Result.Token == '(')
     {
-        while(*Tokenizer->At && *Tokenizer->At != ')') { Tokenizer->At++; }
+        while(*Tokenizer->At && *Tokenizer->At != ')') { EatChar(Tokenizer); }
         Result.Token++; // Skip the paren
         Result.Type = AssemblyToken_Vector;
         Result.Length = (Tokenizer->At - Result.Token) - 1;
@@ -54,7 +54,7 @@ ParseToken (tokenizer* Tokenizer)
     else
     {
         Result.Type = AssemblyToken_Identifier;
-        while(*Tokenizer->At && !IsWhitespace(*Tokenizer->At)) { Tokenizer->At++; }
+        while(*Tokenizer->At && !IsWhitespace(*Tokenizer->At)) { EatChar(Tokenizer); }
     }
     
     return Result;
@@ -116,7 +116,7 @@ ParseLEDStrip (tokenizer* Tokenizer)
     led_strip_definition Result = {};
     
     // Control Box Index
-    while (*Tokenizer->At && !IsNumericExtended(*Tokenizer->At)) { Tokenizer->At++; }
+    while (*Tokenizer->At && !IsNumericExtended(*Tokenizer->At)) { EatChar(Tokenizer); }
     assembly_token BoxIDToken = ParseToken(Tokenizer);
     Assert(BoxIDToken.Type == AssemblyToken_Number);
     Result.ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token).SignedIntValue;

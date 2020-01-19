@@ -5,18 +5,32 @@ struct token_selection_spec
 };
 
 internal s32
-EatPreprocessor (tokenizer* Tokenizer, token_type* Type)
+EatPreprocessor (tokenizer* Tokenizer)
 {
-    s32 Length = 0;
-    
-    // TODO(Peter): Make this actually separate out the different arguments?
-    while (Tokenizer->At[0] && !IsNewline(Tokenizer->At[0]))
+    char* TStart = Tokenizer->At;
+    while (AtValidPosition(*Tokenizer) && !IsNewline(*Tokenizer->At))
     {
-        ++Tokenizer->At;
-        Length++;
+        if (Tokenizer->At[0] == '\\')
+        {
+            EatChar(Tokenizer);
+            
+            while (IsWhitespace(*Tokenizer->At))
+            {
+                EatChar(Tokenizer);
+            }
+            
+            if (IsNewline(*Tokenizer->At))
+            {
+                EatPastNewLine(Tokenizer);
+            }
+        }
+        else if (!IsNewline(*Tokenizer->At))
+        {
+            EatChar(Tokenizer);
+        }
     }
     
-    return Length;
+    return Tokenizer->At - TStart;
 }
 
 internal s32
@@ -55,6 +69,34 @@ EatIdentifier (tokenizer* Tokenizer)
     return Length;
 }
 
+internal b32
+TokenAtEquals(tokenizer* Tokenizer, char* Needle)
+{
+    b32 Result = true;
+    
+    char* TokenizerStart = Tokenizer->At;
+    
+    char* NeedleAt = Needle;
+    while (AtValidPosition(*Tokenizer) && *NeedleAt)
+    {
+        if (*NeedleAt != *Tokenizer->At)
+        {
+            Result = false;
+            break;
+        }
+        NeedleAt++;
+        EatChar(Tokenizer);
+    }
+    
+    // NOTE(Peter): rewind tokenizer
+    if (!Result)
+    {
+        Tokenizer->At = TokenizerStart;
+    }
+    
+    return Result;
+}
+
 internal token
 GetNextToken (tokenizer* Tokenizer)
 {
@@ -64,6 +106,9 @@ GetNextToken (tokenizer* Tokenizer)
     
     Result.Text = MakeString(Tokenizer->At, 1, 1);
     
+    // NOTE(Peter): Adding one because I want the tokenizer to work with clear to zero
+    // but line numbers generally start at 1, not 0
+    Result.LineNumber = Tokenizer->LineNumber + 1;
     
     char C = Tokenizer->At[0];
     ++Tokenizer->At;
@@ -86,37 +131,82 @@ GetNextToken (tokenizer* Tokenizer)
     }
     else if (C == '#')
     {
-        Result.Text.Length += EatPreprocessor(Tokenizer, &Result.Type);
+        // NOTE(Peter): Technically correct to do things like "# define"
+        EatWhitespace(Tokenizer);
         
-        if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#define", 7))
-        { Result.Type = Token_PoundDefine; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#undef", 6))
-        { Result.Type = Token_PoundUndef; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#include", 8))
-        { Result.Type = Token_PoundInclude; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#ifdef", 6))
-        { Result.Type = Token_PoundIfDef; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#ifndef", 7))
-        { Result.Type = Token_PoundIfNDef; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#if", 3))
-        { Result.Type = Token_PoundIf; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#elif", 5))
-        { Result.Type = Token_PoundElif; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#else", 5))
-        { Result.Type = Token_PoundElse; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#endif", 6))
-        { Result.Type = Token_PoundEndif; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#error", 6))
-        { Result.Type = Token_PoundError; }
-        else if (CharArraysEqual(Result.Text.Memory, Result.Text.Length, "#pragma", 7))
-        { Result.Type = Token_PoundPragma; }
+        if (TokenAtEquals(Tokenizer, "define"))
+        { 
+            Result.Type = Token_PoundDefine; 
+            EatPreprocessor(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "undef"))
+        { 
+            Result.Type = Token_PoundUndef; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "include"))
+        { 
+            Result.Type = Token_PoundInclude; 
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "ifdef"))
+        { 
+            Result.Type = Token_PoundIfDef; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "ifndef"))
+        { 
+            Result.Type = Token_PoundIfNDef; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "if"))
+        { 
+            Result.Type = Token_PoundIf; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "elif"))
+        { 
+            Result.Type = Token_PoundElif; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "else"))
+        { 
+            Result.Type = Token_PoundElse; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "endif"))
+        { 
+            Result.Type = Token_PoundEndif; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "error"))
+        { 
+            Result.Type = Token_PoundError; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
+        else if (TokenAtEquals(Tokenizer, "pragma"))
+        { 
+            Result.Type = Token_PoundPragma; 
+            EatToNewLine(Tokenizer);
+            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+        }
     }
     else if (IsNumeric(C))
     {
         Result.Type = Token_Number;
-        char* Start = Tokenizer->At;
-        EatNumber(Tokenizer);
-        Result.Text.Length = Tokenizer->At - Start; 
+        
+        // NOTE(Peter): adding 1 to account for the fact that we've already advanced
+        // Tokenizer once
+        Result.Text.Length = 1 + EatNumber(Tokenizer);
     }
     else if (C == '\'')
     {
@@ -139,9 +229,7 @@ GetNextToken (tokenizer* Tokenizer)
     else if (C == '/' && Tokenizer->At[0] &&  Tokenizer->At[0] == '/')
     {
         Result.Type = Token_Comment;
-        char* Start = Tokenizer->At;
-        EatToNewLine(Tokenizer);
-        Result.Text.Length += 1 + (Tokenizer->At - Start);
+        Result.Text.Length += 1 + EatToNewLine(Tokenizer);
     }
     else if (C == '/' && Tokenizer->At[0] && Tokenizer->At[0] == '*')
     {
@@ -167,46 +255,44 @@ GetNextToken (tokenizer* Tokenizer)
     return Result;
 }
 
-internal token*
-FindNextMatchingToken (token* Tokens, token_selection_spec Spec)
+internal s32
+FindNextMatchingToken (u32 TokenAt, u32 TokenMax, gs_bucket<token> Tokens, token_selection_spec Spec)
 {
-    token* Result = 0;
+    s32 Result = -1;
     
-    token* Token = Tokens;
-    while (Token)
+    s32 Start = (s32)TokenAt + 1;
+    for (s32 i = Start; i < (s32)TokenMax; i++)
     {
+        token* Token = Tokens.GetElementAtIndex(i);
+        
         if (Token->Text.Memory)
         {
-            b32 Matches = false;
             if (Spec.MatchText && StringsEqual(Spec.Text, Token->Text))
             {
-                Matches = true;
-            }
-            
-            if (Matches)
-            {
-                Result = Token;
+                Result = i;
                 break;
             }
         }
-        
-        Token = Token->Next;
     }
     
     return Result;
 }
 
-internal token*
-GetNextTokenOfType (token* Tokens, token_type Type)
+internal s32
+GetNextTokenOfType (s32 TokenAtIndex, s32 Max, gs_bucket<token> Tokens, token_type Type)
 {
-    token* Result = 0;
+    s32 Result = -1;
     
-    token* Iter = Tokens->Next;
-    while((Iter != 0) && (Iter->Type != Type))
+    s32 Start = TokenAtIndex + 1;
+    for (s32 i = Start; i < Max; i++)
     {
-        Iter = Iter->Next;
+        token* At = Tokens.GetElementAtIndex(i);
+        if (At->Type == Type)
+        {
+            Result = i;
+            break;
+        }
     }
     
-    Result = Iter;
     return Result;
 }

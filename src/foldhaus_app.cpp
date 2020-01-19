@@ -1,3 +1,5 @@
+typedef INITIALIZE_APPLICATION(initialize_application);
+
 //
 // File: foldhaus_app.cpp
 // Author: Peter Slattery
@@ -5,8 +7,24 @@
 //
 #ifndef FOLDHAUS_APP_CPP
 
+#define GSMetaTag(ident) // this is purely for the sake of the meta layer
+
+
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
+
+GSMetaTag(node_struct);
+struct test_data
+{
+    r32* Ptr;
+    
+    GSMetaTag(output_member);
+    u32 Output;
+    
+    GSMetaTag(foo);
+    GSMetaTag(input_member);
+    u32 Input;
+};
 
 internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
