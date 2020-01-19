@@ -79,6 +79,19 @@ struct type_table
 };
 
 internal void
+MetaTagBreakpoint(gs_bucket<meta_tag> Tags)
+{
+    for (u32 i = 0; i < Tags.Used; i++)
+    {
+        meta_tag* Tag = Tags.GetElementAtIndex(i);
+        if (StringsEqual(Tag->Identifier, MakeStringLiteral("breakpoint")))
+        {
+            __debugbreak();
+        }
+    }
+}
+
+internal void
 CopyMetaTagsAndClear(gs_bucket<token*>* Source, gs_bucket<meta_tag>* Dest)
 {
     for (u32 i = 0; i < Source->Used; i++)
@@ -89,35 +102,6 @@ CopyMetaTagsAndClear(gs_bucket<token*>* Source, gs_bucket<meta_tag>* Dest)
         Dest->PushElementOnBucket(TagDest);
     }
     Source->Used = 0;
-}
-
-internal type_definition*
-PushStructOnTypeTable(string Identifier, type_definition_type DeclType, gs_bucket<token*>* TagList, type_table* TypeTable)
-{
-    Assert(DeclType == TypeDef_Struct || DeclType == TypeDef_Union);
-    
-    type_definition* Result = TypeTable->Types.TakeElement();
-    *Result = {0};
-    
-    Result->Type = DeclType;
-    Result->Identifier = Identifier;
-    CopyMetaTagsAndClear(TagList, &Result->MetaTags);
-    return Result;
-}
-
-internal s32
-PushTypeDefOnTypeTable(type_definition TypeDef, type_table* TypeTable)
-{
-    s32 Index = -1;
-    if (TypeDef.Type != TypeDef_BasicType)
-    {
-        printf("Invalid TypeDef: %.*s\n", StringExpand(TypeDef.Identifier));
-    } 
-    else
-    {
-        Index = TypeTable->Types.PushElementOnBucket(TypeDef);
-    }
-    return Index;
 }
 
 internal s32
@@ -144,6 +128,26 @@ GetIndexOfType (string Identifier, type_table TypeTable)
         }
     }
     return Result;
+}
+
+internal s32
+PushTypeDefOnTypeTable(type_definition TypeDef, type_table* TypeTable)
+{
+    s32 Index = -1;
+    
+    s32 ExistingUndeclaredTypeIndex = GetIndexOfType(TypeDef.Identifier, *TypeTable);
+    if (ExistingUndeclaredTypeIndex < 0)
+    {
+        Index = TypeTable->Types.PushElementOnBucket(TypeDef);
+    }
+    else
+    {
+        Index = ExistingUndeclaredTypeIndex;
+        type_definition* ExistingTypeDef = TypeTable->Types.GetElementAtIndex(ExistingUndeclaredTypeIndex);
+        *ExistingTypeDef = TypeDef;
+    }
+    
+    return Index;
 }
 
 internal s32
@@ -241,8 +245,8 @@ FindIndexOfMatchingType (type_definition Match, type_table TypeTable)
     return Result;
 }
 
-internal void FixUpStructSize (type_definition* Struct, type_table TypeTable);
-internal void FixUpUnionSize (type_definition* Union, type_table TypeTable);
+internal void FixUpStructSize (s32 StructIndex, type_table TypeTable);
+internal void FixUpUnionSize (s32 UnionIndex, type_table TypeTable);
 
 internal void
 FixupMemberType (variable_decl* Member, type_table TypeTable)
@@ -275,9 +279,12 @@ CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 }
 
 internal void
-FixUpStructSize (type_definition* Struct, type_table TypeTable)
+FixUpStructSize (s32 StructIndex, type_table TypeTable)
 {
+    type_definition* Struct = TypeTable.Types.GetElementAtIndex(StructIndex);
     Assert(Struct->Type == TypeDef_Struct);
+    
+    MetaTagBreakpoint(Struct->MetaTags);
     
     s32 SizeAcc = 0;
     for (u32 j = 0; j < Struct->Struct.MemberDecls.Used; j++)
@@ -288,15 +295,23 @@ FixUpStructSize (type_definition* Struct, type_table TypeTable)
         if (Member->TypeIndex >= 0)
         {
             type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
-            if (MemberTypeDef->Size == 0)
+            
+            // NOTE(Peter): This signals a nested pointer to an address of the
+            // same type as the one we are parsing now. In that case, the size
+            // also hasn't been determined yet, but we know the size of the member
+            // is just a pointer (32 or 64 bits).
+            // For example, this would go into an infinite recursion without the case
+            // of StructIndex != Member->TypeIndex:
+            //     struct foo { foo* Next; }
+            if (MemberTypeDef->Size == 0 && StructIndex != Member->TypeIndex)
             {
                 if (MemberTypeDef->Type == TypeDef_Struct)
                 {
-                    FixUpStructSize(MemberTypeDef, TypeTable);
+                    FixUpStructSize(Member->TypeIndex, TypeTable);
                 }
-                else if(MemberTypeDef->Type == TypeDef_Union)
+                else if (MemberTypeDef->Type == TypeDef_Union)
                 {
-                    FixUpUnionSize(MemberTypeDef, TypeTable);
+                    FixUpUnionSize(Member->TypeIndex, TypeTable);
                 }
                 else 
                 { 
@@ -305,7 +320,7 @@ FixUpStructSize (type_definition* Struct, type_table TypeTable)
 #if 0
                     InvalidCodePath;
 #else
-                    printf("Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
+                    printf("Struct Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
 #endif
                 }
             }
@@ -327,14 +342,15 @@ FixUpStructSize (type_definition* Struct, type_table TypeTable)
 #else
     if (Struct->Size == 0)
     {
-        printf("Error: Struct Size = 0. %.*s\n", StringExpand(Struct->Identifier));
+        printf("Struct Error: Struct Size = 0. %.*s\n", StringExpand(Struct->Identifier));
     }
 #endif
 }
 
 internal void
-FixUpUnionSize (type_definition* Union, type_table TypeTable)
+FixUpUnionSize (s32 UnionIndex, type_table TypeTable)
 {
+    type_definition* Union = TypeTable.Types.GetElementAtIndex(UnionIndex);
     Assert(Union->Type == TypeDef_Union);
     
     s32 BiggestMemberSize = 0;
@@ -350,11 +366,11 @@ FixUpUnionSize (type_definition* Union, type_table TypeTable)
             {
                 if (MemberTypeDef->Type == TypeDef_Struct)
                 {
-                    FixUpStructSize(MemberTypeDef, TypeTable);
+                    FixUpStructSize(Member->TypeIndex, TypeTable);
                 }
                 else if(MemberTypeDef->Type == TypeDef_Union)
                 {
-                    FixUpUnionSize(MemberTypeDef, TypeTable);
+                    FixUpUnionSize(Member->TypeIndex, TypeTable);
                 }
                 else 
                 { 
@@ -363,7 +379,7 @@ FixUpUnionSize (type_definition* Union, type_table TypeTable)
 #if 0
                     InvalidCodePath;
 #else
-                    printf("Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
+                    printf("Union Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
 #endif
                 }
             }
@@ -385,7 +401,7 @@ FixUpUnionSize (type_definition* Union, type_table TypeTable)
 #else
     if (Union->Size == 0)
     {
-        printf("Error: Struct Size = 0. %.*s\n", StringExpand(Union->Identifier));
+        printf("Union Error: Struct Size = 0. %.*s\n", StringExpand(Union->Identifier));
     }
 #endif
 }

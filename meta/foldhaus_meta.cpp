@@ -1,3 +1,15 @@
+//
+// Usage
+//
+// GSMetaTag(<tag name>) to give commands to the meta layer
+//
+// Tag Values
+// 
+// breakpoint 
+//   will cause the meta layer to break in the debugger when it reaches
+//   that point in processing the file
+//   TODO: specify which stage you want it to break at
+
 #include <windows.h>
 #include <stdio.h>
 
@@ -354,7 +366,15 @@ ParseMetaTag(token_iter* Iter, gs_bucket<token*>* TagList)
         if (Iter->TokenAt->Type == Token_Identifier)
         {
             TagList->PushElementOnBucket(Iter->TokenAt);
+            if (StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("breakpoint")))
+            {
+                // NOTE(Peter): This is not a temporary breakpoint. It is 
+                // used to be able to break the meta program at specific points
+                // throughout execution
+                __debugbreak();
+            }
             NextToken(Iter);
+            
             if (TokenAtEquals(Iter, ")") &&
                 TokenAtEquals(Iter, ";"))
             {
@@ -790,7 +810,7 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
             if (TokenAtEquals(Iter, ";"))
             {
                 Result = true;
-                *StructTypeIndexOut = TypeTable->Types.PushElementOnBucket(StructDecl);
+                *StructTypeIndexOut = PushTypeDefOnTypeTable(StructDecl, TypeTable);
             }
         }
     }
@@ -872,7 +892,7 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>
                 if (TokenAtEquals(Iter, ";"))
                 {
                     Result = true;
-                    TypeTable->Types.PushElementOnBucket(FunctionPtr);
+                    PushTypeDefOnTypeTable(FunctionPtr, TypeTable);
                 }
             }
         }
@@ -934,17 +954,7 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
                 NextToken(Iter);
                 
                 Result = true;
-                
-                s32 ExistingUndeclaredTypeIndex = GetIndexOfType(NewType.Identifier, *TypeTable);
-                if (ExistingUndeclaredTypeIndex < 0)
-                {
-                    TypeTable->Types.PushElementOnBucket(NewType);
-                }
-                else
-                {
-                    type_definition* ExistingTypeDef = TypeTable->Types.GetElementAtIndex(ExistingUndeclaredTypeIndex);
-                    *ExistingTypeDef = NewType;
-                }
+                PushTypeDefOnTypeTable(NewType, TypeTable);
             }
         }
         else
@@ -1190,11 +1200,11 @@ int main(int ArgCount, char** ArgV)
         type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
         if (TypeDef->Type == TypeDef_Struct)
         {
-            FixUpStructSize(TypeDef, TypeTable);
+            FixUpStructSize(i, TypeTable);
         }
         else if (TypeDef->Type == TypeDef_Union)
         {
-            FixUpUnionSize(TypeDef, TypeTable);
+            FixUpUnionSize(i, TypeTable);
         }
     }
     
