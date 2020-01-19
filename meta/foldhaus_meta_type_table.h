@@ -9,7 +9,8 @@ enum type_definition_type
 {
     TypeDef_Invalid,
     
-    TypeDef_Unknown, // NOTE(Peter): these require fixup later
+    // NOTE(Peter): tokens with this type require fixup later
+    TypeDef_Unknown, 
     TypeDef_Struct,
     TypeDef_Union,
     TypeDef_BasicType,
@@ -23,7 +24,7 @@ struct meta_tag
     string Identifier;
 };
 
-struct struct_member_decl
+struct variable_decl
 {
     // NOTE(Peter): Because of the way the tokenizer works, we don't lex and parse 
     // at the same time. This means that not all types will be able to be matched
@@ -41,13 +42,19 @@ struct struct_member_decl
     gs_bucket<meta_tag> MetaTags;
 };
 
-// TODO(Peter): This is just a struct_decl
 struct struct_decl
 {
     // TODO(Peter): Lots of tiny arrays everywhere! Pull these into a central allocation
     // buffer somewhere
     // :SmallAllocationsAllOver
-    gs_bucket<struct_member_decl> MemberDecls;
+    gs_bucket<variable_decl> MemberDecls;
+};
+
+struct function_pointer_decl
+{
+    s32 ReturnTypeIndex;
+    // :SmallAllocationsAllOver
+    gs_bucket<variable_decl> Parameters;
 };
 
 struct type_definition
@@ -61,6 +68,7 @@ struct type_definition
     union
     {
         struct_decl Struct;
+        function_pointer_decl FunctionPtr;
     };
     b32 Pointer;
 };
@@ -165,7 +173,7 @@ GetSizeOfType (string Identifier, type_table TypeTable)
 }
 
 internal b32
-StructMembersEqual (struct_member_decl A, struct_member_decl B)
+VariableDeclsEqual (variable_decl A, variable_decl B)
 {
     b32 Result = false;
     if (A.TypeIndex == B.TypeIndex &&
@@ -192,10 +200,10 @@ StructOrUnionsEqual (type_definition A, type_definition B)
         Result = true;
         for (u32 i = 0; i < A.Struct.MemberDecls.Used; i++)
         {
-            struct_member_decl* AMember = A.Struct.MemberDecls.GetElementAtIndex(i);
-            struct_member_decl* BMember = A.Struct.MemberDecls.GetElementAtIndex(i);
+            variable_decl* AMember = A.Struct.MemberDecls.GetElementAtIndex(i);
+            variable_decl* BMember = A.Struct.MemberDecls.GetElementAtIndex(i);
             
-            if (!StructMembersEqual(*AMember, *BMember))
+            if (!VariableDeclsEqual(*AMember, *BMember))
             {
                 Result = false;
                 break;
@@ -237,7 +245,7 @@ internal void FixUpStructSize (type_definition* Struct, type_table TypeTable);
 internal void FixUpUnionSize (type_definition* Union, type_table TypeTable);
 
 internal void
-FixupMemberType (struct_member_decl* Member, type_table TypeTable)
+FixupMemberType (variable_decl* Member, type_table TypeTable)
 {
     if (Member->TypeIndex == -1)
     {
@@ -247,7 +255,7 @@ FixupMemberType (struct_member_decl* Member, type_table TypeTable)
 }
 
 internal s32
-CalculateStructMemberSize (struct_member_decl Member, type_definition MemberType)
+CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 {
     Assert(Member.TypeIndex >= 0);
     // TODO(Peter): Assert(MemberType.Size != 0);
@@ -274,7 +282,7 @@ FixUpStructSize (type_definition* Struct, type_table TypeTable)
     s32 SizeAcc = 0;
     for (u32 j = 0; j < Struct->Struct.MemberDecls.Used; j++)
     {
-        struct_member_decl* Member = Struct->Struct.MemberDecls.GetElementAtIndex(j);
+        variable_decl* Member = Struct->Struct.MemberDecls.GetElementAtIndex(j);
         FixupMemberType(Member, TypeTable);
         
         if (Member->TypeIndex >= 0)
@@ -332,7 +340,7 @@ FixUpUnionSize (type_definition* Union, type_table TypeTable)
     s32 BiggestMemberSize = 0;
     for (u32 j = 0; j < Union->Struct.MemberDecls.Used; j++)
     {
-        struct_member_decl* Member = Union->Struct.MemberDecls.GetElementAtIndex(j);
+        variable_decl* Member = Union->Struct.MemberDecls.GetElementAtIndex(j);
         FixupMemberType(Member, TypeTable);
         
         if (Member->TypeIndex >= 0)

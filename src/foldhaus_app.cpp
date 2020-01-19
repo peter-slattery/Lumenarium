@@ -1,5 +1,3 @@
-typedef INITIALIZE_APPLICATION(initialize_application);
-
 //
 // File: foldhaus_app.cpp
 // Author: Peter Slattery

@@ -167,7 +167,6 @@ FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
         if (StringsEqual(File->Path, Path))
         {
             Result = true;
-            printf("-- File already in source: %.*s\n", StringExpand(Path));
             break;
         }
     }
@@ -648,9 +647,10 @@ ParsePointer (token_iter* Iter)
 }
 
 internal b32
-ParseStructMember(token_iter* Iter, gs_bucket<token*>* TagList, struct_member_decl* MemberDecl, type_table* TypeTable)
+ParseVariableDecl(token_iter* Iter, gs_bucket<token*>* TagList, variable_decl* VarDecl, type_table* TypeTable)
 {
     b32 Result = false;
+    *VarDecl = {0};
     PushSnapshot(Iter);
     
     s32 TypeIndex = -1;
@@ -663,13 +663,13 @@ ParseStructMember(token_iter* Iter, gs_bucket<token*>* TagList, struct_member_de
             NextToken(Iter);
         }
         
-        MemberDecl->Pointer = ParsePointer(Iter);
+        VarDecl->Pointer = ParsePointer(Iter);
         
         if (Iter->TokenAt->Type == Token_Identifier)
         {
-            MemberDecl->TypeIndex = TypeIndex;
-            MemberDecl->Identifier = Iter->TokenAt->Text;
-            CopyMetaTagsAndClear(TagList, &MemberDecl->MetaTags);
+            VarDecl->TypeIndex = TypeIndex;
+            VarDecl->Identifier = Iter->TokenAt->Text;
+            CopyMetaTagsAndClear(TagList, &VarDecl->MetaTags);
             
             NextToken(Iter);
             
@@ -686,7 +686,7 @@ ParseStructMember(token_iter* Iter, gs_bucket<token*>* TagList, struct_member_de
                 if (Iter->TokenAt->Type == Token_Number)
                 {
                     parse_result ArrayCount = ParseUnsignedInt(StringExpand(Iter->TokenAt->Text));
-                    MemberDecl->ArrayCount = ArrayCount.UnsignedIntValue;
+                    VarDecl->ArrayCount = ArrayCount.UnsignedIntValue;
                     NextToken(Iter);
                     
                     if (TokenAtEquals(Iter, "]"))
@@ -698,7 +698,8 @@ ParseStructMember(token_iter* Iter, gs_bucket<token*>* TagList, struct_member_de
             
             // TODO(Peter): Handle comma separated members
             // ie. r32 x, y, z;
-            if (TokenAtEquals(Iter, ";") && ArrayParseSuccess)
+            
+            if (ArrayParseSuccess)
             {
                 Result = true;
             }
@@ -755,14 +756,17 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
             while (!TokenAtEquals(Iter, "}"))
             {
                 s32 MemberStructTypeIndex = {};
-                struct_member_decl MemberDecl = {};
+                variable_decl MemberDecl = {};
                 if (ParseMetaTag(Iter, TagList))
                 {
                     
                 }
-                else if (ParseStructMember(Iter, TagList, &MemberDecl, TypeTable))
+                else if (ParseVariableDecl(Iter, TagList, &MemberDecl, TypeTable))
                 {
-                    StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
+                    if (TokenAtEquals(Iter, ";"))
+                    {
+                        StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
+                    }
                 }
                 else if (ParseStruct(Iter, &MemberStructTypeIndex, TagList, TypeTable))
                 {
@@ -795,34 +799,80 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
     return Result;
 }
 
+// ( type *? identifier, ... )
+internal b32
+ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, gs_bucket<token*>* TagList, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "("))
+    {
+        Result = true;
+        
+        while(!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(")")))
+        {
+            variable_decl ParameterDecl = {};
+            if (ParseVariableDecl(Iter, TagList, &ParameterDecl, TypeTable))
+            {
+                FunctionPtrDecl->FunctionPtr.Parameters.PushElementOnBucket(ParameterDecl);
+                if (Iter->TokenAt->Type == Token_Comma)
+                {
+                    NextToken(Iter);
+                }
+                else if (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(")")))
+                {
+                    Result = false;
+                    break;
+                }
+            }
+        }
+        
+        if (TokenAtEquals(Iter, ")"))
+        {
+            Result = true;
+        }
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
 internal b32
 ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     PushSnapshot(Iter);
     
-    s32 TypeIndex = -1;
-    if (ParseType(Iter, TypeTable, &TypeIndex))
+    s32 ReturnTypeIndex = -1;
+    if (ParseType(Iter, TypeTable, &ReturnTypeIndex))
     {
-        if (TypeIndex < 0) { NextToken(Iter); }
+        if (ReturnTypeIndex < 0) 
+        { 
+            ReturnTypeIndex = PushUndeclaredType(Iter->TokenAt->Text, TypeTable);
+            NextToken(Iter); 
+        }
         
         b32 IsPointer = ParsePointer(Iter);
         
         if (Iter->TokenAt->Type == Token_Identifier)
         {
+            type_definition FunctionPtr = {};
+            FunctionPtr.Identifier = Iter->TokenAt->Text;
+            FunctionPtr.Size = sizeof(void*);
+            CopyMetaTagsAndClear(TagList, &FunctionPtr.MetaTags);
+            FunctionPtr.Type = TypeDef_FunctionPointer;
+            FunctionPtr.Pointer = true;
+            FunctionPtr.FunctionPtr.ReturnTypeIndex = ReturnTypeIndex;
+            
             *Identifier = *Iter->TokenAt;
             NextToken(Iter);
-            if (TokenAtEquals(Iter, "("))
+            if (ParseFunctionParameterList(Iter, &FunctionPtr, TagList, TypeTable))
             {
-                while(!TokenAtEquals(Iter, ")"))
-                {
-                    // TODO(Peter): parse function params
-                    NextToken(Iter);
-                }
-                
                 if (TokenAtEquals(Iter, ";"))
                 {
                     Result = true;
+                    TypeTable->Types.PushElementOnBucket(FunctionPtr);
                 }
             }
         }
@@ -854,8 +904,6 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
         else if (ParseFunctionDeclaration(Iter, &TypeToken, TagList, TypeTable))
         {
             Result = true;
-            
-            printf("New Function Type: %.*s\n", StringExpand(TypeToken.Text));
         }
         else if (ParseType(Iter, TypeTable, &TypeIndex))
         {
@@ -884,8 +932,6 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
             {
                 NewType.Identifier = Iter->TokenAt->Text;
                 NextToken(Iter);
-                
-                printf("New Type: %.*s\n", StringExpand(NewType.Identifier));
                 
                 Result = true;
                 
@@ -930,7 +976,7 @@ PrintIndent (u32 Indent)
 internal void PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent);
 
 internal void
-PrintStructMember (struct_member_decl Member, type_table TypeTable, u32 Indent = 0)
+PrintVariableDecl (variable_decl Member, type_table TypeTable, u32 Indent = 0)
 {
     type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member.TypeIndex);
     if ((MemberTypeDef->Type == TypeDef_Struct || MemberTypeDef->Type == TypeDef_Union)
@@ -959,8 +1005,6 @@ PrintStructMember (struct_member_decl Member, type_table TypeTable, u32 Indent =
     {
         printf("[%d]", Member.ArrayCount);
     }
-    
-    printf(";");
 }
 
 internal void
@@ -988,12 +1032,34 @@ PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent =
     
     for (u32 MemberIndex = 0; MemberIndex < StructDecl->Struct.MemberDecls.Used; MemberIndex++)
     {
-        struct_member_decl* Member = StructDecl->Struct.MemberDecls.GetElementAtIndex(MemberIndex);
-        PrintStructMember(*Member, TypeTable, Indent + 1);
-        printf("\n");
+        variable_decl* Member = StructDecl->Struct.MemberDecls.GetElementAtIndex(MemberIndex);
+        PrintVariableDecl(*Member, TypeTable, Indent + 1);
+        printf(";\n");
     }
     PrintIndent(Indent);
     printf("} ( size = %d ) ", StructDecl->Size);
+}
+
+internal void
+PrintFunctionPtrDecl (type_definition* FnPtrDecl, type_table TypeTable)
+{
+    type_definition* ReturnType = TypeTable.Types.GetElementAtIndex(FnPtrDecl->FunctionPtr.ReturnTypeIndex);
+    printf("%.*s ", StringExpand(ReturnType->Identifier));
+    
+    if (FnPtrDecl->Identifier.Length > 0)
+    {
+        printf("%.*s ", StringExpand(FnPtrDecl->Identifier));
+    }
+    printf("(");
+    
+    for (u32 MemberIndex = 0; MemberIndex < FnPtrDecl->FunctionPtr.Parameters.Used; MemberIndex++)
+    {
+        variable_decl* Param = FnPtrDecl->FunctionPtr.Parameters.GetElementAtIndex(MemberIndex);
+        PrintVariableDecl(*Param, TypeTable, 0);
+        printf(", ");
+    }
+    
+    printf(");");
 }
 
 // Step 1: Get All Tokens, for every file
@@ -1048,12 +1114,6 @@ int main(int ArgCount, char** ArgV)
     gs_bucket<token*> TagList;
     type_table TypeTable = {0};
     PopulateTableWithDefaultCPPTypes(&TypeTable);
-    
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
-    {
-        type_definition* TypeDefinition = TypeTable.Types.GetElementAtIndex(i);
-        printf("%.*s\n", StringExpand(TypeDefinition->Identifier));
-    }
     
     s32 NodeProcCount = 0;
     for (u32 SourceFileIdx = 0; SourceFileIdx < SourceFiles.Used; SourceFileIdx++)
@@ -1138,16 +1198,25 @@ int main(int ArgCount, char** ArgV)
         }
     }
     
-    
+    // Print All Structs
     for (u32 i = 0; i < TypeTable.Types.Used; i++)
     {
         type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
+#if 0
         if ((TypeDef->Type == TypeDef_Struct || TypeDef->Type == TypeDef_Union) && TypeDef->Identifier.Length > 0)
         {
             PrintStructDecl(TypeDef, TypeTable);
             printf("\n\n");
         }
+#endif
+        
+        if (TypeDef->Type == TypeDef_FunctionPointer)
+        {
+            PrintFunctionPtrDecl(TypeDef, TypeTable);
+            printf("\n\n");
+        }
     }
+    
     
     s64 Cycles_Preprocess = GetWallClock();
     
