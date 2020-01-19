@@ -72,12 +72,20 @@ NODE_PROC(AddNodeProc, add_data)
 //
 /////////////////////////////////
 
-NODE_STRUCT(sin_wave_data)
+GSMetaTag(node_struct);
+struct sin_wave_data
 {
-    NODE_IN(r32, Period);
-    NODE_IN(r32, Min);
-    NODE_IN(r32, Max);
-    NODE_OUT(r32, Result);
+    GSMetaTag(node_input);
+    r32 Period;
+    
+    GSMetaTag(node_input);
+    r32 Min;
+    
+    GSMetaTag(node_input);
+    r32 Max;
+    
+    GSMetaTag(node_input);
+    r32 Result;
     
     r32 Accumulator;
 };
@@ -109,35 +117,41 @@ NODE_PROC(SinWave, sin_wave_data)
 //
 /////////////////////////////////
 
-NODE_STRUCT(multiply_patterns_data)
+GSMetaTag(node_struct); 
+struct multiply_patterns_data
 {
-    NODE_COLOR_BUFFER_IN(A);
-    NODE_COLOR_BUFFER_IN(B);
-    NODE_COLOR_BUFFER_OUT(Result);
+    GSMetaTag(node_input);
+    color_buffer A;
+    
+    GSMetaTag(node_input);
+    color_buffer B;
+    
+    GSMetaTag(node_output);
+    color_buffer Result;
 };
 
 NODE_PROC(MultiplyPatterns, multiply_patterns_data)
 {
-    led* LED = Data->ResultLEDs;
-    for (s32 l = 0; l < Data->ResultLEDCount; l++)
+    led* LED = Data->Result.LEDs;
+    for (s32 l = 0; l < Data->Result.LEDCount; l++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
+        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
         
-        s32 AR = Data->AColors[LED->Index].R;
-        s32 AG = Data->AColors[LED->Index].G;
-        s32 AB = Data->AColors[LED->Index].B;
+        s32 AR = Data->A.Colors[LED->Index].R;
+        s32 AG = Data->A.Colors[LED->Index].G;
+        s32 AB = Data->A.Colors[LED->Index].B;
         
-        s32 BR = Data->BColors[LED->Index].R;
-        s32 BG = Data->BColors[LED->Index].G;
-        s32 BB = Data->BColors[LED->Index].B;
+        s32 BR = Data->B.Colors[LED->Index].R;
+        s32 BG = Data->B.Colors[LED->Index].G;
+        s32 BB = Data->B.Colors[LED->Index].B;
         
         s32 RCombined = (AR * BR) / 255;
         s32 GCombined = (AG * BG) / 255;
         s32 BCombined = (AB * BB) / 255;
         
-        Data->ResultColors[LED->Index].R = (u8)RCombined;
-        Data->ResultColors[LED->Index].G = (u8)GCombined;
-        Data->ResultColors[LED->Index].B = (u8)BCombined;
+        Data->Result.Colors[LED->Index].R = (u8)RCombined;
+        Data->Result.Colors[LED->Index].G = (u8)GCombined;
+        Data->Result.Colors[LED->Index].B = (u8)BCombined;
         
         LED++;
     }

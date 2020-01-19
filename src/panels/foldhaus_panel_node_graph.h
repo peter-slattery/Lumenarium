@@ -491,7 +491,7 @@ PANEL_RENDER_PROC(NodeGraph_Render)
     string TitleString = MakeStringLiteral("Available Nodes");
     DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface);
     
-    for (s32 i = 0; i < NodeSpecificationsCount; i++)
+    for (u32 i = 0; i < NodeSpecificationsCount; i++)
     {
         node_specification Spec = NodeSpecifications[i];
         string NodeName = MakeString(Spec.Name, Spec.NameLength);

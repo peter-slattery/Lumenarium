@@ -27,6 +27,74 @@
 #include "gs_meta_error.h"
 #include "gs_meta_lexer.h"
 
+struct error_buffer
+{
+    char* Backbuffer;
+    string* Contents;
+};
+
+#define ERROR_MAX_LENGTH 256
+#define ERROR_BUFFER_SIZE 256
+struct errors
+{
+    error_buffer* Buffers;
+    u32 BuffersCount;
+    u32 Used;
+};
+
+internal void 
+PushFError (errors* Errors, char* Format, ...)
+{
+    if (Errors->Used >= (Errors->BuffersCount * ERROR_BUFFER_SIZE))
+    {
+        Errors->BuffersCount += 1;
+        Errors->Buffers = (error_buffer*)realloc(Errors->Buffers, sizeof(error_buffer*) * Errors->BuffersCount);
+        
+        error_buffer* NewBuffer = Errors->Buffers + (Errors->BuffersCount - 1);
+        NewBuffer->Backbuffer = (char*)malloc(sizeof(char) * ERROR_MAX_LENGTH * ERROR_BUFFER_SIZE);
+        NewBuffer->Contents = (string*)malloc(sizeof(string) * ERROR_BUFFER_SIZE);
+        
+        for (u32 i = 0; i < ERROR_BUFFER_SIZE; i++)
+        {
+            NewBuffer->Contents[i].Memory = NewBuffer->Backbuffer + (i * ERROR_MAX_LENGTH);
+            NewBuffer->Contents[i].Max = ERROR_MAX_LENGTH;
+            NewBuffer->Contents[i].Length = 0;
+        }
+    }
+    
+    u32 NewErrorIndex = Errors->Used++;
+    u32 BufferIndex = NewErrorIndex / ERROR_BUFFER_SIZE;
+    u32 IndexInBuffer = NewErrorIndex % ERROR_BUFFER_SIZE;
+    string* NewError = Errors->Buffers[BufferIndex].Contents + IndexInBuffer;
+    
+    va_list Args;
+    va_start(Args, Format);
+    NewError->Length = PrintFArgsList(NewError->Memory, NewError->Max, Format, Args);
+    va_end(Args);
+}
+
+internal string*
+TakeError (errors* Errors)
+{
+    u32 NewErrorIndex = Errors->Used++;
+    u32 BufferIndex = NewErrorIndex / ERROR_BUFFER_SIZE;
+    u32 IndexInBuffer = NewErrorIndex % ERROR_BUFFER_SIZE;
+    string* NewError = Errors->Buffers[BufferIndex].Contents + IndexInBuffer;
+    return NewError;
+}
+
+internal void
+PrintAllErrors (errors Errors)
+{
+    for (u32 i = 0; i < Errors.Used; i++)
+    {
+        u32 BufferIndex = i / ERROR_BUFFER_SIZE;
+        u32 IndexInBuffer = i % ERROR_BUFFER_SIZE;
+        string Error = Errors.Buffers[BufferIndex].Contents[IndexInBuffer];
+        printf("%.*s\n", StringExpand(Error));
+    }
+}
+
 #include "foldhaus_meta_type_table.h"
 error_list GlobalErrorList = {};
 
@@ -57,6 +125,8 @@ struct token_iter
 #define TOKEN_ITER_SNAPSHOTS_MAX 64
     u32 SnapshotsUsed;
     u32 Snapshots[TOKEN_ITER_SNAPSHOTS_MAX];
+    
+    errors* Errors;
 };
 
 internal token*
@@ -308,7 +378,7 @@ GetSecondsElapsed(s64 StartCycles, s64 EndCycles)
 }
 
 internal void
-AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles)
+AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles, errors* Errors)
 {
     source_code_file File = {0};
     
@@ -328,7 +398,7 @@ AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles)
     }
     else
     {
-        printf("Error: Could not load file %.*s\n", StringExpand(RelativePath));
+        PushFError(Errors, "Error: Could not load file %S\n", RelativePath);
     }
 }
 
@@ -448,7 +518,6 @@ LongInt (token_iter* Iter, s32* TypeIndexOut, type_table TypeTable)
     if (TokenAtEquals(Iter, "unsigned") ||
         TokenAtEquals(Iter, "signed"))
     {
-        Result = true;
     }
     
     if (TokenAtEquals(Iter, "long"))
@@ -598,12 +667,8 @@ ParseType(token_iter* Iter, type_table* TypeTable, s32* TypeIndexOut)
     {
         NextToken(Iter);
         Result = true;
-    } 
-    else if (ShortInt(Iter, TypeIndexOut, *TypeTable))
-    {
-        Result = true;
     }
-    else if (Int(Iter, TypeIndexOut, *TypeTable))
+    else if (LongLongInt(Iter, TypeIndexOut, *TypeTable))
     {
         Result = true;
     }
@@ -611,7 +676,11 @@ ParseType(token_iter* Iter, type_table* TypeTable, s32* TypeIndexOut)
     {
         Result = true;
     }
-    else if (LongLongInt(Iter, TypeIndexOut, *TypeTable))
+    else if (ShortInt(Iter, TypeIndexOut, *TypeTable))
+    {
+        Result = true;
+    }
+    else if (Int(Iter, TypeIndexOut, *TypeTable))
     {
         Result = true;
     }
@@ -883,6 +952,7 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>
             CopyMetaTagsAndClear(TagList, &FunctionPtr.MetaTags);
             FunctionPtr.Type = TypeDef_FunctionPointer;
             FunctionPtr.Pointer = true;
+            FunctionPtr.FunctionPtr = {};
             FunctionPtr.FunctionPtr.ReturnTypeIndex = ReturnTypeIndex;
             
             *Identifier = *Iter->TokenAt;
@@ -959,16 +1029,102 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
         }
         else
         {
-            printf("unhandled typedef ");
+            string* Error = TakeError(Iter->Errors);
+            PrintF(Error, "unhandled typedef ");
             while (!TokenAtEquals(Iter, ";"))
             {
-                printf("%.*s ", StringExpand(Iter->TokenAt->Text));
+                PrintF(Error, "%S ", Iter->TokenAt->Text);
                 NextToken(Iter);
             }
-            printf("\n");
+            PrintF(Error, "\n");
         }
     }
     
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParseEnum (token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "enum"))
+    {
+        if (Iter->TokenAt->Type == Token_Identifier)
+        {
+            type_definition EnumDecl = {};
+            EnumDecl.Identifier = Iter->TokenAt->Text;
+            EnumDecl.Size = sizeof(u32);
+            CopyMetaTagsAndClear(TagList, &EnumDecl.MetaTags);
+            EnumDecl.Type = TypeDef_Enum;
+            
+            NextToken(Iter);
+            
+            if (TokenAtEquals(Iter, "{"))
+            {
+                u32 EnumeratorAcc = 0;
+                
+                while (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
+                {
+                    if (Iter->TokenAt->Type == Token_Identifier)
+                    {
+                        string EnumeratorIdentifier = Iter->TokenAt->Text;
+                        NextToken(Iter);
+                        
+                        if (TokenAtEquals(Iter, "="))
+                        {
+                            // TODO(Peter): TempValue is just here until we handle all
+                            // const expr that could define an enum value. Its there so 
+                            // that if the first token of an expression is a number, 
+                            // we can avoid using anything from the expression.
+                            u32 TempValue = EnumeratorAcc;
+                            if (Iter->TokenAt->Type == Token_Number)
+                            {
+                                parse_result ParsedExpr = ParseSignedInt(StringExpand(Iter->TokenAt->Text));
+                                TempValue = ParsedExpr.SignedIntValue;
+                                NextToken(Iter);
+                            }
+                            
+                            // TODO(Peter): Handle setting enums equal to other kinds
+                            // of const exprs.
+                            // We're skipping a whole bunch of stuff now
+                            while (!(StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(",")) ||
+                                     StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}"))))
+                            {
+                                TempValue = EnumeratorAcc;
+                                NextToken(Iter);
+                            }
+                            
+                            EnumeratorAcc = TempValue;
+                        }
+                        
+                        s32 EnumeratorValue = EnumeratorAcc++;
+                        if (TokenAtEquals(Iter, ",") ||
+                            StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
+                        {
+                            EnumDecl.Enum.Identifiers.PushElementOnBucket(EnumeratorIdentifier);
+                            EnumDecl.Enum.Values.PushElementOnBucket(EnumeratorValue);
+                        }
+                        else if (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
+                        {
+                            Result = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (TokenAtEquals(Iter, "}") &&
+                    TokenAtEquals(Iter, ";"))
+                {
+                    PushTypeDefOnTypeTable(EnumDecl, TypeTable);
+                    Result = true;
+                }
+            }
+        }
+    }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
     return Result;
@@ -1072,6 +1228,159 @@ PrintFunctionPtrDecl (type_definition* FnPtrDecl, type_table TypeTable)
     printf(");");
 }
 
+struct typeinfo_generator
+{
+    string_builder TypeList;
+    string_builder StructMembers;
+    string_builder TypeDefinitions;
+    
+    u32 GeneratedInfoTypesCount;
+    u32 TypesMax;
+    b8* TypesGeneratedMask;
+};
+
+internal typeinfo_generator
+InitTypeInfoGenerator(type_table TypeTable)
+{
+    typeinfo_generator Result = {};
+    
+    Result.TypesMax = TypeTable.Types.Used;
+    Result.TypesGeneratedMask = (b8*)malloc(sizeof(b8) * Result.TypesMax);
+    GSZeroMemory((u8*)Result.TypesGeneratedMask, Result.TypesMax);
+    
+    WriteF(&Result.TypeList, "enum gsm_struct_type\n{\n");
+    
+    WriteF(&Result.TypeDefinitions, "static gsm_struct_type_info StructTypes[] = {\n");
+    return Result;
+}
+
+internal void
+FinishGeneratingTypes(typeinfo_generator* Generator)
+{
+    WriteF(&Generator->TypeList, "gsm_StructTypeCount,\n};\n\n");
+    
+    WriteF(&Generator->StructMembers, "\n");
+    
+    WriteF(&Generator->TypeDefinitions, "};\n");
+    WriteF(&Generator->TypeDefinitions, "gsm_u32 StructTypesCount = %d;\n", Generator->GeneratedInfoTypesCount);
+}
+
+internal void
+GenerateMetaTagInfo (gs_bucket<meta_tag> Tags, string_builder* Builder)
+{
+    WriteF(Builder, "{");
+    for (u32 t = 0; t < Tags.Used; t++)
+    {
+        meta_tag* Tag = Tags.GetElementAtIndex(t);
+        WriteF(Builder, "{ \"%S\", %d }", Tag->Identifier, Tag->Identifier.Length);
+        if ((t + 1) < Tags.Used)
+        {
+            WriteF(Builder, ", ");
+        }
+    }
+    WriteF(Builder, "}, %d", Tags.Used);
+}
+
+internal void
+GenerateStructMemberInfo (variable_decl* Member, string StructIdentifier, type_table TypeTable, typeinfo_generator* Gen)
+{
+    WriteF(&Gen->StructMembers, "{ \"%S\", %d, ", Member->Identifier, Member->Identifier.Length);
+    WriteF(&Gen->StructMembers, "(u64)&((%S*)0)->%S ", StructIdentifier, Member->Identifier); 
+    WriteF(&Gen->StructMembers, "},\n");
+}
+
+internal void
+GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, typeinfo_generator* Generator)
+{
+    Generator->TypesGeneratedMask[TypeIndex] = true;
+    Generator->GeneratedInfoTypesCount++;
+    
+    {
+        // NOTE(Peter): This block MUST come before generating
+        // type info for any member types. If it doesn't, it will screw
+        // up array ordering
+        
+        // Lookup Enum
+        WriteF(&Generator->TypeList, "gsm_StructType_%S,\n", Type->Identifier);
+        
+        // Type Info
+        WriteF(&Generator->TypeDefinitions, "{ gsm_StructType_%S, \"%S\", %d, %d, 0, 0, ",
+               Type->Identifier,
+               Type->Identifier, Type->Identifier.Length,
+               Type->Size
+               // TODO(Peter): include Meta Tags somehow
+               );
+        if ((Type->Type == TypeDef_Struct || Type->Type == TypeDef_Union) &&
+            Type->Struct.MemberDecls.Used > 0)
+        {
+            WriteF(&Generator->TypeDefinitions, "StructMembers_%S, %d },\n",
+                   Type->Identifier,
+                   Type->Struct.MemberDecls.Used);
+        }
+        else
+        {
+            WriteF(&Generator->TypeDefinitions, "0, 0 },\n");
+        }
+    }
+    
+    if (Type->Type == TypeDef_Struct || 
+        Type->Type == TypeDef_Union)
+    {
+        for (u32 m = 0; m < Type->Struct.MemberDecls.Used; m++)
+        {
+            variable_decl* Member = Type->Struct.MemberDecls.GetElementAtIndex(m);
+            type_definition* MemberType = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
+            
+            if (MemberType->Identifier.Length == 0) { continue; } // Don't gen info for anonymous struct and union members
+            if (Generator->TypesGeneratedMask[Member->TypeIndex]) { continue; }
+            
+            GenerateTypeInfo(MemberType, Member->TypeIndex, TypeTable, Generator);
+        }
+        
+        //
+        WriteF(&Generator->StructMembers, "static gsm_struct_member_type_info StructMembers_%S[] = {\n", Type->Identifier);
+        for (u32 m = 0; m < Type->Struct.MemberDecls.Used; m++)
+        {
+            variable_decl* Member = Type->Struct.MemberDecls.GetElementAtIndex(m);
+            type_definition* MemberType = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
+            
+            if (MemberType->Identifier.Length > 0)
+            {
+                GenerateStructMemberInfo(Member, Type->Identifier, TypeTable, Generator);
+            }
+            else if (MemberType->Type == TypeDef_Struct ||
+                     MemberType->Type == TypeDef_Union)
+            {
+                // Anonymous Members
+                for (u32 a = 0; a < MemberType->Struct.MemberDecls.Used; a++)
+                {
+                    variable_decl* AnonMember = MemberType->Struct.MemberDecls.GetElementAtIndex(a);
+                    GenerateStructMemberInfo(AnonMember, Type->Identifier, TypeTable, Generator);
+                }
+            }
+        }
+        WriteF(&Generator->StructMembers, "};\n", Type->Struct.MemberDecls.Used);
+    }
+}
+
+internal void
+GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_generator* Generator)
+{
+    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    {
+        if (Generator->TypesGeneratedMask[i])
+        {
+            continue;
+        }
+        
+        type_definition* Type = TypeTable.Types.GetElementAtIndex(i);
+        if (HasTag(MetaTagFilter, Type->MetaTags))
+        {
+            GenerateTypeInfo(Type, i, TypeTable, Generator);
+        }
+    }
+}
+
 // Step 1: Get All Tokens, for every file
 // Step 2: Identify all preprocessor directives
 // Step 3: Apply Preprocessor Directives && Generate Code
@@ -1087,29 +1396,31 @@ int main(int ArgCount, char** ArgV)
         return 0;
     }
     
+    errors Errors = {0};
+    
     memory_arena SourceFileArena = {};
     gs_bucket<source_code_file> SourceFiles;
     gs_bucket<token> Tokens;
     
     string_builder NodeTypeBlock = {};
-    Write(MakeStringLiteral("enum node_type\n{\n"), &NodeTypeBlock);
+    WriteF(&NodeTypeBlock, "enum node_type\n{\n");
     
     string_builder NodeMembersBlock = {};
     
     string_builder NodeSpecificationsBlock = {};
-    Write(MakeStringLiteral("node_specification NodeSpecifications[] = {\n"), &NodeSpecificationsBlock);
+    WriteF(&NodeSpecificationsBlock, "node_specification NodeSpecifications[] = {\n");
     
     string_builder CallNodeProcBlock = {};
-    Write(MakeStringLiteral("internal void CallNodeProc(u32 SpecificationIndex, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n"), &CallNodeProcBlock);
-    Write(MakeStringLiteral("node_specification Spec = NodeSpecifications[SpecificationIndex];\n"), &CallNodeProcBlock);
-    Write(MakeStringLiteral("switch (Spec.Type)\n{\n"), &CallNodeProcBlock);
+    WriteF(&CallNodeProcBlock, "internal void CallNodeProc(u32 SpecificationIndex, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n");
+    WriteF(&CallNodeProcBlock, "node_specification Spec = NodeSpecifications[SpecificationIndex];\n");
+    WriteF(&CallNodeProcBlock, "switch (Spec.Type)\n{\n");
     
     string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
     
     if (ArgCount > 1)
     {
         string RootFile = MakeString(ArgV[1]);
-        AddFileToSource(RootFile, &SourceFiles);
+        AddFileToSource(RootFile, &SourceFiles, &Errors);
         
         s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
         Assert(LastSlash > 0);
@@ -1137,6 +1448,7 @@ int main(int ArgCount, char** ArgV)
         Iter.LastToken = File->LastTokenIndex;
         Iter.TokenAtIndex = Iter.FirstToken;
         Iter.TokenAt = Tokens.GetElementAtIndex(Iter.TokenAtIndex);
+        Iter.Errors = &Errors;
         
         while (Iter.TokenAtIndex < Iter.LastToken)
         {
@@ -1170,11 +1482,15 @@ int main(int ArgCount, char** ArgV)
                     ParseSuccess = true;
                     if (!FileAlreadyInSource(TempFilePath, SourceFiles))
                     {
-                        AddFileToSource(TempFilePath, &SourceFiles);
+                        AddFileToSource(TempFilePath, &SourceFiles, &Errors);
                     }
                 }
             }
             else if(ParseMetaTag(&Iter, &TagList))
+            {
+                ParseSuccess = true;
+            }
+            else if (ParseEnum(&Iter, &TagList, &TypeTable))
             {
                 ParseSuccess = true;
             }
@@ -1200,48 +1516,29 @@ int main(int ArgCount, char** ArgV)
         type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
         if (TypeDef->Type == TypeDef_Struct)
         {
-            FixUpStructSize(i, TypeTable);
+            FixUpStructSize(i, TypeTable, &Errors);
         }
         else if (TypeDef->Type == TypeDef_Union)
         {
-            FixUpUnionSize(i, TypeTable);
+            FixUpUnionSize(i, TypeTable, &Errors);
         }
     }
-    
-    // Print All Structs
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
-    {
-        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
-#if 0
-        if ((TypeDef->Type == TypeDef_Struct || TypeDef->Type == TypeDef_Union) && TypeDef->Identifier.Length > 0)
-        {
-            PrintStructDecl(TypeDef, TypeTable);
-            printf("\n\n");
-        }
-#endif
-        
-        if (TypeDef->Type == TypeDef_FunctionPointer)
-        {
-            PrintFunctionPtrDecl(TypeDef, TypeTable);
-            printf("\n\n");
-        }
-    }
-    
     
     s64 Cycles_Preprocess = GetWallClock();
+    
+    PrintAllErrors(Errors);
     
     MakeStringBuffer(Buffer, 256);
     
     // Close Types Block - overwrite the last comma and '\' newline character with newlines.
-    Write(MakeStringLiteral("NodeType_Count,\n};\n\n"), &NodeTypeBlock);
+    WriteF(&NodeTypeBlock, "NodeType_Count,\n};\n\n");
     
     // Close Specifications Block
-    Write(MakeStringLiteral("};\n"), &NodeSpecificationsBlock);
-    PrintF(&Buffer, "s32 NodeSpecificationsCount = %d;\n\n", NodeProcCount);
-    Write(Buffer, &NodeSpecificationsBlock);
+    WriteF(&NodeSpecificationsBlock, "};\n");
+    WriteF(&NodeSpecificationsBlock, "s32 NodeSpecificationsCount = %d;\n\n", NodeProcCount);
     
     // Close Call Node Proc Block
-    Write(MakeStringLiteral("}\n}\n"), &CallNodeProcBlock);
+    WriteF(&CallNodeProcBlock, "}\n}\n");
     
     FILE* NodeGeneratedCPP = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_nodes_generated.cpp", "w");
     if (NodeGeneratedCPP)
@@ -1253,47 +1550,24 @@ int main(int ArgCount, char** ArgV)
         fclose(NodeGeneratedCPP);
     }
     
+    typeinfo_generator TypeGenerator = InitTypeInfoGenerator(TypeTable);
+    GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), TypeTable, &TypeGenerator);
+    FinishGeneratingTypes(&TypeGenerator);
+    FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
+    if (TypeInfoH)
+    {
+        WriteStringBuilderToFile(TypeGenerator.TypeList, TypeInfoH);
+        WriteStringBuilderToFile(TypeGenerator.StructMembers, TypeInfoH);
+        WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
+        fclose(NodeGeneratedCPP);
+    }
+    
     PrintErrorList(GlobalErrorList);
     
     s64 TotalEnd = GetWallClock();
-    
     r32 TotalTime = GetSecondsElapsed(TotalStart, TotalEnd);
-    
     printf("Metaprogram Preproc Time: %.*f sec\n", 6, TotalTime);
     
-#if 0
-    for (u32 i = 0; i < Structs.Used; i++)
-    {
-        seen_node_struct* Struct = Structs.GetElementAtIndex(i);
-        
-#ifdef PRINT_ALL_INFO
-        printf("\n");
-        for (u32 j = 0; j < Struct->MetaTags.Used; j++)
-        {
-            token* MetaTag = Struct->MetaTags.GetElementAtIndex(j);
-            printf("GSMetaTag(%.*s)\n", StringExpand(MetaTag->Text));
-        }
-#endif
-        
-        printf("struct %.*s\n", StringExpand(Struct->Name));
-        
-#ifdef PRINT_ALL_INFO
-        for (u32 j = 0; j < Struct->MemberDecls.Used; j++)
-        {
-            struct_member_decl* Member = Struct->MemberDecls.GetElementAtIndex(j);
-            
-            for (u32 k = 0; k < Member->MetaTags.Used; k++)
-            {
-                token* MetaTag = Member->MetaTags.GetElementAtIndex(k);
-                printf("    GSMetaTag(%.*s)\n", StringExpand(MetaTag->Text));
-            }
-            
-            printf("    %.*s %.*s\n", StringExpand(Member->Type), StringExpand(Member->Identifier));
-        }
-#endif
-    }
-#endif
-    
-    __debugbreak();
+    //__debugbreak();
     return 0;
 }

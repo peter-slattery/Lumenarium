@@ -12,19 +12,12 @@ typedef enum node_type node_type;
 
 #define DEFAULT_NODE_DIMENSION v2{125, 150}
 
-#define NODE_COLOR_BUFFER \
-led* LEDs; \
-pixel* Colors; \
-s32 LEDCount;
-
-#define NAMED_NODE_COLOR_BUFFER(name) \
-led* name##LEDs; \
-pixel* name##Colors; \
-s32 name##LEDCount;
-
-#define NODE_COLOR_BUFFER_INOUT NODE_COLOR_BUFFER
-#define NODE_COLOR_BUFFER_IN(name) NAMED_NODE_COLOR_BUFFER(name)
-#define NODE_COLOR_BUFFER_OUT(name) NAMED_NODE_COLOR_BUFFER(name)
+struct color_buffer
+{
+    led* LEDs;
+    pixel* Colors;
+    s32 LEDCount;
+};
 
 // TODO(Peter): Generate this
 enum struct_member_type
@@ -115,7 +108,8 @@ void proc_name(input_type* Data, r32 DeltaTime)
 
 struct output_node_data
 {
-    NODE_COLOR_BUFFER_IN(Result);
+    GSMetaTag(node_input);
+    color_buffer Result;
 };
 
 void OutputNode(output_node_data* Data, r32 DeltaTime)

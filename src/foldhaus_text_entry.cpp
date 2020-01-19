@@ -24,7 +24,7 @@ PipeSearchStringToDestination (text_entry* Input)
         
         case TextTranslateTo_R32:
         {
-            parse_result FloatParseResult = ParseFloat(Input->Buffer.Memory, Input->Buffer.Length);
+            parse_result FloatParseResult = ParseFloat(StringExpand(Input->Buffer));
             *Input->Destination.FloatDest = FloatParseResult.FloatValue;
         }break;
         

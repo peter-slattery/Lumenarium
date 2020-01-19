@@ -20,6 +20,11 @@
 
 #include "foldhaus_node.h"
 
+// TODO(Peter): TEMPORARY
+u32 NodeSpecificationsCount = 0;
+node_specification* NodeSpecifications = 0;
+
+
 #include "assembly_parser.cpp"
 //#include "test_patterns.h"
 
@@ -210,8 +215,8 @@ TestPatternThree(assembly* Assembly, r32 Time)
 #include "foldhaus_text_entry.cpp"
 #include "foldhaus_search_lister.cpp"
 
-//#include "foldhaus_default_nodes.h"
-#include "generated/foldhaus_nodes_generated.cpp"
+#include "foldhaus_default_nodes.h"
+
 #include "foldhaus_node.cpp"
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)

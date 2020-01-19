@@ -104,6 +104,29 @@ GetNextToken (tokenizer* Tokenizer)
     
     EatWhitespace(Tokenizer);
     
+    // Don't include comments in tokens
+    while (Tokenizer->At[0] && Tokenizer->At[0] == '/' && Tokenizer->At[1] &&  Tokenizer->At[1] == '/')
+    {
+        EatToNewLine(Tokenizer);
+        EatWhitespace(Tokenizer);
+    }
+    
+    while(Tokenizer->At[0] && Tokenizer->At[0] == '/' && Tokenizer->At[1] &&  Tokenizer->At[1] == '*')
+    {
+        Tokenizer->At += 2;
+        while (*Tokenizer->At)
+        {
+            if (Tokenizer->At[0] && Tokenizer->At[0] == '*' && Tokenizer->At[1] &&  Tokenizer->At[1] == '/')
+            {
+                Tokenizer->At += 2;
+                break;
+            }
+            EatToNewLine(Tokenizer);
+            EatWhitespace(Tokenizer);
+        }
+        EatWhitespace(Tokenizer);
+    }
+    
     Result.Text = MakeString(Tokenizer->At, 1, 1);
     
     // NOTE(Peter): Adding one because I want the tokenizer to work with clear to zero
@@ -225,23 +248,6 @@ GetNextToken (tokenizer* Tokenizer)
         // replace the length added by the quote
         Result.Text.Memory = Tokenizer->At;
         Result.Text.Length = EatString(Tokenizer);
-    }
-    else if (C == '/' && Tokenizer->At[0] &&  Tokenizer->At[0] == '/')
-    {
-        Result.Type = Token_Comment;
-        Result.Text.Length += 1 + EatToNewLine(Tokenizer);
-    }
-    else if (C == '/' && Tokenizer->At[0] && Tokenizer->At[0] == '*')
-    {
-        s32 CommentLength = 1;
-        while (Tokenizer->At[0] && Tokenizer->At[0] != '*' &&
-               Tokenizer->At[1] && Tokenizer->At[1] != '/')
-        {
-            ++Tokenizer->At;
-            CommentLength++;
-        }
-        
-        Result.Text.Length += CommentLength;
     }
     // NOTE(Peter): This is after comment parsing so that the division operator
     // falls through the comment case

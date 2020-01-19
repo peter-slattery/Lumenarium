@@ -6,13 +6,18 @@
 #ifndef TEST_PATTERNS_H
 
 
-NODE_STRUCT(solid_color_data)
+GSMetaTag(node_struct) 
+struct solid_color_data
 {
-    NODE_IN(v4, Color);
-    NODE_COLOR_BUFFER_OUT(Result);
+    GSMetaTag(node_input); 
+    v4 Color;
+    
+    GSMetaTag(node_output);
+    color_buffer Result;
 };
 
-NODE_PROC(SolidColorProc, solid_color_data)
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+void SolidColorProc, solid_color_data* Data)
 {
     u8 R = (u8)GSClamp(0.f, (Data->Color.r * 255), 255.f);
     u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
@@ -30,15 +35,24 @@ NODE_PROC(SolidColorProc, solid_color_data)
     }
 }
 
-NODE_STRUCT(vertical_color_fade_data)
+GSMetaTag(node_struct) 
+struct vertical_color_fade_data
 {
-    NODE_IN(v4, Color);
-    NODE_IN(r32, Min);
-    NODE_IN(r32, Max);
-    NODE_COLOR_BUFFER_OUT(Result);
+    GSMetaTag(node_input); 
+    v4 Color;
+    
+    GSMetaTag(node_input); 
+    r32 Min;
+    
+    GSMetaTag(node_input); 
+    r32 Max;
+    
+    GSMetaTag(node_output);
+    color_buffer Result;
 };
 
-NODE_PROC(VerticalColorFadeProc, vertical_color_fade_data)
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+void VerticalColorFadeProc, vertical_color_fade_data* Data)
 {
     r32 R = (Data->Color.r * 255);
     r32 G = (Data->Color.g * 255);
@@ -62,19 +76,36 @@ NODE_PROC(VerticalColorFadeProc, vertical_color_fade_data)
 }
 
 // Original -> DiscPatterns.pde : Revolving Discs
-NODE_STRUCT(revolving_discs_data)
+GSMetaTag(node_struct) 
+struct revolving_discs_data
 {
-    NODE_IN(r32, Rotation);
-    NODE_IN(r32, ThetaZ);
-    NODE_IN(r32, ThetaY);
-    NODE_IN(r32, DiscWidth);
-    NODE_IN(r32, InnerRadius);
-    NODE_IN(r32, OuterRadius);
-    NODE_IN(v4, Color);
-    NODE_COLOR_BUFFER_OUT(Result);
+    GSMetaTag(node_input); 
+    r32 Rotation;
+    
+    GSMetaTag(node_input); 
+    r32 ThetaZ;
+    
+    GSMetaTag(node_input); 
+    r32 ThetaY;
+    
+    GSMetaTag(node_input); 
+    r32 DiscWidth;
+    
+    GSMetaTag(node_input); 
+    r32 InnerRadius;
+    
+    GSMetaTag(node_input); 
+    r32 OuterRadius;
+    
+    GSMetaTag(node_input); 
+    v4 Color;
+    
+    GSMetaTag(node_output);
+    color_buffer Result;
 };
 
-NODE_PROC(RevolvingDiscs, revolving_discs_data)
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+void RevolvingDiscs, revolving_discs_data* Data)
 {
     DEBUG_TRACK_FUNCTION;
     
