@@ -296,32 +296,46 @@ FixUpStructSize (s32 StructIndex, type_table TypeTable)
         {
             type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
             
-            // NOTE(Peter): This signals a nested pointer to an address of the
-            // same type as the one we are parsing now. In that case, the size
-            // also hasn't been determined yet, but we know the size of the member
-            // is just a pointer (32 or 64 bits).
-            // For example, this would go into an infinite recursion without the case
-            // of StructIndex != Member->TypeIndex:
+            // NOTE(Peter): There are a lot of cases where struct members which are pointers
+            // to other structs cause interesting behavior here. 
+            // For example:
             //     struct foo { foo* Next; }
-            if (MemberTypeDef->Size == 0 && StructIndex != Member->TypeIndex)
+            // could cause infinite loops if we try and fixup all structs with a size of 0
+            // which would happen in this case, because we wouldn't have parsed foo's size 
+            // yet, but would begin fixing up foo because of the type of Next
+            // Another example:
+            //     typedef struct bar bar;
+            //     struct foo { bar* Bar; }
+            //     struct bar { foo* Foo; }
+            // causes the exact same problem, but we cant detect it by just excluding 
+            // fixing up StructIndex recursively. 
+            // 
+            // TL;DR
+            // The solution I've chosen to go with is just exclude all pointer members from 
+            // causing recursive fixups. Those types should be fixed up at some point in the
+            // process, and we already know how big a pointer is in memory, no matter the type
+            if (!Member->Pointer)
             {
-                if (MemberTypeDef->Type == TypeDef_Struct)
+                if (MemberTypeDef->Size == 0)
                 {
-                    FixUpStructSize(Member->TypeIndex, TypeTable);
-                }
-                else if (MemberTypeDef->Type == TypeDef_Union)
-                {
-                    FixUpUnionSize(Member->TypeIndex, TypeTable);
-                }
-                else 
-                { 
-                    // TODO(Peter): We don't parse all types yet, so for now, this is just an alert,
-                    // not an assert;
+                    if (MemberTypeDef->Type == TypeDef_Struct)
+                    {
+                        FixUpStructSize(Member->TypeIndex, TypeTable);
+                    }
+                    else if (MemberTypeDef->Type == TypeDef_Union)
+                    {
+                        FixUpUnionSize(Member->TypeIndex, TypeTable);
+                    }
+                    else 
+                    { 
+                        // TODO(Peter): We don't parse all types yet, so for now, this is just an alert,
+                        // not an assert;
 #if 0
-                    InvalidCodePath;
+                        InvalidCodePath;
 #else
-                    printf("Struct Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
+                        printf("Struct Error: TypeDef Size = 0. %.*s\n", StringExpand(MemberTypeDef->Identifier));
 #endif
+                    }
                 }
             }
             
