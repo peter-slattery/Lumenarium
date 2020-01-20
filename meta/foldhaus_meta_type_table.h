@@ -335,7 +335,7 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
             {
                 if (MemberTypeDef->Type == TypeDef_Unknown)
                 {
-                    PushFError(Errors, "Error: TypeDef Unknown: %S\n", MemberTypeDef->Identifier);
+                    PushFError(Errors, "Error: TypeDef Unknown: %S", MemberTypeDef->Identifier);
                 }
                 else
                 {

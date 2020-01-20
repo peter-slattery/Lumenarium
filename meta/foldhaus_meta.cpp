@@ -1331,52 +1331,58 @@ GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_g
     }
 }
 
-int main(int ArgCount, char** ArgV)
+struct gs_meta_preprocessor
 {
-    s64 TotalStart = GetWallClock();
+    errors Errors;
     
-    if (ArgCount <= 1)
-    {
-        printf("Please supply at least one source directory to analyze.\n");
-        return 0;
-    }
-    
-    errors Errors = {0};
     gs_bucket<source_code_file> SourceFiles;
+    gs_bucket<token> Tokens;
+    
+    gs_bucket<token> TagList;
+    
+    type_table TypeTable;
+    
+    // Performance
+    s64 PreprocessorStartTime;
+    s64 PreprocessorEndTime;
+};
+
+internal gs_meta_preprocessor
+PreprocessProgram (char* SourceFile)
+{
+    gs_meta_preprocessor Meta = {};
+    
+    Meta.PreprocessorStartTime = GetWallClock();
+    
+    PopulateTableWithDefaultCPPTypes(&Meta.TypeTable);
     
     string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
-    if (ArgCount > 1)
+    
+    string RootFile = MakeString(SourceFile);
+    AddFileToSource(RootFile, &Meta.SourceFiles, &Meta.Errors);
+    
+    s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
+    if (LastSlash <= 0)
     {
-        string RootFile = MakeString(ArgV[1]);
-        AddFileToSource(RootFile, &SourceFiles, &Errors);
-        
-        s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
-        Assert(LastSlash > 0);
-        
-        string RootPath = Substring(RootFile, 0, LastSlash + 1);
-        CopyStringTo(RootPath, &CurrentWorkingDirectory);
+        PushFError(&Meta.Errors, "%S: File path invalid.", RootFile);
+        return Meta;
     }
     
-    // NOTE(Peter): this is a temporary list of GSMetaTags. It gets copied and cleared
-    // after use
-    gs_bucket<token> Tokens;
-    gs_bucket<token> TagList;
-    type_table TypeTable = {0};
-    PopulateTableWithDefaultCPPTypes(&TypeTable);
+    string RootPath = Substring(RootFile, 0, LastSlash + 1);
+    CopyStringTo(RootPath, &CurrentWorkingDirectory);
     
-    s32 NodeProcCount = 0;
-    for (u32 SourceFileIdx = 0; SourceFileIdx < SourceFiles.Used; SourceFileIdx++)
+    for (u32 SourceFileIdx = 0; SourceFileIdx < Meta.SourceFiles.Used; SourceFileIdx++)
     {
-        source_code_file* File = SourceFiles.GetElementAtIndex(SourceFileIdx);
-        TokenizeFile(File, &Tokens);
+        source_code_file* File = Meta.SourceFiles.GetElementAtIndex(SourceFileIdx);
+        TokenizeFile(File, &Meta.Tokens);
         
         token_iter Iter = {};
-        Iter.Tokens = &Tokens;
+        Iter.Tokens = &Meta.Tokens;
         Iter.FirstToken = File->FirstTokenIndex;
         Iter.LastToken = File->LastTokenIndex;
         Iter.TokenAtIndex = Iter.FirstToken;
-        Iter.TokenAt = Tokens.GetElementAtIndex(Iter.TokenAtIndex);
-        Iter.Errors = &Errors;
+        Iter.TokenAt = Meta.Tokens.GetElementAtIndex(Iter.TokenAtIndex);
+        Iter.Errors = &Meta.Errors;
         
         while (Iter.TokenAtIndex < Iter.LastToken)
         {
@@ -1408,25 +1414,25 @@ int main(int ArgCount, char** ArgV)
                     }
                     
                     ParseSuccess = true;
-                    if (!FileAlreadyInSource(TempFilePath, SourceFiles))
+                    if (!FileAlreadyInSource(TempFilePath, Meta.SourceFiles))
                     {
-                        AddFileToSource(TempFilePath, &SourceFiles, &Errors);
+                        AddFileToSource(TempFilePath, &Meta.SourceFiles, &Meta.Errors);
                     }
                 }
             }
-            else if(ParseMetaTag(&Iter, &TagList))
+            else if(ParseMetaTag(&Iter, &Meta.TagList))
             {
                 ParseSuccess = true;
             }
-            else if (ParseEnum(&Iter, &TagList, &TypeTable))
+            else if (ParseEnum(&Iter, &Meta.TagList, &Meta.TypeTable))
             {
                 ParseSuccess = true;
             }
-            else if (ParseStruct(&Iter, &TypeIndex, &TagList, &TypeTable))
+            else if (ParseStruct(&Iter, &TypeIndex, &Meta.TagList, &Meta.TypeTable))
             {
                 ParseSuccess = true;
             }
-            else if (ParseTypedef(&Iter, &TagList, &TypeTable))
+            else if (ParseTypedef(&Iter, &Meta.TagList, &Meta.TypeTable))
             {
                 ParseSuccess = true;
             }
@@ -1439,29 +1445,57 @@ int main(int ArgCount, char** ArgV)
     }
     
     // Type Table Fixup
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    for (u32 i = 0; i < Meta.TypeTable.Types.Used; i++)
     {
-        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
+        type_definition* TypeDef = Meta.TypeTable.Types.GetElementAtIndex(i);
         if (TypeDef->Type == TypeDef_Struct)
         {
-            FixUpStructSize(i, TypeTable, &Errors);
+            FixUpStructSize(i, Meta.TypeTable, &Meta.Errors);
         }
         else if (TypeDef->Type == TypeDef_Union)
         {
-            FixUpUnionSize(i, TypeTable, &Errors);
+            FixUpUnionSize(i, Meta.TypeTable, &Meta.Errors);
         }
     }
     
+    Meta.PreprocessorEndTime = GetWallClock();
+    return Meta;
+}
+
+internal void
+FinishMetaprogram(gs_meta_preprocessor* Meta)
+{
+    PrintAllErrors(Meta->Errors);
+    
+    s64 TotalEnd = GetWallClock();
+    r32 PreprocTime = GetSecondsElapsed(Meta->PreprocessorStartTime, Meta->PreprocessorEndTime);
+    r32 TotalTime = GetSecondsElapsed(Meta->PreprocessorStartTime, TotalEnd);
+    r32 UserTime = TotalTime - PreprocTime;
+    printf("Metaprogram Performance:\n");
+    printf("    Preproc Time: %.*f sec\n", 6, PreprocTime);
+    printf("    Custom Time:  %.*f sec\n", 6, UserTime);
+    printf("    Total Time:   %.*f sec\n", 6, TotalTime);
+    
+}
+
+int main(int ArgCount, char* Args[])
+{
+    if (ArgCount <= 1)
+    {
+        printf("Please supply at least one source directory to analyze.\n");
+        return 0;
+    }
+    
+    gs_meta_preprocessor Meta = PreprocessProgram(Args[1]);
     s64 Cycles_Preprocess = GetWallClock();
     
-    PrintAllErrors(Errors);
+    typeinfo_generator TypeGenerator = InitTypeInfoGenerator(Meta.TypeTable);
     
-    typeinfo_generator TypeGenerator = InitTypeInfoGenerator(TypeTable);
-    
-    GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), TypeTable, &TypeGenerator);
-    GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), TypeTable, &TypeGenerator);
+    GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), Meta.TypeTable, &TypeGenerator);
+    GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), Meta.TypeTable, &TypeGenerator);
     
     FinishGeneratingTypes(&TypeGenerator);
+    
     FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
     if (TypeInfoH)
     {
@@ -1471,10 +1505,7 @@ int main(int ArgCount, char** ArgV)
         fclose(TypeInfoH);
     }
     
-    s64 TotalEnd = GetWallClock();
-    r32 TotalTime = GetSecondsElapsed(TotalStart, TotalEnd);
-    printf("Metaprogram Preproc Time: %.*f sec\n", 6, TotalTime);
-    
+    FinishMetaprogram(&Meta);
     //__debugbreak();
     return 0;
 }
