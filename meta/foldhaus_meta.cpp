@@ -153,6 +153,31 @@ TokenAtEquals(token_iter* Iter, char* String)
     return Result;
 }
 
+internal b32
+TokenAtEquals(token_iter* Iter, token_type Type)
+{
+    b32 Result = false;
+    if (Iter->TokenAt->Type == Type)
+    {
+        Result = true;
+        NextToken(Iter);
+    }
+    return Result;
+}
+
+internal b32
+TokenAtEquals(token_iter* Iter, token_type Type, token* Token)
+{
+    b32 Result = false;
+    if (Iter->TokenAt->Type == Type)
+    {
+        Result = true;
+        *Token = *Iter->TokenAt;
+        NextToken(Iter);
+    }
+    return Result;
+}
+
 internal void
 PushSnapshot (token_iter* Iter)
 {
@@ -256,95 +281,6 @@ FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
     return Result;
 }
 
-internal void 
-EatToNextLine (tokenizer* Tokenizer)
-{
-    while (AtValidPosition(*Tokenizer) && !IsNewline(*Tokenizer->At))
-    {
-        EatChar(Tokenizer); 
-    }
-}
-
-internal s32
-GetTypedefSize (token* Token)
-{
-    s32 Size = 0;
-    
-    token* LookingAt = Token->Next;
-    
-    if (StringsEqual(LookingAt->Text, MakeStringLiteral("unsigned")) ||
-        StringsEqual(LookingAt->Text, MakeStringLiteral("signed")))
-    {
-        LookingAt = LookingAt->Next;
-    }
-    
-    s32 Level = 1;
-    if (StringsEqual(LookingAt->Text, MakeStringLiteral("short")))
-    {
-        Level = -1;
-        LookingAt = LookingAt->Next;
-    }
-    while (StringsEqual(LookingAt->Text, MakeStringLiteral("long")))
-    {
-        Level= 2.f;
-        LookingAt = LookingAt->Next;
-    }
-    
-    if (StringsEqual(LookingAt->Text, MakeStringLiteral("char")))
-    {
-        Size = 1;
-    }
-    else if (StringsEqual(LookingAt->Text, MakeStringLiteral("int")))
-    {
-        switch (Level)
-        {
-            case -1: { Size = 2; } break;
-            case  1: { Size = 4; } break;
-            case  2: { Size = 8; } break;
-            InvalidDefaultCase;
-        }
-    }
-    else  if (StringsEqual(LookingAt->Text, MakeStringLiteral("float")))
-    {
-        Size = 4;
-    }
-    else if (StringsEqual(LookingAt->Text, MakeStringLiteral("double")))
-    {
-        Size = 8;
-    }
-    else if (StringsEqual(LookingAt->Text, MakeStringLiteral("bool")))
-    {
-        Size = 1;
-    }
-    else if (StringsEqual(LookingAt->Text, MakeStringLiteral("void")))
-    {
-        LogError(&GlobalErrorList, "void type Not Handled");
-    }
-    
-    return Size;
-}
-
-internal string
-GetTypedefIdentifier (token* Token)
-{
-    string Identifier = {};
-    
-    token* PreviousToken = Token;
-    token* LookingAt = Token->Next;
-    while (LookingAt->Type != Token_Semicolon)
-    {
-        PreviousToken = LookingAt;
-        LookingAt = LookingAt->Next;
-    }
-    
-    if (PreviousToken->Type == Token_Identifier)
-    {
-        Identifier = PreviousToken->Text;
-    }
-    
-    return Identifier;
-}
-
 internal s64
 GetWallClock ()
 {
@@ -425,7 +361,7 @@ TokenizeFile (source_code_file* File, gs_bucket<token>* Tokens)
 }
 
 internal b32
-ParseMetaTag(token_iter* Iter, gs_bucket<token*>* TagList)
+ParseMetaTag(token_iter* Iter, gs_bucket<token>* TagList)
 {
     b32 Result = false;
     PushSnapshot(Iter);
@@ -433,17 +369,17 @@ ParseMetaTag(token_iter* Iter, gs_bucket<token*>* TagList)
     if (TokenAtEquals(Iter, "GSMetaTag") &&
         TokenAtEquals(Iter, "("))
     {
-        if (Iter->TokenAt->Type == Token_Identifier)
+        token MetaIdentifier = {0};
+        if (TokenAtEquals(Iter, Token_Identifier, &MetaIdentifier))
         {
-            TagList->PushElementOnBucket(Iter->TokenAt);
-            if (StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("breakpoint")))
+            TagList->PushElementOnBucket(MetaIdentifier);
+            if (StringsEqual(MetaIdentifier.Text, MakeStringLiteral("breakpoint")))
             {
                 // NOTE(Peter): This is not a temporary breakpoint. It is 
                 // used to be able to break the meta program at specific points
                 // throughout execution
                 __debugbreak();
             }
-            NextToken(Iter);
             
             if (TokenAtEquals(Iter, ")") &&
                 TokenAtEquals(Iter, ";"))
@@ -736,11 +672,33 @@ ParsePointer (token_iter* Iter)
 }
 
 internal b32
-ParseVariableDecl(token_iter* Iter, gs_bucket<token*>* TagList, variable_decl* VarDecl, type_table* TypeTable)
+ParseConstVolatile (token_iter* Iter)
 {
     b32 Result = false;
-    *VarDecl = {0};
     PushSnapshot(Iter);
+    
+    if (TokenAtEquals(Iter, "volatile") ||
+        TokenAtEquals(Iter, "const"))
+    {
+        Result = true;
+    }
+    
+    ApplySnapshotIfNotParsedAndPop(Result, Iter);
+    return Result;
+}
+
+internal b32
+ParseVariableDecl(token_iter* Iter, gs_bucket<token>* TagList, gs_bucket<variable_decl>* VariableList, type_table* TypeTable)
+{
+    b32 Result = false;
+    PushSnapshot(Iter);
+    
+    if (ParseConstVolatile(Iter))
+    {
+        // NOTE(Peter): we don't do anything with this atm
+        // dont have a reason to just yet
+        // :UnusedConstVolatile
+    }
     
     s32 TypeIndex = -1;
     if (ParseType(Iter, TypeTable, &TypeIndex))
@@ -752,48 +710,55 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<token*>* TagList, variable_decl* V
             NextToken(Iter);
         }
         
-        VarDecl->Pointer = ParsePointer(Iter);
+        b32 IsPointer = ParsePointer(Iter);
         
-        if (Iter->TokenAt->Type == Token_Identifier)
+        if (ParseConstVolatile(Iter))
         {
-            VarDecl->TypeIndex = TypeIndex;
-            VarDecl->Identifier = Iter->TokenAt->Text;
-            CopyMetaTagsAndClear(TagList, &VarDecl->MetaTags);
-            
-            NextToken(Iter);
-            
-            // Array Notationg ie r32 x[2];
-            // NOTE(Peter): True initially because if there is no array notation, we 
-            // are still ok to proceed
-            b32 ArrayParseSuccess = true;
-            if (TokenAtEquals(Iter, "["))
-            {
-                // NOTE(Peter): Once we get to this point, we have to complete the entire
-                // array notation before we have successfully parsed, hence setting 
-                // ArrayParseSucces to false here.
-                ArrayParseSuccess = false;
-                if (Iter->TokenAt->Type == Token_Number)
-                {
-                    parse_result ArrayCount = ParseUnsignedInt(StringExpand(Iter->TokenAt->Text));
-                    VarDecl->ArrayCount = ArrayCount.UnsignedIntValue;
-                    NextToken(Iter);
-                    
-                    if (TokenAtEquals(Iter, "]"))
-                    {
-                        ArrayParseSuccess = true;
-                    }
-                }
-            }
-            
-            // TODO(Peter): Handle comma separated members
-            // ie. r32 x, y, z;
-            
-            if (ArrayParseSuccess)
-            {
-                Result = true;
-            }
+            // :UnusedConstVolatile
         }
         
+        do {
+            token IdentifierToken = {};
+            if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken))
+            {
+                // Array Notationg ie r32 x[2];
+                // NOTE(Peter): True initially because if there is no array notation, we 
+                // are still ok to proceed
+                b32 ArrayParseSuccess = true;
+                u32 ArrayCount = 0;
+                if (TokenAtEquals(Iter, "["))
+                {
+                    // NOTE(Peter): Once we get to this point, we have to complete the entire
+                    // array notation before we have successfully parsed, hence setting 
+                    // ArrayParseSucces to false here.
+                    ArrayParseSuccess = false;
+                    token NumberToken = {};
+                    if (TokenAtEquals(Iter, Token_Number, &NumberToken))
+                    {
+                        parse_result ParseArrayCount = ParseUnsignedInt(StringExpand(NumberToken.Text));
+                        ArrayCount = ParseArrayCount.UnsignedIntValue;
+                        
+                        if (TokenAtEquals(Iter, "]"))
+                        {
+                            ArrayParseSuccess = true;
+                        }
+                    }
+                }
+                
+                if (ArrayParseSuccess)
+                {
+                    Result = true;
+                    
+                    variable_decl* Decl = VariableList->TakeElement();
+                    *Decl = {};
+                    Decl->Identifier = IdentifierToken.Text;
+                    Decl->TypeIndex = TypeIndex;
+                    Decl->Pointer = IsPointer;
+                    Decl->ArrayCount = ArrayCount;
+                    CopyMetaTagsAndClear(TagList, &Decl->MetaTags);
+                }
+            }
+        } while (TokenAtEquals(Iter, ","));
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
@@ -818,7 +783,7 @@ StructOrUnion(token_iter* Iter, type_definition_type* Type)
 }
 
 internal b32
-ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagList, type_table* TypeTable)
+ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     *StructTypeIndexOut = -1;
@@ -828,17 +793,14 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
     type_definition_type DeclType;
     if (StructOrUnion(Iter, &DeclType))
     {
-        string StructIdentifier = {};
-        if (Iter->TokenAt->Type == Token_Identifier)
-        {
-            StructIdentifier = Iter->TokenAt->Text;
-            NextToken(Iter);
-        }
+        token IdentifierToken = {};
+        if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken)) {}
         
+        // TODO(Peter): Handle name coming after the struct
         if (TokenAtEquals(Iter, "{"))
         {
             type_definition StructDecl = {};
-            StructDecl.Identifier = StructIdentifier;
+            StructDecl.Identifier = IdentifierToken.Text;
             StructDecl.Type = DeclType;
             CopyMetaTagsAndClear(TagList, &StructDecl.MetaTags);
             
@@ -850,11 +812,11 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
                 {
                     
                 }
-                else if (ParseVariableDecl(Iter, TagList, &MemberDecl, TypeTable))
+                else if (ParseVariableDecl(Iter, TagList, &StructDecl.Struct.MemberDecls, TypeTable))
                 {
-                    if (TokenAtEquals(Iter, ";"))
+                    if (!TokenAtEquals(Iter, ";"))
                     {
-                        StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
+                        PushFError(Iter->Errors, "No semicolon after struct member variable declaration. %S", StructDecl.Identifier);
                     }
                 }
                 else if (ParseStruct(Iter, &MemberStructTypeIndex, TagList, TypeTable))
@@ -871,7 +833,10 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
                 }
                 else
                 {
-                    // TODO(Peter): Handle unions
+                    // NOTE(Peter): One of the things that falls through here is
+                    // cpp template stuff. Eventually, we should be able to use
+                    // this meta layer to get rid of them all together, and then
+                    // we can just disallow CPP templates
                     NextToken(Iter);
                 }
             }
@@ -890,7 +855,7 @@ ParseStruct(token_iter* Iter, s32* StructTypeIndexOut, gs_bucket<token*>* TagLis
 
 // ( type *? identifier, ... )
 internal b32
-ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, gs_bucket<token*>* TagList, type_table* TypeTable)
+ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, gs_bucket<token>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     PushSnapshot(Iter);
@@ -901,13 +866,10 @@ ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, 
         
         while(!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(")")))
         {
-            variable_decl ParameterDecl = {};
-            if (ParseVariableDecl(Iter, TagList, &ParameterDecl, TypeTable))
+            if (ParseVariableDecl(Iter, TagList, &FunctionPtrDecl->FunctionPtr.Parameters, TypeTable))
             {
-                FunctionPtrDecl->FunctionPtr.Parameters.PushElementOnBucket(ParameterDecl);
-                if (Iter->TokenAt->Type == Token_Comma)
+                if (TokenAtEquals(Iter, Token_Comma))
                 {
-                    NextToken(Iter);
                 }
                 else if (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(")")))
                 {
@@ -928,7 +890,7 @@ ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, 
 }
 
 internal b32
-ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>* TagList, type_table* TypeTable)
+ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     PushSnapshot(Iter);
@@ -944,10 +906,10 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>
         
         b32 IsPointer = ParsePointer(Iter);
         
-        if (Iter->TokenAt->Type == Token_Identifier)
+        if (TokenAtEquals(Iter, Token_Identifier, Identifier))
         {
             type_definition FunctionPtr = {};
-            FunctionPtr.Identifier = Iter->TokenAt->Text;
+            FunctionPtr.Identifier = Identifier->Text;
             FunctionPtr.Size = sizeof(void*);
             CopyMetaTagsAndClear(TagList, &FunctionPtr.MetaTags);
             FunctionPtr.Type = TypeDef_FunctionPointer;
@@ -955,8 +917,6 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>
             FunctionPtr.FunctionPtr = {};
             FunctionPtr.FunctionPtr.ReturnTypeIndex = ReturnTypeIndex;
             
-            *Identifier = *Iter->TokenAt;
-            NextToken(Iter);
             if (ParseFunctionParameterList(Iter, &FunctionPtr, TagList, TypeTable))
             {
                 if (TokenAtEquals(Iter, ";"))
@@ -977,7 +937,7 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_bucket<token*>
 }
 
 internal b32 
-ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable)
+ParseTypedef(token_iter* Iter, gs_bucket<token>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     PushSnapshot(Iter);
@@ -1018,13 +978,12 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
             }
             NewType.Pointer = BasisType->Pointer || IsPointer;
             
-            if (Iter->TokenAt->Type == Token_Identifier)
+            token IdentifierToken = {};
+            if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken))
             {
-                NewType.Identifier = Iter->TokenAt->Text;
-                NextToken(Iter);
-                
-                Result = true;
+                NewType.Identifier = IdentifierToken.Text;
                 PushTypeDefOnTypeTable(NewType, TypeTable);
+                Result = true;
             }
         }
         else
@@ -1046,46 +1005,43 @@ ParseTypedef(token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable
 }
 
 internal b32
-ParseEnum (token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable)
+ParseEnum (token_iter* Iter, gs_bucket<token>* TagList, type_table* TypeTable)
 {
     b32 Result = false;
     PushSnapshot(Iter);
     
     if (TokenAtEquals(Iter, "enum"))
     {
-        if (Iter->TokenAt->Type == Token_Identifier)
+        token IdentifierToken = {};
+        if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken))
         {
             type_definition EnumDecl = {};
-            EnumDecl.Identifier = Iter->TokenAt->Text;
+            EnumDecl.Identifier = IdentifierToken.Text;
             EnumDecl.Size = sizeof(u32);
             CopyMetaTagsAndClear(TagList, &EnumDecl.MetaTags);
             EnumDecl.Type = TypeDef_Enum;
             
-            NextToken(Iter);
-            
             if (TokenAtEquals(Iter, "{"))
             {
-                u32 EnumeratorAcc = 0;
+                u32 EnumAcc = 0;
                 
                 while (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
                 {
-                    if (Iter->TokenAt->Type == Token_Identifier)
+                    token EnumIdentifierToken = {};
+                    if (TokenAtEquals(Iter, Token_Identifier, &EnumIdentifierToken))
                     {
-                        string EnumeratorIdentifier = Iter->TokenAt->Text;
-                        NextToken(Iter);
-                        
                         if (TokenAtEquals(Iter, "="))
                         {
                             // TODO(Peter): TempValue is just here until we handle all
                             // const expr that could define an enum value. Its there so 
                             // that if the first token of an expression is a number, 
                             // we can avoid using anything from the expression.
-                            u32 TempValue = EnumeratorAcc;
-                            if (Iter->TokenAt->Type == Token_Number)
+                            u32 TempValue = EnumAcc;
+                            token NumberToken = {};
+                            if (TokenAtEquals(Iter, Token_Number, &NumberToken))
                             {
-                                parse_result ParsedExpr = ParseSignedInt(StringExpand(Iter->TokenAt->Text));
+                                parse_result ParsedExpr = ParseSignedInt(StringExpand(NumberToken.Text));
                                 TempValue = ParsedExpr.SignedIntValue;
-                                NextToken(Iter);
                             }
                             
                             // TODO(Peter): Handle setting enums equal to other kinds
@@ -1094,19 +1050,19 @@ ParseEnum (token_iter* Iter, gs_bucket<token*>* TagList, type_table* TypeTable)
                             while (!(StringsEqual(Iter->TokenAt->Text, MakeStringLiteral(",")) ||
                                      StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}"))))
                             {
-                                TempValue = EnumeratorAcc;
+                                TempValue = EnumAcc;
                                 NextToken(Iter);
                             }
                             
-                            EnumeratorAcc = TempValue;
+                            EnumAcc = TempValue;
                         }
                         
-                        s32 EnumeratorValue = EnumeratorAcc++;
+                        s32 EnumValue = EnumAcc++;
                         if (TokenAtEquals(Iter, ",") ||
                             StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
                         {
-                            EnumDecl.Enum.Identifiers.PushElementOnBucket(EnumeratorIdentifier);
-                            EnumDecl.Enum.Values.PushElementOnBucket(EnumeratorValue);
+                            EnumDecl.Enum.Identifiers.PushElementOnBucket(EnumIdentifierToken.Text);
+                            EnumDecl.Enum.Values.PushElementOnBucket(EnumValue);
                         }
                         else if (!StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
                         {
@@ -1381,11 +1337,6 @@ GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_g
     }
 }
 
-// Step 1: Get All Tokens, for every file
-// Step 2: Identify all preprocessor directives
-// Step 3: Apply Preprocessor Directives && Generate Code
-// Step 4: Write out new files
-// Step 5: Compile
 int main(int ArgCount, char** ArgV)
 {
     s64 TotalStart = GetWallClock();
@@ -1398,25 +1349,9 @@ int main(int ArgCount, char** ArgV)
     
     errors Errors = {0};
     
-    memory_arena SourceFileArena = {};
     gs_bucket<source_code_file> SourceFiles;
-    gs_bucket<token> Tokens;
-    
-    string_builder NodeTypeBlock = {};
-    WriteF(&NodeTypeBlock, "enum node_type\n{\n");
-    
-    string_builder NodeMembersBlock = {};
-    
-    string_builder NodeSpecificationsBlock = {};
-    WriteF(&NodeSpecificationsBlock, "node_specification NodeSpecifications[] = {\n");
-    
-    string_builder CallNodeProcBlock = {};
-    WriteF(&CallNodeProcBlock, "internal void CallNodeProc(u32 SpecificationIndex, u8* Data, led* LEDs, s32 LEDsCount, r32 DeltaTime)\n{\n");
-    WriteF(&CallNodeProcBlock, "node_specification Spec = NodeSpecifications[SpecificationIndex];\n");
-    WriteF(&CallNodeProcBlock, "switch (Spec.Type)\n{\n");
     
     string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
-    
     if (ArgCount > 1)
     {
         string RootFile = MakeString(ArgV[1]);
@@ -1432,7 +1367,8 @@ int main(int ArgCount, char** ArgV)
     
     // NOTE(Peter): this is a temporary list of GSMetaTags. It gets copied and cleared
     // after use
-    gs_bucket<token*> TagList;
+    gs_bucket<token> Tokens;
+    gs_bucket<token> TagList;
     type_table TypeTable = {0};
     PopulateTableWithDefaultCPPTypes(&TypeTable);
     
@@ -1528,30 +1464,11 @@ int main(int ArgCount, char** ArgV)
     
     PrintAllErrors(Errors);
     
-    MakeStringBuffer(Buffer, 256);
-    
-    // Close Types Block - overwrite the last comma and '\' newline character with newlines.
-    WriteF(&NodeTypeBlock, "NodeType_Count,\n};\n\n");
-    
-    // Close Specifications Block
-    WriteF(&NodeSpecificationsBlock, "};\n");
-    WriteF(&NodeSpecificationsBlock, "s32 NodeSpecificationsCount = %d;\n\n", NodeProcCount);
-    
-    // Close Call Node Proc Block
-    WriteF(&CallNodeProcBlock, "}\n}\n");
-    
-    FILE* NodeGeneratedCPP = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_nodes_generated.cpp", "w");
-    if (NodeGeneratedCPP)
-    {
-        WriteStringBuilderToFile(NodeTypeBlock, NodeGeneratedCPP);
-        WriteStringBuilderToFile(NodeMembersBlock, NodeGeneratedCPP);
-        WriteStringBuilderToFile(NodeSpecificationsBlock, NodeGeneratedCPP);
-        WriteStringBuilderToFile(CallNodeProcBlock, NodeGeneratedCPP);
-        fclose(NodeGeneratedCPP);
-    }
-    
     typeinfo_generator TypeGenerator = InitTypeInfoGenerator(TypeTable);
+    
     GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), TypeTable, &TypeGenerator);
+    GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), TypeTable, &TypeGenerator);
+    
     FinishGeneratingTypes(&TypeGenerator);
     FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
     if (TypeInfoH)
@@ -1559,7 +1476,7 @@ int main(int ArgCount, char** ArgV)
         WriteStringBuilderToFile(TypeGenerator.TypeList, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.StructMembers, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
-        fclose(NodeGeneratedCPP);
+        fclose(TypeInfoH);
     }
     
     PrintErrorList(GlobalErrorList);

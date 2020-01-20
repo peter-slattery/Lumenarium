@@ -105,13 +105,15 @@ HasTag(string Needle, gs_bucket<meta_tag> Tags)
 }
 
 internal void
-CopyMetaTagsAndClear(gs_bucket<token*>* Source, gs_bucket<meta_tag>* Dest)
+CopyMetaTagsAndClear(gs_bucket<token>* Source, gs_bucket<meta_tag>* Dest)
 {
     for (u32 i = 0; i < Source->Used; i++)
     {
-        token* TagToken = *Source->GetElementAtIndex(i);
+        token* TagToken = Source->GetElementAtIndex(i);
+        
         meta_tag TagDest = {0};
         TagDest.Identifier = TagToken->Text;
+        
         Dest->PushElementOnBucket(TagDest);
     }
     Source->Used = 0;
@@ -279,7 +281,8 @@ internal s32
 CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 {
     Assert(Member.TypeIndex >= 0);
-    // TODO(Peter): Assert(MemberType.Size != 0);
+    // NOTE(Peter): At one point we were Asserting on struct sizes of zero, but
+    // that's actually incorrect. It is valid to have an empty struct.
     
     s32 Result = MemberType.Size;
     if (Member.ArrayCount > 0)
@@ -332,7 +335,7 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
             {
                 if (MemberTypeDef->Type == TypeDef_Unknown)
                 {
-                    PushFError(Errors, "Union Error: TypeDef Unknown: %S\n", MemberTypeDef->Identifier);
+                    PushFError(Errors, "Error: TypeDef Unknown: %S\n", MemberTypeDef->Identifier);
                 }
                 else
                 {
@@ -341,7 +344,7 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
 #if 0
                     InvalidCodePath;
 #else
-                    PushFError(Errors, "Struct Error: TypeDef Size = 0. %S\n", MemberTypeDef->Identifier);
+                    PushFError(Errors, "Error: TypeDef Size = 0. %S\n", MemberTypeDef->Identifier);
 #endif
                 }
             }
@@ -366,7 +369,6 @@ FixUpStructSize (s32 StructIndex, type_table TypeTable, errors* Errors)
         variable_decl* Member = Struct->Struct.MemberDecls.GetElementAtIndex(j);
         FixupMemberType(Member, TypeTable);
         
-        // TODO(Peter): 
         if (Member->TypeIndex >= 0)
         {
             type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
@@ -449,6 +451,9 @@ type_definition CPPBasicTypes[] = {
     { MakeStringLiteral("long long int"), sizeof(long long int), {}, TypeDef_BasicType, {}, false },
     { MakeStringLiteral("void"), sizeof(void*), {}, TypeDef_BasicType, {}, false },
     { MakeStringLiteral("bool"), sizeof(bool), {}, TypeDef_BasicType, {}, false },
+    
+    // These are from system headers that we aren't parsing atm
+    { MakeStringLiteral("HANDLE"), sizeof(void*), {}, TypeDef_BasicType, {}, false },
 };
 
 internal void
