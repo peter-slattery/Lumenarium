@@ -17,14 +17,9 @@
 #include <gs_bucket.h>
 #include "..\src\gs_platform.h"
 #include <gs_memory_arena.h>
-#if 1
-#include "..\src\gs_string.h"
-#else
 #include <gs_string.h>
-#endif
 #include <gs_string_builder.h>
 
-#include "gs_meta_error.h"
 #include "gs_meta_lexer.h"
 
 struct error_buffer
@@ -96,7 +91,6 @@ PrintAllErrors (errors Errors)
 }
 
 #include "foldhaus_meta_type_table.h"
-error_list GlobalErrorList = {};
 
 PLATFORM_ALLOC(StdAlloc)
 {
@@ -233,7 +227,7 @@ GetFileSize (char* FileName)
 }
 
 internal s32
-ReadEntireFileAndNullTerminate (source_code_file* File)
+ReadEntireFileAndNullTerminate (source_code_file* File, errors* Errors)
 {
     s32 LengthRead = 0;
     
@@ -257,7 +251,7 @@ ReadEntireFileAndNullTerminate (source_code_file* File)
     }
     else
     {
-        LogError(&GlobalErrorList, "Could Not Read File: %.*s", StringExpand(File->Path));
+        PushFError(Errors, "Could Not Read File: %S", File->Path);
     }
     
     return LengthRead;
@@ -326,7 +320,7 @@ AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles, e
     CopyStringTo(RelativePath, &File.Path);
     NullTerminate(&File.Path);
     
-    File.FileSize = ReadEntireFileAndNullTerminate(&File);
+    File.FileSize = ReadEntireFileAndNullTerminate(&File, Errors);
     
     if (File.FileSize > 0)
     {
@@ -1348,7 +1342,6 @@ int main(int ArgCount, char** ArgV)
     }
     
     errors Errors = {0};
-    
     gs_bucket<source_code_file> SourceFiles;
     
     string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
@@ -1363,7 +1356,6 @@ int main(int ArgCount, char** ArgV)
         string RootPath = Substring(RootFile, 0, LastSlash + 1);
         CopyStringTo(RootPath, &CurrentWorkingDirectory);
     }
-    
     
     // NOTE(Peter): this is a temporary list of GSMetaTags. It gets copied and cleared
     // after use
@@ -1478,8 +1470,6 @@ int main(int ArgCount, char** ArgV)
         WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
         fclose(TypeInfoH);
     }
-    
-    PrintErrorList(GlobalErrorList);
     
     s64 TotalEnd = GetWallClock();
     r32 TotalTime = GetSecondsElapsed(TotalStart, TotalEnd);
