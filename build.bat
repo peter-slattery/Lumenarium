@@ -1,8 +1,7 @@
 @echo off
 
-set ProjectDevRoot=C:\projects\test
-set ProjectName=Lumenarium
-set ProjectDevPath=%ProjectDevRoot%\%ProjectName%
+set ProjectDevFolder=%~dp0
+set ProjectDevPath=%ProjectDevFolder:~0,-1%
 
 pushd %ProjectDevPath%
 
