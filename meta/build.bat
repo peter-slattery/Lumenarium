@@ -1,7 +1,7 @@
 @echo off
 
-set ProjectDevRoot=C:\projects
-set ProjectName=foldhaus
+set ProjectDevRoot=C:\projects\test
+set ProjectName=Lumenarium
 set ProjectDevPath=%ProjectDevRoot%\%ProjectName%
 
 pushd %ProjectDevPath%
@@ -18,6 +18,6 @@ pushd build
 
 cl %CommonCompilerFlags% ..\meta\foldhaus_meta.cpp /link %CommonLinkerFlags%
 
-C:\programs\ctime\ctime.exe -end C:\projects\foldhaus\build\win32_gs_meta_build_time.ctm %LastError%
-C:\programs\ctime\ctime.exe -stats C:\projects\foldhaus\build\win32_gs_meta_build_time.ctm
+C:\programs\ctime\ctime.exe -end %ProjectDevPath%\build\win32_gs_meta_build_time.ctm %LastError%
+REM C:\programs\ctime\ctime.exe -stats %ProjectDevPath%\build\win32_gs_meta_build_time.ctm
 popd

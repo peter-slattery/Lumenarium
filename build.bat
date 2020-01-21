@@ -1,7 +1,7 @@
 @echo off
 
 set ProjectDevRoot=C:\projects\test
-set ProjectName=foldhaus
+set ProjectName=Lumenarium
 set ProjectDevPath=%ProjectDevRoot%\%ProjectName%
 
 pushd %ProjectDevPath%
@@ -19,7 +19,7 @@ pushd build
 del *.pdb > NUL 2> NUL
 
 REM Run the Preprocessor
-..\build\foldhaus_meta.exe %ProjectDefPath%\src\foldhaus_app.cpp
+foldhaus_meta.exe ..\src\foldhaus_app.cpp
 
 echo WAITING FOR PDB TO WRITE > lock.tmp
 
@@ -30,5 +30,6 @@ del lock.tmp
 
 cl %CommonCompilerFlags% ..\src\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib -incremental:no
 
-C:\programs\ctime\ctime.exe -end C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm %LastError%
+C:\programs\ctime\ctime.exe -end %ProjectDevPath%\build\win32_foldhaus_build_time.ctm %LastError%
+REM C:\programs\ctime\ctime.exe -stats %ProjectDevPath%\build\win32_foldhaus_build_time.ctm
 popd
