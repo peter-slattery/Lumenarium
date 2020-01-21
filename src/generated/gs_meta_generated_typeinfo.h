@@ -1,16 +1,16 @@
 enum gsm_struct_type
 {
-gsm_StructType_sin_wave_data,
-gsm_StructType_r32,
-gsm_StructType_multiply_patterns_data,
-gsm_StructType_color_buffer,
-gsm_StructType_led,
-gsm_StructType_s32,
-gsm_StructType_v4,
-gsm_StructType_float,
-gsm_StructType_pixel,
-gsm_StructType_u8,
-gsm_StructTypeCount,
+    gsm_StructType_sin_wave_data,
+    gsm_StructType_r32,
+    gsm_StructType_multiply_patterns_data,
+    gsm_StructType_color_buffer,
+    gsm_StructType_led,
+    gsm_StructType_s32,
+    gsm_StructType_v4,
+    gsm_StructType_float,
+    gsm_StructType_pixel,
+    gsm_StructType_u8,
+    gsm_StructType_Count,
 };
 
 static gsm_struct_member_type_info StructMembers_sin_wave_data[] = {
@@ -64,4 +64,4 @@ static gsm_struct_type_info StructTypes[] = {
 { gsm_StructType_pixel, "pixel", 5, 3, 0, 0, StructMembers_pixel, 2 },
 { gsm_StructType_u8, "u8", 2, 1, 0, 0, 0, 0 },
 };
-gsm_u32 StructTypesCount = 10;
+static gsm_u32 StructTypesCount = 10;

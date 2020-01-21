@@ -121,8 +121,7 @@ GetNextToken (tokenizer* Tokenizer)
                 Tokenizer->At += 2;
                 break;
             }
-            EatToNewLine(Tokenizer);
-            EatWhitespace(Tokenizer);
+            Tokenizer->At++;
         }
         EatWhitespace(Tokenizer);
     }

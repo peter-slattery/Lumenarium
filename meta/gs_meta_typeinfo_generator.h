@@ -3,15 +3,21 @@
 // Author: Peter Slattery
 // Creation Date: 2020-01-19
 //
+// Usage 
+// TODO
+// 
+//
 #ifndef GS_META_TYPEINFO_GENERATOR_H
 
 #include <gs_language.h>
 #include <gs_string.h>
 #include <gs_string_builder.h>
+#include "gs_meta_code_generator.h"
 
 struct typeinfo_generator
 {
-    string_builder TypeList;
+    string_builder TypeListString;
+    gsm_code_generator TypeList;
     string_builder StructMembers;
     string_builder TypeDefinitions;
     
@@ -20,16 +26,17 @@ struct typeinfo_generator
     b8* TypesGeneratedMask;
 };
 
+#define TypeHandleToIndex(handle) ((handle.BucketIndex * TYPE_TABLE_BUCKET_MAX) + handle.IndexInBucket)
 internal typeinfo_generator
 InitTypeInfoGenerator(type_table TypeTable)
 {
     typeinfo_generator Result = {};
     
-    Result.TypesMax = TypeTable.Types.Used;
+    Result.TypesMax = TypeTable.TypeBucketsCount * TYPE_TABLE_BUCKET_MAX;
     Result.TypesGeneratedMask = (b8*)malloc(sizeof(b8) * Result.TypesMax);
     GSZeroMemory((u8*)Result.TypesGeneratedMask, Result.TypesMax);
     
-    WriteF(&Result.TypeList, "enum gsm_struct_type\n{\n");
+    Result.TypeList = BeginEnumGeneration("gsm_struct_type", "gsm_StructType", false, true);
     
     WriteF(&Result.TypeDefinitions, "static gsm_struct_type_info StructTypes[] = {\n");
     return Result;
@@ -38,12 +45,12 @@ InitTypeInfoGenerator(type_table TypeTable)
 internal void
 FinishGeneratingTypes(typeinfo_generator* Generator)
 {
-    WriteF(&Generator->TypeList, "gsm_StructTypeCount,\n};\n\n");
+    FinishEnumGeneration(&Generator->TypeList);
     
     WriteF(&Generator->StructMembers, "\n");
     
     WriteF(&Generator->TypeDefinitions, "};\n");
-    WriteF(&Generator->TypeDefinitions, "gsm_u32 StructTypesCount = %d;\n", Generator->GeneratedInfoTypesCount);
+    WriteF(&Generator->TypeDefinitions, "static gsm_u32 StructTypesCount = %d;\n", Generator->GeneratedInfoTypesCount);
 }
 
 internal void
@@ -71,9 +78,12 @@ GenerateStructMemberInfo (variable_decl* Member, string StructIdentifier, type_t
 }
 
 internal void
-GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, typeinfo_generator* Generator)
+GenerateTypeInfo (type_definition* Type, type_table_handle TypeHandle, type_table TypeTable, typeinfo_generator* Generator)
 {
-    Generator->TypesGeneratedMask[TypeIndex] = true;
+    // TODO(Peter): 
+    // 1. allocate the full range of the types hash table
+    // 2. use bucketindex * bucket_max + indexinbucket to get the consecutive index
+    Generator->TypesGeneratedMask[TypeHandleToIndex(TypeHandle)] = true;
     Generator->GeneratedInfoTypesCount++;
     
     {
@@ -81,8 +91,7 @@ GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, ty
         // type info for any member types. If it doesn't, it will screw
         // up array ordering
         
-        // Lookup Enum
-        WriteF(&Generator->TypeList, "gsm_StructType_%S,\n", Type->Identifier);
+        AddEnumElement(&Generator->TypeList, Type->Identifier);
         
         // Type Info
         WriteF(&Generator->TypeDefinitions, "{ gsm_StructType_%S, \"%S\", %d, %d, 0, 0, ",
@@ -110,12 +119,18 @@ GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, ty
         for (u32 m = 0; m < Type->Struct.MemberDecls.Used; m++)
         {
             variable_decl* Member = Type->Struct.MemberDecls.GetElementAtIndex(m);
-            type_definition* MemberType = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
+            type_definition* MemberType = GetTypeDefinition(Member->TypeHandle, TypeTable);
             
-            if (MemberType->Identifier.Length == 0) { continue; } // Don't gen info for anonymous struct and union members
-            if (Generator->TypesGeneratedMask[Member->TypeIndex]) { continue; }
+            if ((MemberType->Type == TypeDef_Struct ||
+                 MemberType->Type == TypeDef_Union) &&
+                MemberType->Struct.IsAnonymous) 
+            { 
+                continue; // Don't gen info for anonymous struct and union members
+            } 
             
-            GenerateTypeInfo(MemberType, Member->TypeIndex, TypeTable, Generator);
+            if (Generator->TypesGeneratedMask[TypeHandleToIndex(Member->TypeHandle)]) { continue; }
+            
+            GenerateTypeInfo(MemberType, Member->TypeHandle, TypeTable, Generator);
         }
         
         //
@@ -123,14 +138,14 @@ GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, ty
         for (u32 m = 0; m < Type->Struct.MemberDecls.Used; m++)
         {
             variable_decl* Member = Type->Struct.MemberDecls.GetElementAtIndex(m);
-            type_definition* MemberType = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
+            type_definition* MemberType = GetTypeDefinition(Member->TypeHandle, TypeTable);
             
-            if (MemberType->Identifier.Length > 0)
+            if ((MemberType->Type != TypeDef_Struct && MemberType->Type != TypeDef_Union) ||
+                !MemberType->Struct.IsAnonymous)
             {
                 GenerateStructMemberInfo(Member, Type->Identifier, TypeTable, Generator);
             }
-            else if (MemberType->Type == TypeDef_Struct ||
-                     MemberType->Type == TypeDef_Union)
+            else if (MemberType->Struct.IsAnonymous)
             {
                 // Anonymous Members
                 for (u32 a = 0; a < MemberType->Struct.MemberDecls.Used; a++)
@@ -147,17 +162,29 @@ GenerateTypeInfo (type_definition* Type, u32 TypeIndex, type_table TypeTable, ty
 internal void
 GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_generator* Generator)
 {
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
     {
-        if (Generator->TypesGeneratedMask[i])
-        {
-            continue;
-        }
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
         
-        type_definition* Type = TypeTable.Types.GetElementAtIndex(i);
-        if (HasTag(MetaTagFilter, Type->MetaTags))
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
         {
-            GenerateTypeInfo(Type, i, TypeTable, Generator);
+            type_table_handle TypeHandle = {};
+            TypeHandle.BucketIndex = b;
+            TypeHandle.IndexInBucket = i;
+            
+            if (Generator->TypesGeneratedMask[TypeHandleToIndex(TypeHandle)])
+            {
+                continue;
+            }
+            
+            type_definition* Type = GetTypeDefinitionUnsafe(TypeHandle, TypeTable);
+            if (Type)
+            {
+                if (HasTag(MetaTagFilter, Type->MetaTags))
+                {
+                    GenerateTypeInfo(Type, TypeHandle, TypeTable, Generator);
+                }
+            }
         }
     }
 }

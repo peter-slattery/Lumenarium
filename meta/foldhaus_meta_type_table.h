@@ -16,8 +16,15 @@ enum type_definition_type
     TypeDef_Union,
     TypeDef_BasicType,
     TypeDef_FunctionPointer,
+    TypeDef_Function,
     
     TypeDef_Count,
+};
+
+struct type_table_handle
+{
+    s32 BucketIndex;
+    u32 IndexInBucket;
 };
 
 struct meta_tag
@@ -31,7 +38,7 @@ struct variable_decl
     // at the same time. This means that not all types will be able to be matched
     // up on the first pass through. A TypeIndex of -1 means we need to fixup that
     // type at a later time
-    s32 TypeIndex;
+    type_table_handle TypeHandle;
     string Identifier;
     b32 Pointer;
     
@@ -45,6 +52,7 @@ struct variable_decl
 
 struct struct_decl
 {
+    b32 IsAnonymous;
     // TODO(Peter): Lots of tiny arrays everywhere! Pull these into a central allocation
     // buffer somewhere
     // :SmallAllocationsAllOver
@@ -53,9 +61,16 @@ struct struct_decl
 
 struct function_pointer_decl
 {
-    s32 ReturnTypeIndex;
+    type_table_handle ReturnTypeHandle;
     // :SmallAllocationsAllOver
     gs_bucket<variable_decl> Parameters;
+};
+
+struct function_decl
+{
+    type_table_handle ReturnTypeHandle;
+    gs_bucket<variable_decl> Parameters;
+    // TODO(Peter): AST?
 };
 
 struct enum_decl
@@ -80,13 +95,22 @@ struct type_definition
         enum_decl Enum;
         struct_decl Struct;
         function_pointer_decl FunctionPtr;
+        function_decl Function;
     };
     b32 Pointer;
 };
 
+#define TYPE_TABLE_BUCKET_MAX 1024
+struct type_table_hash_bucket
+{
+    u32* Keys;
+    type_definition* Values;
+};
+
 struct type_table
 {
-    gs_bucket<type_definition> Types;
+    type_table_hash_bucket* Types;
+    u32 TypeBucketsCount;
 };
 
 internal b32
@@ -119,63 +143,190 @@ CopyMetaTagsAndClear(gs_bucket<token>* Source, gs_bucket<meta_tag>* Dest)
     Source->Used = 0;
 }
 
-internal s32
+#define InvalidTypeTableHandle type_table_handle{0, 0}
+
+// #define TypeHandleIsValid(handle) (!((handle).BucketIndex == 0) && ((handle).IndexInBucket == 0))
+inline b32 TypeHandleIsValid(type_table_handle A)
+{
+    b32 FirstBucket = (A.BucketIndex == 0);
+    b32 FirstIndex = (A.IndexInBucket == 0);
+    b32 Both = FirstBucket && FirstIndex;
+    return !Both;
+}
+
+#define TypeHandlesEqual(a, b) (((a).BucketIndex == (b).BucketIndex) && ((a).IndexInBucket == (b).IndexInBucket))
+
+internal u32
+HashIdentifier(string Identifier)
+{
+    u32 IdentHash = HashString(Identifier);
+    if (IdentHash == 0)
+    {
+        // NOTE(Peter): We are excluding a has of zero so taht 
+        // the type_table_handle where BucketIndex and IndexInBucket
+        // are both zero is an invalid handle
+        IdentHash += 1;
+    }
+    return IdentHash;
+}
+
+internal type_table_handle
+PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
+{
+    type_table_handle Result = InvalidTypeTableHandle;
+    
+    u32 IdentHash = HashIdentifier(TypeDef.Identifier);
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    
+    for (u32 b = 0; b < TypeTable->TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket* Bucket = TypeTable->Types + b;
+        if (Bucket->Keys[Index] == 0)
+        {
+            Bucket->Keys[Index] = IdentHash;
+            Bucket->Values[Index] = TypeDef;
+            
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+        }
+    }
+    
+    if (!TypeHandleIsValid(Result))
+    {
+        // Grow Hash Table
+        u32 NewTypeBucketIndex = TypeTable->TypeBucketsCount++;
+        u32 NewTypesSize = TypeTable->TypeBucketsCount * sizeof(type_table_hash_bucket);
+        TypeTable->Types = (type_table_hash_bucket*)realloc(TypeTable->Types, NewTypesSize);
+        
+        type_table_hash_bucket* NewBucket = TypeTable->Types + NewTypeBucketIndex;
+        NewBucket->Keys = (u32*)malloc(sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Values = (type_definition*)malloc(sizeof(type_definition) * TYPE_TABLE_BUCKET_MAX);
+        GSZeroMemory((u8*)NewBucket->Keys, sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        GSZeroMemory((u8*)NewBucket->Values, sizeof(type_definition) * TYPE_TABLE_BUCKET_MAX);
+        
+        NewBucket->Keys[Index] = IdentHash;
+        NewBucket->Values[Index] = TypeDef;
+        
+        Result.BucketIndex = NewTypeBucketIndex;
+        Result.IndexInBucket = Index;
+    }
+    
+    return Result;
+}
+
+internal type_table_handle
 PushUndeclaredType (string Identifier, type_table* TypeTable)
 {
     type_definition UndeclaredTypeDef = {};
     UndeclaredTypeDef.Identifier = Identifier;
     UndeclaredTypeDef.Type = TypeDef_Unknown;
-    s32 TypeIndex = (s32)TypeTable->Types.PushElementOnBucket(UndeclaredTypeDef);
-    return TypeIndex;
+    type_table_handle Result = PushTypeOnHashTable(UndeclaredTypeDef, TypeTable);
+    return Result;
 }
 
-internal s32 
-GetIndexOfType (string Identifier, type_table TypeTable)
+internal type_table_handle
+GetTypeHandle (string Identifier, type_table TypeTable)
 {
-    s32 Result = -1;
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    type_table_handle Result = InvalidTypeTableHandle;
+    
+    u32 IdentHash = HashIdentifier(Identifier);
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
     {
-        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
-        if (StringsEqual(Identifier, TypeDef->Identifier))
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
+        if (Bucket.Keys[Index] == IdentHash)
         {
-            Result = i;
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
+// Guaranteed to return a valid result
+internal type_definition* 
+GetTypeDefinition(type_table_handle Handle, type_table TypeTable)
+{
+    Assert(TypeHandleIsValid(Handle));
+    type_definition* Result = 0;
+    if (TypeTable.Types[Handle.BucketIndex].Keys != 0)
+    {
+        Result = TypeTable.Types[Handle.BucketIndex].Values + Handle.IndexInBucket;
+    }
+    return Result;
+}
+
+// May return zero
+internal type_definition* 
+GetTypeDefinitionUnsafe(type_table_handle Handle, type_table TypeTable)
+{
+    type_definition* Result = 0;
+    if (TypeTable.Types[Handle.BucketIndex].Keys != 0)
+    {
+        Result = TypeTable.Types[Handle.BucketIndex].Values + Handle.IndexInBucket;
+    }
+    return Result;
+}
+
+internal type_definition* 
+GetTypeDefinition(string Identifier, type_table TypeTable)
+{
+    type_definition* Result = 0;
+    u32 IdentHash = HashIdentifier(Identifier);
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
+        if (Bucket.Keys[Index] == IdentHash )
+        {
+            Result = Bucket.Values + Index;
             break;
         }
     }
     return Result;
 }
 
-internal s32
+internal type_table_handle
 PushTypeDefOnTypeTable(type_definition TypeDef, type_table* TypeTable)
 {
-    s32 Index = -1;
+    // NOTE(Peter): We don't accept type definitions with empty identifiers.
+    // If a struct or union is anonymous, it should be assigned a name of the form
+    // parent_struct_name_# where # is the member index
+    // ie.
+    //    struct foo { int a; union { int x }; };
+    //    the union in foo would have the identifier foo_1
+    Assert(TypeDef.Identifier.Length != 0);
     
-    s32 ExistingUndeclaredTypeIndex = GetIndexOfType(TypeDef.Identifier, *TypeTable);
+    type_table_handle Result = InvalidTypeTableHandle;
+    type_table_handle ExistingUndeclaredTypeHandle = GetTypeHandle(TypeDef.Identifier, *TypeTable);
     
-    // NOTE(Peter): If the identifier length is zero, they will all match with the 
-    // first anonymous struct/union member. So every anon struct/union gets its own
-    // typeef
-    if (ExistingUndeclaredTypeIndex < 0 || TypeDef.Identifier.Length == 0)
+    if (!TypeHandleIsValid(ExistingUndeclaredTypeHandle))
     {
-        Index = TypeTable->Types.PushElementOnBucket(TypeDef);
+        Result = PushTypeOnHashTable(TypeDef, TypeTable);
     }
     else
     {
-        Index = ExistingUndeclaredTypeIndex;
-        type_definition* ExistingTypeDef = TypeTable->Types.GetElementAtIndex(ExistingUndeclaredTypeIndex);
+        Result = ExistingUndeclaredTypeHandle;
+        type_definition* ExistingTypeDef = GetTypeDefinition(Result, *TypeTable);
+        Assert(ExistingTypeDef != 0);
         *ExistingTypeDef = TypeDef;
     }
     
-    return Index;
+    return Result;
 }
 
 internal s32
-GetSizeOfType (s32 TypeIndex, type_table TypeTable)
+GetSizeOfType (type_table_handle TypeHandle, type_table TypeTable)
 {
     s32 Result = -1;
-    Assert(TypeIndex >= 0 && (u32)TypeIndex < TypeTable.Types.Used);
-    type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(TypeIndex);
-    Result = TypeDef->Size;
+    type_definition* TypeDef = GetTypeDefinition(TypeHandle, TypeTable);
+    if (TypeDef)
+    {
+        Result = TypeDef->Size;
+    }
     return Result;
 }
 
@@ -183,14 +334,10 @@ internal s32
 GetSizeOfType (string Identifier, type_table TypeTable)
 {
     s32 Result = -1;
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    type_definition* TypeDef = GetTypeDefinition(Identifier, TypeTable);
+    if (TypeDef)
     {
-        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
-        if (StringsEqual(Identifier, TypeDef->Identifier))
-        {
-            Result = TypeDef->Size;
-            break;
-        }
+        Result = TypeDef->Size;
     }
     return Result;
 }
@@ -199,7 +346,7 @@ internal b32
 VariableDeclsEqual (variable_decl A, variable_decl B)
 {
     b32 Result = false;
-    if (A.TypeIndex == B.TypeIndex &&
+    if (TypeHandlesEqual(A.TypeHandle, B.TypeHandle) &&
         A.ArrayCount == B.ArrayCount &&
         StringsEqual(A.Identifier, B.Identifier))
     {
@@ -236,51 +383,35 @@ StructOrUnionsEqual (type_definition A, type_definition B)
     return Result;
 }
 
-internal s32
-FindIndexOfMatchingType (type_definition Match, type_table TypeTable)
+internal type_table_handle
+FindHandleOfMatchingType (type_definition Match, type_table TypeTable)
 {
-    s32 Result = -1;
-    for (u32 i = 0; i < TypeTable.Types.Used; i++)
+    type_table_handle Result = InvalidTypeTableHandle;
+    type_table_handle Handle = GetTypeHandle(Match.Identifier, TypeTable);
+    if (TypeHandleIsValid(Handle))
     {
-        type_definition* TypeDef = TypeTable.Types.GetElementAtIndex(i);
-        if (StringsEqual(Match.Identifier, TypeDef->Identifier))
-        {
-            if (Match.Type == TypeDef_Struct ||
-                Match.Type == TypeDef_Union)
-            {
-                if (StructOrUnionsEqual(Match, *TypeDef))
-                {
-                    Result = (s32)i;
-                    break;
-                }
-            }
-            else
-            {
-                Result = (s32)i;
-                break;
-            }
-        }
+        Result = Handle;
     }
     return Result;
 }
 
-internal void FixUpStructSize (s32 StructIndex, type_table TypeTable, errors* Errors);
-internal void FixUpUnionSize (s32 UnionIndex, type_table TypeTable, errors* Errors);
+internal void FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors);
+internal void FixUpUnionSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors);
 
 internal void
 FixupMemberType (variable_decl* Member, type_table TypeTable)
 {
-    if (Member->TypeIndex == -1)
+    if (!TypeHandleIsValid(Member->TypeHandle))
     {
-        Member->TypeIndex = GetIndexOfType(Member->Identifier, TypeTable);
+        Member->TypeHandle = GetTypeHandle(Member->Identifier, TypeTable);
     }
-    Assert(Member->TypeIndex >= 0);
+    Assert(TypeHandleIsValid(Member->TypeHandle));
 }
 
 internal s32
 CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 {
-    Assert(Member.TypeIndex >= 0);
+    Assert(TypeHandleIsValid(Member.TypeHandle));
     // NOTE(Peter): At one point we were Asserting on struct sizes of zero, but
     // that's actually incorrect. It is valid to have an empty struct.
     
@@ -325,11 +456,11 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
         {
             if (MemberTypeDef->Type == TypeDef_Struct)
             {
-                FixUpStructSize(Member->TypeIndex, TypeTable, Errors);
+                FixUpStructSize(Member->TypeHandle, TypeTable, Errors);
             }
             else if (MemberTypeDef->Type == TypeDef_Union)
             {
-                FixUpUnionSize(Member->TypeIndex, TypeTable, Errors);
+                FixUpUnionSize(Member->TypeHandle, TypeTable, Errors);
             }
             else 
             {
@@ -353,9 +484,9 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
 }
 
 internal void
-FixUpStructSize (s32 StructIndex, type_table TypeTable, errors* Errors)
+FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors)
 {
-    type_definition* Struct = TypeTable.Types.GetElementAtIndex(StructIndex);
+    type_definition* Struct = GetTypeDefinition(TypeHandle, TypeTable);
     Assert(Struct->Type == TypeDef_Struct);
     
     if (HasTag(MakeStringLiteral("breakpoint"), Struct->MetaTags))
@@ -369,12 +500,10 @@ FixUpStructSize (s32 StructIndex, type_table TypeTable, errors* Errors)
         variable_decl* Member = Struct->Struct.MemberDecls.GetElementAtIndex(j);
         FixupMemberType(Member, TypeTable);
         
-        if (Member->TypeIndex >= 0)
+        if (TypeHandleIsValid(Member->TypeHandle))
         {
-            type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
-            
+            type_definition* MemberTypeDef = GetTypeDefinition(Member->TypeHandle, TypeTable);
             FixupStructMember(Member, MemberTypeDef, TypeTable, Errors);
-            
             u32 MemberSize = CalculateStructMemberSize(*Member, *MemberTypeDef);
             SizeAcc += MemberSize;
         }
@@ -400,9 +529,9 @@ FixUpStructSize (s32 StructIndex, type_table TypeTable, errors* Errors)
 }
 
 internal void
-FixUpUnionSize (s32 UnionIndex, type_table TypeTable, errors* Errors)
+FixUpUnionSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors)
 {
-    type_definition* Union = TypeTable.Types.GetElementAtIndex(UnionIndex);
+    type_definition* Union = GetTypeDefinition(TypeHandle, TypeTable);
     Assert(Union->Type == TypeDef_Union);
     
     s32 BiggestMemberSize = 0;
@@ -411,9 +540,9 @@ FixUpUnionSize (s32 UnionIndex, type_table TypeTable, errors* Errors)
         variable_decl* Member = Union->Struct.MemberDecls.GetElementAtIndex(j);
         FixupMemberType(Member, TypeTable);
         
-        if (Member->TypeIndex >= 0)
+        if (TypeHandleIsValid(Member->TypeHandle))
         {
-            type_definition* MemberTypeDef = TypeTable.Types.GetElementAtIndex(Member->TypeIndex);
+            type_definition* MemberTypeDef = GetTypeDefinition(Member->TypeHandle, TypeTable);
             FixupStructMember(Member, MemberTypeDef, TypeTable, Errors);
             s32 MemberSize = CalculateStructMemberSize(*Member, *MemberTypeDef);
             BiggestMemberSize = GSMax(BiggestMemberSize, MemberSize);

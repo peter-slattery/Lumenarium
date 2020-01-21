@@ -1,15 +1,9 @@
 //
-// Usage
+// File: foldhaus_meta.cpp
+// Author: Peter Slattery
+// Creation Date: 2020-01-19
 //
-// GSMetaTag(<tag name>) to give commands to the meta layer
-//
-// Tag Values
-// 
-// breakpoint 
-//   will cause the meta layer to break in the debugger when it reaches
-//   that point in processing the file
-//   TODO: specify which stage you want it to break at
-
+#ifndef FOLDHAUS_META_CPP
 
 #include "gs_meta.cpp"
 #include "gs_meta_typeinfo_generator.h"
@@ -23,25 +17,64 @@ int main(int ArgCount, char* Args[])
     }
     
     gs_meta_preprocessor Meta = PreprocessProgram(Args[1]);
-    s64 Cycles_Preprocess = GetWallClock();
     
     typeinfo_generator TypeGenerator = InitTypeInfoGenerator(Meta.TypeTable);
-    
     GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), Meta.TypeTable, &TypeGenerator);
     GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), Meta.TypeTable, &TypeGenerator);
-    
     FinishGeneratingTypes(&TypeGenerator);
+    
+    gsm_code_generator NodeTypeGen = BeginEnumGeneration("node_type", "NodeType", false, true);
+    
+#if 0
+    // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
+    // of type_definition** 
+    printf("\n\n");
+    for (u32 i = 0; i < Meta.TypeTable.Types.Used; i++)
+    {
+        type_definition* Decl = Meta.TypeTable.Types.GetElementAtIndex(i);
+        if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
+            Decl->Type == TypeDef_Function)
+        {
+            AddEnumElement(&NodeTypeGen, Decl->Identifier);
+            
+            type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
+            type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
+            printf("%.*s %.*s(\n", StringExpand(ReturnType->Identifier), StringExpand(Decl->Identifier));
+            for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
+            {
+                variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
+                type_table_handle ParamTypeHandle = Param->TypeHandle;
+                type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
+                printf("    %.*s %.*s,\n", StringExpand(ParamType->Identifier), StringExpand(Param->Identifier));
+            }
+            printf(");\n\n");
+        }
+    }
+    printf("\n\n");
+#endif
+    
+    FinishEnumGeneration(&NodeTypeGen);
     
     FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
     if (TypeInfoH)
     {
-        WriteStringBuilderToFile(TypeGenerator.TypeList, TypeInfoH);
+        WriteStringBuilderToFile(*TypeGenerator.TypeList.Builder, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.StructMembers, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
         fclose(TypeInfoH);
+    }
+    
+    FILE* NodeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_nodes_generated.h", "w");
+    if (NodeInfoH)
+    {
+        WriteStringBuilderToFile(*NodeTypeGen.Builder, NodeInfoH);
+        fclose(NodeInfoH);
     }
     
     FinishMetaprogram(&Meta);
     //__debugbreak();
     return 0;
 }
+
+#define FOLDHAUS_META_CPP
+#endif // FOLDHAUS_META_CPP

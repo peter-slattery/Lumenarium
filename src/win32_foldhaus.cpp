@@ -11,6 +11,7 @@
 #include <windowsx.h>
 #include <gl/gl.h>
 
+#include "../meta/foldhaus_meta_include.h"
 #include "foldhaus_platform.h"
 
 #include "gs_win32.cpp"

@@ -5,7 +5,6 @@
 //
 #ifndef TEST_PATTERNS_H
 
-
 GSMetaTag(node_struct) 
 struct solid_color_data
 {
@@ -17,20 +16,20 @@ struct solid_color_data
 };
 
 GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
-void SolidColorProc, solid_color_data* Data)
+void SolidColorProc(solid_color_data* Data)
 {
     u8 R = (u8)GSClamp(0.f, (Data->Color.r * 255), 255.f);
     u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
     u8 B = (u8)GSClamp(0.f, (Data->Color.b * 255), 255.f);
     
-    led* LED = Data->ResultLEDs;
-    for (s32 l = 0; l < Data->ResultLEDCount; l++)
+    led* LED = Data->Result.LEDs;
+    for (s32 l = 0; l < Data->Result.LEDCount; l++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
+        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
         
-        Data->ResultColors[LED->Index].R = R;
-        Data->ResultColors[LED->Index].G = G;
-        Data->ResultColors[LED->Index].B = B;
+        Data->Result.Colors[LED->Index].R = R;
+        Data->Result.Colors[LED->Index].G = G;
+        Data->Result.Colors[LED->Index].B = B;
         LED++;
     }
 }
@@ -52,7 +51,7 @@ struct vertical_color_fade_data
 };
 
 GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
-void VerticalColorFadeProc, vertical_color_fade_data* Data)
+void VerticalColorFadeProc(vertical_color_fade_data* Data)
 {
     r32 R = (Data->Color.r * 255);
     r32 G = (Data->Color.g * 255);
@@ -60,17 +59,17 @@ void VerticalColorFadeProc, vertical_color_fade_data* Data)
     
     r32 Range = Data->Max - Data->Min;
     
-    led* LED = Data->ResultLEDs;
-    for (s32 l = 0; l < Data->ResultLEDCount; l++)
+    led* LED = Data->Result.LEDs;
+    for (s32 l = 0; l < Data->Result.LEDCount; l++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->ResultLEDCount);
+        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
         
         r32 Amount = (LED->Position.y - Data->Min) / Range;
         Amount = GSClamp01(1.0f - Amount);
         
-        Data->ResultColors[LED->Index].R = (u8)(R * Amount);
-        Data->ResultColors[LED->Index].G = (u8)(G * Amount);
-        Data->ResultColors[LED->Index].B = (u8)(B * Amount);
+        Data->Result.Colors[LED->Index].R = (u8)(R * Amount);
+        Data->Result.Colors[LED->Index].G = (u8)(G * Amount);
+        Data->Result.Colors[LED->Index].B = (u8)(B * Amount);
         LED++;
     }
 }
@@ -105,7 +104,7 @@ struct revolving_discs_data
 };
 
 GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
-void RevolvingDiscs, revolving_discs_data* Data)
+void RevolvingDiscs(revolving_discs_data* Data)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -125,8 +124,8 @@ void RevolvingDiscs, revolving_discs_data* Data)
     r32 OuterRadiusSquared = Data->OuterRadius * Data->OuterRadius;
     r32 InnerRadiusSquared = Data->InnerRadius * Data->InnerRadius;
     
-    led* LED = Data->ResultLEDs;
-    for (s32 l = 0; l < Data->ResultLEDCount; l++)
+    led* LED = Data->Result.LEDs;
+    for (s32 l = 0; l < Data->Result.LEDCount; l++)
     {
         v4 Position = LED->Position;
         
@@ -144,7 +143,7 @@ void RevolvingDiscs, revolving_discs_data* Data)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
-                Data->ResultColors[LED->Index] = Color;
+                Data->Result.Colors[LED->Index] = Color;
             }
         }
         LED++;

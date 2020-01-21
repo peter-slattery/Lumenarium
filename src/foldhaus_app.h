@@ -26,7 +26,7 @@ node_specification* NodeSpecifications = 0;
 
 
 #include "assembly_parser.cpp"
-//#include "test_patterns.h"
+#include "test_patterns.h"
 
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
