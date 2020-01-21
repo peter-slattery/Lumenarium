@@ -9,17 +9,17 @@
 #include <stdio.h>
 
 #define GS_LANGUAGE_NO_PROFILER_DEFINES
-#include "C:\programs-dev\gs_libs\src\gs_language.h"
-#include "gs_platform.h"
+#include "..\gs_libs\gs_language.h"
+#include "..\gs_libs\gs_platform.h"
 
-#include "C:\programs-dev\gs_libs\src\gs_radix_sort.h"
-#include "C:\programs-dev\gs_libs\src\gs_list.h"
-#include "C:\programs-dev\gs_libs\src\gs_bucket.h"
+#include "..\gs_libs\gs_radix_sort.h"
+#include "..\gs_libs\gs_list.h"
+#include "..\gs_libs\gs_bucket.h"
 
 #define GS_MEMORY_TRACK_ALLOCATIONS
-#include "C:\programs-dev\gs_libs\src\gs_memory_arena.h"
+#include "..\gs_libs\gs_memory_arena.h"
 
-#include "C:\programs-dev\gs_libs\src\gs_string.h"
+#include "..\gs_libs\gs_string.h"
 #include "foldhaus_debug.h"
 
 global_variable debug_services* GlobalDebugServices;
@@ -27,9 +27,9 @@ global_variable debug_services* GlobalDebugServices;
 global_variable platform_alloc* GSAlloc;
 global_variable platform_free* GSFree;
 
-#include "C:\programs-dev\gs_libs\src\gs_vector_matrix.h"
+#include "..\gs_libs\gs_vector_matrix.h"
 
-#include "gs_input.h"
+#include "..\gs_libs\gs_input.h"
 
 
 #include "foldhaus_renderer.h"

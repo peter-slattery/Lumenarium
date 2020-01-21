@@ -20,16 +20,16 @@
 #include <windows.h>
 #include <stdio.h>
 
-#include <gs_language.h>
-#include <gs_bucket.h>
-#include "..\src\gs_platform.h"
-#include <gs_memory_arena.h>
-#include <gs_string.h>
+#include "..\gs_libs\gs_language.h"
+#include "..\gs_libs\gs_bucket.h"
+#include "..\gs_libs\gs_platform.h"
+#include "..\gs_libs\gs_memory_arena.h"
+#include "..\gs_libs\gs_string.h"
 
 #include "gs_meta_lexer.h"
 #include "gs_meta_error.h"
 
-#include "foldhaus_meta_type_table.h"
+#include "gs_meta_type_table.h"
 
 struct source_code_file
 {
@@ -404,10 +404,6 @@ ReadEntireFileAndNullTerminate (source_code_file* File, errors* Errors)
         LengthRead = (s32)ReadSize + 1;
         fclose(ReadFile);
     }
-    else
-    {
-        PushFError(Errors, "Could Not Read File: %S", File->Path);
-    }
     
     return LengthRead;
 }
@@ -431,7 +427,7 @@ FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
 }
 
 internal void
-AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles, errors* Errors)
+AddFileToSource(string RelativePath, source_code_file CurrentFile, gs_bucket<source_code_file>* SourceFiles, errors* Errors)
 {
     source_code_file File = {0};
     
@@ -451,7 +447,11 @@ AddFileToSource(string RelativePath, gs_bucket<source_code_file>* SourceFiles, e
     }
     else
     {
-        PushFError(Errors, "Error: Could not load file %S\n", RelativePath);
+        PushFError(Errors, "Error: Could not load file %S.\n", RelativePath);
+        if (CurrentFile.Path.Length > 0)
+        {
+            PushFError(Errors, "    Loaded In: %S\n", CurrentFile.Path);
+        }
     }
 }
 
@@ -1442,7 +1442,7 @@ PreprocessProgram (char* SourceFile)
     string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
     
     string RootFile = MakeString(SourceFile);
-    AddFileToSource(RootFile, &Meta.SourceFiles, &Meta.Errors);
+    AddFileToSource(RootFile, {}, &Meta.SourceFiles, &Meta.Errors);
     
     s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
     if (LastSlash <= 0)
@@ -1514,7 +1514,7 @@ PreprocessProgram (char* SourceFile)
                     ParseSuccess = true;
                     if (!FileAlreadyInSource(TempFilePath, Meta.SourceFiles))
                     {
-                        AddFileToSource(TempFilePath, &Meta.SourceFiles, &Meta.Errors);
+                        AddFileToSource(TempFilePath, *File, &Meta.SourceFiles, &Meta.Errors);
                     }
                     EndScope(IncludeScope);
                 }
@@ -1590,9 +1590,10 @@ FinishMetaprogram(gs_meta_preprocessor* Meta)
     FinishProfiler(&Meta->Profiler);
     
     PrintAllErrors(Meta->Errors);
-    
     printf("\nMetaprogram Performance:\n");
+    
     PrintAllCategories(&Meta->Profiler);
+    printf("\n");
 }
 
 #define GS_META_CPP

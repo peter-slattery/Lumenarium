@@ -7,7 +7,7 @@
 
 #include "../meta/gs_meta_lexer.h"
 
-#include "gs_font.h"
+#include "../gs_libs/gs_font.h"
 #include "interface.h"
 
 #include "foldhaus_network_ordering.h"

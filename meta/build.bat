@@ -16,7 +16,7 @@ set CommonLinkerFlags= -opt:ref
 
 pushd build
 
-cl %CommonCompilerFlags% -IC:\programs-dev\gs_libs\src ..\meta\foldhaus_meta.cpp /link %CommonLinkerFlags%
+cl %CommonCompilerFlags% ..\meta\foldhaus_meta.cpp /link %CommonLinkerFlags%
 
 C:\programs\ctime\ctime.exe -end C:\projects\foldhaus\build\win32_gs_meta_build_time.ctm %LastError%
 C:\programs\ctime\ctime.exe -stats C:\projects\foldhaus\build\win32_gs_meta_build_time.ctm

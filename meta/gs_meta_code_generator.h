@@ -5,8 +5,8 @@
 //
 #ifndef GS_META_CODE_GENERATOR_H
 
-#include <gs_string.h>
-#include <gs_string_builder.h>
+#include "../gs_libs/gs_string.h"
+#include "../gs_libs/gs_string_builder.h"
 
 enum gsm_code_gen_type
 {

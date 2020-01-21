@@ -9,9 +9,9 @@
 //
 #ifndef GS_META_TYPEINFO_GENERATOR_H
 
-#include <gs_language.h>
-#include <gs_string.h>
-#include <gs_string_builder.h>
+#include "..\gs_libs\gs_language.h"
+#include "..\gs_libs\gs_string.h"
+#include "..\gs_libs\gs_string_builder.h"
 #include "gs_meta_code_generator.h"
 
 struct typeinfo_generator

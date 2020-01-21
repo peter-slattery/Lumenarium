@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_APP_CPP
 
-#include "../meta/foldhaus_meta_include.h"
+#include "../meta/gs_meta_include.h"
 
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"

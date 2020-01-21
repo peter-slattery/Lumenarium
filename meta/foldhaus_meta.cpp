@@ -24,34 +24,37 @@ int main(int ArgCount, char* Args[])
     FinishGeneratingTypes(&TypeGenerator);
     
     gsm_code_generator NodeTypeGen = BeginEnumGeneration("node_type", "NodeType", false, true);
-    
-#if 0
     // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
     // of type_definition** 
     printf("\n\n");
-    for (u32 i = 0; i < Meta.TypeTable.Types.Used; i++)
+    for (u32 b = 0; b < Meta.TypeTable.TypeBucketsCount; b++)
     {
-        type_definition* Decl = Meta.TypeTable.Types.GetElementAtIndex(i);
-        if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
-            Decl->Type == TypeDef_Function)
+        type_table_hash_bucket Bucket = Meta.TypeTable.Types[b];
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
         {
-            AddEnumElement(&NodeTypeGen, Decl->Identifier);
+            if (!Bucket.Keys[i] == 0) { continue; }
             
-            type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
-            type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
-            printf("%.*s %.*s(\n", StringExpand(ReturnType->Identifier), StringExpand(Decl->Identifier));
-            for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
+            type_definition* Decl = Bucket.Values + i;
+            if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
+                Decl->Type == TypeDef_Function)
             {
-                variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
-                type_table_handle ParamTypeHandle = Param->TypeHandle;
-                type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
-                printf("    %.*s %.*s,\n", StringExpand(ParamType->Identifier), StringExpand(Param->Identifier));
+                AddEnumElement(&NodeTypeGen, Decl->Identifier);
+                
+                type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
+                type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
+                printf("%.*s %.*s(\n", StringExpand(ReturnType->Identifier), StringExpand(Decl->Identifier));
+                for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
+                {
+                    variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
+                    type_table_handle ParamTypeHandle = Param->TypeHandle;
+                    type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
+                    printf("    %.*s %.*s,\n", StringExpand(ParamType->Identifier), StringExpand(Param->Identifier));
+                }
+                printf(");\n\n");
             }
-            printf(");\n\n");
         }
     }
     printf("\n\n");
-#endif
     
     FinishEnumGeneration(&NodeTypeGen);
     
