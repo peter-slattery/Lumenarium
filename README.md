@@ -1,6 +1,12 @@
 # Lumenarium by Foldhaus
 ![Lumenarium Banner](./docs/images/splash.png)
 
+## Build Lumenarium
+Building Lumenarium requires having MSVC installed (sorry, Windows only for now!). At the moment, there are bunch of errors from the meta program but the program will still compile
+1. Run build_meta.bat
+2. Run build.bat
+3. Launch win32_foldhaus.exe (locaated in the build folder)
+
 ## What Is Lumenarium?
 Lumenarium is our custom build light and motion control software. It allows us to design light and motion patterns for our sculptures, visualize the output long before the sculpture is built, and iterate in real time to achieve the best visual results quickly.
 
