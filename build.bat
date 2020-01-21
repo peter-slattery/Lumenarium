@@ -1,6 +1,6 @@
 @echo off
 
-set ProjectDevRoot=C:\projects
+set ProjectDevRoot=C:\projects\test
 set ProjectName=foldhaus
 set ProjectDevPath=%ProjectDevRoot%\%ProjectName%
 
@@ -19,20 +19,16 @@ pushd build
 del *.pdb > NUL 2> NUL
 
 REM Run the Preprocessor
-pushd ..\src\
-..\build\foldhaus_meta.exe C:\projects\foldhaus\src\foldhaus_app.cpp
-popd
-
-REM cl %CommonCompilerFlags% F:\src\foldhaus_util_radialumia_file_converter.cpp /link %CommonLinkerFlags%
-REM foldhaus_util_radialumia_file_converter.exe
+..\build\foldhaus_meta.exe %ProjectDefPath%\src\foldhaus_app.cpp
 
 echo WAITING FOR PDB TO WRITE > lock.tmp
+
 cl %CommonCompilerFlags% ..\src\foldhaus_app.cpp /Fefoldhaus.dll /LD /link %CommonLinkerFlags% /EXPORT:InitializeApplication /EXPORT:UpdateAndRender /EXPORT:CleanupApplication /EXPORT:ReloadStaticData
 set LastError=%ERRORLEVEL%
+
 del lock.tmp
 
 cl %CommonCompilerFlags% ..\src\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib -incremental:no
 
 C:\programs\ctime\ctime.exe -end C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm %LastError%
-REM C:\programs\ctime\ctime.exe -stats C:\projects\foldhaus\build\win32_foldhaus_build_time.ctm
 popd
