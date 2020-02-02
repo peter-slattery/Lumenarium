@@ -2,10 +2,15 @@ TODO FOLDHAUS
 
 Ground Up Reengineering
 - Metaprogramming
-    - refactor for speed
-    - use #include statements to crawl through the codebase
-    - generalize the system
+    x refactor for speed
+    x use #include statements to crawl through the codebase
+    x generalize the system
     - panels metaprogramming
+    - fix memory layout (remeber to profile before and after)
+
+- Buckets & Lists
+    - Allow them to use memory arenas
+    - Zero is initialization
 
 - Rendering
     - OpenGL 3

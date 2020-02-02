@@ -172,7 +172,9 @@ input_command NodeGraph_Commands[] = {
     { 0 }
 };
 
-PANEL_INIT_PROC(NodeGraph_Init)
+GSMetaTag(panel_init);
+internal void
+NodeGraph_Init(panel* Panel, app_state* State)
 {
     // TODO(Peter): We aren't able to free this memory. We need a system for 
     // taking fixed size chunks off the Memory stack and then reusing them. THis 
@@ -182,7 +184,9 @@ PANEL_INIT_PROC(NodeGraph_Init)
     GraphState->LayoutIsDirty = true;
 }
 
-PANEL_CLEANUP_PROC(NodeGraph_Cleanup)
+GSMetaTag(panel_cleanup);
+internal void
+NodeGraph_Cleanup(panel* Panel, app_state* State)
 {
     node_graph_state* GraphState = (node_graph_state*)Panel->PanelStateMemory;
     FreeMemoryArena(&GraphState->LayoutMemory);
@@ -389,8 +393,9 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
     return Result;
 }
 
-internal 
-PANEL_RENDER_PROC(NodeGraph_Render)
+GSMetaTag(panel_render);
+internal void
+NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     node_graph_state* GraphState = (node_graph_state*)Panel.PanelStateMemory;
     b32 MouseHandled = false;

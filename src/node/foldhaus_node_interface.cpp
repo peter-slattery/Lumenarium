@@ -17,7 +17,8 @@ struct node_lister_operation_state
     v2 ListPosition;
 };
 
-OPERATION_RENDER_PROC(RenderNodeLister)
+internal void
+RenderNodeLister(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     node_lister_operation_state* OpState = (node_lister_operation_state*)Operation.OpStateMemory;
     
@@ -132,7 +133,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseColorPickerCommand)
     CloseColorPicker(State);
 }
 
-OPERATION_RENDER_PROC(RenderColorPicker)
+internal void
+RenderColorPicker(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     color_picker_operation_state* OpState = (color_picker_operation_state*)Operation.OpStateMemory;
     
@@ -200,7 +202,8 @@ struct drag_node_port_operation_state
     node_interaction Interaction;
 };
 
-OPERATION_RENDER_PROC(RenderDraggingNodePort)
+internal void
+RenderDraggingNodePort(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     drag_node_port_operation_state* OpState = (drag_node_port_operation_state*)Operation.OpStateMemory;
     UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList, 
@@ -239,7 +242,8 @@ BeginDraggingNodePort(app_state* State, node_interaction Interaction)
 //
 ///////////////////////////////////////
 
-OPERATION_RENDER_PROC(RenderDragNodeField)
+internal void
+RenderDragNodeField(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     // TODO(Peter): 
     //UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, OpState->Interaction, State->NodeList, State->NodeRenderSettings, State);
@@ -262,7 +266,8 @@ struct drag_node_operation_state
     node_interaction Interaction;
 };
 
-OPERATION_RENDER_PROC(RenderDraggingNode)
+internal void
+RenderDraggingNode(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     drag_node_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_operation_state);
     UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList, 
@@ -363,7 +368,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
     }
 }
 
-OPERATION_RENDER_PROC(RenderNodeView)
+internal void
+RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
     

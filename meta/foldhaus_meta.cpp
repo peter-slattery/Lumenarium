@@ -8,6 +8,62 @@
 #include "gs_meta.cpp"
 #include "gs_meta_typeinfo_generator.h"
 
+internal void
+GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* CallNodeProcGen, gs_meta_preprocessor Meta)
+{
+    // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
+    // of type_definition** 
+    
+    WriteF(CallNodeProcGen, "void CallNodeProc(node_type Type, u8* NodeData)\n{\n");
+    WriteF(CallNodeProcGen, "    switch(Type) { \n");
+    for (u32 b = 0; b < Meta.TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = Meta.TypeTable.Types[b];
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
+        {
+            if (Bucket.Keys[i] == 0) { continue; }
+            
+            type_definition* Decl = Bucket.Values + i;
+            if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
+                Decl->Type == TypeDef_Function)
+            {
+                if (Decl->Function.Parameters.Used > 1)
+                {
+                    WriteF(CallNodeProcGen, "ERROR: Procedure tagged with node_proc has more than one parameter\n");
+                    continue;
+                }
+                
+                AddEnumElement(NodeTypeGen, Decl->Identifier);
+                
+                type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
+                type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
+                
+                WriteF(CallNodeProcGen, "        case NodeType_%.*s:\n", StringExpand(Decl->Identifier));
+                WriteF(CallNodeProcGen, "        {\n");
+                WriteF(CallNodeProcGen, "            %.*s(", StringExpand(Decl->Identifier));
+                
+                for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
+                {
+                    variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
+                    type_table_handle ParamTypeHandle = Param->TypeHandle;
+                    type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
+                    WriteF(CallNodeProcGen, "(%.*s*)NodeData", StringExpand(ParamType->Identifier));
+                    if (j + 1 < Decl->Function.Parameters.Used)
+                    {
+                        WriteF(CallNodeProcGen, ", ");
+                    }
+                }
+                WriteF(CallNodeProcGen, ");\n");
+                WriteF(CallNodeProcGen, "        } break;\n");
+            }
+        }
+    }
+    WriteF(CallNodeProcGen, "    }\n");
+    WriteF(CallNodeProcGen, "}\n\n");
+    
+    FinishEnumGeneration(NodeTypeGen);
+}
+
 int main(int ArgCount, char* Args[])
 {
     if (ArgCount <= 1)
@@ -24,39 +80,10 @@ int main(int ArgCount, char* Args[])
     FinishGeneratingTypes(&TypeGenerator);
     
     gsm_code_generator NodeTypeGen = BeginEnumGeneration("node_type", "NodeType", false, true);
-    // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
-    // of type_definition** 
-    printf("\n\n");
-    for (u32 b = 0; b < Meta.TypeTable.TypeBucketsCount; b++)
-    {
-        type_table_hash_bucket Bucket = Meta.TypeTable.Types[b];
-        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
-        {
-            if (!Bucket.Keys[i] == 0) { continue; }
-            
-            type_definition* Decl = Bucket.Values + i;
-            if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
-                Decl->Type == TypeDef_Function)
-            {
-                AddEnumElement(&NodeTypeGen, Decl->Identifier);
-                
-                type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
-                type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
-                printf("%.*s %.*s(\n", StringExpand(ReturnType->Identifier), StringExpand(Decl->Identifier));
-                for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
-                {
-                    variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
-                    type_table_handle ParamTypeHandle = Param->TypeHandle;
-                    type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
-                    printf("    %.*s %.*s,\n", StringExpand(ParamType->Identifier), StringExpand(Param->Identifier));
-                }
-                printf(");\n\n");
-            }
-        }
-    }
-    printf("\n\n");
+    string_builder CallNodeProcGen = {0};
+    GenerateNodeMetaInfo(&NodeTypeGen, &CallNodeProcGen, Meta);
     
-    FinishEnumGeneration(&NodeTypeGen);
+    string_builder PanelInfoGen = {0};
     
     FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
     if (TypeInfoH)
@@ -71,10 +98,12 @@ int main(int ArgCount, char* Args[])
     if (NodeInfoH)
     {
         WriteStringBuilderToFile(*NodeTypeGen.Builder, NodeInfoH);
+        WriteStringBuilderToFile(CallNodeProcGen, NodeInfoH);
         fclose(NodeInfoH);
     }
     
     FinishMetaprogram(&Meta);
+    
     //__debugbreak();
     return 0;
 }

@@ -21,6 +21,18 @@ enum type_definition_type
     TypeDef_Count,
 };
 
+char* TypeDefinitionTypeStrings[] = {
+    "TypeDef_Invalid",
+    "TypeDef_Unknown",
+    "TypeDef_Enum",
+    "TypeDef_Struct",
+    "TypeDef_Union",
+    "TypeDef_BasicType",
+    "TypeDef_FunctionPointer",
+    "TypeDef_Function",
+    "TypeDef_Count",
+};
+
 struct type_table_handle
 {
     s32 BucketIndex;
@@ -100,7 +112,7 @@ struct type_definition
     b32 Pointer;
 };
 
-#define TYPE_TABLE_BUCKET_MAX 1024
+#define TYPE_TABLE_BUCKET_MAX 1023
 struct type_table_hash_bucket
 {
     u32* Keys;
@@ -171,11 +183,9 @@ HashIdentifier(string Identifier)
 }
 
 internal type_table_handle
-PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
+FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
 {
     type_table_handle Result = InvalidTypeTableHandle;
-    
-    u32 IdentHash = HashIdentifier(TypeDef.Identifier);
     u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
     
     for (u32 b = 0; b < TypeTable->TypeBucketsCount; b++)
@@ -183,11 +193,9 @@ PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
         type_table_hash_bucket* Bucket = TypeTable->Types + b;
         if (Bucket->Keys[Index] == 0)
         {
-            Bucket->Keys[Index] = IdentHash;
-            Bucket->Values[Index] = TypeDef;
-            
             Result.BucketIndex = b;
             Result.IndexInBucket = Index;
+            break;
         }
     }
     
@@ -204,12 +212,31 @@ PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
         GSZeroMemory((u8*)NewBucket->Keys, sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
         GSZeroMemory((u8*)NewBucket->Values, sizeof(type_definition) * TYPE_TABLE_BUCKET_MAX);
         
-        NewBucket->Keys[Index] = IdentHash;
-        NewBucket->Values[Index] = TypeDef;
-        
         Result.BucketIndex = NewTypeBucketIndex;
         Result.IndexInBucket = Index;
     }
+    
+    // NOTE(Peter): Because we are growing the hashtable, this should never be an invalid 
+    // type handle
+    Assert(TypeHandleIsValid(Result));
+    return Result;
+}
+
+internal type_table_handle
+PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
+{
+    u32 IdentHash = HashIdentifier(TypeDef.Identifier);
+    type_table_handle Result = FindSlotForTypeIdentifier(IdentHash, TypeTable);
+    
+    type_table_hash_bucket* Bucket = TypeTable->Types + Result.BucketIndex;
+    Bucket->Keys[Result.IndexInBucket] = IdentHash;
+    Bucket->Values[Result.IndexInBucket] = TypeDef;
+    
+#if PRINT_DIAGNOSTIC_INFO
+    printf("Registering Type\n");
+    printf("    %.*s\n", StringExpand(TypeDef.Identifier));
+    printf("    Type: %s\n\n", TypeDefinitionTypeStrings[TypeDef.Type]);
+#endif
     
     return Result;
 }
@@ -592,6 +619,120 @@ PopulateTableWithDefaultCPPTypes(type_table* TypeTable)
     {
         PushTypeDefOnTypeTable(CPPBasicTypes[i], TypeTable);
     }
+}
+
+internal void
+PrintTypeDefinition(type_definition TypeDef, type_table TypeTable)
+{
+    printf("Type: %.*s\n", StringExpand(TypeDef.Identifier));
+    printf("    Size: %d\n", TypeDef.Size);
+    
+    printf("    Meta Tags: ");
+    for (u32 m = 0; m < TypeDef.MetaTags.Used; m++)
+    {
+        meta_tag* Tag = TypeDef.MetaTags.GetElementAtIndex(m);
+        printf("%.*s ", StringExpand(Tag->Identifier));
+    }
+    printf("\n");
+    
+    printf("    Type: %s\n", TypeDefinitionTypeStrings[TypeDef.Type]);
+    
+    switch(TypeDef.Type)
+    {
+        case TypeDef_Unknown:
+        {
+        } break;
+        
+        case TypeDef_Enum:
+        {
+        } break;
+        
+        case TypeDef_Struct:
+        {
+        } break;
+        
+        case TypeDef_Union:
+        {
+        } break;
+        
+        case TypeDef_BasicType:
+        {
+        } break;
+        
+        case TypeDef_FunctionPointer:
+        {
+        } break;
+        
+        case TypeDef_Function:
+        {
+            type_definition* ReturnType = GetTypeDefinition(TypeDef.Function.ReturnTypeHandle, TypeTable);
+            printf("    Returns: %.*s\n", StringExpand(ReturnType->Identifier));
+            
+            printf("    Parameters: ");
+            for (u32 p = 0; p < TypeDef.Function.Parameters.Used; p++)
+            {
+                variable_decl* Param = TypeDef.Function.Parameters.GetElementAtIndex(p);
+                type_definition* ParamType = GetTypeDefinition(Param->TypeHandle, TypeTable);
+                printf("%.*s %.*s, ", StringExpand(ParamType->Identifier), StringExpand(Param->Identifier));
+            }
+        } break;
+        
+        case TypeDef_Invalid:
+        case TypeDef_Count:
+        {
+            printf("???\n");
+        } break;
+    }
+}
+
+internal void
+PrintTypeTable(type_table TypeTable)
+{
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
+        {
+            if (Bucket.Keys[i] != 0)
+            {
+                PrintTypeDefinition(Bucket.Values[i], TypeTable);
+            }
+        }
+    }
+}
+
+internal void
+DEBUGPrintTypeTableMembership(type_table TypeTable)
+{
+    printf("\n--- Type Table Membership --\n");
+    u32 SlotsAvailable = 0;
+    u32 SlotsFilled = 0;
+    u32 TotalSlots = TypeTable.TypeBucketsCount * TYPE_TABLE_BUCKET_MAX;
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
+        {
+            if (Bucket.Keys[i] != 0)
+            {
+                SlotsFilled++;
+                printf("[x] ");
+            }
+            else
+            {
+                SlotsAvailable++;
+                printf("[ ] ");
+            }
+        }
+        printf("\n");
+    }
+    
+    r32 PercentUsed = (r32)SlotsFilled / (r32)TotalSlots;
+    printf("Slots Available: %d\n", SlotsAvailable);
+    printf("Slots Filled:    %d\n", SlotsFilled);
+    printf("Total Slots:     %d\n", TotalSlots);
+    printf("Percent Used:    %f\n", PercentUsed);
+    printf("\n");
 }
 
 #define FOLDHAUS_META_TYPE_TABLE_H

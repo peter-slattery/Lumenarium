@@ -5,12 +5,16 @@
 //
 #ifndef FOLDHAUS_PANEL_PROFILER_H
 
-PANEL_INIT_PROC(ProfilerView_Init)
+GSMetaTag(panel_init);
+internal void
+ProfilerView_Init(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_CLEANUP_PROC(ProfilerView_Cleanup)
+GSMetaTag(panel_cleanup);
+internal void
+ProfilerView_Cleanup(panel* Panel, app_state* State)
 {
     
 }
@@ -114,7 +118,9 @@ RenderProfiler_ListVisualization(render_command_buffer* RenderBuffer,
     }
 }
 
-PANEL_RENDER_PROC(ProfilerView_Render)
+GSMetaTag(panel_render);
+internal void
+ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     memory_arena* Memory = &State->Transient;
     string String = InitializeEmptyString(PushArray(Memory, char, 256), 256);

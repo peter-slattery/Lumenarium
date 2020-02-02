@@ -49,12 +49,14 @@ input_command SculptureView_Commands[] = {
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, Begin3DViewMouseRotate },
 };
 
-PANEL_INIT_PROC(SculptureView_Init)
+internal void 
+SculptureView_Init(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_CLEANUP_PROC(SculptureView_Cleanup)
+internal void 
+SculptureView_Cleanup(panel* Panel, app_state* State)
 {
     
 }
@@ -122,7 +124,8 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     }
 }
 
-PANEL_RENDER_PROC(SculptureView_Render)
+internal void 
+SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
     

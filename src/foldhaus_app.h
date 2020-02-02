@@ -233,6 +233,17 @@ typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 #define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 
+// NOTE(Peter): This is used by the meta system to generate panel type info
+struct panel_definition
+{
+    char* PanelName;
+    s32 PanelNameLength;
+    panel_init_proc* Init;
+    panel_cleanup_proc* Cleanup;
+    panel_render_proc* Render;
+    input_command* InputCommands;
+};
+
 #include "panels/foldhaus_panel_sculpture_view.h"
 #include "panels/foldhaus_panel_profiler.h"
 #include "panels/foldhaus_panel_dmx_view.h"
@@ -241,6 +252,7 @@ typedef PANEL_RENDER_PROC(panel_render_proc);
 #include "panels/foldhaus_panel_node_graph.h"
 
 #include "generated/foldhaus_panels_generated.h"
+#include "generated/foldhaus_nodes_generated.h"
 
 #include "foldhaus_interface.cpp"
 

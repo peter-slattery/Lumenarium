@@ -98,6 +98,18 @@ WriteStringBuilderToFile(string_builder StringBuilder, FILE* WriteFile)
     }
 }
 
+internal void
+StdPrintStringBuilder(string_builder StringBuilder)
+{
+    string_builder_buffer* BufferAt = StringBuilder.Buffers;
+    while (BufferAt)
+    {
+        string String = BufferAt->String;
+        printf("%.*s", StringExpand(String));
+        BufferAt = BufferAt->Next;
+    }
+}
+
 #endif // GS_STRING_BUILDER_NO_STDIO
 
 #define GS_STRING_BUILDER_H

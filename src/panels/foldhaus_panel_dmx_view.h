@@ -5,17 +5,23 @@
 //
 #ifndef FOLDHAUS_PANEL_DMX_VIEW_H
 
-PANEL_INIT_PROC(DMXView_Init)
+GSMetaTag(panel_init);
+internal void
+DMXView_Init(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_CLEANUP_PROC(DMXView_Cleanup)
+GSMetaTag(panel_cleanup);
+internal void
+DMXView_Cleanup(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_RENDER_PROC(DMXView_Render)
+GSMetaTag(panel_render);
+internal void
+DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
 #if 0
     DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);

@@ -1,13 +1,3 @@
-struct panel_definition
-{
-    char* PanelName;
-    s32 PanelNameLength;
-    panel_init_proc* Init;
-    panel_cleanup_proc* Cleanup;
-    panel_render_proc* Render;
-    input_command* InputCommands;
-};
-
 global_variable s32 GlobalPanelDefsCount = 6;
 global_variable panel_definition GlobalPanelDefs[] = {
     { "Sculpture View", 14, SculptureView_Init, SculptureView_Cleanup, SculptureView_Render, SculptureView_Commands},

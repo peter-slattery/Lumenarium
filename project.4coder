@@ -15,7 +15,7 @@ blacklist_patterns = {
 load_paths_base = {
  { "src", .relative = true, .recursive = true, },
  { "meta", .relative = true, .recursive = true, },
- { "C:\programs-dev\gs_libs\src", .relative = false, .recursive = true, }
+ { "gs_libs", .relative = true, .recursive = true, },
 };
 load_paths = {
  { load_paths_base, .os = "win", },

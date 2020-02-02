@@ -5,17 +5,23 @@
 //
 #ifndef FOLDHAUS_PANEL_HIERARCHY_H
 
-PANEL_INIT_PROC(HierarchyView_Init)
+GSMetaTag(panel_init)
+internal void
+HierarchyView_Init(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_CLEANUP_PROC(HierarchyView_Cleanup)
+GSMetaTag(panel_cleanup);
+internal void
+HierarchyView_Cleanup(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_RENDER_PROC(HierarchyView_Render)
+GSMetaTag(panel_render);
+internal void
+HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     r32 PanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
     r32 PanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;

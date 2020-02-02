@@ -213,12 +213,17 @@ input_command AnimationTimeline_Commands[] = {
     { KeyCode_A, KeyCode_Invalid, Command_Began, AddAnimationBlockCommand },
 };
 
-PANEL_INIT_PROC(AnimationTimeline_Init)
+
+GSMetaTag(panel_init);
+internal void
+AnimationTimeline_Init(panel* Panel, app_state* State)
 {
     
 }
 
-PANEL_CLEANUP_PROC(AnimationTimeline_Cleanup)
+GSMetaTag(panel_cleanup);
+internal void
+AnimationTimeline_Cleanup(panel* Panel, app_state* State)
 {
     
 }
@@ -419,7 +424,9 @@ DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffe
     
 }
 
-PANEL_RENDER_PROC(AnimationTimeline_Render)
+GSMetaTag(panel_render);
+internal void
+AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
     
