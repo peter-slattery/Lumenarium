@@ -13,20 +13,12 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
     platform_memory_result Result = {};
     Result.Error = PLATFORM_MEMORY_NO_ERROR;
     
-    HANDLE FileHandle = CreateFileA (
-                                     Path,
-                                     GENERIC_READ,
-                                     0,
-                                     NULL,
-                                     OPEN_EXISTING,
-                                     FILE_ATTRIBUTE_NORMAL,
-                                     NULL);
+    HANDLE FileHandle = CreateFileA (Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     
     if (FileHandle != INVALID_HANDLE_VALUE)
     {
         DWORD FileSize = GetFileSize(FileHandle, NULL);
-        Result.Base = (u8*)VirtualAlloc(NULL, FileSize, MEM_COMMIT | MEM_RESERVE,
-                                        PAGE_EXECUTE_READWRITE);
+        Result.Base = (u8*)VirtualAlloc(NULL, FileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
         if (Result.Base) 
         {
             Result.Size = FileSize;

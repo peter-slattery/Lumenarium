@@ -8,17 +8,11 @@
 //
 #ifndef WIN32_FOLDHAUS_MEMORY_H
 
-internal u8* 
-Win32BasicAlloc (s32 Size) 
-{ 
-    return (u8*)VirtualAlloc(NULL, Size, 
-                             MEM_COMMIT | MEM_RESERVE, 
-                             PAGE_EXECUTE_READWRITE);
-}
-
 PLATFORM_ALLOC(Win32Alloc)
 {
-    u8* Result = Win32BasicAlloc(Size);
+    u8* Result = (u8*)VirtualAlloc(NULL, Size, 
+                                   MEM_COMMIT | MEM_RESERVE, 
+                                   PAGE_EXECUTE_READWRITE);
     return Result;
 }
 
@@ -35,7 +29,7 @@ PLATFORM_FREE(Win32Free)
 
 PLATFORM_REALLOC(Win32Realloc)
 {
-    u8* NewMemory = Win32BasicAlloc(NewSize);
+    u8* NewMemory = Win32Alloc(NewSize);
     if (Base)
     {
         GSMemCopy(Base, NewMemory, OldSize);

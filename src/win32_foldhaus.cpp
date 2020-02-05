@@ -499,13 +499,13 @@ SetApplicationLinks (context* Context, win32_dll_refresh DLL, work_queue* WorkQu
 internal u8*
 DEBUGAlloc(s32 ElementSize, s32 ElementCount)
 {
-    return Win32BasicAlloc(ElementSize * ElementCount);
+    return Win32Alloc(ElementSize * ElementCount);
 }
 
 internal u8*
 Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
 {
-    u8* NewMemory = Win32BasicAlloc(NewSize);
+    u8* NewMemory = Win32Alloc(NewSize);
     GSMemCopy(Buf, NewMemory, OldSize);
     return NewMemory;
 }
@@ -613,7 +613,7 @@ WinMain (
     if (HotLoadDLL(&DLLRefresh))
     {
         SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-        Context.ReloadStaticData(Context, GlobalDebugServices, Win32BasicAlloc, Win32Free);
+        Context.ReloadStaticData(Context, GlobalDebugServices, Win32Alloc, Win32Free);
     }
     else
     {
@@ -627,7 +627,7 @@ WinMain (
     u8* RenderMemory = Win32Alloc(RenderMemorySize);
     render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory, RenderMemorySize, Win32Realloc);
     
-    Context.InitializeApplication(Context, Win32BasicAlloc, Win32Free);
+    Context.InitializeApplication(Context, Win32Alloc, Win32Free);
     
     Running = true;
     Context.WindowIsVisible = true;
@@ -643,7 +643,7 @@ WinMain (
         if (HotLoadDLL(&DLLRefresh))
         {
             SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-            Context.ReloadStaticData(Context, GlobalDebugServices, Win32BasicAlloc, Win32Free);
+            Context.ReloadStaticData(Context, GlobalDebugServices, Win32Alloc, Win32Free);
         }
         
         { // Mouse Position
