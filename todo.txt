@@ -15,6 +15,10 @@ x Hot Code Reloading
     - math.h: present for trig functions
     - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
 
+- Win32 Platform Layer
+    x Capture Mouse Events that start on the window but end outside
+        x Mouse up when mouse down was in the window
+
 - File Loading
     - Gracefully handle File Not found
 

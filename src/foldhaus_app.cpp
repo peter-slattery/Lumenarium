@@ -140,7 +140,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
             
             Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
                                                                             Font->BitmapWidth, Font->BitmapHeight);
-            
         } else {}
     }
     

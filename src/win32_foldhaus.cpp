@@ -378,6 +378,15 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             Mouse->LeftButtonState = KeyState_IsDown & ~KeyState_WasDown;
             Mouse->DownPos = Mouse->Pos;
+            
+            // :Win32MouseEventCapture
+            // NOTE(Peter): We capture events when the mouse goes down so that
+            // if the user drags outside the window, we still get the mouse up
+            // event and can process it. Otherwise, we can get into cases where
+            // an event was started, didn't end, but the user can click again and
+            // try to start the event again.
+            // We relase event capture on mouse up.
+            SetCapture(Window->Handle);
         }break;
         
         case WM_MBUTTONDOWN:
@@ -389,6 +398,9 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, false, true, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->MiddleButtonState = KeyState_IsDown & ~KeyState_WasDown;
+            
+            // :Win32MouseEventCapture
+            SetCapture(Window->Handle);
         }break;
         
         case WM_RBUTTONDOWN:
@@ -401,6 +413,9 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = KeyState_IsDown & ~KeyState_WasDown;
             Mouse->DownPos = Mouse->Pos;
+            
+            // :Win32MouseEventCapture
+            SetCapture(Window->Handle);
         }break;
         
         case WM_LBUTTONUP:
@@ -412,6 +427,9 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->LeftButtonState = ~KeyState_IsDown & KeyState_WasDown;
+            
+            // :Win32MouseEventCapture
+            ReleaseCapture();
         }break;
         
         case WM_MBUTTONUP:
@@ -423,6 +441,9 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->MiddleButtonState = ~KeyState_IsDown & KeyState_WasDown;
+            
+            // :Win32MouseEventCapture
+            ReleaseCapture();
         }break;
         
         case WM_RBUTTONUP:
@@ -434,6 +455,9 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, true, false, 
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = ~KeyState_IsDown & KeyState_WasDown;
+            
+            // :Win32MouseEventCapture
+            ReleaseCapture();
         }break;
         
         case WM_SYSKEYDOWN:
