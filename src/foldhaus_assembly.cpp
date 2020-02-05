@@ -5,15 +5,6 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_CPP
 
-internal s32
-GetAssemblyMemorySizeFromDefinition(assembly_definition Definition, string Name)
-{
-    s32 Result = (sizeof(led) + sizeof(pixel)) * Definition.TotalLEDCount;
-    Result += sizeof(leds_in_universe_range) * Definition.LEDStripCount;
-    Result += Name.Length;
-    return Result;
-}
-
 internal assembly
 ConstructAssemblyFromDefinition (assembly_definition Definition,
                                  string AssemblyName,

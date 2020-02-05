@@ -21,8 +21,8 @@ x Hot Code Reloading
     - Enumerate Directory Contents (you started this in win32_foldhaus_fileio.h)
     - 
 
-- File Loading
-    - Gracefully handle File Not found
+x File Loading
+    x Gracefully handle File Not found
 
 - Buckets & Lists
     - Allow them to use memory arenas
@@ -57,6 +57,7 @@ x Hot Code Reloading
     - styling
     - text input
     - lister with icon options
+    - panel system: destroy panel by extending it beyond its max, not just its min
 
 - Sculpture View
     - mouse spatial interaction - handles, and hover for info

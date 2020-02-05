@@ -639,7 +639,8 @@ WinMain (
     }
     else
     {
-        InvalidCodePath;
+        MessageBox(MainWindow.Handle, "Unable to load application DLL at startup.\nAborting\n", "Set Up Error", MB_OK);
+        return -1;
     }
     
     WSADATA WSAData;

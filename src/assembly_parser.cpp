@@ -83,9 +83,10 @@ ParseAssemblyVector (char* String)
     return Result;
 }
 
-internal void
+internal b32
 ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
 {
+    b32 HeaderIsValid = false;
     
     if (CharArraysEqualUpToLength(Tokenizer->At, LED_STRIP_COUNT_IDENTIFIER, CharArrayLength(LED_STRIP_COUNT_IDENTIFIER)))
     {
@@ -95,19 +96,11 @@ ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
         if (CountToken.Type == AssemblyToken_Number)
         {
             Assembly->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token).SignedIntValue;
-        }
-        else
-        {
-            InvalidCodePath;
+            HeaderIsValid = true;
         }
         EatWhitespace(Tokenizer);
     }
-    else
-    {
-        // TODO(Peter): Handle corrupted files, try to recover?
-        InvalidCodePath;
-    }
-    
+    return HeaderIsValid;
 }
 
 internal led_strip_definition

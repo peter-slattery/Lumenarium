@@ -22,6 +22,10 @@ union pixel
     u8 Channels[3];
 };
 
+// NOTE(Peter): This structure is so we can keep track of 
+// what LEDs output to which DMX universe. You don't need
+// to use it anywhere else, as all the data for patterns,
+// colors, and groups is/will be stored elsewhere.
 struct leds_in_universe_range
 {
     s32 RangeStart;

@@ -22,6 +22,8 @@ PLATFORM_FREE(Win32Free)
     if (!Result)
     {
         s32 Error = WSAGetLastError();
+        // TODO(Peter): I'm waiting to see an error actually occur here
+        // to know what it could possibly be.
         InvalidCodePath;
     }
     return Result;

@@ -503,7 +503,6 @@ HandleWindowsMessage (
             else
             {
                 printf("Translated Char Not Recognized: %c\n", TranslatedChar); 
-                //InvalidCodePath;
             }
             */
         }break;

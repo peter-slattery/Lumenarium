@@ -113,6 +113,8 @@ GetWallClock ()
     if (!QueryPerformanceCounter(&Time))
     {
         s32 Error = GetLastError();
+        // TODO(Peter): I'm waiting to see an error actually occur here
+        // to know what it could possibly be.
         InvalidCodePath;
     }
     return (s64)Time.QuadPart;
@@ -125,6 +127,8 @@ GetPerformanceFrequency ()
     if (!QueryPerformanceFrequency(&Frequency))
     {
         s32 Error = GetLastError();
+        // TODO(Peter): I'm waiting to see an error actually occur here
+        // to know what it could possibly be.
         InvalidCodePath;
     }
     return (s64)Frequency.QuadPart;
