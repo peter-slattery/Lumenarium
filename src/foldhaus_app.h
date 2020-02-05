@@ -170,13 +170,13 @@ TestPatternTwo(assembly* Assembly, r32 Time)
 internal void
 TestPatternThree(assembly* Assembly, r32 Time)
 {
-    r32 GreenSize = 20.0f;
-    r32 BlueSize = 25.0f;
-    r32 RedSize = 25.0f;
+    v4 GreenCenter = v4{0, 0, 150, 1};
+    r32 GreenRadius = GSAbs(GSSin(Time)) * 200;
     
-    r32 GreenPosition = -GreenSize + (Time * 45);
-    r32 BluePosition = -BlueSize + (Time * 25);
-    r32 RedPosition = (100 + RedSize) + (Time * -35);
+    v4 TealCenter = v4{0, 0, 150, 1};
+    r32 TealRadius = GSAbs(GSSin(Time + 1.5)) * 200;
+    
+    r32 FadeDist = 35;
     
     for (u32 Range = 0; Range < Assembly->LEDUniverseMapCount; Range++)
     {
@@ -190,24 +190,22 @@ TestPatternThree(assembly* Assembly, r32 Time)
             u8 Green = 0;
             u8 Blue = 0;
             
-            r32 GreenDistance = GSAbs(LED.Position.z - GreenPosition);
-            r32 GreenBrightness = GSClamp(0.0f, GreenSize - GreenDistance, GreenSize) / GreenSize;
+            r32 GreenDist = GSAbs(Mag(LED.Position - GreenCenter) - GreenRadius);
+            r32 GreenBrightness = GSClamp(0.f, FadeDist - GSAbs(GreenDist), FadeDist);
             Green = (u8)(GreenBrightness * 255);
             
-            r32 BlueDistance = GSAbs(LED.Position.z - BluePosition);
-            r32 BlueBrightness = GSClamp(0.0f, BlueSize - BlueDistance, BlueSize) / BlueSize;
-            Blue = (u8)(BlueBrightness * 255);
-            
-            r32 RedDistance = GSAbs(LED.Position.z - RedPosition);
-            r32 RedBrightness = GSClamp(0.0f, RedSize - RedDistance, RedSize) / RedSize;
-            Red = (u8)(RedBrightness * 255);
+            r32 TealDist = GSAbs(Mag(LED.Position - TealCenter) - TealRadius);
+            r32 TealBrightness = GSClamp(0.f, FadeDist - GSAbs(TealDist), FadeDist);
+            Red = (u8)(TealBrightness * 255);
+            Blue = (u8)(TealBrightness * 255);
             
             Assembly->Colors[LED.Index].R = Red;
-            Assembly->Colors[LED.Index].B = Blue;
+            Assembly->Colors[LED.Index].B = Green;
             Assembly->Colors[LED.Index].G = Green;
         }
     }
 }
+
 // END TEMPORARY PATTERNS
 
 #include "foldhaus_assembly.cpp"

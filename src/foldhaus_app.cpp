@@ -174,7 +174,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.LookAt = v3{0, 0, 0};
     
 #if 1
-    char Path[] = "radialumia.fold";
+    char Path[] = "blumen_lumen.fold";
     LoadAssembly(State, Context, Path);
 #endif
     
@@ -352,7 +352,28 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     {
                         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
                         assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-                        Block.Proc(Assembly, FrameTime  - Block.StartTime);
+                        
+                        // TODO(Peter): Temporary
+                        switch(Block.AnimationProcHandle)
+                        {
+                            case 1: 
+                            {
+                                TestPatternOne(Assembly, FrameTime  - Block.StartTime); 
+                            }break;
+                            
+                            case 2:
+                            {
+                                TestPatternTwo(Assembly, FrameTime - Block.StartTime);
+                            }break;
+                            
+                            case 3:
+                            {
+                                TestPatternThree(Assembly, FrameTime - Block.StartTime);
+                            }break;
+                            
+                            // NOTE(Peter): Zero is invalid
+                            InvalidDefaultCase;
+                        }
                     }
                 }
             }
@@ -369,7 +390,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
     
-    DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
+    //DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {
         switch (State->NetworkProtocol)
         {

@@ -40,21 +40,21 @@ GetXPositionFromTimeInAnimationPanel (r32 Time, rect PanelBounds, s32 StartFrame
 }
 
 internal void
-AddAnimationBlock(r32 StartTime, r32 EndTime, animation_proc* Proc, animation_system* AnimationSystem)
+AddAnimationBlock(r32 StartTime, r32 EndTime, u32 AnimationProcHandle, animation_system* AnimationSystem)
 {
     animation_block NewBlock = {0};
     NewBlock.StartTime = StartTime;
     NewBlock.EndTime = EndTime;
-    NewBlock.Proc = Proc;
+    NewBlock.AnimationProcHandle = AnimationProcHandle;
     AnimationSystem->Blocks.PushElementOnList(NewBlock);
 }
 
 #define NEW_ANIMATION_BLOCK_DURATION 3
 internal void
-AddAnimationBlockAtCurrentTime (animation_proc* Proc, animation_system* System)
+AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, animation_system* System)
 {
     r32 CurrentTime = System->Time;
-    AddAnimationBlock(CurrentTime, CurrentTime + NEW_ANIMATION_BLOCK_DURATION, Proc, System);
+    AddAnimationBlock(CurrentTime, CurrentTime + NEW_ANIMATION_BLOCK_DURATION, AnimationProcHandle, System);
 }
 
 internal void
@@ -202,7 +202,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
     animation_block Block = {0};
     Block.StartTime = NewBlockTimeStart;
     Block.EndTime = NewBlockTimeEnd;
-    Block.Proc = TestPatternThree;
+    Block.AnimationProcHandle = 4;
     
     gs_list_handle NewBlockHandle = State->AnimationSystem.Blocks.PushElementOnList(Block);
     SelectAnimationBlock(NewBlockHandle, State);
@@ -418,7 +418,7 @@ DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffe
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
             && PointIsInRect(Mouse.DownPos, ElementBounds))
         {
-            AddAnimationBlockAtCurrentTime(Clip.Proc, &State->AnimationSystem);
+            AddAnimationBlockAtCurrentTime(i + 1, &State->AnimationSystem);
         }
     }
     

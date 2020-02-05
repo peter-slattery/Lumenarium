@@ -194,7 +194,13 @@ PLATFORM_SEND_TO(Win32SendTo)
     if (LengthSent == SOCKET_ERROR)
     {
         s32 Error = WSAGetLastError();
-        InvalidCodePath;
+        if (Error == 10051)
+        {
+        }
+        else
+        {
+            InvalidCodePath;
+        }
     }
     
     return LengthSent;

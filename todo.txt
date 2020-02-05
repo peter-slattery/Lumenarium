@@ -8,6 +8,12 @@ Ground Up Reengineering
     - panels metaprogramming
     - fix memory layout (remeber to profile before and after)
 
+- Hot Code Reloading
+    - Fix it
+
+- File Loading
+    - Gracefully handle File Not found
+s
 - Buckets & Lists
     - Allow them to use memory arenas
     - Zero is initialization
@@ -28,8 +34,11 @@ Ground Up Reengineering
     - custom sculpture update functions (for motion)
     - placing sculptures
     - editing sculpture files (change universe output)
+    - led groups & subgroups - defined in file
 
 - Network
+    - Handle Error Cases
+    - Handle connecting a sculpture after launch
     - Artnet
     - Universe offsets (per sculpture)
 

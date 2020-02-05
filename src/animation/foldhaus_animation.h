@@ -19,7 +19,7 @@ struct animation_block
     // TODO(Peter): Should we change this to frames??
     r32 StartTime;
     r32 EndTime;
-    animation_proc* Proc;
+    u32 AnimationProcHandle;
     
     u32 Layer;
 };

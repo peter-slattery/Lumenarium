@@ -24,9 +24,6 @@ class gs_bucket {
     
     u32 Used;
     
-    gs_bucket();
-    gs_bucket(u32 BucketSize);
-    
     void GrowBucket();
     
     T* GetElementAtIndex(u32 Index);
@@ -37,32 +34,8 @@ class gs_bucket {
 };
 
 template <typename T>
-gs_bucket<T>::gs_bucket()
-{
-    this->BucketSize = 0;
-    this->BucketCount = 0;
-    this->Buckets = 0;
-    this->Used = 0;
-}
-
-template <typename T>
-gs_bucket<T>::gs_bucket(u32 BucketSize)
-{
-    this->BucketSize = BucketSize;
-    this->BucketCount = 0;
-    this->Buckets = 0;
-    this->Used = 0;
-}
-
-template <typename T>
 void gs_bucket<T>::GrowBucket()
 {
-    if (this->BucketCount == 0)
-    {
-        // First Grow Attempt
-        this->Buckets = 0;
-    }
-    
     if (this->BucketSize == 0)
     {
         this->BucketSize = GS_LIST_DEFAULT_BUCKET_SIZE;
