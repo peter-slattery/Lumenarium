@@ -53,11 +53,19 @@ struct window_info
 typedef struct window window;
 
 #define PLATFORM_MEMORY_NO_ERROR 0
+enum platform_memory_error
+{
+    PlatformMemory_NoError,
+    PlatformMemory_FileNotFound,
+    
+    PlatformMemory_UnknownError, // You should implement handling this when you see it
+};
+
 struct platform_memory_result
 {
     u8* Base;
     s32 Size;
-    s32 Error;
+    platform_memory_error Error;
 };
 
 struct texture_buffer

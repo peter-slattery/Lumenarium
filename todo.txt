@@ -18,6 +18,8 @@ x Hot Code Reloading
 - Win32 Platform Layer
     x Capture Mouse Events that start on the window but end outside
         x Mouse up when mouse down was in the window
+    - Enumerate Directory Contents (you started this in win32_foldhaus_fileio.h)
+    - 
 
 - File Loading
     - Gracefully handle File Not found

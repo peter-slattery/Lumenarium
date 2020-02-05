@@ -77,7 +77,10 @@ internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
     platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
-    Assert(TestAssemblyFile.Size > 0);
+    if (TestAssemblyFile.Error != PlatformMemory_NoError)
+    {
+        return;
+    }
     
     assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
     

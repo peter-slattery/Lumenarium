@@ -93,7 +93,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     r32 FontSize = 14;
     {
         platform_memory_result FontFile = Context.PlatformReadEntireFile("Anonymous Pro.ttf");
-        if (FontFile.Size)
+        if (!FontFile.Error)
         {
             bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
             
@@ -140,7 +140,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
             
             Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
                                                                             Font->BitmapWidth, Font->BitmapHeight);
-        } else {}
+        } 
+        else 
+        {
+            // TODO(Peter): How do we want to handle not having a font?
+        }
     }
     
     State->Interface.FontSize = FontSize;

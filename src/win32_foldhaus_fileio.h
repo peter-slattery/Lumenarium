@@ -11,7 +11,7 @@
 PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
 {
     platform_memory_result Result = {};
-    Result.Error = PLATFORM_MEMORY_NO_ERROR;
+    Result.Error = PlatformMemory_NoError;
     
     HANDLE FileHandle = CreateFileA (Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     
@@ -30,15 +30,17 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
             }
             else
             {
+                u32 Error = GetLastError();
+                // TODO(Peter): 
                 Result.Size = 0;
-                Result.Error = 1;
+                Result.Error = PlatformMemory_UnknownError;
             }
         }
         CloseHandle(FileHandle);
     }
     else
     {
-        // TODO(Peter): failure
+        Result.Error = PlatformMemory_FileNotFound;
     }
     
     return Result;
@@ -131,6 +133,13 @@ PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
     return Result;
 }
 
+internal directory_listing
+EnumerateDirectory(char* Path, memory_arena* Storage)
+{
+    directory_listing Result = {};
+    // TODO(Peter): 
+    return Result;
+}
 
 #define WIN32_FOLDHAUS_FILEIO_H
 #endif // WIN32_FOLDHAUS_FILEIO_H

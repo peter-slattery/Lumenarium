@@ -47,6 +47,16 @@ typedef CLEANUP_APPLICATION(cleanup_application);
 
 // Platform Functions
 
+// File IO
+
+// TODO(Peter): 
+struct directory_listing
+{
+    string Path;
+    directory_listing* Next;
+};
+
+// Font
 typedef struct platform_font_info platform_font_info;
 
 enum font_weight
