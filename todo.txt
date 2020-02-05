@@ -12,10 +12,12 @@ x Hot Code Reloading
     x Fix it
 
 - Make the DLL truly platform agnostic
+    - math.h: present for trig functions
+    - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
 
 - File Loading
     - Gracefully handle File Not found
-s
+
 - Buckets & Lists
     - Allow them to use memory arenas
     - Zero is initialization
@@ -122,7 +124,7 @@ update functions
 - memory visualization
 -  x Log memory allocations
 - separate rendering thread
-- cache led positions. Only update if they are moving
+
 
 UI Improvements
 - highlight node field under active edit
@@ -174,7 +176,7 @@ x create clips that play
 
 Optimization
 - investigate the memory access pattern of the SACN / LED systems. Guessing they are very slow
-- look into why debug logging functions seems to incur a large hit on framrate
+x look into why debug logging functions seems to incur a large hit on framrate
 - patterns are asking to be multithreaded
 - probably want to convert as much color functions to use u32 Packed Colors
 -  - Probably want to think about this more. What about supporting different color depths
