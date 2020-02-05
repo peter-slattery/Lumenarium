@@ -561,8 +561,6 @@ WinMain (
     
     //
     // Set up worker threads
-    //
-    
     const s32 WorkerThreadCount = PLATFORM_THREAD_COUNT;
     worker_thread_info* WorkerThreads = 0;
     if (PLATFORM_THREAD_COUNT > 0)
@@ -679,33 +677,31 @@ WinMain (
             !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
         {
             Mouse.LeftButtonState = 0;
-        } else if (Mouse.LeftButtonState & KeyState_IsDown) 
+        } 
+        else if (Mouse.LeftButtonState & KeyState_IsDown) 
         { 
             Mouse.LeftButtonState |= KeyState_WasDown; 
         }
         
         if (Mouse.MiddleButtonState & KeyState_WasDown &&
-            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+            !((Mouse.MiddleButtonState & KeyState_IsDown) > 0))
         {
             Mouse.MiddleButtonState = 0;
-        } else if (Mouse.MiddleButtonState & KeyState_IsDown) 
+        } 
+        else if (Mouse.MiddleButtonState & KeyState_IsDown) 
         { 
             Mouse.MiddleButtonState |= KeyState_WasDown; 
         }
         
         if (Mouse.RightButtonState & KeyState_WasDown &&
-            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+            !((Mouse.RightButtonState & KeyState_IsDown) > 0))
         {
             Mouse.RightButtonState = 0;
-        } else if (Mouse.RightButtonState & KeyState_IsDown) 
+        } 
+        else if (Mouse.RightButtonState & KeyState_IsDown) 
         { 
             Mouse.RightButtonState |= KeyState_WasDown; 
         }
-        
-        
-        ///////////////////////////////////
-        //        Finish Up
-        //////////////////////////////////
         
         HDC DeviceContext = GetDC(MainWindow.Handle);
         SwapBuffers(DeviceContext);
