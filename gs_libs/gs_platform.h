@@ -107,7 +107,7 @@ struct platform_network_address
 typedef s32 platform_socket_handle;
 typedef s32 platform_network_address_handle;
 
-#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 AddressFamily, s32 Type, s32 Protocol) 
+#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive) 
 typedef PLATFORM_GET_SOCKET_HANDLE(platform_get_socket_handle);
 
 #define PLATFORM_GET_SEND_ADDRESS_HANDLE(name) platform_network_address_handle name(s32 AddressFamily, u16 Port, u32 Address)
@@ -116,7 +116,7 @@ typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
 #define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength) 
 typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
 
-#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, platform_network_address Address, const char* Buffer, s32 BufferLength, s32 Flags)
+#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, u32 Address, u32 Port, const char* Buffer, s32 BufferLength, s32 Flags)
 typedef PLATFORM_SEND_TO(platform_send_to);
 
 #define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)

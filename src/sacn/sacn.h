@@ -215,7 +215,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     Cursor = PackB2(Cursor, RLP_PREAMBLE_SIZE);
     Cursor = PackB2(Cursor, RLP_POSTAMBLE_SIZE);
     
-    memcpy(Cursor, ACN_IDENTIFIER, ACN_IDENTIFIER_SIZE);
+    GSMemCopy(ACN_IDENTIFIER, Cursor, ACN_IDENTIFIER_SIZE);
     Cursor += ACN_IDENTIFIER_SIZE;
     
     // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
@@ -242,7 +242,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     Cursor = PackB4(Cursor, FRAMING_VECTOR);
     
     // framing source name
-    strncpy((char*)Cursor, SourceName, SOURCE_NAME_SIZE);
+    // :Check
+    GSMemCopy(SourceName, (char*)Cursor, SOURCE_NAME_SIZE);
     Cursor[SOURCE_NAME_SIZE - 1] = '\0';
     Cursor += SOURCE_NAME_SIZE;
     
@@ -295,10 +296,8 @@ InitializeSACN ( context Context)
 {
     streaming_acn SACN = {};
     
-    SACN.SendSocket = Context.PlatformGetSocketHandle(AF_INET, SOCK_DGRAM, 0);
-    int Multicast_TimeToLive = 20;
-    int Error = Context.PlatformSetSocketOption(SACN.SendSocket, IPPROTO_IP, IP_MULTICAST_TTL, 
-                                                (const char*)(&Multicast_TimeToLive), sizeof(Multicast_TimeToLive));
+    s32 Multicast_TimeToLive = 20;
+    SACN.SendSocket = Context.PlatformGetSocketHandle(Multicast_TimeToLive);
     SACN.CID = StringToCID_ ("{67F9D986-544E-4abb-8986-D5F79382586C}");
     
     return SACN;
@@ -331,7 +330,7 @@ SACNPrepareBufferHeader (s32 Universe, u8* Buffer, s32 BufferSize, s32 SizeReser
     SetStreamHeaderSequence_(Buffer, SACN.SequenceIterator, false);
 }
 
-internal u_long
+internal u32
 SACNGetUniverseSendAddress(s32 Universe)
 {
     u8 MulticastAddressBuffer[4] = {};
@@ -340,7 +339,7 @@ SACNGetUniverseSendAddress(s32 Universe)
     MulticastAddressBuffer[2] = (u8)((Universe & 0xff00) >> 8); // high bit
     MulticastAddressBuffer[3] = (u8)((Universe & 0x00ff)); // low bit
     
-    u_long V4Address = (u_long)UpackB4(MulticastAddressBuffer);
+    u32 V4Address = (u32)UpackB4(MulticastAddressBuffer);
     return V4Address;
 }
 

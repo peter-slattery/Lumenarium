@@ -48,21 +48,15 @@ SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
     
     send_sacn_job_data* Data = (send_sacn_job_data*)JobData;
     platform_socket_handle SendSocket = Data->SendSocket;
-    platform_send_to* SendTo = Data->SendTo;
     
     dmx_buffer_list* DMXBufferAt = Data->DMXBuffers;
     while (DMXBufferAt)
     {
         dmx_buffer Buffer = DMXBufferAt->Buffer;
         
-        u_long V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
+        u32 V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
         
-        platform_network_address SendAddress = {};
-        SendAddress.Family = AF_INET;
-        SendAddress.Port = DEFAULT_STREAMING_ACN_PORT;
-        SendAddress.Address = V4SendAddress;
-        
-        SendTo(SendSocket, SendAddress, (const char*)Buffer.Base, Buffer.TotalSize, 0);
+        Data->SendTo(SendSocket, V4SendAddress, DEFAULT_STREAMING_ACN_PORT, (const char*)Buffer.Base, Buffer.TotalSize, 0);
         
         DMXBufferAt = DMXBufferAt->Next;
     }
@@ -75,8 +69,6 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     app_state* State = (app_state*)Context.MemoryBase;
     
     GlobalDebugServices = DebugServices;
-    GSAlloc = Alloc;
-    GSFree = Free;
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)

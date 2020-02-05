@@ -6,7 +6,6 @@
 #ifndef FOLDHAUS_PLATFORM_H
 
 #include <windows.h>
-#include <stdio.h>
 
 #define GS_LANGUAGE_NO_PROFILER_DEFINES
 #include "..\gs_libs\gs_language.h"
@@ -20,17 +19,12 @@
 #include "..\gs_libs\gs_memory_arena.h"
 
 #include "..\gs_libs\gs_string.h"
-#include "foldhaus_debug.h"
 
+#include "foldhaus_debug.h"
 global_variable debug_services* GlobalDebugServices;
 
-global_variable platform_alloc* GSAlloc;
-global_variable platform_free* GSFree;
-
 #include "..\gs_libs\gs_vector_matrix.h"
-
 #include "..\gs_libs\gs_input.h"
-
 
 #include "foldhaus_renderer.h"
 
@@ -101,7 +95,7 @@ struct worker_thread_job
 
 struct work_queue
 {
-    HANDLE SemaphoreHandle;
+    void* SemaphoreHandle;
     
     u32 JobsMax;
     u32 volatile JobsCount;

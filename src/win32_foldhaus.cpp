@@ -138,8 +138,29 @@ s32 Win32SocketHandleMax;
 s32 Win32SocketHandleCount;
 win32_socket* SocketValues;
 
+PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
+{
+    s32 SocketIndex = (s32)SocketHandle;
+    Assert(SocketIndex < Win32SocketHandleCount);
+    int Error = setsockopt(SocketValues[SocketIndex].Socket, Level, Option, OptionValue, OptionLength);
+    if (Error == SOCKET_ERROR)
+    {
+        Error = WSAGetLastError();
+    }
+    
+    return Error;
+}
+
 PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
 {
+    // NOTE(Peter): These used to be passed in as paramters, but we only use this function 
+    // with AF_INET, SOCK_DGRAM, and Protocol = 0. These are also platform specific values
+    // so I was having to include windows.h in the platform agnostic code to accomodate that
+    // function signature. 
+    s32 AddressFamily = AF_INET;
+    s32 Type = SOCK_DGRAM;
+    s32 Protocol = 0;
+    
     if (Win32SocketHandleCount >= Win32SocketHandleMax)
     {
         s32 NewDictionaryMax = Win32SocketHandleMax + SOCKET_DICTIONARY_GROW_SIZE;
@@ -163,20 +184,10 @@ PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
     
     SocketValues[NewSocketIndex].Socket = socket(AddressFamily, Type, Protocol);
     
-    return (platform_socket_handle)NewSocketIndex;
-}
-
-PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
-{
-    s32 SocketIndex = (s32)SocketHandle;
-    Assert(SocketIndex < Win32SocketHandleCount);
-    int Error = setsockopt(SocketValues[SocketIndex].Socket, Level, Option, OptionValue, OptionLength);
-    if (Error == SOCKET_ERROR)
-    {
-        Error = WSAGetLastError();
-    }
+    int Error = Win32SetSocketOption(NewSocketIndex, IPPROTO_IP, IP_MULTICAST_TTL, 
+                                     (const char*)(&Multicast_TimeToLive), sizeof(Multicast_TimeToLive));
     
-    return Error;
+    return (platform_socket_handle)NewSocketIndex;
 }
 
 PLATFORM_SEND_TO(Win32SendTo)
@@ -185,9 +196,9 @@ PLATFORM_SEND_TO(Win32SendTo)
     Assert(SocketIndex < Win32SocketHandleCount);
     
     sockaddr_in SockAddress = {};
-    SockAddress.sin_family = Address.Family;
-    SockAddress.sin_port = HostToNetU16(Address.Port);
-    SockAddress.sin_addr.s_addr = HostToNetU32(Address.Address);
+    SockAddress.sin_family = AF_INET;
+    SockAddress.sin_port = HostToNetU16(Port);
+    SockAddress.sin_addr.s_addr = HostToNetU32(Address);
     
     s32 LengthSent = sendto(SocketValues[SocketIndex].Socket, Buffer, BufferLength, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     

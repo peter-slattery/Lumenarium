@@ -122,7 +122,6 @@ UpdateSortedNodes(pattern_node_workspace* Workspace, memory_arena* Scratch)
     }
     NullTerminate(&OutputString);
     
-    OutputDebugStringA(OutputCharArray);
     // This is a contiguous array. 
     b8* NodesVisited = PushArray(Scratch, b8, NodeCount);
     GSZeroArray(NodesVisited, b8, NodeCount);

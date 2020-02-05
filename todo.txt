@@ -8,8 +8,10 @@ Ground Up Reengineering
     - panels metaprogramming
     - fix memory layout (remeber to profile before and after)
 
-- Hot Code Reloading
-    - Fix it
+x Hot Code Reloading
+    x Fix it
+
+- Make the DLL truly platform agnostic
 
 - File Loading
     - Gracefully handle File Not found
