@@ -24,6 +24,15 @@ x Hot Code Reloading
 x File Loading
     x Gracefully handle File Not found
 
+- Internal Log File
+    - NOTE: This should not be a part of the debug system
+    - Save output log to a file continuously
+    - Have a window where we can view the log within the app
+    - Create a bar that displays the most recent error message
+    - :ErrorLogging
+
+- Make sure it works without building in Debug Mode
+
 - Buckets & Lists
     - Allow them to use memory arenas
     - Zero is initialization
@@ -40,6 +49,7 @@ x File Loading
     - icon system
 
 - Sculptures
+    - store scale in the assembly definition file
     - cache led vertex buffers
     - custom sculpture update functions (for motion)
     - placing sculptures

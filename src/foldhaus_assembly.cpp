@@ -61,6 +61,9 @@ ConstructAssemblyFromDefinition (assembly_definition Definition,
     return Assembly;
 }
 
+// NOTE(Peter): These are here so that if we load 2+ sculptures, they don't all
+// end up on top of one another. Purely aesthetic. Can remove once we implement
+// scene editing tools
 static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 0, 75, 0} };
 s32 TempAssemblyOffsetsCount = 3;
 
@@ -68,34 +71,32 @@ internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
     platform_memory_result TestAssemblyFile = Context.PlatformReadEntireFile(Path);
-    if (TestAssemblyFile.Error != PlatformMemory_NoError)
+    if (TestAssemblyFile.Error == PlatformMemory_NoError)
     {
-        return;
+        assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
+        
+        string PathString = MakeStringLiteral(Path);
+        s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
+        string FileName = Substring(PathString, IndexOfLastSlash + 1);
+        
+        memory_arena AssemblyArena = {};
+        AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+        AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+        
+        v4 Offset = TempAssemblyOffsets[State->ActiveAssemblyIndecies.Used % TempAssemblyOffsetsCount];
+        r32 Scale = 100;
+        assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, FileName, Offset, Scale, AssemblyArena);
+        gs_list_handle NewAssemblyHandle = State->AssemblyList.PushElementOnList(NewAssembly);
+        
+        State->ActiveAssemblyIndecies.PushElementOnList(NewAssemblyHandle);
+        State->TotalLEDsCount += NewAssembly.LEDCount;
+        
+        Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
     }
-    
-    assembly_definition AssemblyDefinition = ParseAssemblyFile(TestAssemblyFile.Base, TestAssemblyFile.Size, &State->Transient);
-    
-    Context.PlatformFree(TestAssemblyFile.Base, TestAssemblyFile.Size);
-    
-    string PathString = MakeStringLiteral(Path);
-    s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
-    string FileName = Substring(PathString, IndexOfLastSlash + 1);
-    
-    r32 Scale = 100;
-    memory_arena AssemblyArena = {};
-    AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
-    
-    v4 Offset = TempAssemblyOffsets[State->ActiveAssemblyIndecies.Used % TempAssemblyOffsetsCount];
-    assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, 
-                                                           FileName, 
-                                                           Offset, 
-                                                           Scale, 
-                                                           AssemblyArena);
-    gs_list_handle NewAssemblyHandle = State->AssemblyList.PushElementOnList(NewAssembly);
-    State->ActiveAssemblyIndecies.PushElementOnList(NewAssemblyHandle);
-    
-    State->TotalLEDsCount += NewAssembly.LEDCount;
+    else
+    {
+        // TODO(Peter): :ErrorLogging
+    }
 }
 
 internal void
