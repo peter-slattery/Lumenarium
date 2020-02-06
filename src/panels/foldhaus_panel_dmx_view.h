@@ -5,6 +5,13 @@
 //
 #ifndef FOLDHAUS_PANEL_DMX_VIEW_H
 
+struct universe_view_operation_state
+{
+    b32 MouseDown;
+    v2 DisplayOffset;
+    r32 Zoom;
+};
+
 GSMetaTag(panel_init);
 internal void
 DMXView_Init(panel* Panel, app_state* State)
