@@ -180,7 +180,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    ReloadStaticData(Context, GlobalDebugServices, Alloc, Free);
+    ReloadStaticData(Context, GlobalDebugServices);
     
     // Setup Operation Modes
     State->Modes.ActiveModesCount = 0;

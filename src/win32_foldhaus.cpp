@@ -637,7 +637,7 @@ WinMain (
     if (HotLoadDLL(&DLLRefresh))
     {
         SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-        Context.ReloadStaticData(Context, GlobalDebugServices, Win32Alloc, Win32Free);
+        Context.ReloadStaticData(Context, GlobalDebugServices);
     }
     else
     {
@@ -652,7 +652,7 @@ WinMain (
     u8* RenderMemory = Win32Alloc(RenderMemorySize);
     render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory, RenderMemorySize, Win32Realloc);
     
-    Context.InitializeApplication(Context, Win32Alloc, Win32Free);
+    Context.InitializeApplication(Context);
     
     Running = true;
     Context.WindowIsVisible = true;
@@ -668,7 +668,7 @@ WinMain (
         if (HotLoadDLL(&DLLRefresh))
         {
             SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-            Context.ReloadStaticData(Context, GlobalDebugServices, Win32Alloc, Win32Free);
+            Context.ReloadStaticData(Context, GlobalDebugServices);
         }
         
         { // Mouse Position

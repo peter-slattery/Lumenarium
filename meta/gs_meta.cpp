@@ -22,7 +22,7 @@
 
 #include "..\gs_libs\gs_language.h"
 #include "..\gs_libs\gs_bucket.h"
-#include "..\gs_libs\gs_platform.h"
+
 #include "..\gs_libs\gs_memory_arena.h"
 #include "..\gs_libs\gs_string.h"
 
