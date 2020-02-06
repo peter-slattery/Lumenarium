@@ -81,6 +81,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     
+    State->GlobalLog = PushStruct(&State->Transient, event_log);
+    *State->GlobalLog = {0};
+    
     s32 CommandQueueSize = 32;
     command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent, 
                                                         command_queue_entry, 
@@ -143,7 +146,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         } 
         else 
         {
-            // TODO(Peter): How do we want to handle not having a font?
+            LogError(State->GlobalLog, "Unable to load font");
         }
     }
     

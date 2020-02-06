@@ -25,7 +25,8 @@ x File Loading
     x Gracefully handle File Not found
 
 - Internal Log File
-    - NOTE: This should not be a part of the debug system
+    NOTE: This should not be a part of the debug system
+    x Basic logging
     - Save output log to a file continuously
     - Have a window where we can view the log within the app
     - Create a bar that displays the most recent error message

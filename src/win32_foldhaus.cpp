@@ -151,6 +151,7 @@ PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
     if (Error == SOCKET_ERROR)
     {
         Error = WSAGetLastError();
+        // TODO(Peter): :ErrorLogging
     }
     
     return Error;
@@ -215,6 +216,7 @@ PLATFORM_SEND_TO(Win32SendTo)
         }
         else
         {
+            // TODO(Peter): :ErrorLogging
             InvalidCodePath;
         }
     }

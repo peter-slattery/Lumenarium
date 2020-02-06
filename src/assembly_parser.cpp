@@ -330,7 +330,7 @@ ParseVector(tokenizer* T, v3* Value)
     return Result;
 }
 
-// TODO(Peter): Error reporting
+// TODO(Peter): :ErrorLogging
 #define ParseLEDStripToken(tokenizer, parse_expr, error_msg) \
 (parse_expr) && (ParseComma(tokenizer))
 
@@ -388,7 +388,7 @@ ParseLEDStrip (led_strip_definition* Strip, tokenizer* T, memory_arena* Arena)
 }
 
 internal assembly_definition
-ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
+ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena, event_log* EventLog)
 {
     assembly_definition Assembly = {};
     
@@ -415,7 +415,8 @@ ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
                 }
                 else
                 {
-                    InvalidCodePath;
+                    LogError(EventLog, "Unable to parse LED strip in assembly file");
+                    break;
                 }
             }
             else
@@ -426,14 +427,15 @@ ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena)
                 }
                 else
                 {
-                    InvalidCodePath;
+                    LogError(EventLog, "Did not find ent of file identifier in assembly file");
+                    break;
                 }
             }
         }
     }
     else
     {
-        // TODO(Peter): Error reporting
+        // TODO(Peter): :ErrorLoggong
         InvalidCodePath;
     }
     

@@ -8,6 +8,8 @@
 #include "../meta/gs_meta_lexer.h"
 
 #include "../gs_libs/gs_font.h"
+#include "foldhaus_log.h"
+
 #include "interface.h"
 
 #include "foldhaus_network_ordering.h"
@@ -84,6 +86,8 @@ struct app_state
     panel* HotPanel;
     
     pattern_node_workspace NodeWorkspace;
+    
+    event_log* GlobalLog;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);

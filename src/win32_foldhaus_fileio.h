@@ -31,7 +31,7 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
             else
             {
                 u32 Error = GetLastError();
-                // TODO(Peter): 
+                // TODO(Peter): :ErrorLogging
                 Result.Size = 0;
                 Result.Error = PlatformMemory_UnknownError;
             }
@@ -41,6 +41,7 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
     else
     {
         Result.Error = PlatformMemory_FileNotFound;
+        // TODO(Peter): :ErrorLogging
     }
     
     return Result;
@@ -100,7 +101,7 @@ GetFileLastWriteTime(char* Path)
     }
     else
     {
-        // TODO(Peter): Error handling
+        // TODO(Peter): :ErrorLogging
     }
     
     return Result;

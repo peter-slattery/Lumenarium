@@ -47,7 +47,7 @@ LoadApplicationDLL(char* DLLName,  win32_dll_refresh* DLLResult)
     b32 Success = false;
     Assert(DLLResult->DLL == 0);
     
-    DLLResult->DLL = LoadLibraryA(DLLName); // TODO(Peter): Error checking
+    DLLResult->DLL = LoadLibraryA(DLLName);
     if (DLLResult->DLL)
     {
         Success = true;
