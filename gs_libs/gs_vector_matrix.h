@@ -189,9 +189,9 @@ v4 operator- (v4 A)
     return Result;
 }
 
-#define V2OpV2Def(op) v2 operator##op (v2 A, v2 B) { return v2{ A.x op B.x, A.y op B.y };}
-#define V3OpV3Def(op) v3 operator##op (v3 A, v3 B) { return v3{ A.x op B.x, A.y op B.y, A.z op B.z };}
-#define V4OpV4Def(op) v4 operator##op (v4 A, v4 B) { return v4{ A.x op B.x, A.y op B.y, A.z op B.z, A.w op B.w };}
+#define V2OpV2Def(op) v2 operator op (v2 A, v2 B) { return v2{ A.x op B.x, A.y op B.y };}
+#define V3OpV3Def(op) v3 operator op (v3 A, v3 B) { return v3{ A.x op B.x, A.y op B.y, A.z op B.z };}
+#define V4OpV4Def(op) v4 operator op (v4 A, v4 B) { return v4{ A.x op B.x, A.y op B.y, A.z op B.z, A.w op B.w };}
 V2OpV2Def(+)
 V2OpV2Def(-)
 V2OpV2Def(/)
@@ -208,9 +208,9 @@ V4OpV4Def(*)
 #undef V3OpV3Def
 #undef V4OpV4Def
 
-#define V2RefOpV2Def(op) v2 operator##op (v2& A, v2 B) { return v2{ A.x op B.x, A.y op B.y };}
-#define V3RefOpV3Def(op) v3 operator##op (v3& A, v3 B) { return v3{ A.x op B.x, A.y op B.y, A.z op B.z };}
-#define V4RefOpScalarDef(op) v4 operator##op (v4& A, v4 B) { return v4{ A.x op B.x, A.y op B.y, A.z op B.z, A.w op B.w };}
+#define V2RefOpV2Def(op) v2 operator op (v2& A, v2 B) { return v2{ A.x op B.x, A.y op B.y };}
+#define V3RefOpV3Def(op) v3 operator op (v3& A, v3 B) { return v3{ A.x op B.x, A.y op B.y, A.z op B.z };}
+#define V4RefOpScalarDef(op) v4 operator op (v4& A, v4 B) { return v4{ A.x op B.x, A.y op B.y, A.z op B.z, A.w op B.w };}
 V2RefOpV2Def(+=)
 V2RefOpV2Def(-=)
 V3RefOpV3Def(+=)
@@ -221,9 +221,9 @@ V4RefOpScalarDef(-=)
 #undef V3RefOpV3Def
 #undef V4RefOpV4Def
 
-#define V2OpScalarDef(op) v2 operator##op (v2 A, float B) { return v2{ A.x op B, A.y op B };}
-#define V3OpScalarDef(op) v3 operator##op (v3 A, float B) { return v3{ A.x op B, A.y op B, A.z op B };}
-#define V4OpScalarDef(op) v4 operator##op (v4 A, float B) { return v4{ A.x op B, A.y op B, A.z op B, A.w op B };}
+#define V2OpScalarDef(op) v2 operator op (v2 A, float B) { return v2{ A.x op B, A.y op B };}
+#define V3OpScalarDef(op) v3 operator op (v3 A, float B) { return v3{ A.x op B, A.y op B, A.z op B };}
+#define V4OpScalarDef(op) v4 operator op (v4 A, float B) { return v4{ A.x op B, A.y op B, A.z op B, A.w op B };}
 V2OpScalarDef(*)
 V2OpScalarDef(/)
 V3OpScalarDef(*)
@@ -235,9 +235,9 @@ V4OpScalarDef(/)
 #undef V4POpScalarDef
 
 
-#define V2POpScalarDef(op) v2 operator##op (v2& A, float B) { return v2{ A->x op B, A->y op B };}
-#define V3POpScalarDef(op) v3 operator##op (v3& A, float B) { return v3{ A->x op B, A->y op B, A->z op B };}
-#define V4POpScalarDef(op) v4 operator##op (v4& A, float B) { return v4{ A->x op B, A->y op B, A->z op B, A->w op B };}
+#define V2POpScalarDef(op) v2 operator op (v2& A, float B) { return v2{ A->x op B, A->y op B };}
+#define V3POpScalarDef(op) v3 operator op (v3& A, float B) { return v3{ A->x op B, A->y op B, A->z op B };}
+#define V4POpScalarDef(op) v4 operator op (v4& A, float B) { return v4{ A->x op B, A->y op B, A->z op B, A->w op B };}
 V2OpScalarDef(*=)
 V2OpScalarDef(/=)
 V3OpScalarDef(*=)

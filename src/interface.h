@@ -271,7 +271,7 @@ struct multi_option_label_result
 
 internal multi_option_label_result
 EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer, 
-                          v2 Min, v2 Max, string Label, string Options[], 
+                          v2 Min, v2 Max, string Label, string Options[], s32 OptionsCount,
                           interface_config Config, mouse_state Mouse)
 {
     multi_option_label_result Result = {};
@@ -283,7 +283,7 @@ EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer,
     v2 ButtonDim = v2{ButtonSide, ButtonSide};
     v2 ButtonPos = Max - (ButtonDim + Config.Margin);
     
-    for (s32 b = 0; b < sizeof(Options) / sizeof(Options[0]); b++)
+    for (s32 b = 0; b < OptionsCount; b++)
     {
         button_result Button = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
                                               Options[b], Config, Mouse);
@@ -301,13 +301,12 @@ EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer,
 // NOTE(Peter): returns IndexPressed = -1 if the button itself is pressed, as opposed
 // to one of its options
 internal multi_option_label_result
-EvaluateMultiOptionButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Text, string Options[], b32 Selected,
+EvaluateMultiOptionButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Text, string Options[], s32 OptionsCount, b32 Selected,
                            interface_config Config, mouse_state Mouse)
 {
     multi_option_label_result Result = {};
     Result.Pressed = false;
     
-    s32 OptionsCount =  sizeof(Options) / sizeof(Options[0]);
     r32 ButtonSide = (Max.y - Min.y) - (2 * Config.Margin.y);
     v2 ButtonDim = v2{ButtonSide, ButtonSide};
     
@@ -386,31 +385,29 @@ EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Labe
 
 struct panel_result
 {
-    s32 Depth;
     v2 NextPanelMin;
     v2 ChildMin, ChildMax;
 };
 
 internal panel_result
-EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, s32 Depth, interface_config Config)
+EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, interface_config Config)
 {
     panel_result Result = {};
     
-    Result.Depth = Depth;
     Result.ChildMin = Min + Config.Margin;
     Result.ChildMax = Max - Config.Margin; 
     Result.NextPanelMin = v2{Max.x, Min.y};
     
-    v4 BG = Config.PanelBGColors[Depth];
+    v4 BG = Config.PanelBGColors[0];
     PushRenderQuad2D(RenderBuffer, Min, Max, BG);
     
     return Result;
 }
 
 internal panel_result
-EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, s32 Depth, interface_config Config)
+EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config)
 {
-    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Depth, Config);
+    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Config);
     
     v2 TextPos = v2{
         Min.x + Config.Margin.x,
@@ -427,7 +424,7 @@ EvaluatePanel(render_command_buffer* RenderBuffer, panel_result* ParentPanel, r3
 {
     v2 Min = v2{ParentPanel->ChildMin.x, ParentPanel->ChildMax.y - Height};
     v2 Max = ParentPanel->ChildMax;
-    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Title, ParentPanel->Depth + 1, Config);
+    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Title, Config);
     
     ParentPanel->ChildMax.y = Min.y - Config.Margin.y;
     

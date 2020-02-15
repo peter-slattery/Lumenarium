@@ -88,7 +88,13 @@ static void DebugPrint(char* Format, ...);
 
 #if !defined(Assert)
 // NOTE(peter): this writes to address 0 which is always illegal and will cause a crash
-#define Assert(expression) if(!(expression)){ *((int *)0) = 5; }
+#define Assert(expression) \
+if((expression)) \
+{ \
+}else{ \
+volatile int* p = 0; \
+*p = 5; \
+}
 #endif
 
 #define DEBUG_IF(condition) if (condition)
@@ -310,9 +316,9 @@ GSIntDivideRoundUpDef(s64);
 
 #define GSRemapDef(type) \
 static type GSRemap(type Value, type OldMin, type OldMax, type NewMin, type NewMax) { \
-type Result = (Value - OldMin) / (OldMax - OldMin); \
-Result = (Result * (NewMax - NewMin)) + NewMin; \
-return Result; \
+    type Result = (Value - OldMin) / (OldMax - OldMin); \
+    Result = (Result * (NewMax - NewMin)) + NewMin; \
+    return Result; \
 }
 GSRemapDef(u8);
 GSRemapDef(u16);

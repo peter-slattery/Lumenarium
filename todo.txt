@@ -2,31 +2,18 @@ TODO FOLDHAUS
 
 Ground Up Reengineering
 - Metaprogramming
-    x refactor for speed
-    x use #include statements to crawl through the codebase
-    x generalize the system
     - panels metaprogramming
     - fix memory layout (remeber to profile before and after)
-
-x Hot Code Reloading
-    x Fix it
 
 - Make the DLL truly platform agnostic
     - math.h: present for trig functions
     - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
 
 - Win32 Platform Layer
-    x Capture Mouse Events that start on the window but end outside
-        x Mouse up when mouse down was in the window
     - Enumerate Directory Contents (you started this in win32_foldhaus_fileio.h)
-    - 
-
-x File Loading
-    x Gracefully handle File Not found
 
 - Internal Log File
     NOTE: This should not be a part of the debug system
-    x Basic logging
     - Save output log to a file continuously
     - Have a window where we can view the log within the app
     - Create a bar that displays the most recent error message
@@ -44,10 +31,6 @@ x File Loading
     - Layers
     - Lighting
     - Clipping (with error checking)
-
-- Asset Loading
-    - images
-    - icon system
 
 - Sculptures
     - store scale in the assembly definition file
@@ -69,6 +52,11 @@ x File Loading
     - text input
     - lister with icon options
     - panel system: destroy panel by extending it beyond its max, not just its min
+
+- Asset Loading
+    - images
+    - icon system - integrate with interface
+
 
 - Sculpture View
     - mouse spatial interaction - handles, and hover for info

@@ -169,7 +169,7 @@ BeginConnectNodesOperation(visual_port VisualPort, u32 VisualPortIndex, mouse_st
 //
 
 input_command NodeGraph_Commands[] = {
-    { 0 }
+    {}
 };
 
 GSMetaTag(panel_init);

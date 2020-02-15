@@ -2,3 +2,4 @@ build/
 process/
 reference/
 working_data/
+build_clang

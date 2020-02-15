@@ -47,6 +47,8 @@ InitializeTextFont (s32 CodepointCount, u8* CodepointMemory, s32 CodepointMemory
     Assert(CodepointMemorySize >= (sizeof(char) + sizeof(codepoint_bitmap)) * CodepointCount);
     Result.CodepointKeys = (char*)CodepointMemory;
     Result.CodepointValues = (codepoint_bitmap*)(CodepointMemory + (sizeof(char) * CodepointCount));
+    
+    return Result;
 }
 
 #define GLYPH_SKIRT 1

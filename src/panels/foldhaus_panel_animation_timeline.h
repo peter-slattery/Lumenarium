@@ -454,8 +454,7 @@ AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* R
     
     v2 OptionsRowMin = v2{ PanelBounds.Min.x, TimelineBounds.Max.y };
     v2 OptionsRowMax = PanelBounds.Max;
-    panel_result AnimationPanel = EvaluatePanel(RenderBuffer, OptionsRowMin, OptionsRowMax,
-                                                0, State->Interface);
+    panel_result AnimationPanel = EvaluatePanel(RenderBuffer, OptionsRowMin, OptionsRowMax, State->Interface);
     
     r32 ButtonWidth = 35;
     v2 ButtonMin = v2{0, 0};

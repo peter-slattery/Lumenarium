@@ -156,8 +156,10 @@ typedef unsigned long long int gs_mem_u64;
 #ifdef DEBUG
 #if !defined(GSMem_Assert)
 #define GSMem_Assert(expression) \
-if(!(expression)) { \
-*((int *)0) = 5; \
+if((expression)) { \
+}else{ \
+    volatile int* p = 0; \
+    *p = 5; \
 }
 
 #endif
@@ -567,7 +569,7 @@ ClearArena(memory_arena* Arena)
 static arena_snapshot
 TakeSnapshotOfArena(memory_arena* Arena)
 {
-    Assert(Arena->FindAddressRule == FindAddress_InLastBufferOnly);
+    GSMem_Assert(Arena->FindAddressRule == FindAddress_InLastBufferOnly);
     
     arena_snapshot Result = {};
     Result.Arena = Arena;
@@ -593,7 +595,7 @@ TakeSnapshotOfArena(memory_arena* Arena)
 static void
 ClearArenaToSnapshot(memory_arena* Arena, arena_snapshot Snapshot)
 {
-    Assert(Arena == Snapshot.Arena);
+    GSMem_Assert(Arena == Snapshot.Arena);
     
     memory_buffer* HeadBufferAtSnapshot = Arena->Buffers + Snapshot.HeadBufferAtSnapshot;
     if (HeadBufferAtSnapshot)

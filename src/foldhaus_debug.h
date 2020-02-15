@@ -225,7 +225,7 @@ GetIndexForNameHash(debug_frame* Frame, u32 NameHash)
     for (s32 Offset = 0; Offset < Frame->ScopeNamesMax; Offset++)
     {
         u32 Index = (NameHash + Offset) % Frame->ScopeNamesMax;
-        if ((Frame->ScopeNamesHash[Index].Hash == NameHash))
+        if (Frame->ScopeNamesHash[Index].Hash == NameHash)
         {
             Result = Index;
             break;
@@ -399,7 +399,7 @@ internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFre
 }
 
 #ifdef DEBUG
-#define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker (__FUNCTION__, GlobalDebugServices)
+#define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker ((char*)__func__, GlobalDebugServices)
 #define DEBUG_TRACK_SCOPE(name) scope_tracker ScopeTracker_##name (#name, GlobalDebugServices)
 #else
 #define DEBUG_TRACK_FUNCTION 

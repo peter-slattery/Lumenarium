@@ -26,6 +26,11 @@ DMXView_Cleanup(panel* Panel, app_state* State)
     
 }
 
+#if 0
+
+// NOTE(Peter): Here to illustrate what old SACN Universe drawing looked like
+// This won't actually function
+// :NoLongerFunctionalSACNCodeButThatsOk
 internal void
 DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDraw, 
                         v2 TopLeft, v2 Dimension)
@@ -59,12 +64,14 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
         ++PixelsDrawn;
     }
 }
+#endif 
 
 GSMetaTag(panel_render);
 internal void
 DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
 #if 0
+    // :NoLongerFunctionalSACNCodeButThatsOk
     DEBUG_TRACK_SCOPE(DrawUniverseOutputDisplay);
     
     universe_view_operation_state* OpState = (universe_view_operation_state*)Operation.OpStateMemory;
