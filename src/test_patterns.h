@@ -5,7 +5,7 @@
 //
 #ifndef TEST_PATTERNS_H
 
-GSMetaTag(node_struct) 
+GSMetaTag(node_struct);
 struct solid_color_data
 {
     GSMetaTag(node_input); 
@@ -34,7 +34,7 @@ void SolidColorProc(solid_color_data* Data)
     }
 }
 
-GSMetaTag(node_struct) 
+GSMetaTag(node_struct);
 struct vertical_color_fade_data
 {
     GSMetaTag(node_input); 
@@ -75,7 +75,7 @@ void VerticalColorFadeProc(vertical_color_fade_data* Data)
 }
 
 // Original -> DiscPatterns.pde : Revolving Discs
-GSMetaTag(node_struct) 
+GSMetaTag(node_struct);
 struct revolving_discs_data
 {
     GSMetaTag(node_input); 

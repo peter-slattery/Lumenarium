@@ -5,12 +5,8 @@
 //
 #ifndef FOLDHAUS_APP_CPP
 
-#include "../meta/gs_meta_include.h"
-
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
-
-#include "./generated/gs_meta_generated_typeinfo.h"
 
 internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)

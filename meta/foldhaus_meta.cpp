@@ -9,10 +9,12 @@
 #include "gs_meta_typeinfo_generator.h"
 
 internal void
-GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* CallNodeProcGen, gs_meta_preprocessor Meta)
+GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* NodeSpecificationGen, string_builder* CallNodeProcGen, gs_meta_preprocessor Meta)
 {
     // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
     // of type_definition** 
+    
+    WriteF(NodeSpecificationGen, "static node_specification_ NodeSpecifications[] = {\n");
     
     WriteF(CallNodeProcGen, "void CallNodeProc(node_type Type, u8* NodeData)\n{\n");
     WriteF(CallNodeProcGen, "    switch(Type) { \n");
@@ -35,24 +37,24 @@ GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* CallNodeP
                 
                 AddEnumElement(NodeTypeGen, Decl->Identifier);
                 
+                variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(0);
+                type_table_handle ParamTypeHandle = Param->TypeHandle;
+                type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
+                
                 type_table_handle ReturnTypeHandle = Decl->Function.ReturnTypeHandle;
                 type_definition* ReturnType = GetTypeDefinition(ReturnTypeHandle, Meta.TypeTable);
+                
+                WriteF(NodeSpecificationGen, "{ NodeType_%S, {\"%S\", %d}, gsm_StructType_%S }, \n",
+                       Decl->Identifier,
+                       Decl->Identifier,
+                       Decl->Identifier.Length,
+                       ParamType->Identifier);
                 
                 WriteF(CallNodeProcGen, "        case NodeType_%.*s:\n", StringExpand(Decl->Identifier));
                 WriteF(CallNodeProcGen, "        {\n");
                 WriteF(CallNodeProcGen, "            %.*s(", StringExpand(Decl->Identifier));
+                WriteF(CallNodeProcGen, "(%.*s*)NodeData", StringExpand(ParamType->Identifier));
                 
-                for (u32 j = 0; j < Decl->Function.Parameters.Used; j++)
-                {
-                    variable_decl* Param = Decl->Function.Parameters.GetElementAtIndex(j);
-                    type_table_handle ParamTypeHandle = Param->TypeHandle;
-                    type_definition* ParamType = GetTypeDefinition(ParamTypeHandle, Meta.TypeTable);
-                    WriteF(CallNodeProcGen, "(%.*s*)NodeData", StringExpand(ParamType->Identifier));
-                    if (j + 1 < Decl->Function.Parameters.Used)
-                    {
-                        WriteF(CallNodeProcGen, ", ");
-                    }
-                }
                 WriteF(CallNodeProcGen, ");\n");
                 WriteF(CallNodeProcGen, "        } break;\n");
             }
@@ -60,6 +62,8 @@ GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* CallNodeP
     }
     WriteF(CallNodeProcGen, "    }\n");
     WriteF(CallNodeProcGen, "}\n\n");
+    
+    WriteF(NodeSpecificationGen, "};\n\n");
     
     FinishEnumGeneration(NodeTypeGen);
 }
@@ -80,8 +84,9 @@ int main(int ArgCount, char* Args[])
     FinishGeneratingTypes(&TypeGenerator);
     
     gsm_code_generator NodeTypeGen = BeginEnumGeneration("node_type", "NodeType", false, true);
+    string_builder NodeSpecificationGen = {0};
     string_builder CallNodeProcGen = {0};
-    GenerateNodeMetaInfo(&NodeTypeGen, &CallNodeProcGen, Meta);
+    GenerateNodeMetaInfo(&NodeTypeGen, &NodeSpecificationGen, &CallNodeProcGen, Meta);
     
     string_builder PanelInfoGen = {0};
     
@@ -98,6 +103,7 @@ int main(int ArgCount, char* Args[])
     if (NodeInfoH)
     {
         WriteStringBuilderToFile(*NodeTypeGen.Builder, NodeInfoH);
+        WriteStringBuilderToFile(NodeSpecificationGen, NodeInfoH);
         WriteStringBuilderToFile(CallNodeProcGen, NodeInfoH);
         fclose(NodeInfoH);
     }

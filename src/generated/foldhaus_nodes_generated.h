@@ -6,6 +6,12 @@ enum node_type
     NodeType_Count,
 };
 
+static node_specification_ NodeSpecifications[] = {
+{ NodeType_RevolvingDiscs, {"RevolvingDiscs", 14}, gsm_StructType_revolving_discs_data }, 
+{ NodeType_VerticalColorFadeProc, {"VerticalColorFadeProc", 21}, gsm_StructType_vertical_color_fade_data }, 
+{ NodeType_SolidColorProc, {"SolidColorProc", 14}, gsm_StructType_solid_color_data }, 
+};
+
 void CallNodeProc(node_type Type, u8* NodeData)
 {
     switch(Type) { 

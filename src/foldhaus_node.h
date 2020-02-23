@@ -19,7 +19,8 @@ struct color_buffer
     s32 LEDCount;
 };
 
-// TODO(Peter): Generate this
+// TODO(Peter): Use the Meta RTTI
+// :UseMetaInfo
 enum struct_member_type
 {
     MemberType_Invalid,
@@ -30,6 +31,8 @@ enum struct_member_type
     MemberTypeCount,
 };
 
+// TODO(Peter): Use the Meta RTTI
+// :UseMetaInfo
 struct node_struct_member
 {
     struct_member_type Type;
@@ -38,6 +41,7 @@ struct node_struct_member
     b32 IsInput;
 };
 
+// :UseMetaInfo
 struct node_specification
 {
     node_type Type;
@@ -52,6 +56,13 @@ struct node_specification
     b32 IsPattern;
 };
 
+struct node_specification_
+{
+    node_type Type;
+    string Identifier;
+    gsm_struct_type DataType;
+};
+
 struct pattern_node
 {
     // TODO(Peter): Something to think about further down the line is the fact that
@@ -59,6 +70,8 @@ struct pattern_node
     // an application, let alone across separate runs. If you recompile (hot load or not)
     // with a new specification, the indecies all get thrown off. Should we hash the spec
     // names or something?
+    
+    // TODO(Peter): A more immediate thing to handle is that u32 should really be node_type
     u32 SpecificationIndex;
 };
 

@@ -5,6 +5,7 @@
 //
 #ifndef FOLDHAUS_APP_H
 
+#include "../meta/gs_meta_include.h"
 #include "../meta/gs_meta_lexer.h"
 
 #include "../gs_libs/gs_font.h"
@@ -23,8 +24,8 @@
 #include "foldhaus_node.h"
 
 // TODO(Peter): TEMPORARY
-u32 NodeSpecificationsCount = 0;
-node_specification* NodeSpecifications = 0;
+//u32 NodeSpecificationsCount = 0;
+//node_specification* NodeSpecifications = 0;
 
 
 #include "assembly_parser.cpp"
@@ -228,6 +229,8 @@ struct panel_definition
     panel_render_proc* Render;
     input_command* InputCommands;
 };
+#include "./generated/gs_meta_generated_typeinfo.h"
+#include "generated/foldhaus_nodes_generated.h"
 
 #include "panels/foldhaus_panel_sculpture_view.h"
 #include "panels/foldhaus_panel_profiler.h"
@@ -237,7 +240,6 @@ struct panel_definition
 #include "panels/foldhaus_panel_node_graph.h"
 
 #include "generated/foldhaus_panels_generated.h"
-#include "generated/foldhaus_nodes_generated.h"
 
 #include "foldhaus_interface.cpp"
 

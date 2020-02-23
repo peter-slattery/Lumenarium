@@ -7,7 +7,7 @@
 
 struct visual_node
 {
-    node_specification Spec;
+    node_specification_ Spec;
     v2 Position;
 };
 
@@ -229,19 +229,19 @@ DrawGrid (v2 Offset, v2 GridSquareDim, rect PanelBounds, render_command_buffer* 
 }
 
 internal void
-DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
+DrawNodePorts(gsm_struct_type_info NodeDataTypeInfo, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
     rect PortBounds = rect{v2{0, 0}, v2{6, 6}};
     
     v2 LinePosition = Position;
-    for (u32 i = 0; i < Spec.MemberListLength; i++)
+    for (u32 i = 0; i < NodeDataTypeInfo.MembersCount; i++)
     {
-        node_struct_member Member = Spec.MemberList[i];
-        if ((Member.IsInput & InputMask) > 0)
+        gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[i];
+        if (MemberIsInput(Member))
         {
             // TODO(Peter): Can we make this rely on the same data that we use to 
             // render the actual connection points?
-            string MemberName = MakeString(Member.Name, CharArrayLength(Member.Name));
+            string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
             DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, TextAlign);
             LinePosition.y -= LineHeight;
         }
@@ -249,15 +249,17 @@ DrawNodePorts(node_specification Spec, b32 InputMask, v2 Position, r32 LineHeigh
 }
 
 internal void
-DrawNode (v2 Position, node_specification NodeSpecification, gs_list_handle NodeHandle, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse, memory_arena* Scratch)
+DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle NodeHandle, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse, memory_arena* Scratch)
 {
+    gsm_struct_type_info NodeDataTypeInfo = StructTypes[NodeSpecification.DataType];
+    
     u32 InputMembers = 0;
     u32 OutputMembers = 0;
-    for (u32 i = 0; i < NodeSpecification.MemberListLength; i++)
+    for (u32 i = 0; i < NodeDataTypeInfo.MembersCount; i++)
     {
-        node_struct_member Member = NodeSpecification.MemberList[i];
-        if ((Member.IsInput & IsOutputMember) > 0) { OutputMembers++; }
-        if ((Member.IsInput & IsInputMember) > 0) { InputMembers++; }
+        gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[i];
+        if (MemberIsInput(Member)) { InputMembers++; }
+        if (MemberIsOutput(Member)) { OutputMembers++; }
     }
     u32 LineCount = 1 + GSMax(InputMembers, OutputMembers);
     
@@ -277,17 +279,32 @@ DrawNode (v2 Position, node_specification NodeSpecification, gs_list_handle Node
     
     PushRenderQuad2D(RenderBuffer, LinePosition, LinePosition + v2{NodeWidth, LineHeight}, v4{1.f, .24f, .39f, 1.f});
     
-    string NodeName = MakeString(NodeSpecification.Name, NodeSpecification.NameLength);
     string NodePrintName = MakeString(PushArray(Scratch, char, 256), 0, 256);
-    PrintF(&NodePrintName, "%S [%d]", NodeName, NodeHandle.Index);
+    PrintF(&NodePrintName, "%S [%d]", NodeSpecification.Identifier, NodeHandle.Index);
     DrawString(RenderBuffer, NodePrintName, Interface.Font, LinePosition + TextOffset, WhiteV4);
     LinePosition.y -= LineHeight;
     
-    DrawNodePorts(NodeSpecification, IsInputMember, LinePosition, LineHeight, Align_Left, TextOffset, Interface, RenderBuffer, Mouse);
-    
+    v2 InputLinePosition = LinePosition;
     v2 OutputLinePosition = v2{LinePosition.x + NodeDim.x, LinePosition.y };
     v2 OutputTextOffset = v2{-TextOffset.x, TextOffset.y};
-    DrawNodePorts(NodeSpecification, IsOutputMember, OutputLinePosition, LineHeight, Align_Right, OutputTextOffset, Interface, RenderBuffer, Mouse);
+    for (u32 i = 0; i < NodeDataTypeInfo.MembersCount; i++)
+    {
+        gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[i];
+        string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
+        
+        // TODO(Peter): Can we make this rely on the same data that we use to 
+        // render the actual connection points?
+        if (MemberIsInput(Member))
+        {
+            DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, Align_Left);
+            InputLinePosition.y -= LineHeight;
+        }
+        else if (MemberIsOutput(Member))
+        {
+            DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, Align_Right);
+            OutputLinePosition.y -= LineHeight;
+        }
+    }
 }
 
 internal s32
@@ -319,8 +336,10 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         pattern_node Node = *Workspace.Nodes.GetElementWithHandle(NodeHandle);
         
         u32 SpecIndex = Node.SpecificationIndex;
-        node_specification Spec = NodeSpecifications[SpecIndex];
-        Result.VisualPortsCount += Spec.MemberListLength;
+        
+        node_specification_ Spec = NodeSpecifications[SpecIndex];
+        gsm_struct_type_info NodeDataTypeInfo = StructTypes[Spec.DataType];
+        Result.VisualPortsCount += NodeDataTypeInfo.MembersCount;;
     }
     
     // Place nodes and connections
@@ -336,7 +355,9 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         pattern_node Node = *Workspace.Nodes.GetElementWithHandle(NodeHandle);
         
         u32 SpecIndex = Node.SpecificationIndex;
-        node_specification Spec = NodeSpecifications[SpecIndex];
+        
+        node_specification_ Spec = NodeSpecifications[SpecIndex];
+        gsm_struct_type_info NodeDataTypeInfo = StructTypes[Spec.DataType];
         
         visual_node* VisualNode = Result.VisualNodes + n;
         VisualNode->Spec = Spec;
@@ -345,19 +366,19 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         // NOTE(Peter): These start at 2 to account for the offset past the node title
         s32 InputsCount = 2; 
         s32 OutputsCount = 2;
-        for (u32 p = 0; p < Spec.MemberListLength; p++)
+        for (u32 p = 0; p < NodeDataTypeInfo.MembersCount; p++)
         {
-            node_struct_member Member = Spec.MemberList[p];
+            gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[p];
             
             rect PortBounds = {0};
             v2 PortDim = v2{8, 8};
             PortBounds.Min = VisualNode->Position + v2{0, PortDim.y / 2}; 
-            if ((Member.IsInput & IsInputMember) > 0)
+            if (MemberIsInput(Member))
             {
                 PortBounds.Min.y -= LineHeight * InputsCount++;
                 PortBounds.Min.x -= PortDim.x;
             }
-            else if ((Member.IsInput & IsOutputMember) > 0)
+            else if (MemberIsOutput(Member))
             {
                 PortBounds.Min.y -= LineHeight * OutputsCount++;
                 PortBounds.Min.x += NodeWidth;
@@ -496,11 +517,10 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     string TitleString = MakeStringLiteral("Available Nodes");
     DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface);
     
-    for (u32 i = 0; i < NodeSpecificationsCount; i++)
+    for (u32 i = 0; i < NodeType_Count; i++)
     {
-        node_specification Spec = NodeSpecifications[i];
-        string NodeName = MakeString(Spec.Name, Spec.NameLength);
-        rect ElementBounds = DrawListElement(NodeName, &List, Mouse, RenderBuffer, State->Interface);
+        node_specification_ Spec = NodeSpecifications[i];
+        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Mouse, RenderBuffer, State->Interface);
         
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
             && PointIsInRect(Mouse.DownPos, ElementBounds))
