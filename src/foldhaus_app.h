@@ -203,6 +203,10 @@ TestPatternThree(assembly* Assembly, r32 Time)
 
 #include "foldhaus_default_nodes.h"
 
+#include "./generated/gs_meta_generated_typeinfo.h"
+#include "generated/foldhaus_nodes_generated.h"
+
+
 #include "foldhaus_node.cpp"
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
@@ -228,9 +232,8 @@ struct panel_definition
     panel_cleanup_proc* Cleanup;
     panel_render_proc* Render;
     input_command* InputCommands;
+    s32 InputCommandsCount;
 };
-#include "./generated/gs_meta_generated_typeinfo.h"
-#include "generated/foldhaus_nodes_generated.h"
 
 #include "panels/foldhaus_panel_sculpture_view.h"
 #include "panels/foldhaus_panel_profiler.h"
@@ -243,6 +246,7 @@ struct panel_definition
 
 #include "foldhaus_interface.cpp"
 
+#include "../meta/gs_meta_include.cpp"
 
 #define FOLDHAUS_APP_H
 #endif // FOLDHAUS_APP_H

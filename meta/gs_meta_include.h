@@ -15,6 +15,7 @@
 typedef int gsm_s32;
 typedef unsigned int gsm_u32;
 typedef unsigned long long int gsm_u64;
+typedef enum gsm_meta_tag_type gsm_meta_tag_type;
 typedef enum gsm_struct_type gsm_struct_type;
 
 #define GSMetaTag(ident, ...) 
@@ -31,7 +32,10 @@ struct gsm_struct_member_type_info
     gsm_u32 IdentifierLength;
     gsm_u64 Offset;
     
-    gsm_meta_tag* Tags;
+    // NOTE(Peter): There's no reason that this is 5 other than that its more tags
+    // than I need at the moment of writing. It does need to be a static array size
+    // because theres no way to statically initialize a pointer to an array
+    gsm_meta_tag_type Tags[5];
     gsm_u32 TagsCount;
 };
 
@@ -77,20 +81,7 @@ gsm_CharArraysEqual(char* A, char* B)
     return Result;
 }
 
-static gsm_s32
-gsm_GetMetaTagIndex(char* Tag, gsm_meta_tag* Tags, gsm_u32 TagCount)
-{
-    gsm_s32 Result = -1;
-    for (gsm_u32 i = 0; i < TagCount; i++)
-    {
-        if (gsm_CharArraysEqual(Tag, Tags[i].Tag))
-        {
-            Result = (gsm_s32)i;
-            break;
-        }
-    }
-    return Result;
-}
+static gsm_s32 gsm_GetMetaTagIndex(gsm_s32 Needle, gsm_meta_tag_type* Tags, gsm_u32 TagsCount);
 
 #define FOLDHAUS_META_INCLUDE_H
 #endif // FOLDHAUS_META_INCLUDE_H

@@ -88,7 +88,7 @@ struct gs_meta_preprocessor
     gs_bucket<source_code_file> SourceFiles;
     gs_bucket<token> Tokens;
     
-    gs_bucket<token> TagList;
+    gs_bucket<type_table_handle> TagList;
     
     type_table TypeTable;
     
@@ -500,19 +500,28 @@ ParseMetaTag(token_iter* Iter, gs_meta_preprocessor* Meta)
         token MetaIdentifier = {0};
         if (TokenAtEquals(Iter, Token_Identifier, &MetaIdentifier))
         {
-            Meta->TagList.PushElementOnBucket(MetaIdentifier);
-            if (StringsEqual(MetaIdentifier.Text, MakeStringLiteral("breakpoint")))
-            {
-                // NOTE(Peter): This is not a temporary breakpoint. It is 
-                // used to be able to break the meta program at specific points
-                // throughout execution
-                __debugbreak();
-            }
-            
             if (TokenAtEquals(Iter, ")") &&
                 TokenAtEquals(Iter, ";"))
             {
                 Result = true;
+                type_table_handle MetaTagHandle = GetMetaTagHandle(MetaIdentifier.Text, Meta->TypeTable);
+                if (!TypeHandleIsValid(MetaTagHandle))
+                {
+                    meta_tag Tag = {0};
+                    Tag.Identifier = MetaIdentifier.Text;
+                    MetaTagHandle = PushMetaTagOnTable(Tag, &Meta->TypeTable);
+                }
+                
+                Assert(TypeHandleIsValid(MetaTagHandle));
+                Meta->TagList.PushElementOnBucket(MetaTagHandle);
+                
+                if (StringsEqual(MetaIdentifier.Text, MakeStringLiteral("breakpoint")))
+                {
+                    // NOTE(Peter): This is not a temporary breakpoint. It is 
+                    // used to be able to break the meta program at specific points
+                    // throughout execution
+                    __debugbreak();
+                }
             }
         }
     }

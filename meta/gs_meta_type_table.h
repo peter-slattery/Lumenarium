@@ -33,11 +33,24 @@ char* TypeDefinitionTypeStrings[] = {
     "TypeDef_Count",
 };
 
+
+#define InvalidTypeTableHandle type_table_handle{0, 0}
 struct type_table_handle
 {
     s32 BucketIndex;
     u32 IndexInBucket;
 };
+
+// #define TypeHandleIsValid(handle) (!((handle).BucketIndex == 0) && ((handle).IndexInBucket == 0))
+inline b32 TypeHandleIsValid(type_table_handle A)
+{
+    b32 FirstBucket = (A.BucketIndex == 0);
+    b32 FirstIndex = (A.IndexInBucket == 0);
+    b32 Both = FirstBucket && FirstIndex;
+    return !Both;
+}
+
+#define TypeHandlesEqual(a, b) (((a).BucketIndex == (b).BucketIndex) && ((a).IndexInBucket == (b).IndexInBucket))
 
 struct meta_tag
 {
@@ -59,7 +72,7 @@ struct variable_decl
     u32 ArrayCount;
     
     // :SmallAllocationsAllOver
-    gs_bucket<meta_tag> MetaTags;
+    gs_bucket<type_table_handle> MetaTags;
 };
 
 struct struct_decl
@@ -99,7 +112,7 @@ struct type_definition
     string Identifier;
     
     s32 Size;
-    gs_bucket<meta_tag> MetaTags;
+    gs_bucket<type_table_handle> MetaTags;
     
     type_definition_type Type;
     union
@@ -112,61 +125,35 @@ struct type_definition
     b32 Pointer;
 };
 
-#define TYPE_TABLE_BUCKET_MAX 1023
+#define TYPE_TABLE_BUCKET_MAX 1024
 struct type_table_hash_bucket
 {
     u32* Keys;
     type_definition* Values;
 };
 
+#define META_TAG_BUCKET_MAX 1024
+struct meta_tag_hash_bucket
+{
+    u32* Keys;
+    meta_tag* Values;
+};
+
 struct type_table
 {
     type_table_hash_bucket* Types;
     u32 TypeBucketsCount;
+    
+    meta_tag_hash_bucket* MetaTags;
+    u32 MetaTagBucketsCount;
 };
 
 internal b32
-HasTag(string Needle, gs_bucket<meta_tag> Tags)
+HandlesAreEqual(type_table_handle A, type_table_handle B)
 {
-    b32 Result = false;
-    for (u32 i = 0; i < Tags.Used; i++)
-    {
-        meta_tag* Tag = Tags.GetElementAtIndex(i);
-        if (StringsEqual(Tag->Identifier, Needle))
-        {
-            Result = true;
-        }
-    }
+    b32 Result = ((A.BucketIndex == B.BucketIndex) && (A.IndexInBucket == B.IndexInBucket));
     return Result;
 }
-
-internal void
-CopyMetaTagsAndClear(gs_bucket<token>* Source, gs_bucket<meta_tag>* Dest)
-{
-    for (u32 i = 0; i < Source->Used; i++)
-    {
-        token* TagToken = Source->GetElementAtIndex(i);
-        
-        meta_tag TagDest = {0};
-        TagDest.Identifier = TagToken->Text;
-        
-        Dest->PushElementOnBucket(TagDest);
-    }
-    Source->Used = 0;
-}
-
-#define InvalidTypeTableHandle type_table_handle{0, 0}
-
-// #define TypeHandleIsValid(handle) (!((handle).BucketIndex == 0) && ((handle).IndexInBucket == 0))
-inline b32 TypeHandleIsValid(type_table_handle A)
-{
-    b32 FirstBucket = (A.BucketIndex == 0);
-    b32 FirstIndex = (A.IndexInBucket == 0);
-    b32 Both = FirstBucket && FirstIndex;
-    return !Both;
-}
-
-#define TypeHandlesEqual(a, b) (((a).BucketIndex == (b).BucketIndex) && ((a).IndexInBucket == (b).IndexInBucket))
 
 internal u32
 HashIdentifier(string Identifier)
@@ -180,6 +167,104 @@ HashIdentifier(string Identifier)
         IdentHash += 1;
     }
     return IdentHash;
+}
+
+internal type_table_handle
+GetTypeHandle (string Identifier, type_table TypeTable)
+{
+    type_table_handle Result = InvalidTypeTableHandle;
+    
+    u32 IdentHash = HashIdentifier(Identifier);
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    
+    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = TypeTable.Types[b];
+        if (Bucket.Keys[Index] == IdentHash)
+        {
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
+internal type_table_handle
+GetMetaTagHandle(string Identifier, type_table TypeTable)
+{
+    type_table_handle Result = InvalidTypeTableHandle;
+    
+    u32 IdentHash = HashIdentifier(Identifier);
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    
+    for (u32 b = 0; b < TypeTable.MetaTagBucketsCount; b++)
+    {
+        meta_tag_hash_bucket Bucket = TypeTable.MetaTags[b];
+        if (Bucket.Keys[Index] == IdentHash)
+        {
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
+internal type_table_handle
+GetMetaTagHandleWithIdentifier(string Identifier, type_table TypeTable)
+{
+    type_table_handle Result = InvalidTypeTableHandle;
+    
+    u32 IdentHash = HashIdentifier(Identifier);
+    u32 Index = IdentHash % META_TAG_BUCKET_MAX;
+    for (u32 b = 0; b < TypeTable.MetaTagBucketsCount; b++)
+    {
+        meta_tag_hash_bucket* Bucket = TypeTable.MetaTags + b;
+        if (Bucket->Keys[Index] == IdentHash)
+        {
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
+internal b32
+HasTag(string Needle, gs_bucket<type_table_handle> Tags, type_table TypeTable)
+{
+    b32 Result = false;
+    type_table_handle NeedleTagHandle = GetMetaTagHandleWithIdentifier(Needle, TypeTable);
+    
+    if (TypeHandleIsValid(NeedleTagHandle))
+    {
+        for (u32 i = 0; i < Tags.Used; i++)
+        {
+            type_table_handle* TagHandle = Tags.GetElementAtIndex(i);
+            if (HandlesAreEqual(*TagHandle, NeedleTagHandle))
+            {
+                Result = true;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+internal void
+CopyMetaTagsAndClear(gs_bucket<type_table_handle>* Source, gs_bucket<type_table_handle>* Dest)
+{
+    for (u32 i = 0; i < Source->Used; i++)
+    {
+        type_table_handle* TagToken = Source->GetElementAtIndex(i);
+        Dest->PushElementOnBucket(*TagToken);
+    }
+    Source->Used = 0;
 }
 
 internal type_table_handle
@@ -223,6 +308,42 @@ FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
 }
 
 internal type_table_handle
+FindSlotForMetaTag(u32 IdentHash, type_table* TypeTable)
+{
+    type_table_handle Result = InvalidTypeTableHandle;
+    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    
+    for (u32 b = 0; b < TypeTable->MetaTagBucketsCount; b++)
+    {
+        meta_tag_hash_bucket* Bucket = TypeTable->MetaTags + b;
+        if (Bucket->Keys[Index] == 0)
+        {
+            Result.BucketIndex = b;
+            Result.IndexInBucket = Index;
+            break;
+        }
+    }
+    
+    if (!TypeHandleIsValid(Result))
+    {
+        u32 NewMetaBucketIndex = TypeTable->MetaTagBucketsCount++;
+        u32 NewMetaBucketListSize = TypeTable->MetaTagBucketsCount * sizeof(meta_tag_hash_bucket);
+        TypeTable->MetaTags = (meta_tag_hash_bucket*)realloc(TypeTable->MetaTags, NewMetaBucketListSize);
+        
+        meta_tag_hash_bucket* NewBucket = TypeTable->MetaTags + NewMetaBucketIndex;
+        NewBucket->Keys = (u32*)malloc(sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Values = (meta_tag*)malloc(sizeof(meta_tag) * TYPE_TABLE_BUCKET_MAX);
+        GSZeroMemory((u8*)NewBucket->Keys, sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        GSZeroMemory((u8*)NewBucket->Values, sizeof(meta_tag) * TYPE_TABLE_BUCKET_MAX);
+        
+        Result.BucketIndex = NewMetaBucketIndex;
+        Result.IndexInBucket = Index;
+    }
+    
+    return Result;
+}
+
+internal type_table_handle
 PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
 {
     u32 IdentHash = HashIdentifier(TypeDef.Identifier);
@@ -252,23 +373,19 @@ PushUndeclaredType (string Identifier, type_table* TypeTable)
 }
 
 internal type_table_handle
-GetTypeHandle (string Identifier, type_table TypeTable)
+PushMetaTagOnTable(meta_tag Tag, type_table* TypeTable)
 {
-    type_table_handle Result = InvalidTypeTableHandle;
+    u32 TagIdentifierHash = HashIdentifier(Tag.Identifier);
+    type_table_handle Result = FindSlotForMetaTag(TagIdentifierHash, TypeTable);
     
-    u32 IdentHash = HashIdentifier(Identifier);
-    u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
+    meta_tag_hash_bucket* Bucket = TypeTable->MetaTags + Result.BucketIndex;
+    Bucket->Keys[Result.IndexInBucket] = TagIdentifierHash;
+    Bucket->Values[Result.IndexInBucket] = Tag;
     
-    for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
-    {
-        type_table_hash_bucket Bucket = TypeTable.Types[b];
-        if (Bucket.Keys[Index] == IdentHash)
-        {
-            Result.BucketIndex = b;
-            Result.IndexInBucket = Index;
-            break;
-        }
-    }
+#if PRINT_DIAGNOSTIC_INFO
+    printf("Registering Meta Tag\n");
+    printf("    %.*s\n\n", StringExpand(Tag.Identifier));
+#endif
     
     return Result;
 }
@@ -294,6 +411,17 @@ GetTypeDefinitionUnsafe(type_table_handle Handle, type_table TypeTable)
     if (TypeTable.Types[Handle.BucketIndex].Keys != 0)
     {
         Result = TypeTable.Types[Handle.BucketIndex].Values + Handle.IndexInBucket;
+    }
+    return Result;
+}
+
+internal meta_tag*
+GetMetaTag(type_table_handle Handle, type_table TypeTable)
+{
+    meta_tag* Result = 0;
+    if (TypeTable.MetaTags[Handle.BucketIndex].Keys != 0)
+    {
+        Result = TypeTable.MetaTags[Handle.BucketIndex].Values + Handle.IndexInBucket;
     }
     return Result;
 }
@@ -516,7 +644,7 @@ FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Err
     type_definition* Struct = GetTypeDefinition(TypeHandle, TypeTable);
     Assert(Struct->Type == TypeDef_Struct);
     
-    if (HasTag(MakeStringLiteral("breakpoint"), Struct->MetaTags))
+    if (HasTag(MakeStringLiteral("breakpoint"), Struct->MetaTags, TypeTable))
     {
         __debugbreak();
     }
@@ -630,7 +758,8 @@ PrintTypeDefinition(type_definition TypeDef, type_table TypeTable)
     printf("    Meta Tags: ");
     for (u32 m = 0; m < TypeDef.MetaTags.Used; m++)
     {
-        meta_tag* Tag = TypeDef.MetaTags.GetElementAtIndex(m);
+        type_table_handle TagHandle = *TypeDef.MetaTags.GetElementAtIndex(m);
+        meta_tag* Tag = GetMetaTag(TagHandle, TypeTable);
         printf("%.*s ", StringExpand(Tag->Identifier));
     }
     printf("\n");

@@ -16,6 +16,9 @@
 
 struct typeinfo_generator
 {
+    string_builder MetaTagString;
+    string_builder MetaTagEnum;
+    
     string_builder TypeListString;
     gsm_code_generator TypeList;
     string_builder StructMembers;
@@ -54,17 +57,14 @@ FinishGeneratingTypes(typeinfo_generator* Generator)
 }
 
 internal void
-GenerateMetaTagInfo (gs_bucket<meta_tag> Tags, string_builder* Builder)
+GenerateMetaTagInfo (gs_bucket<type_table_handle> Tags, type_table TypeTable, string_builder* Builder)
 {
     WriteF(Builder, "{");
     for (u32 t = 0; t < Tags.Used; t++)
     {
-        meta_tag* Tag = Tags.GetElementAtIndex(t);
-        WriteF(Builder, "{ \"%S\", %d }", Tag->Identifier, Tag->Identifier.Length);
-        if ((t + 1) < Tags.Used)
-        {
-            WriteF(Builder, ", ");
-        }
+        type_table_handle TagHandle = *Tags.GetElementAtIndex(t);
+        meta_tag* Tag = GetMetaTag(TagHandle, TypeTable);
+        WriteF(Builder, "MetaTag_%S, ", Tag->Identifier);
     }
     WriteF(Builder, "}, %d", Tags.Used);
 }
@@ -73,7 +73,8 @@ internal void
 GenerateStructMemberInfo (variable_decl* Member, string StructIdentifier, type_table TypeTable, typeinfo_generator* Gen)
 {
     WriteF(&Gen->StructMembers, "{ \"%S\", %d, ", Member->Identifier, Member->Identifier.Length);
-    WriteF(&Gen->StructMembers, "(u64)&((%S*)0)->%S ", StructIdentifier, Member->Identifier); 
+    WriteF(&Gen->StructMembers, "(u64)&((%S*)0)->%S, ", StructIdentifier, Member->Identifier); 
+    GenerateMetaTagInfo(Member->MetaTags, TypeTable, &Gen->StructMembers);
     WriteF(&Gen->StructMembers, "},\n");
 }
 
@@ -180,7 +181,7 @@ GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_g
             type_definition* Type = GetTypeDefinitionUnsafe(TypeHandle, TypeTable);
             if (Type)
             {
-                if (HasTag(MetaTagFilter, Type->MetaTags))
+                if (HasTag(MetaTagFilter, Type->MetaTags, TypeTable))
                 {
                     GenerateTypeInfo(Type, TypeHandle, TypeTable, Generator);
                 }
@@ -189,7 +190,29 @@ GenerateFilteredTypeInfo (string MetaTagFilter, type_table TypeTable, typeinfo_g
     }
 }
 
-
+internal void
+GenerateMetaTagList(type_table TypeTable, typeinfo_generator* Generator)
+{
+    WriteF(&Generator->MetaTagString, "gsm_meta_tag MetaTagStrings[] = {\n");
+    WriteF(&Generator->MetaTagEnum, "enum gsm_meta_tag_type\n{\n");
+    
+    for (u32 b = 0; b < TypeTable.MetaTagBucketsCount; b++)
+    {
+        meta_tag_hash_bucket Bucket = TypeTable.MetaTags[b];
+        for (u32 i = 0; i < META_TAG_BUCKET_MAX; i++)
+        {
+            if (Bucket.Keys[i] != 0)
+            {
+                string MetaTagIdentifier = Bucket.Values[i].Identifier;
+                WriteF(&Generator->MetaTagString, "{ \"%S\", %d },\n", MetaTagIdentifier, MetaTagIdentifier.Length);
+                WriteF(&Generator->MetaTagEnum, "MetaTag_%S,\n", MetaTagIdentifier);
+            }
+        }
+    }
+    
+    WriteF(&Generator->MetaTagString, "};\n");
+    WriteF(&Generator->MetaTagEnum, "};\n");
+}
 
 #define GS_META_TYPEINFO_GENERATOR_H
 #endif // GS_META_TYPEINFO_GENERATOR_H

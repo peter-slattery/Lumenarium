@@ -12,7 +12,11 @@ struct universe_view_operation_state
     r32 Zoom;
 };
 
+input_command DMXView_Commands[] = {{}};
+s32 DMXView_CommandsCount = 0;
+
 GSMetaTag(panel_init);
+GSMetaTag(panel_type_dmx_view);
 internal void
 DMXView_Init(panel* Panel, app_state* State)
 {
@@ -20,6 +24,7 @@ DMXView_Init(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_dmx_view);
 internal void
 DMXView_Cleanup(panel* Panel, app_state* State)
 {
@@ -67,6 +72,7 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
 #endif 
 
 GSMetaTag(panel_render);
+GSMetaTag(panel_type_dmx_view);
 internal void
 DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

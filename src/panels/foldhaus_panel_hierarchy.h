@@ -5,7 +5,11 @@
 //
 #ifndef FOLDHAUS_PANEL_HIERARCHY_H
 
-GSMetaTag(panel_init)
+input_command HierarchyView_Commands[] = {{}};
+s32 HierarchyView_CommandsCount = 0;
+
+GSMetaTag(panel_init);
+GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Init(panel* Panel, app_state* State)
 {
@@ -13,6 +17,7 @@ HierarchyView_Init(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Cleanup(panel* Panel, app_state* State)
 {
@@ -20,6 +25,7 @@ HierarchyView_Cleanup(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_render);
+GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

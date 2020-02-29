@@ -212,9 +212,10 @@ input_command AnimationTimeline_Commands[] = {
     { KeyCode_X, KeyCode_Invalid, Command_Began, DeleteAnimationBlockCommand },
     { KeyCode_A, KeyCode_Invalid, Command_Began, AddAnimationBlockCommand },
 };
-
+s32 AnimationTimeline_CommandsCount = 2;
 
 GSMetaTag(panel_init);
+GSMetaTag(panel_type_animation_timeline);
 internal void
 AnimationTimeline_Init(panel* Panel, app_state* State)
 {
@@ -222,6 +223,7 @@ AnimationTimeline_Init(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_animation_timeline);
 internal void
 AnimationTimeline_Cleanup(panel* Panel, app_state* State)
 {
@@ -425,6 +427,7 @@ DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffe
 }
 
 GSMetaTag(panel_render);
+GSMetaTag(panel_type_animation_timeline);
 internal void
 AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

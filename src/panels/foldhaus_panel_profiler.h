@@ -5,7 +5,11 @@
 //
 #ifndef FOLDHAUS_PANEL_PROFILER_H
 
+input_command ProfilerView_Commands[] = {{}};
+s32 ProfilerView_CommandsCount = 0;
+
 GSMetaTag(panel_init);
+GSMetaTag(panel_type_profiler);
 internal void
 ProfilerView_Init(panel* Panel, app_state* State)
 {
@@ -13,6 +17,7 @@ ProfilerView_Init(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_profiler);
 internal void
 ProfilerView_Cleanup(panel* Panel, app_state* State)
 {
@@ -119,6 +124,7 @@ RenderProfiler_ListVisualization(render_command_buffer* RenderBuffer,
 }
 
 GSMetaTag(panel_render);
+GSMetaTag(panel_type_profiler);
 internal void
 ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

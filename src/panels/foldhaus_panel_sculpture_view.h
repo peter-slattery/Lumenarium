@@ -45,16 +45,23 @@ FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
 
 // ----------------
 
-input_command SculptureView_Commands[] = {
+GSMetaTag(panel_commands);
+GSMetaTag(panel_type_sculpture_view);
+global_variable input_command SculptureView_Commands[] = {
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Began, Begin3DViewMouseRotate },
 };
+global_variable s32 SculptureView_CommandsCount = 1;
 
+GSMetaTag(panel_init);
+GSMetaTag(panel_type_sculpture_view);
 internal void 
 SculptureView_Init(panel* Panel, app_state* State)
 {
     
 }
 
+GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_sculpture_view);
 internal void 
 SculptureView_Cleanup(panel* Panel, app_state* State)
 {
@@ -124,6 +131,8 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     }
 }
 
+GSMetaTag(panel_render);
+GSMetaTag(panel_type_sculpture_view);
 internal void 
 SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

@@ -168,11 +168,12 @@ BeginConnectNodesOperation(visual_port VisualPort, u32 VisualPortIndex, mouse_st
 // Node Graph Panel
 //
 
-input_command NodeGraph_Commands[] = {
-    {}
-};
+GSMetaTag(panel_commands);
+input_command NodeGraph_Commands[] = {{}};
+s32 NodeGraph_CommandsCount = 0;
 
 GSMetaTag(panel_init);
+GSMetaTag(panel_type_node_graph);
 internal void
 NodeGraph_Init(panel* Panel, app_state* State)
 {
@@ -185,6 +186,7 @@ NodeGraph_Init(panel* Panel, app_state* State)
 }
 
 GSMetaTag(panel_cleanup);
+GSMetaTag(panel_type_node_graph);
 internal void
 NodeGraph_Cleanup(panel* Panel, app_state* State)
 {
@@ -415,6 +417,7 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
 }
 
 GSMetaTag(panel_render);
+GSMetaTag(panel_type_node_graph);
 internal void
 NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {

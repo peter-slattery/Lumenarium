@@ -8,14 +8,14 @@
 internal b32
 MemberIsInput(gsm_struct_member_type_info Member)
 {
-    b32 Result = (0 <= gsm_GetMetaTagIndex("node_input", Member.Tags, Member.TagsCount));
+    b32 Result = (0 <= gsm_GetMetaTagIndex(MetaTag_node_input, Member.Tags, Member.TagsCount));
     return Result;
 }
 
 internal b32
 MemberIsOutput(gsm_struct_member_type_info Member)
 {
-    b32 Result = (0 <= gsm_GetMetaTagIndex("node_output", Member.Tags, Member.TagsCount));
+    b32 Result = (0 <= gsm_GetMetaTagIndex(MetaTag_node_output, Member.Tags, Member.TagsCount));
     return Result;
 }
 

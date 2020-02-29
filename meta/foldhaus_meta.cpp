@@ -26,7 +26,7 @@ GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* NodeSpeci
             if (Bucket.Keys[i] == 0) { continue; }
             
             type_definition* Decl = Bucket.Values + i;
-            if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags) &&
+            if (HasTag(MakeStringLiteral("node_proc"), Decl->MetaTags, Meta.TypeTable) &&
                 Decl->Type == TypeDef_Function)
             {
                 if (Decl->Function.Parameters.Used > 1)
@@ -68,6 +68,192 @@ GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* NodeSpeci
     FinishEnumGeneration(NodeTypeGen);
 }
 
+struct panel_elements
+{
+    string PanelIdentifier;
+    type_table_handle InitProcDecl;
+    type_table_handle CleanupProcDecl;
+    type_table_handle RenderProcDecl;
+    type_table_handle PanelCommandsStruct;
+};
+
+internal b32
+StringIsPrefixedBy (string Prefix, string TestString)
+{
+    b32 Result = false;
+    
+    if (TestString.Length >= Prefix.Length)
+    {
+        Result = true;
+        for (s32 i = 0; i < Prefix.Length; i++)
+        {
+            if (Prefix.Memory[i] != TestString.Memory[i])
+            {
+                Result = false;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+internal void
+AttemptPlacePanelProc(type_table_handle ProcHandle, type_table TypeTable, gs_bucket<panel_elements>* Panels)
+{
+    string InitProcTag = MakeStringLiteral("panel_init");
+    string CleanupProcTag = MakeStringLiteral("panel_cleanup");
+    string RenderProcTag = MakeStringLiteral("panel_render");
+    string PanelTypePrefix = MakeStringLiteral("panel_type_");
+    
+    type_definition* Decl = GetTypeDefinition(ProcHandle, TypeTable);
+    meta_tag* PanelTypeTag = 0;
+    
+    for (u32 i = 0; i < Decl->MetaTags.Used; i++)
+    {
+        type_table_handle MetaTagHandle = *Decl->MetaTags.GetElementAtIndex(i);
+        meta_tag* MetaTag = GetMetaTag(MetaTagHandle, TypeTable);
+        if (StringIsPrefixedBy(PanelTypePrefix, MetaTag->Identifier))
+        {
+            PanelTypeTag = MetaTag;
+            break;
+        }
+    }
+    
+    if (PanelTypeTag != 0)
+    {
+        s32 PanelIndex = -1;
+        for (u32 i = 0; i < Panels->Used; i++)
+        {
+            panel_elements* Panel = Panels->GetElementAtIndex(i);
+            if (StringsEqual(Panel->PanelIdentifier, PanelTypeTag->Identifier))
+            {
+                PanelIndex = (s32)i;
+                break;
+            }
+        }
+        if (PanelIndex < 0)
+        {
+            panel_elements NewPanel = {0};
+            NewPanel.PanelIdentifier = PanelTypeTag->Identifier;
+            PanelIndex = Panels->PushElementOnBucket(NewPanel);
+        }
+        
+        Assert(PanelIndex >= 0);
+        panel_elements* PanelElements = Panels->GetElementAtIndex(PanelIndex);
+        if (HasTag(InitProcTag, Decl->MetaTags, TypeTable))
+        {
+            PanelElements->InitProcDecl = ProcHandle;
+        }
+        else if (HasTag(CleanupProcTag, Decl->MetaTags, TypeTable))
+        {
+            PanelElements->CleanupProcDecl = ProcHandle;
+        }
+        else if (HasTag(RenderProcTag, Decl->MetaTags, TypeTable))
+        {
+            PanelElements->RenderProcDecl = ProcHandle;
+        }
+    }
+}
+
+internal void
+AttemptPlacePanelCommands(type_table_handle StructHandle, type_table TypeTable, gs_bucket<panel_elements>* Panels)
+{
+    string CommandsTag = MakeStringLiteral("panel_commands");
+    
+    type_definition* Decl = GetTypeDefinition(StructHandle, TypeTable);
+    if (HasTag(CommandsTag, Decl->MetaTags, TypeTable))
+    {
+        for (u32 i = 0; i < Decl->MetaTags.Used; i++)
+        {
+            type_table_handle MetaTagHandle = *Decl->MetaTags.GetElementAtIndex(i);
+            meta_tag* MetaTag = GetMetaTag(MetaTagHandle, TypeTable);
+            printf("%.*s, ", StringExpand(MetaTag->Identifier));
+        }
+        printf("\n");
+    }
+}
+
+internal void
+MakeReadableIdentifier(string* Identifier)
+{
+    for (s32 i = 0; i < Identifier->Length; i++)
+    {
+        char At = Identifier->Memory[i];
+        if (At == '_')
+        {
+            Identifier->Memory[i] = ' ';
+        }
+        else if (IsAlpha(At) && (i == 0 || IsWhitespace(Identifier->Memory[i - 1])))
+        {
+            Identifier->Memory[i] = ToUpper(At);
+        }
+    }
+}
+
+internal void
+GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelCodeGen)
+{
+    gs_bucket<panel_elements> Panels = {0};
+    
+    for (u32 b = 0; b < Meta.TypeTable.TypeBucketsCount; b++)
+    {
+        type_table_hash_bucket Bucket = Meta.TypeTable.Types[b];
+        for (u32 i = 0; i < TYPE_TABLE_BUCKET_MAX; i++)
+        {
+            if (Bucket.Keys[i] == 0) { continue; }
+            
+            type_table_handle DeclHandle = {(s32)b, i};
+            type_definition* Decl = Bucket.Values + i;
+            
+            if (Decl->Type == TypeDef_Function)
+            {
+                AttemptPlacePanelProc(DeclHandle, Meta.TypeTable, &Panels);
+            }
+            else if (Decl->Type == TypeDef_Struct)
+            {
+                AttemptPlacePanelCommands(DeclHandle, Meta.TypeTable, &Panels);
+            }
+        }
+    }
+    
+    WriteF(PanelCodeGen, "global_variable s32 GlobalPanelDefsCount = %d;\n", Panels.Used);
+    WriteF(PanelCodeGen, "global_variable panel_definition GlobalPanelDefs[] = {\n");
+    for (u32 i = 0; i < Panels.Used; i++)
+    {
+        panel_elements* Panel = Panels.GetElementAtIndex(i);
+        string PanelIdentifier = {0};
+        PanelIdentifier.Max = Panel->PanelIdentifier.Length;
+        PanelIdentifier.Memory = (char*)malloc(sizeof(char) * PanelIdentifier.Max);
+        CopyStringTo(Substring(Panel->PanelIdentifier, 11), &PanelIdentifier);
+        MakeReadableIdentifier(&PanelIdentifier);
+        
+        type_definition* InitDecl = GetTypeDefinition(Panel->InitProcDecl, Meta.TypeTable);
+        type_definition* CleanupDecl = GetTypeDefinition(Panel->CleanupProcDecl, Meta.TypeTable);
+        type_definition* RenderDecl = GetTypeDefinition(Panel->RenderProcDecl, Meta.TypeTable);
+        
+        WriteF(PanelCodeGen, "{ \"%S\", %d, ", PanelIdentifier, PanelIdentifier.Length);
+        WriteF(PanelCodeGen, "%S, ", InitDecl->Identifier);
+        WriteF(PanelCodeGen, "%S, ", CleanupDecl->Identifier);
+        WriteF(PanelCodeGen, "%S, ", RenderDecl->Identifier);
+        
+        // TODO(Peter): This is a shortcut cause I'm being lazy. We arent' putting arrays into the
+        // AST when we parse our codebase so there's no way to tag the array of Commands for each
+        // panel for use here. Instead, I'm just requiring that the array be of the form
+        // <panel_name_base>_Commands where panel_name_base is whatever the Init function is called
+        // minus _Input. So for example, if you have ScupltureView_Init, then the panel_name_base is
+        // SculptureView and the commands array must be called SculptureView_Commands.
+        // Ideally we actually go through and parse these arrays.
+        string InitSuffix = MakeStringLiteral("_Init");
+        string PanelNameBase = Substring(InitDecl->Identifier, 0, InitDecl->Identifier.Length - InitSuffix.Length);
+        WriteF(PanelCodeGen, "%S_Commands, ", PanelNameBase);
+        WriteF(PanelCodeGen, "%S_CommandsCount ", PanelNameBase);
+        
+        WriteF(PanelCodeGen, "},\n");
+    }
+    WriteF(PanelCodeGen, "};\n");
+}
+
 int main(int ArgCount, char* Args[])
 {
     if (ArgCount <= 1)
@@ -79,6 +265,7 @@ int main(int ArgCount, char* Args[])
     gs_meta_preprocessor Meta = PreprocessProgram(Args[1]);
     
     typeinfo_generator TypeGenerator = InitTypeInfoGenerator(Meta.TypeTable);
+    GenerateMetaTagList(Meta.TypeTable, &TypeGenerator);
     GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), Meta.TypeTable, &TypeGenerator);
     GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), Meta.TypeTable, &TypeGenerator);
     FinishGeneratingTypes(&TypeGenerator);
@@ -88,11 +275,14 @@ int main(int ArgCount, char* Args[])
     string_builder CallNodeProcGen = {0};
     GenerateNodeMetaInfo(&NodeTypeGen, &NodeSpecificationGen, &CallNodeProcGen, Meta);
     
-    string_builder PanelInfoGen = {0};
+    string_builder PanelCodeGen = {0};
+    GeneratePanelMetaInfo(Meta, &PanelCodeGen);
     
     FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
     if (TypeInfoH)
     {
+        WriteStringBuilderToFile(TypeGenerator.MetaTagEnum, TypeInfoH);
+        WriteStringBuilderToFile(TypeGenerator.MetaTagString, TypeInfoH);
         WriteStringBuilderToFile(*TypeGenerator.TypeList.Builder, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.StructMembers, TypeInfoH);
         WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
@@ -106,6 +296,13 @@ int main(int ArgCount, char* Args[])
         WriteStringBuilderToFile(NodeSpecificationGen, NodeInfoH);
         WriteStringBuilderToFile(CallNodeProcGen, NodeInfoH);
         fclose(NodeInfoH);
+    }
+    
+    FILE* PanelInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_panels_generated.h", "w");
+    if (PanelInfoH)
+    {
+        WriteStringBuilderToFile(PanelCodeGen, PanelInfoH);
+        fclose(PanelInfoH);
     }
     
     FinishMetaprogram(&Meta);
