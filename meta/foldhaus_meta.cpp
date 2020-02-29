@@ -254,6 +254,19 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelCodeGen)
     WriteF(PanelCodeGen, "};\n");
 }
 
+internal string
+AllocAndConcatStrings(string First, string Second)
+{
+    string Result = {0};
+    Result.Max = First.Length + Second.Length + 1;
+    Result.Memory = (char*)malloc(sizeof(char) * Result.Max);
+    ConcatString(First, &Result);
+    ConcatString(Second, &Result);
+    NullTerminate(&Result);
+    Result.Length -= 1;
+    return Result;
+}
+
 int main(int ArgCount, char* Args[])
 {
     if (ArgCount <= 1)
@@ -261,6 +274,13 @@ int main(int ArgCount, char* Args[])
         printf("Please supply at least one source directory to analyze.\n");
         return 0;
     }
+    
+    string RootFile = MakeString(Args[1]);
+    s32 IndexOfLastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
+    string WorkingDirectory = Substring(RootFile, 0, IndexOfLastSlash + 1);
+    string GeneratedDirectoryName = MakeStringLiteral("generated\\");
+    string GeneratedFilesDirectory = AllocAndConcatStrings(WorkingDirectory, GeneratedDirectoryName);
+    printf("Putting Generated Files In %s\n", GeneratedFilesDirectory.Memory);
     
     gs_meta_preprocessor Meta = PreprocessProgram(Args[1]);
     
@@ -278,7 +298,8 @@ int main(int ArgCount, char* Args[])
     string_builder PanelCodeGen = {0};
     GeneratePanelMetaInfo(Meta, &PanelCodeGen);
     
-    FILE* TypeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\gs_meta_generated_typeinfo.h", "w");
+    string TypeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("gs_meta_genreated_typeinfo.h"));
+    FILE* TypeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
     if (TypeInfoH)
     {
         WriteStringBuilderToFile(TypeGenerator.MetaTagEnum, TypeInfoH);
@@ -288,8 +309,13 @@ int main(int ArgCount, char* Args[])
         WriteStringBuilderToFile(TypeGenerator.TypeDefinitions, TypeInfoH);
         fclose(TypeInfoH);
     }
+    else
+    {
+        printf("Error: Unable to open file at %.*s\n", StringExpand(TypeInfoHFilePath));
+    }
     
-    FILE* NodeInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_nodes_generated.h", "w");
+    string NodeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("foldhaus_nodes_generated.h"));
+    FILE* NodeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
     if (NodeInfoH)
     {
         WriteStringBuilderToFile(*NodeTypeGen.Builder, NodeInfoH);
@@ -297,12 +323,21 @@ int main(int ArgCount, char* Args[])
         WriteStringBuilderToFile(CallNodeProcGen, NodeInfoH);
         fclose(NodeInfoH);
     }
+    else
+    {
+        printf("Error: Unable to open file at %.*s\n", StringExpand(NodeInfoHFilePath));
+    }
     
-    FILE* PanelInfoH = fopen("C:\\projects\\foldhaus\\src\\generated\\foldhaus_panels_generated.h", "w");
+    string PanelInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("foldhaus_panels_generated.h"));
+    FILE* PanelInfoH = fopen(PanelInfoHFilePath.Memory, "w");
     if (PanelInfoH)
     {
         WriteStringBuilderToFile(PanelCodeGen, PanelInfoH);
         fclose(PanelInfoH);
+    }
+    else
+    {
+        printf("Error: Unable to open file at %.*s\n", StringExpand(PanelInfoHFilePath));
     }
     
     FinishMetaprogram(&Meta);

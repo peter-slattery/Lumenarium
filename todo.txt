@@ -2,8 +2,9 @@ TODO FOLDHAUS
 
 Ground Up Reengineering
 - Metaprogramming
-    - panels metaprogramming
+    x panels metaprogramming
     - fix memory layout (remeber to profile before and after)
+    x get the meta program to generate code in the codebase's directory, no matter where it is 
 
 - Make the DLL truly platform agnostic
     - math.h: present for trig functions
