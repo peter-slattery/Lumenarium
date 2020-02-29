@@ -64,11 +64,15 @@ Ground Up Reengineering
     - debug capabilities (toggle strip/led/universe colors)
 
 - Animation System
-    - snapping clips
+    x snapping clips
+    - zoom in and out
     - blending between animation
     - layers
+        - display more than one layer
+        - add/remove layers
         - layer masks by sculpture
         - blend modes
+    - setting start and end of timeline (how long is a loop)
 
 - Node System
     - automatic node layout

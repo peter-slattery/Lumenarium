@@ -5,14 +5,6 @@
 //
 #ifndef FOLDHAUS_PANEL_ANIMATION_TIMELINE_H
 
-// TODO
-// [x] - Moving animation blocks
-// [x] - dragging beginning and end of time blocks
-// [] - creating a timeblock with a specific animation
-// [x] - play, pause, stop, 
-// [] - setting the start and end of the animation system
-// [] - displaying multiple layers
-
 inline r32
 GetTimeFromPointInAnimationPanel(v2 Point, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
 {
@@ -138,6 +130,18 @@ OPERATION_STATE_DEF(drag_animation_clip_state)
     r32 SelectedClip_InitialEndTime;
 };
 
+internal r32
+AttemptToSnapPosition(r32 Snapping, r32 SnapTo)
+{
+    r32 Result = Snapping;
+    r32 SnapDistance = .25f;
+    if (GSAbs(Snapping - SnapTo) <= SnapDistance)
+    {
+        Result = SnapTo;
+    }
+    return Result;
+}
+
 OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 {
     drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
@@ -151,18 +155,58 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     
     animation_block* AnimationBlock = State->AnimationSystem.Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
     
+    // TODO(Peter): This should really be in pixels so we can zoom in and out on the timeline
+    r32 SnapDistance = .25f;
     if (GSAbs(Mouse.DownPos.x - ClipInitialStartTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        AnimationBlock->StartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
+        r32 NewStartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
+        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        {
+            gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+            if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
+            animation_block OtherBlock = OtherBlockEntry->Value;
+            NewStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
+        }
+        AnimationBlock->StartTime = NewStartTime; 
     }
     else if (GSAbs(Mouse.DownPos.x - ClipInitialEndTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        AnimationBlock->EndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+        r32 NewEndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        {
+            gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+            if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
+            animation_block OtherBlock = OtherBlockEntry->Value;
+            NewEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
+        }
+        AnimationBlock->EndTime = NewEndTime;
     }
     else
     {
-        AnimationBlock->StartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
-        AnimationBlock->EndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+        r32 NewStartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
+        r32 NewEndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        {
+            gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+            if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
+            animation_block OtherBlock = OtherBlockEntry->Value;
+            
+            r32 SnapAmount = 0;
+            if (TimeOffset > 0)
+            {
+                r32 FinalEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
+                SnapAmount = FinalEndTime - NewEndTime;
+            }
+            else if (TimeOffset < 0)
+            {
+                r32 FinalStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
+                SnapAmount = FinalStartTime - NewStartTime;
+            }
+            NewEndTime += SnapAmount;
+            NewStartTime += SnapAmount;
+        }
+        AnimationBlock->StartTime = NewStartTime;
+        AnimationBlock->EndTime = NewEndTime;
     }
 }
 

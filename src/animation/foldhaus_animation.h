@@ -3,12 +3,6 @@
 // Author: Peter Slattery
 // Creation Date: 2020-01-01
 //
-// TODO
-// [] - animation blending
-// [] - delete a layer
-// [] - will need a way to create an empty layer
-// [] - get a list of all animation procs
-
 #ifndef FOLDHAUS_ANIMATION
 
 #define ANIMATION_PROC(name) void name(assembly* Assembly, r32 Time)
