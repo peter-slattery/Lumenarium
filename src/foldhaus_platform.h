@@ -180,7 +180,7 @@ typedef THREADED_WORK_PROC(threaded_work_proc);
 
 typedef struct work_queue work_queue;
 
-#define PUSH_WORK_ON_QUEUE(name) void name(work_queue* Queue, threaded_work_proc* WorkProc, void* Data)
+#define PUSH_WORK_ON_QUEUE(name) void name(work_queue* Queue, threaded_work_proc* WorkProc, void* Data, char* JobName)
 typedef PUSH_WORK_ON_QUEUE(push_work_on_queue);
 
 #define DO_QUEUE_WORK_UNTIL_DONE(name) void name(work_queue* Queue, s32 ThreadID)
@@ -193,6 +193,9 @@ struct worker_thread_job
 {
     void* Data;
     threaded_work_proc* WorkProc;
+#ifdef DEBUG
+    char* JobName;
+#endif
 };
 
 struct work_queue
@@ -203,7 +206,7 @@ struct work_queue
     u32 volatile JobsCount;
     u32 volatile NextJobIndex;
     u32 volatile JobsCompleted;
-    worker_thread_job Jobs[256];
+    worker_thread_job* Jobs;
     
     // Work Queue
     push_work_on_queue* PushWorkOnQueue;

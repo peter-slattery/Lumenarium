@@ -46,11 +46,28 @@ struct worker_thread_info
 
 PUSH_WORK_ON_QUEUE(Win32PushWorkOnQueue)
 {
+#ifdef DEBUG
+    // NOTE(Peter): Just prints out the names of all the pending jobs if we end up
+    // overflowing the buffer
+    if (Queue->JobsCount >= Queue->JobsMax)
+    {
+        string DebugString = MakeString((char*)malloc(256), 256);
+        for (u32 i = 0; i < Queue->JobsCount; i++)
+        {
+            PrintF(&DebugString, "%d %s\n", i, Queue->Jobs[i].JobName);
+            NullTerminate(&DebugString);
+            OutputDebugStringA(DebugString.Memory);
+        }
+    }
+#endif
     Assert(Queue->JobsCount < Queue->JobsMax);
     
     worker_thread_job* Job = Queue->Jobs + Queue->JobsCount;
     Job->WorkProc = WorkProc;
     Job->Data = Data;
+#ifdef DEBUG
+    Job->JobName = JobName;
+#endif
     
     // Complete Past Writes before Future Writes
     _WriteBarrier();
@@ -596,11 +613,14 @@ WinMain (
     
     work_queue WorkQueue = {};
     WorkQueue.SemaphoreHandle = CreateSemaphoreEx(0, 0, PLATFORM_THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
-    WorkQueue.JobsMax = 256;
+    WorkQueue.JobsMax = 512;
+    WorkQueue.Jobs = (worker_thread_job*)Win32Alloc(sizeof(worker_thread_job) * WorkQueue.JobsMax);
     WorkQueue.NextJobIndex = 0;
     WorkQueue.PushWorkOnQueue = Win32PushWorkOnQueue;
     WorkQueue.DoQueueWorkUntilDone = Win32DoQueueWorkUntilDone;
     WorkQueue.ResetWorkQueue = ResetWorkQueue;
+    
+    OutputDebugStringA("Hellooooo\n");
     
     for (s32 i = 0; i < PLATFORM_THREAD_COUNT; i++)
     {

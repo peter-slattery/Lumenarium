@@ -174,15 +174,10 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
             JobData->ModelViewMatrix = ModelViewMatrix;
             JobData->LEDHalfWidth = LEDHalfWidth;
             
-            Context.GeneralWorkQueue->PushWorkOnQueue(
-                                                      Context.GeneralWorkQueue,
-                                                      DrawLEDsInBufferRangeJob,
-                                                      JobData);
+            Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, DrawLEDsInBufferRangeJob, JobData, "Sculpture Draw LEDS");
         }
     }
-    
     Context.GeneralWorkQueue->DoQueueWorkUntilDone(Context.GeneralWorkQueue, 0);
-    Context.GeneralWorkQueue->ResetWorkQueue(Context.GeneralWorkQueue);
 }
 
 #define FOLDHAUS_PANEL_SCULPTURE_VIEW_H

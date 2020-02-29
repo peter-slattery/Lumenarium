@@ -405,10 +405,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 Job->SendTo = Context.PlatformSendTo;
                 Job->DMXBuffers = DMXBuffers;
                 
-                Context.GeneralWorkQueue->PushWorkOnQueue(
-                                                          Context.GeneralWorkQueue,
-                                                          SACNSendDMXBufferListJob,
-                                                          Job);
+                Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
             }break;
             
             InvalidDefaultCase;
@@ -429,6 +426,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
             OperationMode.Render(State, RenderBuffer, OperationMode, Mouse);
         }
     }
+    
+    Context.GeneralWorkQueue->DoQueueWorkUntilDone(Context.GeneralWorkQueue, 0);
+    Context.GeneralWorkQueue->ResetWorkQueue(Context.GeneralWorkQueue);
     
     // Checking for overflows
     {
