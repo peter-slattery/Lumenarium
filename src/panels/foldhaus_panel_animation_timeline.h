@@ -5,48 +5,41 @@
 //
 #ifndef FOLDHAUS_PANEL_ANIMATION_TIMELINE_H
 
-inline r32
-GetTimeFromPointInAnimationPanel(v2 Point, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
+inline u32
+GetFrameFromPointInAnimationPanel(v2 Point, rect PanelBounds, u32 StartFrame, u32 EndFrame)
 {
-    r32 StartFrameTime = (r32)StartFrame * SecondsPerFrame;
-    r32 EndFrameTime = (r32)EndFrame * SecondsPerFrame;
-    r32 TimeAtPoint = GSRemap(Point.x, PanelBounds.Min.x, PanelBounds.Max.x, StartFrameTime, EndFrameTime);
+    r32 HorizontalPercentOfBounds = (Point.x - PanelBounds.Min.x) / (PanelBounds.Max.x - PanelBounds.Min.x);
+    u32 TimeAtPoint = (u32)(HorizontalPercentOfBounds * (EndFrame - StartFrame)) + StartFrame;
     return TimeAtPoint;
 }
 
 inline s32
-GetFrameFromPointInAnimationPanel (v2 Point, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
+GetXPositionFromFrameInAnimationPanel (u32 Frame, rect PanelBounds, s32 StartFrame, s32 EndFrame)
 {
-    r32 TimeAtPoint = GetTimeFromPointInAnimationPanel(Point, PanelBounds, StartFrame, EndFrame, SecondsPerFrame);
-    s32 FrameAtPoint = (s32)(TimeAtPoint * SecondsPerFrame);
-    return FrameAtPoint;
+    r32 PercentOfTimeline = (r32)(Frame - StartFrame) / (r32)(EndFrame - StartFrame);
+    s32 XPositionAtFrame = (PercentOfTimeline * Width(PanelBounds)) + PanelBounds.Min.x;
+    return XPositionAtFrame;
 }
 
-inline s32
-GetXPositionFromTimeInAnimationPanel (r32 Time, rect PanelBounds, s32 StartFrame, s32 EndFrame, r32 SecondsPerFrame)
+internal gs_list_handle
+AddAnimationBlock(u32 StartFrame, u32 EndFrame, u32 AnimationProcHandle, animation_system* AnimationSystem)
 {
-    r32 StartFrameTime = (r32)StartFrame * SecondsPerFrame;
-    r32 EndFrameTime = (r32)EndFrame * SecondsPerFrame;
-    s32 XPositionAtTime = GSRemap(Time, StartFrameTime, EndFrameTime, PanelBounds.Min.x, PanelBounds.Max.x);
-    return XPositionAtTime;
-}
-
-internal void
-AddAnimationBlock(r32 StartTime, r32 EndTime, u32 AnimationProcHandle, animation_system* AnimationSystem)
-{
+    gs_list_handle Result = {0};
     animation_block NewBlock = {0};
-    NewBlock.StartTime = StartTime;
-    NewBlock.EndTime = EndTime;
+    NewBlock.StartFrame = StartFrame;
+    NewBlock.EndFrame = EndFrame;
     NewBlock.AnimationProcHandle = AnimationProcHandle;
-    AnimationSystem->Blocks.PushElementOnList(NewBlock);
+    Result = AnimationSystem->Blocks.PushElementOnList(NewBlock);
+    return Result;
 }
 
-#define NEW_ANIMATION_BLOCK_DURATION 3
-internal void
+internal gs_list_handle
 AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, animation_system* System)
 {
-    r32 CurrentTime = System->Time;
-    AddAnimationBlock(CurrentTime, CurrentTime + NEW_ANIMATION_BLOCK_DURATION, AnimationProcHandle, System);
+    u32 NewBlockStart = System->CurrentFrame;
+    u32 NewBlockEnd = NewBlockStart + SecondsToFrames(3, *System);
+    gs_list_handle Result = AddAnimationBlock(NewBlockStart, NewBlockEnd, AnimationProcHandle, System);
+    return Result;
 }
 
 internal void
@@ -70,7 +63,10 @@ DeselectCurrentAnimationBlock(app_state* State)
 
 FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 {
-    DeleteAnimationBlock(State->SelectedAnimationBlockHandle, State);
+    if(ListHandleIsValid(State->SelectedAnimationBlockHandle))
+    {
+        DeleteAnimationBlock(State->SelectedAnimationBlockHandle, State);
+    }
 }
 
 //
@@ -87,8 +83,8 @@ OPERATION_STATE_DEF(drag_time_marker_operation_state)
 OPERATION_RENDER_PROC(UpdateDragTimeMarker)
 {
     drag_time_marker_operation_state* OpState = (drag_time_marker_operation_state*)Operation.OpStateMemory;
-    r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->StartFrame, OpState->EndFrame, State->AnimationSystem.SecondsPerFrame);
-    State->AnimationSystem.Time = TimeAtMouseX;
+    u32 FrameAtMouseX = GetFrameFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->StartFrame, OpState->EndFrame);
+    State->AnimationSystem.CurrentFrame = FrameAtMouseX;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndDragTimeMarker)
@@ -124,20 +120,20 @@ StartDragTimeMarker(rect TimelineBounds, s32 PanelStartFrame, s32 PanelEndFrame,
 OPERATION_STATE_DEF(drag_animation_clip_state)
 {
     rect TimelineBounds;
-    r32 AnimationPanel_StartFrame;
-    r32 AnimationPanel_EndFrame;
-    r32 SelectedClip_InitialStartTime;
-    r32 SelectedClip_InitialEndTime;
+    s32 AnimationPanel_StartFrame;
+    s32 AnimationPanel_EndFrame;
+    s32 SelectedClip_InitialStartFrame;
+    s32 SelectedClip_InitialEndFrame;
 };
 
-internal r32
-AttemptToSnapPosition(r32 Snapping, r32 SnapTo)
+internal u32
+AttemptToSnapPosition(u32 SnappingFrame, u32 SnapToFrame)
 {
-    r32 Result = Snapping;
-    r32 SnapDistance = .25f;
-    if (GSAbs(Snapping - SnapTo) <= SnapDistance)
+    u32 Result = SnappingFrame;
+    s32 SnapDistance = 5;
+    if (GSAbs((s32)SnappingFrame - (s32)SnapToFrame) <= SnapDistance)
     {
-        Result = SnapTo;
+        Result = SnapToFrame;
     }
     return Result;
 }
@@ -146,12 +142,13 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 {
     drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
     
-    s32 ClipInitialStartTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialStartTime, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    s32 ClipInitialEndTimeXPosition = GetXPositionFromTimeInAnimationPanel(OpState->SelectedClip_InitialEndTime, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
+    u32 ClipInitialStartFrameXPosition = GetXPositionFromFrameInAnimationPanel(OpState->SelectedClip_InitialStartFrame, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame);
+    u32 ClipInitialEndFrameXPosition = GetXPositionFromFrameInAnimationPanel(OpState->SelectedClip_InitialEndFrame, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame);
     
-    r32 TimeAtMouseDownX = GetTimeFromPointInAnimationPanel(Mouse.DownPos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    r32 TimeAtMouseX = GetTimeFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame, State->AnimationSystem.SecondsPerFrame);
-    r32 TimeOffset = TimeAtMouseX - TimeAtMouseDownX;
+    u32 FrameAtMouseDownX = GetFrameFromPointInAnimationPanel(Mouse.DownPos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame);
+    
+    u32 FrameAtMouseX = GetFrameFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->AnimationPanel_StartFrame, OpState->AnimationPanel_EndFrame);
+    s32 FrameOffset = (s32)FrameAtMouseX - (s32)FrameAtMouseDownX;
     
     animation_block* AnimationBlock = State->AnimationSystem.Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
     if (!AnimationBlock)
@@ -160,83 +157,82 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
         return;
     }
     
-    // TODO(Peter): This should really be in pixels so we can zoom in and out on the timeline
-    r32 SnapDistance = .25f;
-    if (GSAbs(Mouse.DownPos.x - ClipInitialStartTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
+    if (GSAbs(Mouse.DownPos.x - ClipInitialStartFrameXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        r32 NewStartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
-        if (TimeOffset < 0)
+        u32 NewStartFrame = OpState->SelectedClip_InitialStartFrame + FrameOffset;
+        if (FrameOffset < 0)
         {
             for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
             {
                 gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
                 if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
                 animation_block OtherBlock = OtherBlockEntry->Value;
-                NewStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
+                NewStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.EndFrame);
             }
         }
         else
         {
-            if (NewStartTime >= AnimationBlock->EndTime)
+            if (NewStartFrame >= AnimationBlock->EndFrame)
             {
-                NewStartTime = AnimationBlock->EndTime - State->AnimationSystem.SecondsPerFrame;
+                NewStartFrame = AnimationBlock->EndFrame - 1;
             }
         }
-        AnimationBlock->StartTime = NewStartTime; 
+        AnimationBlock->StartFrame = NewStartFrame; 
     }
-    else if (GSAbs(Mouse.DownPos.x - ClipInitialEndTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
+    else if (GSAbs(Mouse.DownPos.x - ClipInitialEndFrameXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        r32 NewEndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
-        if (TimeOffset > 0)
+        r32 NewEndFrame = OpState->SelectedClip_InitialEndFrame + FrameOffset;
+        if (FrameOffset > 0)
         {
             for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
             {
                 gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
                 if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
                 animation_block OtherBlock = OtherBlockEntry->Value;
-                NewEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
+                NewEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.StartFrame);
             }
         }
         else
         {
-            if(NewEndTime <= AnimationBlock->StartTime)
+            if(NewEndFrame <= AnimationBlock->StartFrame)
             {
-                NewEndTime = AnimationBlock->StartTime + State->AnimationSystem.SecondsPerFrame;
+                NewEndFrame = AnimationBlock->StartFrame + 1;
             }
         }
-        AnimationBlock->EndTime = NewEndTime;
+        AnimationBlock->EndFrame = NewEndFrame;
     }
     else
     {
-        r32 NewStartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
-        r32 NewEndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
+        u32 NewStartFrame = OpState->SelectedClip_InitialStartFrame + FrameOffset;
+        u32 NewEndFrame = OpState->SelectedClip_InitialEndFrame + FrameOffset;
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
             gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
             if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
             animation_block OtherBlock = OtherBlockEntry->Value;
             
-            r32 SnapAmount = 0;
-            if (TimeOffset > 0)
+            u32 SnapFramesAmount = 0;
+            if (FrameOffset > 0)
             {
-                r32 FinalEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
-                SnapAmount = FinalEndTime - NewEndTime;
+                u32 FinalEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.StartFrame);
+                SnapFramesAmount = FinalEndFrame - NewEndFrame;
             }
-            else if (TimeOffset < 0)
+            else if (FrameOffset < 0)
             {
-                r32 FinalStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
-                SnapAmount = FinalStartTime - NewStartTime;
+                u32 FinalStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.EndFrame);
+                SnapFramesAmount = FinalStartFrame - NewStartFrame;
             }
-            NewEndTime += SnapAmount;
-            NewStartTime += SnapAmount;
+            NewEndFrame += SnapFramesAmount;
+            NewStartFrame += SnapFramesAmount;
         }
-        AnimationBlock->StartTime = NewStartTime;
-        AnimationBlock->EndTime = NewEndTime;
+        AnimationBlock->StartFrame = NewStartFrame;
+        AnimationBlock->EndFrame = NewEndFrame;
     }
     
-    r32 TimelineEndTime = OpState->AnimationPanel_EndFrame * State->AnimationSystem.SecondsPerFrame;
-    AnimationBlock->StartTime = GSClamp(0.f, AnimationBlock->StartTime, TimelineEndTime);
-    AnimationBlock->EndTime = GSClamp(0.f, AnimationBlock->EndTime, TimelineEndTime);
+    s32 VisibleStartFrame = OpState->AnimationPanel_StartFrame;
+    s32 VisibleEndFrame = OpState->AnimationPanel_EndFrame;
+    AnimationBlock->StartFrame = (u32)GSClamp(VisibleStartFrame, (s32)AnimationBlock->StartFrame, VisibleEndFrame);
+    AnimationBlock->EndFrame = (u32)GSClamp(VisibleStartFrame, (s32)AnimationBlock->EndFrame, VisibleEndFrame);
 }
 
 input_command DragAnimationClipCommands [] = {
@@ -258,25 +254,16 @@ SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, s32 PanelStartFrame
     OpState->AnimationPanel_EndFrame = PanelEndFrame ;
     
     animation_block* SelectedBlock = State->AnimationSystem.Blocks.GetElementWithHandle(BlockHandle);
-    OpState->SelectedClip_InitialStartTime = SelectedBlock->StartTime;
-    OpState->SelectedClip_InitialEndTime = SelectedBlock->EndTime;
+    OpState->SelectedClip_InitialStartFrame = SelectedBlock->StartFrame;
+    OpState->SelectedClip_InitialEndFrame = SelectedBlock->EndFrame;
 }
 // -------------------
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
     panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
-    r32 MouseDownPositionPercent = (Mouse.Pos.x - ActivePanel.Bounds.Min.x) / Width(ActivePanel.Bounds);
-    r32 NewBlockTimeStart = MouseDownPositionPercent * State->AnimationSystem.AnimationEnd;
-#define NEW_BLOCK_DURATION 1
-    r32 NewBlockTimeEnd = NewBlockTimeStart + NEW_BLOCK_DURATION;
-    
-    animation_block Block = {0};
-    Block.StartTime = NewBlockTimeStart;
-    Block.EndTime = NewBlockTimeEnd;
-    Block.AnimationProcHandle = 4;
-    
-    gs_list_handle NewBlockHandle = State->AnimationSystem.Blocks.PushElementOnList(Block);
+    u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, State->AnimationSystem.StartFrame, State->AnimationSystem.EndFrame);
+    gs_list_handle NewBlockHandle = AddAnimationBlock(MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, &State->AnimationSystem);
     SelectAnimationBlock(NewBlockHandle, State);
 }
 
@@ -343,18 +330,16 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
 }
 
 internal rect
-DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPerFrame, s32 FrameCount, s32 StartFrame, rect TimelineBounds, render_command_buffer* RenderBuffer)
+DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, s32 FrameCount, s32 StartFrame, rect TimelineBounds, render_command_buffer* RenderBuffer)
 {
     rect BlockBounds = {};
     
     r32 TimelineWidth = Width(TimelineBounds);
     
-    s32 BlockStartFrame = AnimationBlock.StartTime / SecondsPerFrame;
-    r32 StartFramePercent = (r32)(BlockStartFrame - StartFrame) / (r32)FrameCount;
+    r32 StartFramePercent = (r32)(AnimationBlock.StartFrame - StartFrame) / (r32)FrameCount;
     r32 StartPosition = TimelineWidth * StartFramePercent;
     
-    s32 BlockEndFrame = AnimationBlock.EndTime / SecondsPerFrame;
-    r32 EndFramePercent = (r32)(BlockEndFrame - StartFrame) / (r32)FrameCount;
+    r32 EndFramePercent = (r32)(AnimationBlock.EndFrame - StartFrame) / (r32)FrameCount;
     r32 EndPosition = TimelineWidth * EndFramePercent;
     
     BlockBounds.Min = TimelineBounds.Min + v2{StartPosition, 25};
@@ -367,10 +352,10 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, r32 SecondsPe
 }
 
 internal gs_list_handle
-DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 EndFrame, rect PanelBounds, gs_list_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
+DrawAnimationTimeline (animation_system* AnimationSystem, s32 VisibleStartFrame, s32 VisibleEndFrame, rect PanelBounds, gs_list_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
 {
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
-    s32 FrameCount = EndFrame - StartFrame;
+    s32 VisibleFrameCount = VisibleEndFrame - VisibleStartFrame;
     
     gs_list_handle Result = SelectedBlockHandle;
     
@@ -378,11 +363,8 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     r32 AnimationPanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
     
     {
-        s32 FirstPlayableFrame = (AnimationSystem->AnimationStart / AnimationSystem->SecondsPerFrame);
-        s32 LastPlayableFrame = (AnimationSystem->AnimationEnd / AnimationSystem->SecondsPerFrame);
-        
-        r32 FirstPlayablePercentX = ((r32)(FirstPlayableFrame - StartFrame) / (r32)FrameCount);
-        r32 LastPlayablePercentX = ((r32)(LastPlayableFrame - StartFrame) / (r32)FrameCount);
+        r32 FirstPlayablePercentX = ((r32)(AnimationSystem->StartFrame - VisibleStartFrame) / (r32)VisibleFrameCount);
+        r32 LastPlayablePercentX = ((r32)(AnimationSystem->EndFrame - VisibleStartFrame) / (r32)VisibleFrameCount);
         
         v2 PlayableMin = v2{(FirstPlayablePercentX * AnimationPanelWidth) + PanelBounds.Min.x, PanelBounds.Min.y };
         v2 PlayableMax = v2{(LastPlayablePercentX * AnimationPanelWidth) + PanelBounds.Min.x, PanelBounds.Max.y };
@@ -391,7 +373,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
         PushRenderQuad2D(RenderBuffer, PlayableMin, PlayableMax, v4{.22f, .22f, .22f, 1.f});
     }
     
-    r32 FrameBarBottom = DrawFrameBar(AnimationSystem, RenderBuffer, StartFrame, EndFrame, PanelBounds, Mouse, State);
+    r32 FrameBarBottom = DrawFrameBar(AnimationSystem, RenderBuffer, VisibleStartFrame, VisibleEndFrame, PanelBounds, Mouse, State);
     
     // Animation Blocks
     rect TimelineBounds = rect{ PanelBounds.Min, v2{PanelBounds.Max.x, FrameBarBottom} };
@@ -410,19 +392,18 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
             BlockColor = PinkV4;
         }
         
-        rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AnimationSystem->SecondsPerFrame, FrameCount, StartFrame, TimelineBounds, RenderBuffer);
+        rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, VisibleFrameCount, VisibleStartFrame, TimelineBounds, RenderBuffer);
         
         if (PointIsInRange(Mouse.Pos, BlockBounds.Min, BlockBounds.Max)
             && MouseButtonTransitionedDown(Mouse.LeftButtonState))
         {
             MouseDownAndNotHandled = false;
-            SelectAndBeginDragAnimationBlock(CurrentBlockHandle, StartFrame, EndFrame, TimelineBounds, State);
+            SelectAndBeginDragAnimationBlock(CurrentBlockHandle, VisibleStartFrame, VisibleEndFrame, TimelineBounds, State);
         }
     }
     
     // Time Slider
-    s32 SliderFrame = AnimationSystem->Time / AnimationSystem->SecondsPerFrame;
-    r32 TimePercent = (r32)(SliderFrame - StartFrame) / (r32)FrameCount;
+    r32 TimePercent = (r32)(AnimationSystem->CurrentFrame - VisibleStartFrame) / (r32)VisibleFrameCount;
     r32 SliderX = PanelBounds.Min.x + (AnimationPanelWidth * TimePercent);
     v2 SliderMin = v2{SliderX, PanelBounds.Min.y};
     v2 SliderMax = v2{SliderX + 1, PanelBounds.Max.y - 25};
@@ -435,7 +416,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, s32 StartFrame, s32 En
     v2 HeadMax = v2{SliderX + SliderHalfWidth, PanelBounds.Max.y};
     PushRenderQuad2D(RenderBuffer, HeadMin, HeadMax, TimeSliderColor);
     
-    PrintF(&TempString, "%d", SliderFrame);
+    PrintF(&TempString, "%d", AnimationSystem->CurrentFrame);
     DrawString(RenderBuffer, TempString, State->Interface.Font, HeadMin + v2{4, 4}, WhiteV4);
     
     if (MouseDownAndNotHandled && PointIsInRect(Mouse.Pos, TimelineBounds))
@@ -518,10 +499,9 @@ AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* R
     {
         DrawAnimationClipsList(AnimationClipListBounds, Mouse, RenderBuffer, State);
         
-        s32 FrameStart = (s32)(State->AnimationSystem.AnimationStart / State->AnimationSystem.SecondsPerFrame);
-        s32 FrameEnd = (s32)(State->AnimationSystem.AnimationEnd / State->AnimationSystem.SecondsPerFrame);
         SelectedBlockHandle = DrawAnimationTimeline(&State->AnimationSystem, 
-                                                    FrameStart - 20, FrameEnd + 20,
+                                                    State->AnimationSystem.StartFrame - 20, 
+                                                    State->AnimationSystem.EndFrame + 20,
                                                     TimelineBounds,
                                                     SelectedBlockHandle, 
                                                     RenderBuffer, State, Mouse);
@@ -564,7 +544,7 @@ AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* R
     if (StopResult.Pressed)
     {
         State->AnimationSystem.TimelineShouldAdvance = false;
-        State->AnimationSystem.Time = 0;
+        State->AnimationSystem.CurrentFrame = 0;
     }
 }
 

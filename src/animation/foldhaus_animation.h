@@ -10,11 +10,9 @@ typedef ANIMATION_PROC(animation_proc);
 
 struct animation_block
 {
-    // TODO(Peter): Should we change this to frames??
-    r32 StartTime;
-    r32 EndTime;
+    u32 StartFrame;
+    u32 EndFrame;
     u32 AnimationProcHandle;
-    
     u32 Layer;
 };
 
@@ -24,16 +22,26 @@ struct animation_system
 {
     gs_list<animation_block> Blocks;
     
-    r32 Time;
-    s32 LastUpdatedFrame;
+    // NOTE(Peter): The frame currently being displayed/processed. you
+    // can see which frame you're on by looking at the time slider on the timeline
+    // panel
+    u32 CurrentFrame;
+    u32 LastUpdatedFrame;
     r32 SecondsPerFrame;
     
     b32 TimelineShouldAdvance;
     
-    // :Temporary
-    r32 AnimationStart;
-    r32 AnimationEnd;
+    // Timeline
+    r32 StartFrame;
+    r32 EndFrame;
 };
+
+internal u32
+SecondsToFrames(r32 Seconds, animation_system System)
+{
+    u32 Result = Seconds * (1.0f / System.SecondsPerFrame);
+    return Result;
+}
 
 #define FOLDHAUS_ANIMATION
 #endif // FOLDHAUS_ANIMATION

@@ -92,8 +92,8 @@ static void DebugPrint(char* Format, ...);
 if((expression)) \
 { \
 }else{ \
-volatile int* p = 0; \
-*p = 5; \
+    volatile int* p = 0; \
+    *p = 5; \
 }
 #endif
 

@@ -188,8 +188,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     { // Animation PLAYGROUND
         State->AnimationSystem = {};
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        State->AnimationSystem.AnimationStart = 0;
-        State->AnimationSystem.AnimationEnd = 15;
+        State->AnimationSystem.StartFrame = 0;
+        State->AnimationSystem.EndFrame = SecondsToFrames(15, State->AnimationSystem);
     } // End Animation Playground
     
     
@@ -320,14 +320,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
     HandleInput(State, State->WindowBounds, InputQueue, Mouse);
     
     if (State->AnimationSystem.TimelineShouldAdvance) { 
-        State->AnimationSystem.Time += Context.DeltaTime;
-        if (State->AnimationSystem.Time > State->AnimationSystem.AnimationEnd)
+        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+        State->AnimationSystem.CurrentFrame += 1; 
+        // Loop back to the beginning
+        if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.EndFrame)
         {
-            State->AnimationSystem.Time -= State->AnimationSystem.AnimationEnd;
+            State->AnimationSystem.CurrentFrame = 0; 
         }
     }
     
-    s32 CurrentFrame = (s32)(State->AnimationSystem.Time / State->AnimationSystem.SecondsPerFrame);
+    u32 CurrentFrame = State->AnimationSystem.CurrentFrame;
     if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
     {
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
@@ -339,30 +342,31 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if (!EntryIsFree(BlockEntry))
             {
                 animation_block Block = BlockEntry->Value;
-                if (State->AnimationSystem.Time >= Block.StartTime
-                    && State->AnimationSystem.Time <= Block.EndTime)
+                if (CurrentFrame >= Block.StartFrame && CurrentFrame <= Block.EndFrame)
                 {
                     for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
                     {
                         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
                         assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
                         
+                        u32 FramesIntoBlock = CurrentFrame - Block.StartFrame;
+                        r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
                         // TODO(Peter): Temporary
                         switch(Block.AnimationProcHandle)
                         {
                             case 1: 
                             {
-                                TestPatternOne(Assembly, FrameTime  - Block.StartTime); 
+                                TestPatternOne(Assembly, SecondsIntoBlock); 
                             }break;
                             
                             case 2:
                             {
-                                TestPatternTwo(Assembly, FrameTime - Block.StartTime);
+                                TestPatternTwo(Assembly, SecondsIntoBlock);
                             }break;
                             
                             case 3:
                             {
-                                TestPatternThree(Assembly, FrameTime - Block.StartTime);
+                                TestPatternThree(Assembly, SecondsIntoBlock);
                             }break;
                             
                             // NOTE(Peter): Zero is invalid
