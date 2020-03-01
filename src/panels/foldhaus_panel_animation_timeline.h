@@ -154,30 +154,55 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     r32 TimeOffset = TimeAtMouseX - TimeAtMouseDownX;
     
     animation_block* AnimationBlock = State->AnimationSystem.Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
+    if (!AnimationBlock)
+    {
+        EndCurrentOperationMode(State, {}, Mouse);
+        return;
+    }
     
     // TODO(Peter): This should really be in pixels so we can zoom in and out on the timeline
     r32 SnapDistance = .25f;
     if (GSAbs(Mouse.DownPos.x - ClipInitialStartTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
         r32 NewStartTime = OpState->SelectedClip_InitialStartTime + TimeOffset;
-        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        if (TimeOffset < 0)
         {
-            gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
-            if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
-            animation_block OtherBlock = OtherBlockEntry->Value;
-            NewStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
+            for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+            {
+                gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+                if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
+                animation_block OtherBlock = OtherBlockEntry->Value;
+                NewStartTime = AttemptToSnapPosition(NewStartTime, OtherBlock.EndTime);
+            }
+        }
+        else
+        {
+            if (NewStartTime >= AnimationBlock->EndTime)
+            {
+                NewStartTime = AnimationBlock->EndTime - State->AnimationSystem.SecondsPerFrame;
+            }
         }
         AnimationBlock->StartTime = NewStartTime; 
     }
     else if (GSAbs(Mouse.DownPos.x - ClipInitialEndTimeXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
         r32 NewEndTime = OpState->SelectedClip_InitialEndTime + TimeOffset;
-        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        if (TimeOffset > 0)
         {
-            gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
-            if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
-            animation_block OtherBlock = OtherBlockEntry->Value;
-            NewEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
+            for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+            {
+                gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
+                if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
+                animation_block OtherBlock = OtherBlockEntry->Value;
+                NewEndTime = AttemptToSnapPosition(NewEndTime, OtherBlock.StartTime);
+            }
+        }
+        else
+        {
+            if(NewEndTime <= AnimationBlock->StartTime)
+            {
+                NewEndTime = AnimationBlock->StartTime + State->AnimationSystem.SecondsPerFrame;
+            }
         }
         AnimationBlock->EndTime = NewEndTime;
     }
@@ -208,6 +233,10 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
         AnimationBlock->StartTime = NewStartTime;
         AnimationBlock->EndTime = NewEndTime;
     }
+    
+    r32 TimelineEndTime = OpState->AnimationPanel_EndFrame * State->AnimationSystem.SecondsPerFrame;
+    AnimationBlock->StartTime = GSClamp(0.f, AnimationBlock->StartTime, TimelineEndTime);
+    AnimationBlock->EndTime = GSClamp(0.f, AnimationBlock->EndTime, TimelineEndTime);
 }
 
 input_command DragAnimationClipCommands [] = {
@@ -232,7 +261,6 @@ SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, s32 PanelStartFrame
     OpState->SelectedClip_InitialStartTime = SelectedBlock->StartTime;
     OpState->SelectedClip_InitialEndTime = SelectedBlock->EndTime;
 }
-
 // -------------------
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
