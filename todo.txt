@@ -33,6 +33,11 @@ Ground Up Reengineering
     - Lighting
     - Clipping (with error checking)
 
+- Camera
+    - pan
+    - zoom
+    - leds always face camera
+
 - Sculptures
     - store scale in the assembly definition file
     - cache led vertex buffers
@@ -40,6 +45,7 @@ Ground Up Reengineering
     - placing sculptures
     - editing sculpture files (change universe output)
     - led groups & subgroups - defined in file
+    - motion
 
 - Network
     - Handle Error Cases
@@ -55,9 +61,9 @@ Ground Up Reengineering
     - panel system: destroy panel by extending it beyond its max, not just its min
 
 - Asset Loading
+    - Need to figure out which textures are currently in graphics memory and which need to be resubmitted
     - images
     - icon system - integrate with interface
-
 
 - Sculpture View
     - mouse spatial interaction - handles, and hover for info
@@ -74,6 +80,7 @@ Ground Up Reengineering
         - layer masks by sculpture
         - blend modes
     - setting start and end of timeline (how long is a loop)
+    - clips can have parameters that drive them?
 
 - Node System
     - automatic node layout
@@ -126,7 +133,6 @@ Switch To Nodes
 -   - allow panning and zooming around the node canvas
 -   - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds 
 - selector node (has a list of connections that it can switch between)
-- Serialize Nodes
 - evaluation step (one node at a time)
 
 Hardening
@@ -147,48 +153,14 @@ UI Improvements
 -   - draw cursor in node field under active edit
 -   - better/intelligent zero padding
 
-API Improvements
-
 Application
 - More efficient HSV <-> RGB
-- Save and load a session
-- Don't render if the window isn't visible
 
 Development
 - Fix your scope time tracker to account for threads.
 - Nest scope times so you can see totals/dig in
 
-Interface
-- fullscreen
-- In world interface elements
--   - Handles for Patterns
--   - UI Popups
--   - Value modifiers
-- Scroll view
-- Update the text system - use system fonts
-
-Structure
-- motion
-
-Renderer
-- Render layers
-- Mouse Picking - point at a led and see info about it
-- Camera: pan
-- Camera: zoom
-- Camera: leds always face camera
-
-Resource Management
-- TODO: Need to figure out which textures are currently in graphics memory and which need to be resubmitted
-- Icons
-
-Animation
-x timeline
-x create clips that play
-- clips can have parameters that drive them?
-
 Optimization
-- investigate the memory access pattern of the SACN / LED systems. Guessing they are very slow
-x look into why debug logging functions seems to incur a large hit on framrate
 - patterns are asking to be multithreaded
 - probably want to convert as much color functions to use u32 Packed Colors
 -  - Probably want to think about this more. What about supporting different color depths
