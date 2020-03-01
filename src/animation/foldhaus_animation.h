@@ -32,6 +32,7 @@ struct animation_system
     b32 TimelineShouldAdvance;
     
     // Timeline
+    // TODO(Peter): Reverse these. Should be FrameStart and FrameEnd for consistency
     r32 StartFrame;
     r32 EndFrame;
 };

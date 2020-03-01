@@ -627,20 +627,14 @@ v4 HSVToRGB (v4 In)
 }
 
 static bool
-PointIsInRange (
-                v2 _P,
-                v2 _Min, v2 _Max
-                )
+PointIsInRange (v2 _P, v2 _Min, v2 _Max)
 {
     return (_P.x >= _Min.x && _P.x <= _Max.x &&
             _P.y >= _Min.y && _P.y <= _Max.y);
 }
 
 static bool
-PointIsInRangeSafe (
-                    v2 _P,
-                    v2 _Min, v2 _Max
-                    )
+PointIsInRangeSafe (v2 _P, v2 _Min, v2 _Max)
 {
     s32 MinX = GSMin(_Min.x, _Max.x);
     s32 MinY = GSMin(_Min.y, _Max.y);
@@ -666,6 +660,15 @@ PointToPercentRange (v2 P, v2 Min, v2 Max)
 //       RECT
 //////////////////////////////////////
 
+// NOTE(Peter): This is useful when you have a function that has a call signature like:
+//     void Foo(v2 Min, v2 Max)
+// because instead of having to do:
+//     Foo(MyRect.Min, MyRect.Max) 
+// you can just do:
+//     Foo(RectExpand(MyRect))
+// which makes refactoring easier as you only have to change the identifier in one place
+#define RectExpand(r) (r).Min, (r).Max
+
 inline float
 Width (rect Rect)
 {
@@ -680,12 +683,43 @@ Height (rect Rect)
     return Result;
 }
 
+inline v2
+TopLeft(rect Rect)
+{
+    v2 Result = {0};
+    Result.x = Rect.Min.x;
+    Result.y = Rect.Max.y;
+    return Result;
+}
+
+inline v2
+TopRight(rect Rect)
+{
+    return Rect.Max;
+}
+
+inline v2
+BottomLeft(rect Rect)
+{
+    return Rect.Min;
+}
+
+inline v2
+BottomRight(rect Rect)
+{
+    v2 Result = {0};
+    Result.x = Rect.Max.x;
+    Result.y = Rect.Min.y;
+    return Result;
+}
+
 inline float
 AspectRatio (rect Rect)
 {
     float Result = Width(Rect) / Height(Rect);
     return Result;
 }
+
 inline v2
 CalculateRectCenter (rect Rect)
 {

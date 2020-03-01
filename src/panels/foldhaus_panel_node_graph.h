@@ -180,6 +180,7 @@ NodeGraph_Init(panel* Panel, app_state* State)
     // TODO(Peter): We aren't able to free this memory. We need a system for 
     // taking fixed size chunks off the Memory stack and then reusing them. THis 
     // should probably live outside the paneling system.
+    // TODO: :FreePanelMemory
     Panel->PanelStateMemory = (u8*)PushStruct(&State->Permanent, node_graph_state);
     node_graph_state* GraphState = (node_graph_state*)Panel->PanelStateMemory;
     GraphState->LayoutIsDirty = true;

@@ -65,8 +65,8 @@ Ground Up Reengineering
 
 - Animation System
     x snapping clips
-    - convert everything from time to frames
-    - zoom in and out
+    x convert everything from time to frames
+    x zoom in and out
     - blending between animation
     - layers
         - display more than one layer
