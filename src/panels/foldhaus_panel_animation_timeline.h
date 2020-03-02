@@ -11,77 +11,22 @@ global_variable v4 TimeSliderColor = v4{.36f, .52f, .78f, 1.f};
 //
 struct animation_timeline_state
 {
-    s32 VisibleFrameRangeMin;
-    s32 VisibleFrameRangeMax;
+    frame_range VisibleRange;
 };
-
-// TODO(Peter): Move this over to the animation system just as frame_range
-struct timeline_frame_range
-{
-    u32 FrameMin;
-    u32 FrameMax;
-};
-
-inline b32
-FrameIsInRange(u32 Frame, timeline_frame_range Range)
-{
-    b32 Result = (Frame >= Range.FrameMin) && (Frame <= Range.FrameMax);
-    return Result;
-}
-
-internal u32
-GetFrameCount(timeline_frame_range Range)
-{
-    u32 Result = Range.FrameMax - Range.FrameMin;
-    return Result;
-}
-
-internal r32
-FrameToPercentRange(s32 Frame, timeline_frame_range Range)
-{
-    r32 Result = (r32)(Frame - Range.FrameMin);
-    Result = Result / GetFrameCount(Range);
-    return Result;
-}
-
-internal u32
-PercentToFrameInRange(r32 Percent, timeline_frame_range Range)
-{
-    u32 Result = Range.FrameMin + (u32)(Percent * GetFrameCount(Range));
-    return Result;
-}
-
-internal u32 
-ClampFrameToRange(u32 Frame, timeline_frame_range Range)
-{
-    u32 Result = Frame;
-    if (Result < Range.FrameMin)
-    {
-        Result = Range.FrameMin;
-    }
-    else if (Result > Range.FrameMax)
-    {
-        Result = Range.FrameMax;
-    }
-    return Result;
-}
-
-//
-//
 
 inline u32
-GetFrameFromPointInAnimationPanel(v2 Point, rect PanelBounds, timeline_frame_range VisibleRange)
+GetFrameFromPointInAnimationPanel(v2 Point, rect PanelBounds, frame_range VisibleRange)
 {
     r32 HorizontalPercentOfBounds = (Point.x - PanelBounds.Min.x) / (PanelBounds.Max.x - PanelBounds.Min.x);
     u32 VisibleFramesCount = GetFrameCount(VisibleRange);
-    u32 TimeAtPoint = (u32)(HorizontalPercentOfBounds * VisibleFramesCount) + VisibleRange.FrameMin;
+    u32 TimeAtPoint = (u32)(HorizontalPercentOfBounds * VisibleFramesCount) + VisibleRange.Min;
     return TimeAtPoint;
 }
 
 inline s32
-GetXPositionFromFrameInAnimationPanel (u32 Frame, rect PanelBounds, timeline_frame_range VisibleRange)
+GetXPositionFromFrameInAnimationPanel (u32 Frame, rect PanelBounds, frame_range VisibleRange)
 {
-    r32 PercentOfTimeline = (r32)(Frame - VisibleRange.FrameMin) / (r32)GetFrameCount(VisibleRange);
+    r32 PercentOfTimeline = (r32)(Frame - VisibleRange.Min) / (r32)GetFrameCount(VisibleRange);
     s32 XPositionAtFrame = (PercentOfTimeline * Width(PanelBounds)) + PanelBounds.Min.x;
     return XPositionAtFrame;
 }
@@ -91,8 +36,8 @@ AddAnimationBlock(u32 StartFrame, u32 EndFrame, u32 AnimationProcHandle, animati
 {
     gs_list_handle Result = {0};
     animation_block NewBlock = {0};
-    NewBlock.StartFrame = StartFrame;
-    NewBlock.EndFrame = EndFrame;
+    NewBlock.Range.Min = StartFrame;
+    NewBlock.Range.Max = EndFrame;
     NewBlock.AnimationProcHandle = AnimationProcHandle;
     Result = AnimationSystem->Blocks.PushElementOnList(NewBlock);
     return Result;
@@ -148,7 +93,7 @@ OPERATION_STATE_DEF(drag_time_marker_operation_state)
 OPERATION_RENDER_PROC(UpdateDragTimeMarker)
 {
     drag_time_marker_operation_state* OpState = (drag_time_marker_operation_state*)Operation.OpStateMemory;
-    timeline_frame_range Range = { (u32)OpState->StartFrame, (u32)OpState->EndFrame };
+    frame_range Range = { (u32)OpState->StartFrame, (u32)OpState->EndFrame };
     u32 FrameAtMouseX = GetFrameFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, Range);
     State->AnimationSystem.CurrentFrame = FrameAtMouseX;
 }
@@ -163,15 +108,15 @@ input_command DragTimeMarkerCommands [] = {
 };
 
 internal void
-StartDragTimeMarker(rect TimelineBounds, timeline_frame_range VisibleFrames, app_state* State)
+StartDragTimeMarker(rect TimelineBounds, frame_range VisibleFrames, app_state* State)
 {
     operation_mode* DragTimeMarkerMode = ActivateOperationModeWithCommands(&State->Modes, DragTimeMarkerCommands, UpdateDragTimeMarker);
     
     drag_time_marker_operation_state* OpState = CreateOperationState(DragTimeMarkerMode,
                                                                      &State->Modes,
                                                                      drag_time_marker_operation_state);
-    OpState->StartFrame = VisibleFrames.FrameMin;
-    OpState->EndFrame = VisibleFrames.FrameMax;
+    OpState->StartFrame = VisibleFrames.Min;
+    OpState->EndFrame = VisibleFrames.Max;
     OpState->TimelineBounds = TimelineBounds;
 }
 
@@ -186,8 +131,8 @@ StartDragTimeMarker(rect TimelineBounds, timeline_frame_range VisibleFrames, app
 OPERATION_STATE_DEF(drag_animation_clip_state)
 {
     rect TimelineBounds;
-    timeline_frame_range VisibleRange;
-    timeline_frame_range ClipRange;
+    frame_range VisibleRange;
+    frame_range ClipRange;
 };
 
 internal u32
@@ -206,11 +151,11 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 {
     drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
     
-    r32 ClipInitialStartFrameXPercent = FrameToPercentRange(OpState->ClipRange.FrameMin, OpState->VisibleRange);
+    r32 ClipInitialStartFrameXPercent = FrameToPercentRange(OpState->ClipRange.Min, OpState->VisibleRange);
     u32 ClipInitialStartFrameXPosition = GSLerp(OpState->TimelineBounds.Min.x,
                                                 OpState->TimelineBounds.Max.x,
                                                 ClipInitialStartFrameXPercent);
-    r32 ClipInitialEndFrameXPercent = FrameToPercentRange(OpState->ClipRange.FrameMax, OpState->VisibleRange);
+    r32 ClipInitialEndFrameXPercent = FrameToPercentRange(OpState->ClipRange.Max, OpState->VisibleRange);
     u32 ClipInitialEndFrameXPosition = GSLerp(OpState->TimelineBounds.Min.x,
                                               OpState->TimelineBounds.Max.x,
                                               ClipInitialEndFrameXPercent);
@@ -229,7 +174,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     
     if (GSAbs(Mouse.DownPos.x - ClipInitialStartFrameXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        u32 NewStartFrame = OpState->ClipRange.FrameMin + FrameOffset;
+        u32 NewStartFrame = OpState->ClipRange.Min + FrameOffset;
         if (FrameOffset < 0)
         {
             for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
@@ -237,21 +182,21 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
                 gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
                 if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
                 animation_block OtherBlock = OtherBlockEntry->Value;
-                NewStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.EndFrame);
+                NewStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.Range.Max);
             }
         }
         else
         {
-            if (NewStartFrame >= AnimationBlock->EndFrame)
+            if (NewStartFrame >= AnimationBlock->Range.Max)
             {
-                NewStartFrame = AnimationBlock->EndFrame - 1;
+                NewStartFrame = AnimationBlock->Range.Max - 1;
             }
         }
-        AnimationBlock->StartFrame = NewStartFrame; 
+        AnimationBlock->Range.Min = NewStartFrame; 
     }
     else if (GSAbs(Mouse.DownPos.x - ClipInitialEndFrameXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
-        r32 NewEndFrame = OpState->ClipRange.FrameMax + FrameOffset;
+        r32 NewEndFrame = OpState->ClipRange.Max + FrameOffset;
         if (FrameOffset > 0)
         {
             for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
@@ -259,22 +204,22 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
                 gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
                 if (OtherBlockEntry->Free.NextFreeEntry != 0) { continue; }
                 animation_block OtherBlock = OtherBlockEntry->Value;
-                NewEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.StartFrame);
+                NewEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.Range.Min);
             }
         }
         else
         {
-            if(NewEndFrame <= AnimationBlock->StartFrame)
+            if(NewEndFrame <= AnimationBlock->Range.Min)
             {
-                NewEndFrame = AnimationBlock->StartFrame + 1;
+                NewEndFrame = AnimationBlock->Range.Min + 1;
             }
         }
-        AnimationBlock->EndFrame = NewEndFrame;
+        AnimationBlock->Range.Max = NewEndFrame;
     }
     else
     {
-        u32 NewStartFrame = OpState->ClipRange.FrameMin + FrameOffset;
-        u32 NewEndFrame = OpState->ClipRange.FrameMax + FrameOffset;
+        u32 NewStartFrame = OpState->ClipRange.Min + FrameOffset;
+        u32 NewEndFrame = OpState->ClipRange.Max + FrameOffset;
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
             gs_list_entry<animation_block>* OtherBlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
@@ -284,25 +229,25 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
             u32 SnapFramesAmount = 0;
             if (FrameOffset > 0)
             {
-                u32 FinalEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.StartFrame);
+                u32 FinalEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.Range.Min);
                 SnapFramesAmount = FinalEndFrame - NewEndFrame;
             }
             else if (FrameOffset < 0)
             {
-                u32 FinalStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.EndFrame);
+                u32 FinalStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.Range.Max);
                 SnapFramesAmount = FinalStartFrame - NewStartFrame;
             }
             NewEndFrame += SnapFramesAmount;
             NewStartFrame += SnapFramesAmount;
         }
-        AnimationBlock->StartFrame = NewStartFrame;
-        AnimationBlock->EndFrame = NewEndFrame;
+        AnimationBlock->Range.Min = NewStartFrame;
+        AnimationBlock->Range.Max = NewEndFrame;
     }
     
-    s32 PlayableStartFrame = State->AnimationSystem.StartFrame;
-    s32 PlayableEndFrame = State->AnimationSystem.EndFrame;
-    AnimationBlock->StartFrame = (u32)GSClamp(PlayableStartFrame, (s32)AnimationBlock->StartFrame, PlayableEndFrame);
-    AnimationBlock->EndFrame = (u32)GSClamp(PlayableStartFrame, (s32)AnimationBlock->EndFrame, PlayableEndFrame);
+    s32 PlayableStartFrame = State->AnimationSystem.PlayableRange.Min;
+    s32 PlayableEndFrame = State->AnimationSystem.PlayableRange.Max;
+    AnimationBlock->Range.Min = (u32)GSClamp(PlayableStartFrame, (s32)AnimationBlock->Range.Min, PlayableEndFrame);
+    AnimationBlock->Range.Max = (u32)GSClamp(PlayableStartFrame, (s32)AnimationBlock->Range.Max, PlayableEndFrame);
 }
 
 input_command DragAnimationClipCommands [] = {
@@ -310,7 +255,7 @@ input_command DragAnimationClipCommands [] = {
 };
 
 internal void
-SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, timeline_frame_range VisibleRange, rect TimelineBounds, app_state* State)
+SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, frame_range VisibleRange, rect TimelineBounds, app_state* State)
 {
     SelectAnimationBlock(BlockHandle, State);
     
@@ -323,15 +268,14 @@ SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, timeline_frame_rang
     OpState->VisibleRange = VisibleRange;
     
     animation_block* SelectedBlock = State->AnimationSystem.Blocks.GetElementWithHandle(BlockHandle);
-    OpState->ClipRange.FrameMin = SelectedBlock->StartFrame;
-    OpState->ClipRange.FrameMax = SelectedBlock->EndFrame;
+    OpState->ClipRange = SelectedBlock->Range;
 }
 // -------------------
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
     panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
-    timeline_frame_range Range = { (u32)State->AnimationSystem.StartFrame, (u32)State->AnimationSystem.EndFrame };
+    frame_range Range = State->AnimationSystem.PlayableRange; 
     u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, Range);
     gs_list_handle NewBlockHandle = AddAnimationBlock(MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, &State->AnimationSystem);
     SelectAnimationBlock(NewBlockHandle, State);
@@ -350,8 +294,7 @@ AnimationTimeline_Init(panel* Panel, app_state* State)
 {
     // TODO: :FreePanelMemory
     animation_timeline_state* TimelineState = PushStruct(&State->Permanent, animation_timeline_state);
-    TimelineState->VisibleFrameRangeMin = State->AnimationSystem.StartFrame;
-    TimelineState->VisibleFrameRangeMax = State->AnimationSystem.EndFrame;
+    TimelineState->VisibleRange = State->AnimationSystem.PlayableRange;
     Panel->PanelStateMemory = (u8*)TimelineState;
 }
 
@@ -364,11 +307,11 @@ AnimationTimeline_Cleanup(panel* Panel, app_state* State)
 }
 
 internal void
-DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBuffer, timeline_frame_range VisibleFrames, rect BarBounds, mouse_state Mouse, app_state* State)
+DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBuffer, frame_range VisibleFrames, rect BarBounds, mouse_state Mouse, app_state* State)
 {
     MakeStringBuffer(TempString, 256);
     
-    s32 VisibleFrameCount = VisibleFrames.FrameMax - VisibleFrames.FrameMin;
+    s32 VisibleFrameCount = VisibleFrames.Max - VisibleFrames.Min;
     
     r32 BarHeight = Height(BarBounds);
     r32 BarWidth = Width(BarBounds);
@@ -414,23 +357,23 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
     }
 }
 
-internal timeline_frame_range
+internal frame_range
 DrawTimelineRangeBar (animation_system* AnimationSystem, animation_timeline_state* TimelineState, render_command_buffer* RenderBuffer, rect BarBounds, mouse_state Mouse)
 {
-    timeline_frame_range Result = {0};
+    frame_range Result = {0};
     
     r32 BarHeight = Height(BarBounds);
     r32 BarWidth = Width(BarBounds);
     PushRenderQuad2D(RenderBuffer, RectExpand(BarBounds), v4{.16f, .16f, .16f, 1.f});
     
-    r32 PlayableFrames = (r32)(AnimationSystem->EndFrame - AnimationSystem->StartFrame);
+    r32 PlayableFrames = (r32)GetFrameCount(AnimationSystem->PlayableRange); 
     v2 SliderBarDim = v2{25, BarHeight};
     
     // Convert Frames To Pixels
     // TODO(Peter): When the animation system is storing a frame range rather than individual values
     // come back and use the utility functions here
-    r32 RangeMinPercentPlayable = (r32)(TimelineState->VisibleFrameRangeMin - AnimationSystem->StartFrame) / PlayableFrames;
-    r32 RangeMaxPercentPlayable = (r32)(TimelineState->VisibleFrameRangeMax - AnimationSystem->StartFrame) / PlayableFrames;
+    r32 RangeMinPercentPlayable = FrameToPercentRange(AnimationSystem->PlayableRange.Min, TimelineState->VisibleRange);
+    r32 RangeMaxPercentPlayable = FrameToPercentRange(AnimationSystem->PlayableRange.Max, TimelineState->VisibleRange);
     v2 RangeMinSliderMin = v2{BarBounds.Min.x + (RangeMinPercentPlayable * Width(BarBounds)), BarBounds.Min.y};
     v2 RangeMaxSliderMin = v2{BarBounds.Min.x + (RangeMaxPercentPlayable * Width(BarBounds)) - 25, BarBounds.Min.y};
     
@@ -458,31 +401,30 @@ DrawTimelineRangeBar (animation_system* AnimationSystem, animation_timeline_stat
     // Convert Pixels Back To Frames and store
     RangeMinPercentPlayable = (RangeMinSliderMin.x - BarBounds.Min.x) / BarWidth;
     RangeMaxPercentPlayable = (RangeMaxSliderMax.x - BarBounds.Min.x) / BarWidth;
-    u32 VisibleFrameCount = AnimationSystem->EndFrame - AnimationSystem->StartFrame;
-    Result.FrameMin = RangeMinPercentPlayable * VisibleFrameCount;
-    Result.FrameMax = RangeMaxPercentPlayable * VisibleFrameCount;
+    u32 VisibleFrameCount = GetFrameCount(AnimationSystem->PlayableRange);
+    Result.Min = RangeMinPercentPlayable * VisibleFrameCount;
+    Result.Max = RangeMaxPercentPlayable * VisibleFrameCount;
     
     if (MouseButtonTransitionedUp(Mouse.LeftButtonState))
     {
-        TimelineState->VisibleFrameRangeMin = Result.FrameMin;
-        TimelineState->VisibleFrameRangeMax = Result.FrameMax;
+        TimelineState->VisibleRange = Result;
     }
     
     return Result;
 }
 
 internal rect
-DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, timeline_frame_range VisibleFrames, rect TimelineBounds, render_command_buffer* RenderBuffer)
+DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range VisibleFrames, rect TimelineBounds, render_command_buffer* RenderBuffer)
 {
     rect BlockBounds = {};
     
     r32 TimelineWidth = Width(TimelineBounds);
     
-    u32 ClampedBlockStartFrame = ClampFrameToRange(AnimationBlock.StartFrame, VisibleFrames);
+    u32 ClampedBlockStartFrame = ClampFrameToRange(AnimationBlock.Range.Min, VisibleFrames);
     r32 StartFramePercent = FrameToPercentRange(ClampedBlockStartFrame, VisibleFrames);
     r32 StartPosition = TimelineWidth * StartFramePercent;
     
-    u32 ClampedBlockEndFrame = ClampFrameToRange(AnimationBlock.EndFrame, VisibleFrames);
+    u32 ClampedBlockEndFrame = ClampFrameToRange(AnimationBlock.Range.Max, VisibleFrames);
     r32 EndFramePercent = FrameToPercentRange(ClampedBlockEndFrame, VisibleFrames);
     r32 EndPosition = TimelineWidth * EndFramePercent;
     
@@ -495,6 +437,27 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, timeline_fram
     return BlockBounds;
 }
 
+internal void
+DrawLayerMenu(animation_system* AnimationSystem, rect PanelDim, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
+{
+    string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
+    v2 LayerDim = { Width(PanelDim), 32 };
+    
+    v2 LayerListMin = PanelDim.Min + v2{0, 32};
+    for (int i = 0; i < 3; i++)
+    {
+        PrintF(&TempString, "Layer %d", i);
+        
+        rect LayerBounds = {0};
+        LayerBounds.Min = { LayerListMin.x, LayerListMin.y + (LayerDim.y * i) };
+        LayerBounds.Max = LayerBounds.Min + LayerDim;
+        
+        v2 LayerTextPos = LayerBounds.Min + v2{6, 4};
+        PushRenderBoundingBox2D(RenderBuffer, RectExpand(LayerBounds), 1, WhiteV4);
+        DrawString(RenderBuffer, TempString, State->Interface.Font, LayerTextPos, WhiteV4);
+    }
+}
+
 internal gs_list_handle
 DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect PanelBounds, gs_list_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
 {
@@ -504,23 +467,32 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     r32 AnimationPanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
     r32 AnimationPanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
     
+    rect LayerMenuBounds = {0};
+    LayerMenuBounds.Min = PanelBounds.Min;
+    LayerMenuBounds.Max = { PanelBounds.Min.x + 256, PanelBounds.Max.y };
+    
     rect TimeRangeBarBounds = {0};
-    TimeRangeBarBounds.Min = PanelBounds.Min;
+    TimeRangeBarBounds.Min = BottomRight(LayerMenuBounds);
     TimeRangeBarBounds.Max = { PanelBounds.Max.x, PanelBounds.Min.y + 24 };
     
     rect FrameBarBounds = {0};
-    FrameBarBounds.Min = { PanelBounds.Min.x, PanelBounds.Max.y - 32 };
+    FrameBarBounds.Min = { LayerMenuBounds.Max.x, PanelBounds.Max.y - 32 };
     FrameBarBounds.Max = PanelBounds.Max;
     
     rect TimelineBounds = {0};
     TimelineBounds.Min = TopLeft(TimeRangeBarBounds);
     TimelineBounds.Max = BottomRight(FrameBarBounds);
     
-    timeline_frame_range AdjustedViewRange = {0};
+    DrawLayerMenu(AnimationSystem, LayerMenuBounds, RenderBuffer, State, Mouse);
+    
+    frame_range AdjustedViewRange = {0};
     AdjustedViewRange = DrawTimelineRangeBar(AnimationSystem, TimelineState, RenderBuffer, TimeRangeBarBounds, Mouse);
-    s32 VisibleFrameCount = AdjustedViewRange.FrameMax - AdjustedViewRange.FrameMin;
+    s32 VisibleFrameCount = AdjustedViewRange.Max - AdjustedViewRange.Min;
     
     DrawFrameBar(AnimationSystem, RenderBuffer, AdjustedViewRange, FrameBarBounds, Mouse, State);
+    
+    // Timeline
+    PushRenderQuad2D(RenderBuffer, RectExpand(TimelineBounds), v4{.25f, .25f, .25f, 1.f});
     
     // Animation Blocks
     b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Mouse.LeftButtonState);
@@ -533,12 +505,12 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
         animation_block AnimationBlockAt = AnimationBlockEntry->Value;
         
         // If either end is in the range, we should draw it
-        b32 RangeIsVisible = (FrameIsInRange(AnimationBlockAt.StartFrame, AdjustedViewRange) ||
-                              FrameIsInRange(AnimationBlockAt.EndFrame, AdjustedViewRange));
+        b32 RangeIsVisible = (FrameIsInRange(AnimationBlockAt.Range.Min, AdjustedViewRange) ||
+                              FrameIsInRange(AnimationBlockAt.Range.Max, AdjustedViewRange));
         // If neither end is in the range, but the ends surround the visible range, 
         // we should still draw it.
-        RangeIsVisible |= (AnimationBlockAt.StartFrame <= AdjustedViewRange.FrameMin && 
-                           AnimationBlockAt.EndFrame >= AdjustedViewRange.FrameMax);
+        RangeIsVisible |= (AnimationBlockAt.Range.Min <= AdjustedViewRange.Min && 
+                           AnimationBlockAt.Range.Max>= AdjustedViewRange.Max);
         if (RangeIsVisible)
         {
             v4 BlockColor = BlackV4;
@@ -575,13 +547,13 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     
     
     {
-        r32 FirstPlayablePercentX = FrameToPercentRange(AnimationSystem->StartFrame, AdjustedViewRange);
-        r32 LastPlayablePercentX = FrameToPercentRange(AnimationSystem->EndFrame, AdjustedViewRange);
+        r32 FirstPlayablePercentX = FrameToPercentRange(AnimationSystem->PlayableRange.Min, AdjustedViewRange);
+        r32 LastPlayablePercentX = FrameToPercentRange(AnimationSystem->PlayableRange.Max, AdjustedViewRange);
         
         v2 PlayableMin = v2{(FirstPlayablePercentX * AnimationPanelWidth) + PanelBounds.Min.x, PanelBounds.Min.y };
         v2 PlayableMax = v2{(LastPlayablePercentX * AnimationPanelWidth) + PanelBounds.Min.x, PanelBounds.Max.y };
         
-        PushRenderQuad2D(RenderBuffer, PanelBounds.Min, PanelBounds.Max, v4{.16f, .16f, .16f, 1.f});
+        
         PushRenderQuad2D(RenderBuffer, PlayableMin, PlayableMax, v4{.22f, .22f, .22f, 1.f});
     }
     

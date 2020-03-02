@@ -188,8 +188,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     { // Animation PLAYGROUND
         State->AnimationSystem = {};
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        State->AnimationSystem.StartFrame = 0;
-        State->AnimationSystem.EndFrame = SecondsToFrames(15, State->AnimationSystem);
+        State->AnimationSystem.PlayableRange.Min = 0;
+        State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
     } // End Animation Playground
     
     
@@ -324,7 +324,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
         State->AnimationSystem.CurrentFrame += 1; 
         // Loop back to the beginning
-        if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.EndFrame)
+        if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.PlayableRange.Max)
         {
             State->AnimationSystem.CurrentFrame = 0; 
         }
@@ -342,14 +342,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
             if (!EntryIsFree(BlockEntry))
             {
                 animation_block Block = BlockEntry->Value;
-                if (CurrentFrame >= Block.StartFrame && CurrentFrame <= Block.EndFrame)
+                if (CurrentFrame >= Block.Range.Min && CurrentFrame <= Block.Range.Max)
                 {
                     for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
                     {
                         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
                         assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
                         
-                        u32 FramesIntoBlock = CurrentFrame - Block.StartFrame;
+                        u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                         r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
                         // TODO(Peter): Temporary
                         switch(Block.AnimationProcHandle)
