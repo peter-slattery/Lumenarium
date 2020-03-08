@@ -96,19 +96,28 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 
 // BEGIN TEMPORARY PATTERNS
 internal void
-TestPatternOne(assembly* Assembly, r32 Time)
+TestPatternOne(assembly_led_buffer* Assembly, r32 Time)
 {
     for (u32 LEDIdx = 0; LEDIdx < Assembly->LEDCount; LEDIdx++)
     {
         led LED = Assembly->LEDs[LEDIdx];
-        Assembly->Colors[LED.Index].R = 255;
-        Assembly->Colors[LED.Index].B = 255;
-        Assembly->Colors[LED.Index].G = 255;
+        if (LED.Position.x < 0)
+        {
+            Assembly->Colors[LED.Index].R = 255;
+            Assembly->Colors[LED.Index].B = 255;
+            Assembly->Colors[LED.Index].G = 255;
+        }
+        else
+        {
+            Assembly->Colors[LED.Index].R = 0;
+            Assembly->Colors[LED.Index].B = 0;
+            Assembly->Colors[LED.Index].G = 0;
+        }
     }
 }
 
 internal void
-TestPatternTwo(assembly* Assembly, r32 Time)
+TestPatternTwo(assembly_led_buffer* Assembly, r32 Time)
 {
     r32 PeriodicTime = (Time / PI) * 2;
     
@@ -162,7 +171,7 @@ TestPatternTwo(assembly* Assembly, r32 Time)
 }
 
 internal void
-TestPatternThree(assembly* Assembly, r32 Time)
+TestPatternThree(assembly_led_buffer* Assembly, r32 Time)
 {
     v4 GreenCenter = v4{0, 0, 150, 1};
     r32 GreenRadius = GSAbs(GSSin(Time)) * 200;

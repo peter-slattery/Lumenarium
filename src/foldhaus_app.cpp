@@ -74,6 +74,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Permanent.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Permanent.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     State->Transient = {};
+    State->Transient.FindAddressRule = FindAddress_InLastBufferOnly;
     State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
     State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
     
@@ -192,9 +193,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
         State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         State->AnimationSystem.LayersMax = 32;
         State->AnimationSystem.Layers = PushArray(&State->Permanent, anim_layer, State->AnimationSystem.LayersMax);
-        AddLayer(MakeStringLiteral("Base Layer"), &State->AnimationSystem);
-        AddLayer(MakeStringLiteral("Color Layer"), &State->AnimationSystem);
-        AddLayer(MakeStringLiteral("Sparkles"), &State->AnimationSystem);
+        AddLayer(MakeStringLiteral("Base Layer"), &State->AnimationSystem, BlendMode_Overwrite);
+        AddLayer(MakeStringLiteral("Color Layer"), &State->AnimationSystem, BlendMode_Multiply);
+        AddLayer(MakeStringLiteral("Sparkles"), &State->AnimationSystem, BlendMode_Add);
     } // End Animation Playground
     
     
@@ -296,8 +297,8 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
              LEDIdx < LEDUniverseRange.RangeOnePastLast;
              LEDIdx++)
         {
-            led LED = Assembly.LEDs[LEDIdx];
-            pixel Color = Assembly.Colors[LED.Index];
+            led LED = Assembly.LEDBuffer.LEDs[LEDIdx];
+            pixel Color = Assembly.LEDBuffer.Colors[LED.Index];
             
             
             DestChannel[0] = Color.R;
@@ -356,6 +357,103 @@ UPDATE_AND_RENDER(UpdateAndRender)
             CurrentBlocks[Block.Layer] = Block;
         }
         
+#if 1
+        assembly_led_buffer* LayerLEDBuffers = PushArray(&State->Transient, assembly_led_buffer, CurrentBlocksMax);
+        
+        for (u32 AssemblyIndex = 0; AssemblyIndex < State->ActiveAssemblyIndecies.Used; AssemblyIndex++)
+        {
+            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(AssemblyIndex);
+            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+            
+            arena_snapshot ResetAssemblyMemorySnapshot = TakeSnapshotOfArena(&State->Transient);
+            
+            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            {
+                if (!CurrentBlocksFilled[Layer]) { continue; }
+                animation_block Block = CurrentBlocks[Layer];
+                
+                // Prep Temp Buffer
+                LayerLEDBuffers[Layer] = Assembly->LEDBuffer;
+                LayerLEDBuffers[Layer].Colors = PushArray(&State->Transient, pixel, Assembly->LEDBuffer.LEDCount);
+                
+                u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
+                r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
+                // TODO(Peter): Temporary
+                switch(Block.AnimationProcHandle)
+                {
+                    case 1: 
+                    {
+                        TestPatternOne(&LayerLEDBuffers[Layer], SecondsIntoBlock); 
+                    }break;
+                    
+                    case 2:
+                    {
+                        TestPatternTwo(&LayerLEDBuffers[Layer], SecondsIntoBlock);
+                    }break;
+                    
+                    case 3:
+                    {
+                        TestPatternThree(&LayerLEDBuffers[Layer], SecondsIntoBlock);
+                    }break;
+                    
+                    // NOTE(Peter): Zero is invalid
+                    InvalidDefaultCase;
+                }
+            }
+            
+            // Consolidate Temp Buffers
+            // We do this in reverse order so that they go from top to bottom
+            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            {
+                if (!CurrentBlocksFilled[Layer]) { continue; }
+                
+                switch (State->AnimationSystem.Layers[Layer].BlendMode)
+                {
+                    case BlendMode_Overwrite:
+                    {
+                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        {
+                            Assembly->LEDBuffer.Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
+                        }
+                    }break;
+                    
+                    case BlendMode_Add:
+                    {
+                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        {
+                            u32 R = (u32)Assembly->LEDBuffer.Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
+                            u32 G = (u32)Assembly->LEDBuffer.Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
+                            u32 B = (u32)Assembly->LEDBuffer.Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
+                            
+                            Assembly->LEDBuffer.Colors[LED].R = (u8)GSMin(R, (u32)255);
+                            Assembly->LEDBuffer.Colors[LED].G = (u8)GSMin(G, (u32)255);
+                            Assembly->LEDBuffer.Colors[LED].B = (u8)GSMin(B, (u32)255);
+                        }
+                    }break;
+                    
+                    case BlendMode_Multiply:
+                    {
+                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        {
+                            r32 DR = (r32)Assembly->LEDBuffer.Colors[LED].R / 255.f;
+                            r32 DG = (r32)Assembly->LEDBuffer.Colors[LED].G / 255.f;
+                            r32 DB = (r32)Assembly->LEDBuffer.Colors[LED].B / 255.f;
+                            
+                            r32 SR = (r32)LayerLEDBuffers[Layer].Colors[LED].R / 255.f;
+                            r32 SG = (r32)LayerLEDBuffers[Layer].Colors[LED].G / 255.f;
+                            r32 SB = (r32)LayerLEDBuffers[Layer].Colors[LED].B / 255.f;
+                            
+                            Assembly->LEDBuffer.Colors[LED].R = (u8)((DR * SR) * 255.f);
+                            Assembly->LEDBuffer.Colors[LED].G = (u8)((DG * SG) * 255.f);
+                            Assembly->LEDBuffer.Colors[LED].B = (u8)((DB * SB) * 255.f);
+                        }
+                    }break;
+                }
+            }
+            
+            ClearArenaToSnapshot(&State->Transient, ResetAssemblyMemorySnapshot);
+        }
+#else
         for (s32 Layer = CurrentBlocksMax - 1; Layer >= 0; Layer--)
         {
             if (!CurrentBlocksFilled[Layer]) { continue; }
@@ -365,6 +463,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
                 assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
                 
+                // TEmporary
+                assembly_led_buffer TempBuffer = Assembly->LEDBuffer;
+                TempBuffer.Colors = PushArray(&State->Transient, pixel, TempBuffer.LEDCount);
+                GSZeroArray(TempBuffer.Colors, pixel, TempBuffer.LEDCount);
+                
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
                 // TODO(Peter): Temporary
@@ -372,24 +475,31 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     case 1: 
                     {
-                        TestPatternOne(Assembly, SecondsIntoBlock); 
+                        TestPatternOne(&TempBuffer, SecondsIntoBlock); 
                     }break;
                     
                     case 2:
                     {
-                        TestPatternTwo(Assembly, SecondsIntoBlock);
+                        TestPatternTwo(&TempBuffer, SecondsIntoBlock);
                     }break;
                     
                     case 3:
                     {
-                        TestPatternThree(Assembly, SecondsIntoBlock);
+                        TestPatternThree(&TempBuffer, SecondsIntoBlock);
                     }break;
                     
                     // NOTE(Peter): Zero is invalid
                     InvalidDefaultCase;
                 }
+                
+                // Temporary
+                for (u32 i = 0; i < TempBuffer.LEDCount; i++)
+                {
+                    Assembly->LEDBuffer.Colors[i] = TempBuffer.Colors[i];
+                }
             }
         }
+#endif
     }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;

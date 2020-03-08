@@ -33,6 +33,13 @@ struct leds_in_universe_range
     s32 Universe;
 };
 
+struct assembly_led_buffer
+{
+    u32 LEDCount;
+    pixel* Colors;
+    led* LEDs;
+};
+
 struct assembly
 {
     memory_arena Arena;
@@ -40,9 +47,13 @@ struct assembly
     string Name;
     string FilePath;
     
+    assembly_led_buffer LEDBuffer;
+    
+#if 0
     u32 LEDCount;
     pixel* Colors;
     led* LEDs;
+#endif
     
     u32 LEDUniverseMapCount;
     leds_in_universe_range* LEDUniverseMap;

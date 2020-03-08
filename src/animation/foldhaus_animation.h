@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_ANIMATION
 
-#define ANIMATION_PROC(name) void name(assembly* Assembly, r32 Time)
+#define ANIMATION_PROC(name) void name(assembly_led_buffer* Assembly, r32 Time)
 typedef ANIMATION_PROC(animation_proc);
 
 struct frame_range
@@ -21,9 +21,18 @@ struct animation_block
     u32 Layer;
 };
 
+enum blend_mode
+{
+    BlendMode_Overwrite,
+    BlendMode_Add,
+    BlendMode_Multiply,
+    BlendMode_Count,
+};
+
 struct anim_layer
 {
     string Name;
+    blend_mode BlendMode;
 };
 
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
@@ -124,7 +133,7 @@ RemoveAnimationBlock(gs_list_handle AnimationBlockHandle, animation_system* Anim
 
 // Layers
 internal u32
-AddLayer (string Name, animation_system* AnimationSystem)
+AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
 {
     // TODO(Peter): If this assert fires its time to make the layer buffer system 
     // resizable.
@@ -136,6 +145,7 @@ AddLayer (string Name, animation_system* AnimationSystem)
     *NewLayer = {0};
     NewLayer->Name = MakeString(PushArray(&AnimationSystem->Storage, char, Name.Length), Name.Length);
     CopyStringTo(Name, &NewLayer->Name);
+    NewLayer->BlendMode = BlendMode;
     return Result;
 }
 

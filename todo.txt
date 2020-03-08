@@ -86,6 +86,7 @@ Ground Up Reengineering
         - 
     - setting start and end of timeline (how long is a loop)
     - clips can have parameters that drive them?
+    - clips cannot overlap eachother on the same layer
 
 - Node System
     - automatic node layout

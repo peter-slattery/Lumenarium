@@ -160,15 +160,15 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     {
         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
         assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-        u32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDCount, MaxLEDsPerJob);
+        u32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDBuffer.LEDCount, MaxLEDsPerJob);
         
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
             draw_leds_job_data* JobData = PushStruct(&State->Transient, draw_leds_job_data);
-            JobData->LEDs = Assembly.LEDs;
-            JobData->Colors = Assembly.Colors;
+            JobData->LEDs = Assembly.LEDBuffer.LEDs;
+            JobData->Colors = Assembly.LEDBuffer.Colors;
             JobData->StartIndex = Job * MaxLEDsPerJob;
-            JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, Assembly.LEDCount);
+            JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, Assembly.LEDBuffer.LEDCount);
             JobData->Batch = &RenderLEDsBatch;
             JobData->FaceCameraMatrix;
             JobData->ModelViewMatrix = ModelViewMatrix;
