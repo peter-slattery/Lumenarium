@@ -78,7 +78,7 @@ Ground Up Reengineering
         x display more than one layer
         x add/remove layers
         - layer masks by sculpture
-        - blend modes - create a copy of the led's per layer, handle blending outside of patterns
+        x blend modes - create a copy of the led's per layer, handle blending outside of patterns
     - interface for animation system
         - add/remove layers
         - select blend modes

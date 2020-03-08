@@ -485,6 +485,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     
     // Animation Blocks
     b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Mouse.LeftButtonState);
+    gs_list_handle DragBlockHandle = {0};
     for (u32 i = 0; i < AnimationSystem->Blocks.Used; i++)
     {
         gs_list_entry<animation_block>* AnimationBlockEntry = AnimationSystem->Blocks.GetEntryAtIndex(i);
@@ -508,13 +509,17 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
                 BlockColor = PinkV4;
             }
             rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AdjustedViewRange, TimelineBounds, RenderBuffer);
-            if (PointIsInRange(Mouse.Pos, BlockBounds.Min, BlockBounds.Max)
-                && MouseButtonTransitionedDown(Mouse.LeftButtonState))
+            if (PointIsInRange(Mouse.Pos, BlockBounds.Min, BlockBounds.Max))
             {
-                MouseDownAndNotHandled = false;
-                SelectAndBeginDragAnimationBlock(CurrentBlockHandle, AdjustedViewRange, TimelineBounds, State);
+                DragBlockHandle = CurrentBlockHandle;
             }
         }
+    }
+    
+    if (MouseDownAndNotHandled && ListHandleIsValid(DragBlockHandle))
+    {
+        MouseDownAndNotHandled = false;
+        SelectAndBeginDragAnimationBlock(DragBlockHandle, AdjustedViewRange, TimelineBounds, State);
     }
     
     // Time Slider
