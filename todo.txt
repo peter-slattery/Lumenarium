@@ -1,10 +1,7 @@
 TODO FOLDHAUS
 
-Ground Up Reengineering
 - Metaprogramming
-    x panels metaprogramming
     - fix memory layout (remeber to profile before and after)
-    x get the meta program to generate code in the codebase's directory, no matter where it is 
 
 - Make the DLL truly platform agnostic
     - math.h: present for trig functions
@@ -70,20 +67,13 @@ Ground Up Reengineering
     - debug capabilities (toggle strip/led/universe colors)
 
 - Animation System
-    x snapping clips
-    x convert everything from time to frames
-    x zoom in and out
     - blending between animation
     - layers
-        x display more than one layer
-        x add/remove layers
         - layer masks by sculpture
-        x blend modes - create a copy of the led's per layer, handle blending outside of patterns
     - interface for animation system
         - add/remove layers
         - select blend modes
         - change which layer an animation is on
-        - 
     - setting start and end of timeline (how long is a loop)
     - clips can have parameters that drive them?
     - clips cannot overlap eachother on the same layer
