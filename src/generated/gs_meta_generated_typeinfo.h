@@ -1,5 +1,6 @@
 enum gsm_meta_tag_type
 {
+MetaTag_panel_type_file_view,
 MetaTag_panel_type_node_graph,
 MetaTag_node_output,
 MetaTag_node_struct,
@@ -16,6 +17,7 @@ MetaTag_panel_render,
 MetaTag_panel_type_dmx_view,
 };
 gsm_meta_tag MetaTagStrings[] = {
+{ "panel_type_file_view", 20 },
 { "panel_type_node_graph", 21 },
 { "node_output", 11 },
 { "node_struct", 11 },

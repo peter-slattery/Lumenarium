@@ -251,6 +251,7 @@ struct panel_definition
 #include "panels/foldhaus_panel_animation_timeline.h"
 #include "panels/foldhaus_panel_hierarchy.h"
 #include "panels/foldhaus_panel_node_graph.h"
+#include "panels/foldhaus_panel_file_view.h"
 
 #include "generated/foldhaus_panels_generated.h"
 
