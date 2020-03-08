@@ -82,6 +82,7 @@ struct app_state
     
     animation_system AnimationSystem;
     gs_list_handle SelectedAnimationBlockHandle;
+    u32 SelectedAnimationLayer;
     
     panel_system PanelSystem;
     panel* HotPanel;

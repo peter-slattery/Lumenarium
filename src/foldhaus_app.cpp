@@ -190,6 +190,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         State->AnimationSystem.PlayableRange.Min = 0;
         State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        State->AnimationSystem.LayersMax = 32;
+        State->AnimationSystem.Layers = PushArray(&State->Permanent, anim_layer, State->AnimationSystem.LayersMax);
+        AddLayer(MakeStringLiteral("Base Layer"), &State->AnimationSystem);
+        AddLayer(MakeStringLiteral("Color Layer"), &State->AnimationSystem);
+        AddLayer(MakeStringLiteral("Sparkles"), &State->AnimationSystem);
     } // End Animation Playground
     
     
@@ -330,7 +335,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    u32 CurrentFrame = State->AnimationSystem.CurrentFrame;
+    s32 CurrentFrame = State->AnimationSystem.CurrentFrame;
     if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
     {
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
@@ -339,40 +344,37 @@ UPDATE_AND_RENDER(UpdateAndRender)
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
             gs_list_entry<animation_block>* BlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
-            if (!EntryIsFree(BlockEntry))
+            if (EntryIsFree(BlockEntry)) { continue; }
+            animation_block Block = BlockEntry->Value;
+            if (CurrentFrame < Block.Range.Min || CurrentFrame > Block.Range.Max) { continue; }
+            
+            for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
             {
-                animation_block Block = BlockEntry->Value;
-                if (CurrentFrame >= Block.Range.Min && CurrentFrame <= Block.Range.Max)
+                gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
+                assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+                
+                u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
+                r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
+                // TODO(Peter): Temporary
+                switch(Block.AnimationProcHandle)
                 {
-                    for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
+                    case 1: 
                     {
-                        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
-                        assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-                        
-                        u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
-                        r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
-                        // TODO(Peter): Temporary
-                        switch(Block.AnimationProcHandle)
-                        {
-                            case 1: 
-                            {
-                                TestPatternOne(Assembly, SecondsIntoBlock); 
-                            }break;
-                            
-                            case 2:
-                            {
-                                TestPatternTwo(Assembly, SecondsIntoBlock);
-                            }break;
-                            
-                            case 3:
-                            {
-                                TestPatternThree(Assembly, SecondsIntoBlock);
-                            }break;
-                            
-                            // NOTE(Peter): Zero is invalid
-                            InvalidDefaultCase;
-                        }
-                    }
+                        TestPatternOne(Assembly, SecondsIntoBlock); 
+                    }break;
+                    
+                    case 2:
+                    {
+                        TestPatternTwo(Assembly, SecondsIntoBlock);
+                    }break;
+                    
+                    case 3:
+                    {
+                        TestPatternThree(Assembly, SecondsIntoBlock);
+                    }break;
+                    
+                    // NOTE(Peter): Zero is invalid
+                    InvalidDefaultCase;
                 }
             }
         }

@@ -298,7 +298,7 @@ int main(int ArgCount, char* Args[])
     string_builder PanelCodeGen = {0};
     GeneratePanelMetaInfo(Meta, &PanelCodeGen);
     
-    string TypeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("gs_meta_genreated_typeinfo.h"));
+    string TypeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("gs_meta_generated_typeinfo.h"));
     FILE* TypeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
     if (TypeInfoH)
     {
@@ -315,7 +315,7 @@ int main(int ArgCount, char* Args[])
     }
     
     string NodeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("foldhaus_nodes_generated.h"));
-    FILE* NodeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
+    FILE* NodeInfoH = fopen(NodeInfoHFilePath.Memory, "w");
     if (NodeInfoH)
     {
         WriteStringBuilderToFile(*NodeTypeGen.Builder, NodeInfoH);
