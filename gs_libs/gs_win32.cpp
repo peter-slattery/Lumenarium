@@ -83,20 +83,26 @@ Win32StringLength(char* String)
 }
 
 internal s32 
-Win32ConcatStrings(s32 ALen, char* A, s32 BLen, char* B, s32 DestLen, char* Dest)
+Win32ConcatStrings(s32 ALength, char* A, s32 BLength, char* B, s32 DestLength, char* Dest)
 {
     char* Dst = Dest;
     char* AAt = A;
-    for (s32 a = 0; a < ALen; a++)
+    int ALengthToCopy = ALength < DestLength ? ALength : DestLength;
+    for (s32 a = 0; a < ALength; a++)
     {
         *Dst++ = *AAt++;
     }
     char* BAt = B;
-    for (s32 b = 0; b < BLen; b++)
+    int DestLengthRemaining = DestLength - (Dst - Dest);
+    int BLengthToCopy = BLength < DestLengthRemaining ? BLength : DestLength;
+    for (s32 b = 0; b < BLengthToCopy; b++)
     {
         *Dst++ = *BAt++;
     }
-    return Dst - Dest;
+    int DestLengthOut = Dst - Dest;
+    int NullTermIndex = DestLengthOut < DestLength ? DestLengthOut : DestLength;
+    Dest[NullTermIndex] = 0;
+    return DestLengthOut;
 }
 
 ///

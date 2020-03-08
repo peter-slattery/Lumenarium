@@ -75,10 +75,15 @@ Ground Up Reengineering
     x zoom in and out
     - blending between animation
     - layers
-        - display more than one layer
-        - add/remove layers
+        x display more than one layer
+        x add/remove layers
         - layer masks by sculpture
-        - blend modes
+        - blend modes - create a copy of the led's per layer, handle blending outside of patterns
+    - interface for animation system
+        - add/remove layers
+        - select blend modes
+        - change which layer an animation is on
+        - 
     - setting start and end of timeline (how long is a loop)
     - clips can have parameters that drive them?
 

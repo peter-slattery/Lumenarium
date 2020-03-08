@@ -151,12 +151,12 @@ TestPatternTwo(assembly* Assembly, r32 Time)
             }
             else
             {
-                Assembly->Colors[LED.Index] = {};
+                //Assembly->Colors[LED.Index] = {};
             }
         }
         else
         {
-            Assembly->Colors[LED.Index] = {};
+            //Assembly->Colors[LED.Index] = {};
         }
     }
 }

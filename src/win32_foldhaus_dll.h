@@ -14,12 +14,43 @@ struct win32_dll_refresh
     FILETIME LastWriteTime;
     HMODULE DLL;
     
-    b32 IsValid;
+    bool IsValid;
     
     char SourceDLLPath[MAX_PATH];
     char WorkingDLLPath[MAX_PATH];
     char LockFilePath[MAX_PATH];
 };
+
+internal int
+Win32DLLStringLength(char* String)
+{
+    char* At = String;
+    while (*At) { At++; };
+    return At - String;
+}
+
+internal int
+Win32DLLConcatStrings(int ALength, char* A, int BLength, char* B, int DestLength, char* Dest)
+{
+    char* Dst = Dest;
+    char* AAt = A;
+    int ALengthToCopy = ALength < DestLength ? ALength : DestLength;
+    for (s32 a = 0; a < ALength; a++)
+    {
+        *Dst++ = *AAt++;
+    }
+    char* BAt = B;
+    int DestLengthRemaining = DestLength - (Dst - Dest);
+    int BLengthToCopy = BLength < DestLengthRemaining ? BLength : DestLength;
+    for (s32 b = 0; b < BLengthToCopy; b++)
+    {
+        *Dst++ = *BAt++;
+    }
+    int DestLengthOut = Dst - Dest;
+    int NullTermIndex = DestLengthOut < DestLength ? DestLengthOut : DestLength;
+    Dest[NullTermIndex] = 0;
+    return DestLengthOut;
+}
 
 internal void
 GetApplicationPath(system_path* Result)
@@ -81,15 +112,15 @@ InitializeDLLHotReloading(char* SourceDLLName,
     ExePath.Path = (char*)VirtualAlloc(NULL, ExePath.PathLength, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     GetApplicationPath(&ExePath);
     
-    Win32ConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                       Win32StringLength(SourceDLLName), SourceDLLName,
-                       MAX_PATH, Result.SourceDLLPath);
-    Win32ConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                       Win32StringLength(WorkingDLLFileName), WorkingDLLFileName,
-                       MAX_PATH, Result.WorkingDLLPath);
-    Win32ConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                       Win32StringLength(LockFileName), LockFileName,
-                       MAX_PATH, Result.LockFilePath);
+    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLStringLength(SourceDLLName), SourceDLLName,
+                          MAX_PATH, Result.SourceDLLPath);
+    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLStringLength(WorkingDLLFileName), WorkingDLLFileName,
+                          MAX_PATH, Result.WorkingDLLPath);
+    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLStringLength(LockFileName), LockFileName,
+                          MAX_PATH, Result.LockFilePath);
     
     Win32Free((u8*)ExePath.Path, ExePath.PathLength);
     return Result;

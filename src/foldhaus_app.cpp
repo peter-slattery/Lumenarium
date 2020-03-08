@@ -341,13 +341,25 @@ UPDATE_AND_RENDER(UpdateAndRender)
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
         
+        u32 CurrentBlocksMax = State->AnimationSystem.LayersCount;
+        b8* CurrentBlocksFilled = PushArray(&State->Transient, b8, CurrentBlocksMax);
+        GSZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
+        animation_block* CurrentBlocks = PushArray(&State->Transient, animation_block, CurrentBlocksMax);
+        
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
             gs_list_entry<animation_block>* BlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
             if (EntryIsFree(BlockEntry)) { continue; }
             animation_block Block = BlockEntry->Value;
             if (CurrentFrame < Block.Range.Min || CurrentFrame > Block.Range.Max) { continue; }
-            
+            CurrentBlocksFilled[Block.Layer] = true;
+            CurrentBlocks[Block.Layer] = Block;
+        }
+        
+        for (s32 Layer = CurrentBlocksMax - 1; Layer >= 0; Layer--)
+        {
+            if (!CurrentBlocksFilled[Layer]) { continue; }
+            animation_block Block = CurrentBlocks[Layer];
             for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
             {
                 gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
