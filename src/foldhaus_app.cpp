@@ -357,9 +357,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             CurrentBlocks[Block.Layer] = Block;
         }
         
-#if 1
         assembly_led_buffer* LayerLEDBuffers = PushArray(&State->Transient, assembly_led_buffer, CurrentBlocksMax);
-        
         for (u32 AssemblyIndex = 0; AssemblyIndex < State->ActiveAssemblyIndecies.Used; AssemblyIndex++)
         {
             gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(AssemblyIndex);
@@ -453,53 +451,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             ClearArenaToSnapshot(&State->Transient, ResetAssemblyMemorySnapshot);
         }
-#else
-        for (s32 Layer = CurrentBlocksMax - 1; Layer >= 0; Layer--)
-        {
-            if (!CurrentBlocksFilled[Layer]) { continue; }
-            animation_block Block = CurrentBlocks[Layer];
-            for (u32 j = 0; j < State->ActiveAssemblyIndecies.Used; j++)
-            {
-                gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(j);
-                assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-                
-                // TEmporary
-                assembly_led_buffer TempBuffer = Assembly->LEDBuffer;
-                TempBuffer.Colors = PushArray(&State->Transient, pixel, TempBuffer.LEDCount);
-                GSZeroArray(TempBuffer.Colors, pixel, TempBuffer.LEDCount);
-                
-                u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
-                r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
-                // TODO(Peter): Temporary
-                switch(Block.AnimationProcHandle)
-                {
-                    case 1: 
-                    {
-                        TestPatternOne(&TempBuffer, SecondsIntoBlock); 
-                    }break;
-                    
-                    case 2:
-                    {
-                        TestPatternTwo(&TempBuffer, SecondsIntoBlock);
-                    }break;
-                    
-                    case 3:
-                    {
-                        TestPatternThree(&TempBuffer, SecondsIntoBlock);
-                    }break;
-                    
-                    // NOTE(Peter): Zero is invalid
-                    InvalidDefaultCase;
-                }
-                
-                // Temporary
-                for (u32 i = 0; i < TempBuffer.LEDCount; i++)
-                {
-                    Assembly->LEDBuffer.Colors[i] = TempBuffer.Colors[i];
-                }
-            }
-        }
-#endif
     }
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
