@@ -560,6 +560,23 @@ Win32GetThreadId()
     return Result;
 }
 
+// NOTE(Peter): Only meant to take one of the values specified below:
+// IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM, 
+// IDC_ICON, IDC_NO, IDC_SIZE, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, 
+// IDC_SIZEWE, IDC_UPARROW, IDC_WAIT
+internal HCURSOR
+Win32LoadSystemCursor(char* CursorIdentifier)
+{
+    u32 Error = 0;
+    HCURSOR Result = LoadCursorA(NULL, CursorIdentifier);
+    if (Result == NULL)
+    {
+        Error = GetLastError();
+        InvalidCodePath;
+    }
+    return Result;
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -592,14 +609,11 @@ WinMain (
                       Win32GetThreadId, 
                       DebugThreadCount);
     
-    mouse_state Mouse;
     input_queue InputQueue;
     {
         s32 InputQueueMemorySize = sizeof(input_entry) * 32;
         u8* InputQueueMemory = Win32Alloc(InputQueueMemorySize);
         InputQueue = InitializeInputQueue(InputQueueMemory, InputQueueMemorySize);
-        
-        Mouse = {0, 0};
     }
     
     //
@@ -636,6 +650,16 @@ WinMain (
     Context.MemorySize = InitialMemorySize;
     Context.MemoryBase = InitialMemory;
     Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
+    Context.Mouse = {0};
+    
+    // Cursors
+    HCURSOR CursorArrow = Win32LoadSystemCursor(IDC_ARROW);
+    HCURSOR CursorPointer = Win32LoadSystemCursor(IDC_HAND);
+    HCURSOR CursorLoading = Win32LoadSystemCursor(IDC_WAIT);
+    HCURSOR CursorHorizontalArrows = Win32LoadSystemCursor(IDC_SIZEWE);
+    HCURSOR CursorVerticalArrows = Win32LoadSystemCursor(IDC_SIZENS);
+    HCURSOR CursorDiagonalTopLeftArrows = Win32LoadSystemCursor(IDC_SIZENWSE);
+    HCURSOR CursorDiagonalTopRightArrows = Win32LoadSystemCursor(IDC_SIZENESW);
     
     // Platform functions
     Context.GeneralWorkQueue = &WorkQueue;
@@ -696,17 +720,17 @@ WinMain (
             GetCursorPos (&MousePos);
             ScreenToClient(MainWindow.Handle, &MousePos);
             
-            Mouse.Scroll = 0;
-            Mouse.OldPos = Mouse.Pos;
-            Mouse.Pos = v2{(r32)MousePos.x, (r32)MainWindow.Height - MousePos.y};
-            Mouse.DeltaPos = Mouse.Pos - Mouse.OldPos;
+            Context.Mouse.Scroll = 0;
+            Context.Mouse.OldPos = Context.Mouse.Pos;
+            Context.Mouse.Pos = v2{(r32)MousePos.x, (r32)MainWindow.Height - MousePos.y};
+            Context.Mouse.DeltaPos = Context.Mouse.Pos - Context.Mouse.OldPos;
         }
         
         MSG Message;
         while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
         {
             DEBUG_TRACK_SCOPE(PeekWindowsMessages);
-            HandleWindowMessage(Message, &MainWindow, &InputQueue, &Mouse);
+            HandleWindowMessage(Message, &MainWindow, &InputQueue, &Context.Mouse);
         }
         
         Context.WindowBounds = rect{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
@@ -714,40 +738,46 @@ WinMain (
         RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
         
-        Context.UpdateAndRender(Context, InputQueue, Mouse, &RenderBuffer);
+        Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer);
         
         RenderCommandBuffer(RenderBuffer);
         ClearRenderBuffer(&RenderBuffer);
         
+        Context.Mouse.LeftButtonState = GetMouseButtonStateAdvanced(Context.Mouse.LeftButtonState);
+        Context.Mouse.MiddleButtonState = GetMouseButtonStateAdvanced(Context.Mouse.MiddleButtonState);
+        Context.Mouse.RightButtonState = GetMouseButtonStateAdvanced(Context.Mouse.RightButtonState);
         
-        if (Mouse.LeftButtonState & KeyState_WasDown &&
-            !((Mouse.LeftButtonState & KeyState_IsDown) > 0))
+        switch (Context.Mouse.CursorType)
         {
-            Mouse.LeftButtonState = 0;
-        } 
-        else if (Mouse.LeftButtonState & KeyState_IsDown) 
-        { 
-            Mouse.LeftButtonState |= KeyState_WasDown; 
-        }
-        
-        if (Mouse.MiddleButtonState & KeyState_WasDown &&
-            !((Mouse.MiddleButtonState & KeyState_IsDown) > 0))
-        {
-            Mouse.MiddleButtonState = 0;
-        } 
-        else if (Mouse.MiddleButtonState & KeyState_IsDown) 
-        { 
-            Mouse.MiddleButtonState |= KeyState_WasDown; 
-        }
-        
-        if (Mouse.RightButtonState & KeyState_WasDown &&
-            !((Mouse.RightButtonState & KeyState_IsDown) > 0))
-        {
-            Mouse.RightButtonState = 0;
-        } 
-        else if (Mouse.RightButtonState & KeyState_IsDown) 
-        { 
-            Mouse.RightButtonState |= KeyState_WasDown; 
+            case CursorType_Arrow:
+            {
+                SetCursor(CursorArrow);
+            }break;
+            case CursorType_Pointer:
+            {
+                SetCursor(CursorPointer);
+            }break;
+            case CursorType_Loading:
+            {
+                SetCursor(CursorLoading);
+            }break;
+            case CursorType_HorizontalArrows:
+            {
+                SetCursor(CursorHorizontalArrows);
+            }break;
+            case CursorType_VerticalArrows:
+            {
+                SetCursor(CursorVerticalArrows);
+            }break;
+            case CursorType_DiagonalTopLeftArrows:
+            {
+                SetCursor(CursorDiagonalTopLeftArrows);
+            }break;
+            case CursorType_DiagonalTopRightArrows:
+            {
+                SetCursor(CursorDiagonalTopRightArrows);
+            }break;
+            InvalidDefaultCase;
         }
         
         HDC DeviceContext = GetDC(MainWindow.Handle);

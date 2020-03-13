@@ -357,12 +357,12 @@ HandleMousePanelInteraction(panel_system* PanelSystem, rect WindowBounds, mouse_
 }
 
 internal void
-DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mouse, render_command_buffer* RenderBuffer)
+DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state* Mouse, render_command_buffer* RenderBuffer)
 {
-    r32 MouseLeftEdgeDistance = GSAbs(Mouse.Pos.x - PanelMin.x);
-    r32 MouseRightEdgeDistance = GSAbs(Mouse.Pos.x - PanelMax.x);
-    r32 MouseTopEdgeDistance = GSAbs(Mouse.Pos.y - PanelMax.y);
-    r32 MouseBottomEdgeDistance = GSAbs(Mouse.Pos.y - PanelMin.y);
+    r32 MouseLeftEdgeDistance = GSAbs(Mouse->Pos.x - PanelMin.x);
+    r32 MouseRightEdgeDistance = GSAbs(Mouse->Pos.x - PanelMax.x);
+    r32 MouseTopEdgeDistance = GSAbs(Mouse->Pos.y - PanelMax.y);
+    r32 MouseBottomEdgeDistance = GSAbs(Mouse->Pos.y - PanelMin.y);
     
     PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
     v4 HighlightColor = v4{.3f, .3f, .3f, 1.f};
@@ -372,24 +372,28 @@ DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state Mou
         v2 LeftEdgeMin = PanelMin;
         v2 LeftEdgeMax = v2{PanelMin.x + HighlightThickness, PanelMax.y};
         PushRenderQuad2D(RenderBuffer, LeftEdgeMin, LeftEdgeMax, HighlightColor);
+        Mouse->CursorType = CursorType_HorizontalArrows;
     }
     else if (MouseRightEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 RightEdgeMin = v2{PanelMax.x - HighlightThickness, PanelMin.y};
         v2 RightEdgeMax = PanelMax;
         PushRenderQuad2D(RenderBuffer, RightEdgeMin, RightEdgeMax, HighlightColor);
+        Mouse->CursorType = CursorType_HorizontalArrows;
     }
     else if (MouseTopEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 TopEdgeMin = v2{PanelMin.x, PanelMax.y - HighlightThickness};
         v2 TopEdgeMax = PanelMax;
         PushRenderQuad2D(RenderBuffer, TopEdgeMin, TopEdgeMax, HighlightColor);
+        Mouse->CursorType = CursorType_VerticalArrows;
     }
     else if (MouseBottomEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 BottomEdgeMin = PanelMin;
         v2 BottomEdgeMax = v2{PanelMax.x, PanelMin.y + HighlightThickness};
         PushRenderQuad2D(RenderBuffer, BottomEdgeMin, BottomEdgeMax, HighlightColor);
+        Mouse->CursorType = CursorType_VerticalArrows;
     }
 }
 
@@ -466,7 +470,7 @@ RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_bu
 }
 
 internal void
-DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state Mouse, app_state* State, context Context)
+DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state* Mouse, app_state* State, context Context)
 {
     for (u32 i = 0; i < PanelLayout.PanelsCount; i++)
     {
@@ -474,7 +478,7 @@ DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mou
         panel* Panel = PanelWithLayout.Panel;
         rect PanelBounds = PanelWithLayout.Bounds;
         
-        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, Mouse);
+        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
         v4 BorderColor = v4{0, 0, 0, 1};
         
         PushRenderOrthographic(RenderBuffer, State->WindowBounds.Min.x, State->WindowBounds.Min.y, State->WindowBounds.Max.x, State->WindowBounds.Max.y);

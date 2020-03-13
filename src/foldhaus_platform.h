@@ -34,7 +34,7 @@ typedef struct context context;
 #define INITIALIZE_APPLICATION(name) void name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
-#define UPDATE_AND_RENDER(name) void name(context Context, input_queue InputQueue, mouse_state Mouse, render_command_buffer* RenderBuffer)
+#define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 #define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
@@ -244,6 +244,7 @@ struct context
     b32 WindowIsVisible;
     rect WindowBounds;
     r32 DeltaTime;
+    mouse_state Mouse;
     
     // Application Services
     initialize_application* InitializeApplication;

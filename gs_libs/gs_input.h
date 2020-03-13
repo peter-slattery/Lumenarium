@@ -241,6 +241,18 @@ struct input_queue
     input_entry* Entries;
 };
 
+enum cursor_type
+{
+    CursorType_Arrow,
+    CursorType_Pointer,
+    CursorType_Loading,
+    CursorType_HorizontalArrows,
+    CursorType_VerticalArrows,
+    CursorType_DiagonalTopLeftArrows,
+    CursorType_DiagonalTopRightArrows,
+    CursorType_Count,
+};
+
 struct mouse_state
 {
     s32 Scroll;
@@ -253,6 +265,8 @@ struct mouse_state
     b32 LeftButtonState;
     b32 MiddleButtonState;
     b32 RightButtonState;
+    
+    cursor_type CursorType;
 };
 
 internal input_queue
@@ -368,6 +382,22 @@ MouseButtonHeldDown (b32 MouseButtonState)
     b32 WasDown = KeyWasDown(MouseButtonState);
     b32 IsDown = KeyIsDown(MouseButtonState);
     return (WasDown && IsDown);
+}
+
+inline b32
+GetMouseButtonStateAdvanced (b32 ButtonState)
+{
+    b32 Result = ButtonState;
+    if (ButtonState & KeyState_WasDown &&
+        !((ButtonState & KeyState_IsDown) > 0))
+    {
+        Result= 0;
+    } 
+    else if (ButtonState & KeyState_IsDown) 
+    { 
+        Result |= KeyState_WasDown; 
+    }
+    return Result;
 }
 
 #define GS_INPUT_H

@@ -1,3 +1,12 @@
+enum panel_type {
+PanelType_FileView,
+PanelType_SculptureView,
+PanelType_AnimationTimeline,
+PanelType_DMXView,
+PanelType_HierarchyView,
+PanelType_NodeGraph,
+PanelType_ProfilerView,
+};
 global_variable s32 GlobalPanelDefsCount = 7;
 global_variable panel_definition GlobalPanelDefs[] = {
 { "File View", 9, FileView_Init, FileView_Cleanup, FileView_Render, FileView_Commands, FileView_CommandsCount },

@@ -192,7 +192,7 @@ MakeReadableIdentifier(string* Identifier)
 }
 
 internal void
-GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelCodeGen)
+GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelEnumGen, string_builder* PanelCodeGen)
 {
     gs_bucket<panel_elements> Panels = {0};
     
@@ -217,6 +217,7 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelCodeGen)
         }
     }
     
+    WriteF(PanelEnumGen, "enum panel_type {\n");
     WriteF(PanelCodeGen, "global_variable s32 GlobalPanelDefsCount = %d;\n", Panels.Used);
     WriteF(PanelCodeGen, "global_variable panel_definition GlobalPanelDefs[] = {\n");
     for (u32 i = 0; i < Panels.Used; i++)
@@ -249,9 +250,12 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelCodeGen)
         WriteF(PanelCodeGen, "%S_Commands, ", PanelNameBase);
         WriteF(PanelCodeGen, "%S_CommandsCount ", PanelNameBase);
         
+        WriteF(PanelEnumGen, "PanelType_%S,\n", PanelNameBase);
+        
         WriteF(PanelCodeGen, "},\n");
     }
     WriteF(PanelCodeGen, "};\n");
+    WriteF(PanelEnumGen, "};\n");
 }
 
 internal string
@@ -295,8 +299,9 @@ int main(int ArgCount, char* Args[])
     string_builder CallNodeProcGen = {0};
     GenerateNodeMetaInfo(&NodeTypeGen, &NodeSpecificationGen, &CallNodeProcGen, Meta);
     
+    string_builder PanelEnumGen = {0};
     string_builder PanelCodeGen = {0};
-    GeneratePanelMetaInfo(Meta, &PanelCodeGen);
+    GeneratePanelMetaInfo(Meta, &PanelEnumGen, &PanelCodeGen);
     
     string TypeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("gs_meta_generated_typeinfo.h"));
     FILE* TypeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
@@ -332,6 +337,7 @@ int main(int ArgCount, char* Args[])
     FILE* PanelInfoH = fopen(PanelInfoHFilePath.Memory, "w");
     if (PanelInfoH)
     {
+        WriteStringBuilderToFile(PanelEnumGen, PanelInfoH);
         WriteStringBuilderToFile(PanelCodeGen, PanelInfoH);
         fclose(PanelInfoH);
     }

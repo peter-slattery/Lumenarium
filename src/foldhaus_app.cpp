@@ -201,7 +201,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, 0, State);
+    SetPanelDefinition(Panel, PanelType_SculptureView, State);
 }
 
 internal void
@@ -314,16 +314,17 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
-    app_state* State = (app_state*)Context.MemoryBase;
-    State->WindowBounds = Context.WindowBounds;
+    app_state* State = (app_state*)Context->MemoryBase;
+    State->WindowBounds = Context->WindowBounds;
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically 
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(&State->Transient);
+    Context->Mouse.CursorType = CursorType_Arrow;
     
-    HandleInput(State, State->WindowBounds, InputQueue, Mouse);
+    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse);
     
     if (State->AnimationSystem.TimelineShouldAdvance) { 
         // TODO(Peter): Revisit this. This implies that the framerate of the animation system
@@ -481,10 +482,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 send_sacn_job_data* Job = PushStruct(&State->Transient, send_sacn_job_data);
                 Job->SendSocket = State->SACN.SendSocket;
-                Job->SendTo = Context.PlatformSendTo;
+                Job->SendTo = Context->PlatformSendTo;
                 Job->DMXBuffers = DMXBuffers;
                 
-                Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
+                Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
             }break;
             
             InvalidDefaultCase;
@@ -495,19 +496,19 @@ UPDATE_AND_RENDER(UpdateAndRender)
     PushRenderClearScreen(RenderBuffer);
     
     panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
-    DrawAllPanels(PanelsToRender, RenderBuffer, Mouse, State, Context);
+    DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
     {
         operation_mode OperationMode = State->Modes.ActiveModes[m];
         if (OperationMode.Render != 0)
         {
-            OperationMode.Render(State, RenderBuffer, OperationMode, Mouse);
+            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse);
         }
     }
     
-    Context.GeneralWorkQueue->DoQueueWorkUntilDone(Context.GeneralWorkQueue, 0);
-    Context.GeneralWorkQueue->ResetWorkQueue(Context.GeneralWorkQueue);
+    Context->GeneralWorkQueue->DoQueueWorkUntilDone(Context->GeneralWorkQueue, 0);
+    Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
     
     // Checking for overflows
     {
