@@ -97,13 +97,7 @@ TODO FOLDHAUS
 - Platform Layer
     - Mac Platform Layer
 
-Reimplement Node View
-- probably want to take a fresh pass at nodes all together
-
 Assembly -> SACN interface
-x you need to rebuild the map from leds -> universes
--   x thinking about storing a sparse array of { led_start_index, led_count, led_universe, led_channel }
--     that we can iterate over to populate dmx buffers
 - need to create a data structure in CreateDMXBuffers that prevents duplication of DMXBuffers.
 -   - thinking about a dictionary. Key is Universe, length is 256, create parallel arrays as necessary
 
@@ -132,18 +126,13 @@ Switch To Nodes
 - evaluation step (one node at a time)
 
 Hardening
-x turn the default sculpture view into an operation mode ? (have to think about this)
 - Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel
 update functions
 - memory visualization
--  x Log memory allocations
 - separate rendering thread
 
 
 UI Improvements
-- highlight node field under active edit
-- Mouse Held Commands
-- Actual cursor states
 - shift drag to 10x drag speed
 - Text editing improvements
 -   - draw cursor in node field under active edit
@@ -158,6 +147,8 @@ Development
 
 Optimization
 - patterns are asking to be multithreaded
+    - OOH I KNOW HOW TO DO THIS NOW!!! - each layer gets calculated independently, and combined
+      so just do each layer on its own thread, then combine as they are finished
 - probably want to convert as much color functions to use u32 Packed Colors
 -  - Probably want to think about this more. What about supporting different color depths
 -    for different output devices?

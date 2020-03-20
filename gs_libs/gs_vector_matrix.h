@@ -906,44 +906,6 @@ Transpose (m44 M)
     return Result;
 }
 
-static m44
-GetPositionM44 (v4 Position)
-{
-#if 1
-    return m44{
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        Position.x, Position.y, Position.z, Position.w
-    };
-#else
-    return m44{
-        1, 0, 0, Position.x,
-        0, 1, 0, Position.y,
-        0, 0, 1, Position.z,
-        0, 0, 0, Position.w};
-#endif
-}
-
-static m44
-GetLookAtMatrix (v4 Position, v4 Target)
-{
-    // Forward
-    v4 Forward = Normalize(Target - Position); 
-    // Right
-    v4 Right = Normalize(Cross(v4{0, 1, 0, 0}, Forward));
-    // Up
-    v4 Up = Normalize(Cross(Forward, Right));
-    
-    m44 RotationMatrix = M44(
-                             Right.x, Up.x, Forward.x, 0,
-                             Right.y, Up.y, Forward.y, 0,
-                             Right.z, Up.z, Forward.z, 0,
-                             0,       0,    0,         1);
-    
-    return RotationMatrix;
-}
-
 b32 operator== (m33 A, m33 B)
 {
     b32 Result = true;
@@ -1105,6 +1067,87 @@ v4 operator* (m44 M, v4 V)
     }
 #endif
     return Result;
+}
+
+static m44
+Translate(m44 M, v3 Delta)
+{
+    m44 Result = M;
+    Result.E[12] += Delta.x;
+    Result.E[13] += Delta.y;
+    Result.E[14] += Delta.z;
+    return Result;
+}
+
+static m44
+Rotate(m44 M, v3 Delta)
+{
+    m44 Result = M;
+    m44 X = GetXRotation(Delta.x);
+    m44 Y = GetYRotation(Delta.z);
+    m44 Z = GetZRotation(Delta.z);
+    Result = Z * Y * X * Result;
+    return Result;
+}
+
+static m44
+GetPositionM44 (v4 Position)
+{
+#if 1
+    return m44{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        Position.x, Position.y, Position.z, Position.w
+    };
+#else
+    return m44{
+        1, 0, 0, Position.x,
+        0, 1, 0, Position.y,
+        0, 0, 1, Position.z,
+        0, 0, 0, Position.w};
+#endif
+}
+
+static m44
+GetModelViewMatrix (v4 Forward, v4 Right, v4 Up, v4 Position)
+{
+    m44 RotationMatrix = M44(Right.x, Up.x, Forward.x, 0,
+                             Right.y, Up.y, Forward.y, 0,
+                             Right.z, Up.z, Forward.z, 0,
+                             0, 0, 0, 1);
+    m44 PositionMatrix = M44(1, 0, 0, 0,
+                             0, 1, 0, 0,
+                             0, 0, 1, 0,
+                             -Position.x, -Position.y, -Position.z, 1);
+    m44 ModelViewMatrix = PositionMatrix * RotationMatrix;
+    return ModelViewMatrix;
+}
+
+static m44
+GetModelViewMatrix (v4 Forward, v4 Right, v4 Position)
+{
+    v4 Up = Normalize(Cross(Forward, Right));
+    return GetModelViewMatrix(Forward, Right, Up, Position);
+}
+
+static m44
+GetLookAtMatrix (v4 Position, v4 Target)
+{
+    // Forward
+    v4 Forward = Normalize(Target - Position); 
+    // Right
+    v4 Right = Normalize(Cross(v4{0, 1, 0, 0}, Forward));
+    // Up
+    v4 Up = Normalize(Cross(Forward, Right));
+    
+    m44 RotationMatrix = M44(
+                             Right.x, Up.x, Forward.x, 0,
+                             Right.y, Up.y, Forward.y, 0,
+                             Right.z, Up.z, Forward.z, 0,
+                             0,       0,    0,         1);
+    
+    return RotationMatrix;
 }
 
 b32 Inverse(m44 M_In, m44* M_Out)
