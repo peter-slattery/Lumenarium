@@ -60,7 +60,7 @@ DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char
 }
 
 internal v2
-DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, char* String, s32 Length, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* String, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
 {
     v2 RegisterPosition = InitialRegisterPosition;
     char* C = String;
@@ -74,7 +74,7 @@ DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, char* St
 }
 
 internal v2
-DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, char* String, s32 Length, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* String, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
 {
     v2 RegisterPosition = InitialRegisterPosition;
     char* C = String + Length - 1;
@@ -104,15 +104,11 @@ DrawString (render_command_buffer* RenderBuffer, string String, bitmap_font* Fon
     v2 RegisterPosition = Position;
     if (Alignment == Align_Left)
     {
-        RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
-                                                 String.Memory, String.Length, 
-                                                 RegisterPosition, Font, Color);
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, Color);
     }
     else if (Alignment == Align_Right)
     {
-        RegisterPosition = DrawStringRightAligned(&BatchConstructor,
-                                                  String.Memory, String.Length, 
-                                                  RegisterPosition, Font, Color);
+        RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, Color);
     }
     else
     {
@@ -151,29 +147,27 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 Cu
     v2 RegisterPosition = Position;
     if (Alignment == Align_Left)
     {
-        RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
-                                                 String.Memory, CursorPosition, 
-                                                 RegisterPosition, Font, Color);
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, Color);
         DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font);
         if (String.Length - CursorPosition > 0)
         {
             RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
-                                                     String.Memory + CursorPosition, 
                                                      String.Length - CursorPosition,
+                                                     String.Memory + CursorPosition, 
                                                      RegisterPosition, Font, Color);
         }
     }
     else if (Alignment == Align_Right)
     {
         RegisterPosition = DrawStringRightAligned(&BatchConstructor,
-                                                  String.Memory, CursorPosition, 
+                                                  CursorPosition, String.Memory,
                                                   RegisterPosition, Font, Color);
         DrawCursor(&CursorBatch, RegisterPosition, GreenV4, *Font);
         if (String.Length - CursorPosition > 0)
         {
             RegisterPosition = DrawStringRightAligned(&BatchConstructor,
-                                                      String.Memory + CursorPosition, 
                                                       String.Length - CursorPosition,
+                                                      String.Memory + CursorPosition, 
                                                       RegisterPosition, Font, Color);
         }
     }
@@ -189,153 +183,228 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 Cu
 struct interface_config
 {
     v4 PanelBGColors[4];
+    
     v4 ButtonColor_Inactive, ButtonColor_Active, ButtonColor_Selected;
+    
     v4 TextColor;
+    
+#define LIST_BG_COLORS_COUNT 2
+    v4 ListBGColors[LIST_BG_COLORS_COUNT];
+    v4 ListBGHover;
+    v4 ListBGSelected;
+    
     bitmap_font* Font;
     r32 FontSize;
     v2 Margin;
+    r32 RowHeight;
 };
 
-struct button_result
+struct ui_layout
 {
-    b32 Pressed;
-    r32 Advance;
+    rect Bounds;
+    v2 Margin;
+    r32 RowHeight;
+    r32 RowYAt;
+    
+    b32 DrawHorizontal;
+    u32 RowDivisions;
+    u32 RowElementsCount;
 };
 
-internal button_result
-EvaluateButton (render_command_buffer* RenderBuffer, 
-                v2 Min, v2 Max, v2 Margin, string Label,  
-                v4 IdleBGColor, v4 HotBGColor, v4 IdleTextColor, v4 HotTextColor, 
-                bitmap_font* Font, mouse_state Mouse)
+struct ui_interface
 {
-    button_result Result = {};
-    Result.Pressed = false;
-    
-    v4 BGColor = IdleBGColor;
-    v4 TextColor = IdleTextColor;
-    
-    if (PointIsInRange(Mouse.Pos, Min, Max))
+    interface_config Style;
+    mouse_state Mouse;
+    render_command_buffer* RenderBuffer;
+};
+
+static ui_layout
+ui_CreateLayout(ui_interface Interface, rect Bounds)
+{
+    ui_layout Result = {0};
+    Result.Bounds = Bounds;
+    Result.Margin = Interface.Style.Margin;
+    Result.RowHeight = Interface.Style.RowHeight;
+    Result.RowYAt = Bounds.Max.y - Result.RowHeight;
+    return Result;
+}
+
+static void
+ui_StartRow(ui_layout* Layout, u32 RowDivisions)
+{
+    Layout->DrawHorizontal = true;
+    Layout->RowDivisions = RowDivisions;
+    Layout->RowElementsCount = 0;
+}
+
+static void
+ui_StartRow(ui_layout* Layout)
+{
+    ui_StartRow(Layout, 0);
+}
+
+static void
+ui_EndRow(ui_layout* Layout)
+{
+    Layout->DrawHorizontal = false;
+}
+
+static b32
+ui_TryReserveElementBounds(ui_layout* Layout, rect* Bounds)
+{
+    b32 Result = true;
+    if (!Layout->DrawHorizontal)
     {
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
+        Bounds->Min = { Layout->Bounds.Min.x, Layout->RowYAt };
+        Bounds->Max = { Layout->Bounds.Max.x, Bounds->Min.y + Layout->RowHeight };
+        Layout->RowYAt -= Layout->RowHeight;
+    }
+    else
+    {
+        if (Layout->RowDivisions > 0)
         {
-            Result.Pressed = true;
+            Assert(Layout->RowElementsCount < Layout->RowDivisions);
+            r32 ElementWidth = Width(Layout->Bounds) / Layout->RowDivisions;
+            Bounds->Min = { 
+                Layout->Bounds.Min.x + (ElementWidth * Layout->RowElementsCount) + Layout->Margin.x,
+                Layout->RowYAt
+            };
+            Bounds->Max = { 
+                Bounds->Min.x + ElementWidth - Layout->Margin.x, 
+                Bounds->Min.y + Layout->RowHeight
+            };
+            Layout->RowElementsCount++;
         }
         else
         {
-            BGColor = HotBGColor; 
-            TextColor = HotTextColor;
+            Result = false;
         }
     }
-    
-    PushRenderQuad2D(RenderBuffer, Min, Max, BGColor);
-    DrawString(RenderBuffer, Label, Font, Min + Margin, TextColor);
-    
-    Result.Advance = (Max.y - Min.y) + Margin.y;
     return Result;
 }
 
-internal button_result
-EvaluateButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, mouse_state Mouse)
+static rect
+ui_ReserveTextLineBounds(ui_interface Interface, string Text, ui_layout* Layout)
 {
-    button_result Result = EvaluateButton(RenderBuffer, 
-                                          Min, Max, Config.Margin, Label, 
-                                          Config.ButtonColor_Inactive, Config.ButtonColor_Active,
-                                          Config.TextColor, Config.TextColor, 
-                                          Config.Font, Mouse);
-    return Result;
+    rect Bounds = {0};
+    
+    return Bounds;
 }
 
-internal button_result
-EvaluateSelectableButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config, mouse_state Mouse, b32 Selected)
+//
+// Drawing Functions
+//
+
+static void
+ui_FillRect(ui_interface* Interface, rect Bounds, v4 Color)
 {
-    v4 BGColor = Config.ButtonColor_Inactive;
-    if (Selected)
+    PushRenderQuad2D(Interface->RenderBuffer, RectExpand(Bounds), Color);
+}
+
+static void
+ui_OutlineRect(ui_interface* Interface, rect Bounds, r32 Thickness, v4 Color)
+{
+    PushRenderBoundingBox2D(Interface->RenderBuffer, Bounds.Min, Bounds.Max, Thickness, Color);
+}
+
+internal void
+ui_DrawString(ui_interface* Interface, string String, rect Bounds, v4 Color, string_alignment Alignment = Align_Left)
+{
+    DEBUG_TRACK_FUNCTION;
+    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(Interface->RenderBuffer, 
+                                                                              String.Length,
+                                                                              Interface->Style.Font->BitmapMemory,
+                                                                              Interface->Style.Font->BitmapTextureHandle,
+                                                                              Interface->Style.Font->BitmapWidth,
+                                                                              Interface->Style.Font->BitmapHeight,
+                                                                              Interface->Style.Font->BitmapBytesPerPixel,
+                                                                              Interface->Style.Font->BitmapStride);
+    
+    v2 RegisterPosition = Bounds.Min + Interface->Style.Margin;
+    if (Alignment == Align_Left)
     {
-        BGColor = Config.ButtonColor_Selected;
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Interface->Style.Font, Color);
     }
-    
-    button_result Result = EvaluateButton(RenderBuffer, 
-                                          Min, Max, Config.Margin, Label, 
-                                          Config.ButtonColor_Inactive, Config.ButtonColor_Active,
-                                          Config.TextColor, Config.TextColor, 
-                                          Config.Font, Mouse);
-    return Result;
+    else if (Alignment == Align_Right)
+    {
+        RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Interface->Style.Font, Color);
+    }
+    else
+    {
+        InvalidCodePath;
+    }
 }
 
-struct multi_option_label_result
+static void
+ui_TextBox(ui_interface* Interface, rect Bounds, string Text, v4 BGColor, v4 TextColor)
 {
-    b32 Pressed;
-    s32 IndexPressed;
-    r32 Advance;
-};
+    ui_FillRect(Interface, Bounds, BGColor);
+    ui_DrawString(Interface, Text, Bounds, TextColor);
+}
 
-internal multi_option_label_result
-EvaluateMultiOptionLabel (render_command_buffer* RenderBuffer, 
-                          v2 Min, v2 Max, string Label, string Options[], s32 OptionsCount,
-                          interface_config Config, mouse_state Mouse)
+static b32
+ui_Button(ui_interface* Interface, string Text, rect Bounds, v4 InactiveColor, v4 HoverColor, v4 ClickedColor)
 {
-    multi_option_label_result Result = {};
-    Result.Pressed = false;
-    
-    DrawString(RenderBuffer, Label, Config.Font, Min + Config.Margin, Config.TextColor);
-    
-    r32 ButtonSide = (Max.y - Min.y) - (2 * Config.Margin.y);
-    v2 ButtonDim = v2{ButtonSide, ButtonSide};
-    v2 ButtonPos = Max - (ButtonDim + Config.Margin);
-    
-    for (s32 b = 0; b < OptionsCount; b++)
+    b32 Pressed = false;
+    v4 ButtonBG = InactiveColor;
+    if (PointIsInRect(Interface->Mouse.Pos, Bounds))
     {
-        button_result Button = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
-                                              Options[b], Config, Mouse);
-        if (Button.Pressed)
+        ButtonBG = HoverColor;
+        if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
         {
-            Result.Pressed = true;
-            Result.IndexPressed = b;
+            ButtonBG = ClickedColor;
+            Pressed = true;
         }
     }
-    
-    Result.Advance = (Max.y - Min.y) + Config.Margin.y;
-    return Result;
+    ui_TextBox(Interface, Bounds, Text, ButtonBG, Interface->Style.TextColor);
+    return Pressed;
 }
 
-// NOTE(Peter): returns IndexPressed = -1 if the button itself is pressed, as opposed
-// to one of its options
-internal multi_option_label_result
-EvaluateMultiOptionButton (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Text, string Options[], s32 OptionsCount, b32 Selected,
-                           interface_config Config, mouse_state Mouse)
+static b32
+ui_Button(ui_interface* Interface, string Text, rect Bounds)
 {
-    multi_option_label_result Result = {};
-    Result.Pressed = false;
-    
-    r32 ButtonSide = (Max.y - Min.y) - (2 * Config.Margin.y);
-    v2 ButtonDim = v2{ButtonSide, ButtonSide};
-    
-    v2 FirstButtonPos = Max - ((ButtonDim + Config.Margin) * OptionsCount);
-    v2 NewMax = v2{FirstButtonPos.x - Config.Margin.x, Max.y};
-    
-    button_result MainButton = EvaluateSelectableButton(RenderBuffer, Min, NewMax, Text, Config, Mouse, Selected);
-    if (MainButton.Pressed)
-    {
-        Result.Pressed = true;
-        Result.IndexPressed = -1;
-    }
-    
-    v2 ButtonPos = Max - (ButtonDim + Config.Margin);
-    
-    for (s32 b = 0; b < OptionsCount; b++)
-    {
-        button_result Button = EvaluateButton(RenderBuffer, ButtonPos, ButtonPos + ButtonDim,
-                                              Options[b], Config, Mouse);
-        if (Button.Pressed)
-        {
-            Result.Pressed = true;
-            Result.IndexPressed = b;
-        }
-    }
-    
-    Result.Advance = (Max.y - Min.y) + Config.Margin.y;
-    return Result;
+    v4 BGColor = Interface->Style.ButtonColor_Inactive;
+    v4 HoverColor = Interface->Style.ButtonColor_Active;
+    v4 SelectedColor = Interface->Style.ButtonColor_Selected;
+    return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
 }
+
+static b32
+ui_LayoutButton(ui_interface* Interface, string Text, ui_layout* Layout)
+{
+    rect ButtonBounds = {0};
+    if (!ui_TryReserveElementBounds(Layout, &ButtonBounds))
+    {
+        ButtonBounds = ui_ReserveTextLineBounds(*Interface, Text, Layout);
+    }
+    
+    v4 BGColor = Interface->Style.ButtonColor_Inactive;
+    v4 HoverColor = Interface->Style.ButtonColor_Active;
+    v4 SelectedColor = Interface->Style.ButtonColor_Selected;
+    return ui_Button(Interface, Text, ButtonBounds, BGColor, HoverColor, SelectedColor);
+}
+
+static b32
+ui_LayoutListEntry(ui_interface* Interface, ui_layout* Layout, string Text, u32 Index)
+{
+    rect Bounds = {0};
+    if (!ui_TryReserveElementBounds(Layout, &Bounds))
+    {
+        // TODO(Peter): this isn't really invalid, but I don't have a concrete use case
+        // for it yet. This should only fire if the Layout component is drawing a row,
+        // but if you're in row mode during a list, what should happen?
+        // Punting this till I have a use case
+        InvalidCodePath;
+    }
+    v4 BGColor = Interface->Style.ListBGColors[Index % LIST_BG_COLORS_COUNT];
+    v4 HoverColor = Interface->Style.ListBGHover;
+    v4 SelectedColor = Interface->Style.ListBGSelected;
+    return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
+}
+
+//
+// OLD
+//
 
 struct slider_result
 {
@@ -379,54 +448,6 @@ EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Labe
     
     Result.Percent = DisplayPercent;
     Result.Advance = (Max.y - Min.y) + Config.Margin.y; 
-    
-    return Result;
-}
-
-struct panel_result
-{
-    v2 NextPanelMin;
-    v2 ChildMin, ChildMax;
-};
-
-internal panel_result
-EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, interface_config Config)
-{
-    panel_result Result = {};
-    
-    Result.ChildMin = Min + Config.Margin;
-    Result.ChildMax = Max - Config.Margin; 
-    Result.NextPanelMin = v2{Max.x, Min.y};
-    
-    v4 BG = Config.PanelBGColors[0];
-    PushRenderQuad2D(RenderBuffer, Min, Max, BG);
-    
-    return Result;
-}
-
-internal panel_result
-EvaluatePanel (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, interface_config Config)
-{
-    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Config);
-    
-    v2 TextPos = v2{
-        Min.x + Config.Margin.x,
-        Max.y - ((r32)NewLineYOffset(*Config.Font) + Config.Margin.y)
-    };
-    DrawString(RenderBuffer, Label, Config.Font, TextPos, Config.TextColor);
-    Result.ChildMax = v2{Max.x, TextPos.y} - Config.Margin;
-    
-    return Result;
-}
-
-internal panel_result
-EvaluatePanel(render_command_buffer* RenderBuffer, panel_result* ParentPanel, r32 Height, string Title, interface_config Config)
-{
-    v2 Min = v2{ParentPanel->ChildMin.x, ParentPanel->ChildMax.y - Height};
-    v2 Max = ParentPanel->ChildMax;
-    panel_result Result = EvaluatePanel(RenderBuffer, Min, Max, Title, Config);
-    
-    ParentPanel->ChildMax.y = Min.y - Config.Margin.y;
     
     return Result;
 }
@@ -566,24 +587,27 @@ struct search_lister_result
 typedef string search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, string SearchString, s32 Offset);
 
 internal search_lister_result
-EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimension, string Title, 
+EvaluateSearchLister (ui_interface* Interface, v2 TopLeft, v2 Dimension, string Title, 
                       string* ItemList, s32* ListLUT, s32 ListLength,
                       s32 HotItem,
-                      string* SearchString, s32 SearchStringCursorPosition,
-                      bitmap_font* Font, interface_config Config, mouse_state Mouse)
+                      string* SearchString, s32 SearchStringCursorPosition)
 {
     search_lister_result Result = {};
     Result.ShouldRemainOpen = true;
     Result.HotItem = HotItem;
     
+    // TODO(Peter): Was tired. Nothing wrong with the code below
+    InvalidCodePath;
+#if 0
     // Title Bar
-    PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
-    DrawString(RenderBuffer, Title, Font, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4);
+    rect TitleBarBounds = rect{v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}};
+    ui_FillRect(Interface, TitleBarBounds, v4{.3f, .3f, .3f, 1.f});
+    ui_DrawString(Interface, Title, TitleBarBounds, Interface->Style.TextColor);
     
     MakeStringBuffer(DebugString, 256);
     PrintF(&DebugString, "Hot Item: %d  |  Filtered Items: %d", HotItem, ListLength);
-    DrawString(RenderBuffer, DebugString, Font, v2{TopLeft.x + 256, TopLeft.y - 25}, WhiteV4);
-    TopLeft.y -= 30;
+    rect DebugBounds = MakeRectMinWidth(v2{ TopLeft.x + 256, TopLeft.y - 25}, v2{256, Interface->Style.LineHeight});
+    ui_DrawString(Interface, DebugString, DebugBounds, Interface->Style.TextColor);
     
     // Search Bar
     PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
@@ -604,16 +628,14 @@ EvaluateSearchLister (render_command_buffer* RenderBuffer, v2 TopLeft, v2 Dimens
             ButtonColor = Config.ButtonColor_Active;
         }
         
-        button_result Button = EvaluateButton(RenderBuffer, Min, Max, Config.Margin, ListItemString, 
-                                              ButtonColor, ButtonColor, Config.TextColor, Config.TextColor,
-                                              Config.Font, Mouse);
-        if (Button.Pressed)
+        if (ui_Button(Interface, ListItemString, rect{Min, Max}))
         {
             Result.SelectedItem = i;
         }
         
         TopLeft.y -= 30;
     }
+#endif
     
     return Result;
 }

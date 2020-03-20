@@ -37,6 +37,7 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
         { .18f, .18f, .18f, 1.f },
     };
     
+    // TODO(Peter): use the new ui system
     interface_list List = {};
     List.LineBGColors = LineBGColors;
     List.LineBGColorsCount = sizeof(LineBGColors) / sizeof(LineBGColors[0]);

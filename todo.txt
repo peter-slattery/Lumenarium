@@ -4,7 +4,7 @@ TODO FOLDHAUS
     - fix memory layout (remeber to profile before and after)
 
 - Make the DLL truly platform agnostic
-    - math.h: present for trig functions
+    - math.h: present for trig functions (though this is part of the c-std lib, so it should be everywhere)
     - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
 
 - Win32 Platform Layer
@@ -20,10 +20,9 @@ TODO FOLDHAUS
 - Make sure it works without building in Debug Mode
 
 - Buckets & Lists
-    - Allow them to use memory arenas
-    - Zero is initialization
+    - On second thought, I just really don't like these. Lets get rid of them, and put custom structures in place
 
-- Rendering
+- Rendering (Working on this elsewhere)
     - OpenGL 3
     - Vertex Buffers
     - Layers

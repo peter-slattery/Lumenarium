@@ -403,16 +403,14 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
     
-    v2 PanelSelectButtonMin = FooterBounds.Min + v2{30, 1};
-    v2 PanelSelectButtonMax = PanelSelectButtonMin + v2{100, 23};
+    rect PanelSelectBtnBounds = MakeRectMinWidth(FooterBounds.Min + v2{30, 1}, v2{100, 23});
     
     if (Panel->PanelSelectionMenuOpen)
     {
-        v2 ButtonDimension = v2{100, 25};
-        v2 ButtonMin = v2{PanelSelectButtonMin.x, FooterBounds.Max.y};
+        rect ButtonBounds = MakeRectMinWidth(v2{ PanelSelectBtnBounds.Min.x, FooterBounds.Max.y }, v2{ 100, 25 });
         
-        v2 MenuMin = ButtonMin;
-        v2 MenuMax = v2{ButtonMin.x + ButtonDimension.x, ButtonMin.y + (ButtonDimension.y * GlobalPanelDefsCount)};
+        v2 MenuMin = ButtonBounds.Min;
+        v2 MenuMax = v2{ButtonBounds.Min.x + Width(ButtonBounds), ButtonBounds.Min.y + (Height(ButtonBounds) * GlobalPanelDefsCount)};
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
             && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
         {
@@ -424,24 +422,17 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
         {
             panel_definition Def = GlobalPanelDefs[i];
             string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-            button_result DefinitionButton = EvaluateButton(RenderBuffer,
-                                                            ButtonMin, ButtonMin + ButtonDimension,
-                                                            DefName, State->Interface, Mouse);
-            if (DefinitionButton.Pressed)
+            if (ui_Button(&State->Interface_, DefName, ButtonBounds))
             {
                 SetPanelDefinition(Panel, i, State);
                 Panel->PanelSelectionMenuOpen = false;
             }
             
-            ButtonMin.y += ButtonDimension.y;
+            ButtonBounds = TranslateRectY(ButtonBounds, Height(ButtonBounds));
         }
     }
     
-    button_result ButtonResult = EvaluateButton(RenderBuffer,
-                                                PanelSelectButtonMin, 
-                                                PanelSelectButtonMax,
-                                                MakeStringLiteral("Select"), State->Interface, Mouse);
-    if (ButtonResult.Pressed)
+    if (ui_Button(&State->Interface_, MakeStringLiteral("Select"), PanelSelectBtnBounds))
     {
         Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
     }

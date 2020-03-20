@@ -30,15 +30,14 @@ RenderNodeLister(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     FilterSearchLister(&OpState->SearchLister);
     
     // Display Search Lister
-    search_lister_result NodeListerResult = EvaluateSearchLister (RenderBuffer, TopLeft, Dimension, 
+    search_lister_result NodeListerResult = EvaluateSearchLister (&State->Interface_, TopLeft, Dimension, 
                                                                   MakeStringLiteral("Nodes List"),
                                                                   OpState->SearchLister.SourceList,
                                                                   OpState->SearchLister.FilteredIndexLUT,
                                                                   OpState->SearchLister.FilteredListCount,
                                                                   OpState->SearchLister.HotItem,
                                                                   &State->ActiveTextEntry.Buffer,
-                                                                  State->ActiveTextEntry.CursorPosition,
-                                                                  State->Font, State->Interface, Mouse);
+                                                                  State->ActiveTextEntry.CursorPosition);
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(NodeListerNextItem)

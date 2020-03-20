@@ -669,6 +669,15 @@ PointToPercentRange (v2 P, v2 Min, v2 Max)
 // which makes refactoring easier as you only have to change the identifier in one place
 #define RectExpand(r) (r).Min, (r).Max
 
+static rect
+MakeRectMinWidth(v2 Min, v2 Width)
+{
+    rect Rect = {0};
+    Rect.Min = Min;
+    Rect.Max = Min + Width;
+    return Rect;
+}
+
 inline float
 Width (rect Rect)
 {
@@ -741,6 +750,104 @@ RectOffsetByVector(rect R, v2 V)
     rect Result = R;
     Result.Min += V;
     Result.Max += V;
+    return Result;
+}
+
+static void
+HSplitRectAtValue(rect Bounds, r32 YValue, rect* Top, rect* Bottom)
+{
+    if (YValue <= Bounds.Min.y)
+    {
+        *Top = Bounds;
+        *Bottom = {0};
+    }
+    else if (YValue >= Bounds.Max.y)
+    {
+        *Top = {0};
+        *Bottom = Bounds;
+    }
+    else
+    {
+        Top->Max = Bounds.Max;
+        Top->Min = { Bounds.Min.x, YValue };
+        Bottom->Max = { Bounds.Max.x, YValue };
+        Bottom->Min = Bounds.Min;
+    }
+}
+
+static void
+HSplitRectAtDistanceFromTop(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
+{
+    r32 YValue = Bounds.Max.y - YDist;
+    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+}
+
+static void
+HSplitRectAtDistanceFromBottom(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
+{
+    r32 YValue = Bounds.Min.y + YDist;
+    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+}
+
+static void
+HSplitRectAtPercent(rect Bounds, r32 YPercent, rect* Top, rect* Bottom)
+{
+    r32 YValue = GSLerp(Bounds.Min.y, Bounds.Max.y, YPercent);
+    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+}
+
+
+static void
+VSplitRectAtValue(rect Bounds, r32 XValue, rect* Left, rect* Right)
+{
+    if (XValue <= Bounds.Min.x)
+    {
+        *Left = {0};
+        *Right = Bounds;
+    }
+    else if (XValue >= Bounds.Max.x)
+    {
+        *Left = Bounds;
+        *Right = {0};
+    }
+    else
+    {
+        Left->Max = { XValue, Bounds.Max.y};
+        Left->Min = Bounds.Min;
+        Right->Max = Bounds.Max;
+        Right->Min = { XValue, Bounds.Min.y };
+    }
+}
+
+static void
+VSplitRectAtDistanceFromRight(rect Bounds, r32 XDist, rect* Left, rect* Right)
+{
+    r32 XValue = Bounds.Max.x - XDist;
+    VSplitRectAtValue(Bounds, XValue, Left, Right);
+}
+
+static void
+VSplitRectAtDistanceFromLeft(rect Bounds, r32 XDist, rect* Left, rect* Right)
+{
+    r32 XValue = Bounds.Min.x + XDist;
+    VSplitRectAtValue(Bounds, XValue, Left, Right);
+}
+
+static void
+VSplitRectAtPercent(rect Bounds, r32 XPercent, rect* Left, rect* Right)
+{
+    r32 XValue = GSLerp(Bounds.Min.x, Bounds.Max.x, XPercent);
+    VSplitRectAtValue(Bounds, XValue, Left, Right);
+}
+
+#define TranslateRectX(r, d) TranslateRect((r), v2{(d), 0})
+#define TranslateRectY(r, d) TranslateRect((r), v2{0, (d)})
+static rect
+TranslateRect(rect R, v2 Delta)
+{
+    rect Result = R;
+    Result.Min += Delta;
+    Result.Max += Delta;
     return Result;
 }
 

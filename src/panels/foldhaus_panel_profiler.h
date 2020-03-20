@@ -178,41 +178,39 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
            FrameTotalCycles);
     DrawString(RenderBuffer, String, State->Interface.Font, FrameListMin - v2{0, 32}, WhiteV4);
     
-    v2 ButtonMin = v2{FrameListMax.x - 128, FrameListMin.y - 32};
-    v2 ButtonMax = ButtonMin + v2{128, 28};
-    button_result ShouldResumeRecording = EvaluateButton(RenderBuffer, ButtonMin, ButtonMax,
-                                                         MakeString("Resume Recording"), State->Interface, Mouse);
-    if (ShouldResumeRecording.Pressed)
+    rect ResumeRecordingBtnBounds = MakeRectMinWidth(v2{ FrameListMax.x - 128, FrameListMin.y - 32 }, v2{ 128, 28 });
+    if (ui_Button(&State->Interface_, MakeString("Resume Recording"), ResumeRecordingBtnBounds))
     {
         GlobalDebugServices->RecordFrames = true;
     }
     
-    ButtonMin = v2{FrameListMin.x, FrameListMin.y - 60};
-    ButtonMax = v2{FrameListMin.x + 128, FrameListMin.y - 42};
-    button_result ActivateScopeView = EvaluateButton(RenderBuffer, ButtonMin, ButtonMax,
-                                                     MakeString("Scope View"), State->Interface, Mouse);
+    rect ScopeViewBtnBounds = {
+        v2{ FrameListMin.x, FrameListMin.y - 60 },
+        v2{ FrameListMin.x + 128, FrameListMin.y - 42 }
+    };
+    if (ui_Button(&State->Interface_, MakeString("Scope View"), ScopeViewBtnBounds))
+    {
+        GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER;
+    }
     
-    ButtonMin.x += 152;
-    ButtonMax.x += 152;
-    button_result ActivateListView = EvaluateButton(RenderBuffer, ButtonMin, ButtonMax,
-                                                    MakeString("List View"), State->Interface, Mouse);
+    rect ListViewBtnBounds = TranslateRectX(ScopeViewBtnBounds, 152);
+    if (ui_Button(&State->Interface_, MakeString("List View"), ListViewBtnBounds))
+    {
+        GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST;
+    }
     
-    if (ActivateScopeView.Pressed) { GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER; }
-    if (ActivateListView.Pressed) { GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST; }
-    
-    v2 ViewModeMin = v2{FrameListMin.x, PanelBounds.Min.y};
-    v2 ViewModeMax = v2{FrameListMax.x, FrameListMin.y - 96};
-    
+    rect ViewModeBounds = {
+        v2{ FrameListMin.x, PanelBounds.Min.y },
+        v2{ FrameListMax.x, FrameListMin.y - 96 }
+    };
     if (GlobalDebugServices->Interface.FrameView == FRAME_VIEW_PROFILER)
     {
-        RenderProfiler_ScopeVisualization(RenderBuffer, State->Interface, Mouse, 
-                                          ViewModeMin, ViewModeMax,
+        RenderProfiler_ScopeVisualization(RenderBuffer, State->Interface, Mouse, RectExpand(ViewModeBounds),
                                           VisibleFrame, Memory);
     }
     else
     {
-        RenderProfiler_ListVisualization(RenderBuffer, State->Interface, Mouse,
-                                         ViewModeMin, ViewModeMax,
+        RenderProfiler_ListVisualization(RenderBuffer, State->Interface, Mouse, RectExpand(ViewModeBounds),
                                          VisibleFrame, Memory);
     }
 }

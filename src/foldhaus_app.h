@@ -78,6 +78,7 @@ struct app_state
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
     
+    ui_interface Interface_;
     interface_config Interface;
     
     animation_system AnimationSystem;
@@ -230,6 +231,7 @@ typedef PANEL_INIT_PROC(panel_init_proc);
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
+// TODO(Peter): Should be able to take the mouse out of this
 #define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 

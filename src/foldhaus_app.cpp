@@ -156,7 +156,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
     State->Interface.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
     State->Interface.TextColor = WhiteV4;
+    State->Interface.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
+    State->Interface.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
+    State->Interface.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
+    State->Interface.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
     State->Interface.Margin = v2{5, 5};
+    State->Interface.RowHeight = State->Interface.Font->PixelHeight + 2 * State->Interface.Margin.y;
+    
+    State->Interface_.Style = State->Interface;
     
     State->SACN = InitializeSACN(Context);
     State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
@@ -315,7 +322,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
     app_state* State = (app_state*)Context->MemoryBase;
-    State->WindowBounds = Context->WindowBounds;
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
@@ -494,6 +500,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     PushRenderOrthographic(RenderBuffer, 0, 0, Width(State->WindowBounds), Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
+    
+    State->WindowBounds = Context->WindowBounds;
+    State->Interface_.RenderBuffer = RenderBuffer;
+    State->Interface_.Mouse = Context->Mouse;
     
     panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
     DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);

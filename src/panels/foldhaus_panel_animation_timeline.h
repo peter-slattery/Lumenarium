@@ -448,43 +448,34 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range V
 }
 
 internal gs_list_handle
-DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect PanelBounds, gs_list_handle SelectedBlockHandle, render_command_buffer* RenderBuffer, app_state* State, mouse_state Mouse)
+DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect PanelBounds, gs_list_handle SelectedBlockHandle, ui_interface* Interface, app_state* State)
 {
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
     gs_list_handle Result = SelectedBlockHandle;
     
-    r32 AnimationPanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
-    r32 AnimationPanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
+    rect LayerMenuBounds, TimelineBounds;
+    VSplitRectAtDistanceFromLeft(PanelBounds, 256, &LayerMenuBounds, &TimelineBounds);
     
-    rect LayerMenuBounds = {0};
-    LayerMenuBounds.Min = PanelBounds.Min;
-    LayerMenuBounds.Max = { PanelBounds.Min.x + 256, PanelBounds.Max.y };
+    // In Top To Bottom Order
+    rect TimelineFrameBarBounds, TimelineBlockDisplayBounds, TimelineRangeBarBounds;
+    HSplitRectAtDistanceFromTop(TimelineBounds, 32, &TimelineFrameBarBounds, &TimelineBounds);
+    HSplitRectAtDistanceFromBottom(TimelineBounds, 24, &TimelineBlockDisplayBounds, &TimelineRangeBarBounds);
     
-    rect TimeRangeBarBounds = {0};
-    TimeRangeBarBounds.Min = BottomRight(LayerMenuBounds);
-    TimeRangeBarBounds.Max = { PanelBounds.Max.x, PanelBounds.Min.y + 24 };
-    
-    rect FrameBarBounds = {0};
-    FrameBarBounds.Min = { LayerMenuBounds.Max.x, PanelBounds.Max.y - 32 };
-    FrameBarBounds.Max = PanelBounds.Max;
-    
-    rect TimelineBounds = {0};
-    TimelineBounds.Min = TopLeft(TimeRangeBarBounds);
-    TimelineBounds.Max = BottomRight(FrameBarBounds);
-    
-    DrawLayerMenu(AnimationSystem, LayerMenuBounds, RenderBuffer, State, Mouse);
+    // TODO(Peter): Clean Up
+    DrawLayerMenu(AnimationSystem, LayerMenuBounds, Interface->RenderBuffer, State, Interface->Mouse);
     
     frame_range AdjustedViewRange = {0};
-    AdjustedViewRange = DrawTimelineRangeBar(AnimationSystem, TimelineState, RenderBuffer, TimeRangeBarBounds, Mouse);
+    // TODO(Peter): Clean Up
+    AdjustedViewRange = DrawTimelineRangeBar(AnimationSystem, TimelineState, Interface->RenderBuffer, TimelineRangeBarBounds, Interface->Mouse);
     s32 VisibleFrameCount = AdjustedViewRange.Max - AdjustedViewRange.Min;
     
-    DrawFrameBar(AnimationSystem, RenderBuffer, AdjustedViewRange, FrameBarBounds, Mouse, State);
+    // TODO(Peter): Clean Up
+    DrawFrameBar(AnimationSystem, Interface->RenderBuffer, AdjustedViewRange, TimelineFrameBarBounds, Interface->Mouse, State);
     
-    // Timeline
-    PushRenderQuad2D(RenderBuffer, RectExpand(TimelineBounds), v4{.25f, .25f, .25f, 1.f});
+    ui_FillRect(Interface, TimelineBlockDisplayBounds, v4{.25f, .25f, .25f, 1.0f});
     
     // Animation Blocks
-    b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Mouse.LeftButtonState);
+    b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState);
     gs_list_handle DragBlockHandle = {0};
     for (u32 i = 0; i < AnimationSystem->Blocks.Used; i++)
     {
@@ -508,8 +499,9 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
             {
                 BlockColor = PinkV4;
             }
-            rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AdjustedViewRange, TimelineBounds, RenderBuffer);
-            if (PointIsInRange(Mouse.Pos, BlockBounds.Min, BlockBounds.Max))
+            // TODO(Peter): Clean Up
+            rect BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AdjustedViewRange, TimelineBounds, Interface->RenderBuffer);
+            if (PointIsInRect(Interface->Mouse.Pos, BlockBounds))
             {
                 DragBlockHandle = CurrentBlockHandle;
             }
@@ -519,6 +511,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     if (MouseDownAndNotHandled && ListHandleIsValid(DragBlockHandle))
     {
         MouseDownAndNotHandled = false;
+        // TODO(Peter): Why are we passing state around?
         SelectAndBeginDragAnimationBlock(DragBlockHandle, AdjustedViewRange, TimelineBounds, State);
     }
     
@@ -527,16 +520,18 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     {
         r32 FrameAtPercentVisibleRange = FrameToPercentRange(AnimationSystem->CurrentFrame, AdjustedViewRange);
         r32 SliderX = GSLerp(TimelineBounds.Min.x, TimelineBounds.Max.x, FrameAtPercentVisibleRange);
-        v2 SliderMin = v2{SliderX, TimelineBounds.Min.y};
-        v2 SliderMax = v2{SliderX + 1, TimelineBounds.Max.y};
-        PushRenderQuad2D(RenderBuffer, SliderMin, SliderMax, TimeSliderColor);
+        rect SliderBounds = {
+            v2{ SliderX, TimelineBounds.Min.y },
+            v2{ SliderX + 1, TimelineBounds.Max.y }
+        };
+        ui_FillRect(Interface, SliderBounds, TimeSliderColor);
     }
     
-    PushRenderBoundingBox2D(RenderBuffer, RectExpand(TimeRangeBarBounds), 1.f, RedV4);
-    PushRenderBoundingBox2D(RenderBuffer, RectExpand(FrameBarBounds), 1.f, TealV4);
-    PushRenderBoundingBox2D(RenderBuffer, RectExpand(TimelineBounds), 1.f, PinkV4);
+    ui_OutlineRect(Interface, TimelineRangeBarBounds, 1.f, RedV4);
+    ui_OutlineRect(Interface, TimelineFrameBarBounds, 1.f, RedV4);
+    ui_OutlineRect(Interface, TimelineBlockDisplayBounds, 1.f, RedV4);
     
-    if (MouseDownAndNotHandled && PointIsInRect(Mouse.Pos, TimelineBounds))
+    if (MouseDownAndNotHandled && PointIsInRect(Interface->Mouse.Pos, TimelineBounds))
     {
         DeselectCurrentAnimationBlock(State);
     }
@@ -559,42 +554,19 @@ animation_clip GlobalAnimationClips[] = {
 };
 
 internal void
-DrawAnimationClipsList(rect PanelBounds, mouse_state Mouse, render_command_buffer* RenderBuffer, app_state* State)
+DrawAnimationClipsList(rect PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayer, animation_system* AnimationSystem)
 {
-    v4 LineBGColors[] = {
-        { .16f, .16f, .16f, 1.f },
-        { .18f, .18f, .18f, 1.f },
-    };
-    
-    interface_list List = {};
-    
-    List.LineBGColors = LineBGColors;
-    List.LineBGColorsCount = sizeof(LineBGColors) / sizeof(LineBGColors[0]);
-    List.LineBGHoverColor = v4{ .22f, .22f, .22f, 1.f };
-    List.TextColor = WhiteV4;
-    List.ListBounds = PanelBounds;
-    List.ListElementDimensions = v2{
-        Width(PanelBounds), 
-        (r32)(State->Interface.Font->PixelHeight + 8),
-    };
-    List.ElementLabelIndent = v2{10, 4};
-    
-    string TitleString = MakeStringLiteral("Animation Clips");
-    DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface);
-    
+    ui_layout Layout = ui_CreateLayout(*Interface, PanelBounds);
     for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
     {
         animation_clip Clip = GlobalAnimationClips[i];
         string ClipName = MakeString(Clip.Name, Clip.NameLength);
-        rect ElementBounds = DrawListElement(ClipName, &List, Mouse, RenderBuffer, State->Interface);
-        
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState) 
-            && PointIsInRect(Mouse.DownPos, ElementBounds))
+        if (ui_LayoutListEntry(Interface, &Layout, ClipName, i))
         {
-            AddAnimationBlockAtCurrentTime(i + 1, State->SelectedAnimationLayer, &State->AnimationSystem);
+            AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayer, AnimationSystem);
         }
     }
-    
+    // TODO(Peter): Fill up the rest of the area with empty list entries
 }
 
 GSMetaTag(panel_render);
@@ -603,67 +575,40 @@ internal void
 AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     animation_timeline_state* TimelineState = (animation_timeline_state*)Panel.PanelStateMemory;
-    
     gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
     
-    r32 OptionsRowHeight = 25;
-    rect AnimationClipListBounds = rect{
-        PanelBounds.Min,
-        v2{PanelBounds.Min.x + 300, PanelBounds.Max.y - OptionsRowHeight},
-    };
-    rect TimelineBounds = rect{
-        v2{AnimationClipListBounds.Max.x, PanelBounds.Min.y},
-        v2{PanelBounds.Max.x, PanelBounds.Max.y - OptionsRowHeight},
-    };
+    ui_interface* Interface = &State->Interface_;
+    animation_system* AnimationSystem = &State->AnimationSystem;
+    
+    rect TitleBarBounds, PanelContentsBounds;
+    HSplitRectAtDistanceFromTop(PanelBounds, Interface->Style.RowHeight, &TitleBarBounds, &PanelContentsBounds);
+    rect AnimationListBounds, TimelineBounds;
+    VSplitRectAtDistanceFromLeft(PanelContentsBounds, 300, &AnimationListBounds, &TimelineBounds);
+    
+    ui_FillRect(Interface, TitleBarBounds, Interface->Style.PanelBGColors[0]);
+    ui_layout TitleBarLayout = ui_CreateLayout(*Interface, TitleBarBounds);
+    ui_StartRow(&TitleBarLayout, 3);
+    {
+        if (ui_LayoutButton(Interface, MakeStringLiteral("Pause"), &TitleBarLayout))
+        {
+            State->AnimationSystem.TimelineShouldAdvance = true;
+        }
+        if (ui_LayoutButton(Interface, MakeStringLiteral("Play"), &TitleBarLayout))
+        {
+            State->AnimationSystem.TimelineShouldAdvance = false;
+        }
+        if (ui_LayoutButton(Interface, MakeStringLiteral("Stop"), &TitleBarLayout))
+        {
+            State->AnimationSystem.TimelineShouldAdvance = false;
+            State->AnimationSystem.CurrentFrame = 0;
+        }
+    }
+    ui_EndRow(&TitleBarLayout);
     
     if (Height(TimelineBounds) > 0)
     {
-        SelectedBlockHandle = DrawAnimationTimeline(&State->AnimationSystem, 
-                                                    TimelineState,
-                                                    TimelineBounds,
-                                                    SelectedBlockHandle, 
-                                                    RenderBuffer, State, Mouse);
-        DrawAnimationClipsList(AnimationClipListBounds, Mouse, RenderBuffer, State);
-    }
-    
-    v2 OptionsRowMin = v2{ PanelBounds.Min.x, TimelineBounds.Max.y };
-    v2 OptionsRowMax = PanelBounds.Max;
-    panel_result AnimationPanel = EvaluatePanel(RenderBuffer, OptionsRowMin, OptionsRowMax, State->Interface);
-    
-    r32 ButtonWidth = 35;
-    v2 ButtonMin = v2{0, 0};
-    v2 ButtonMax = v2{35, OptionsRowHeight - 2};
-    v2 ButtonAt = v2{OptionsRowMin.x + 1, OptionsRowMin.y + 1};
-    
-    button_result PauseResult = EvaluateButton(RenderBuffer, 
-                                               ButtonAt + ButtonMin, ButtonAt + ButtonMax,
-                                               MakeStringLiteral("Pause"),
-                                               State->Interface, Mouse);
-    ButtonAt.x += ButtonWidth + 2;
-    button_result PlayResult = EvaluateButton(RenderBuffer, 
-                                              ButtonAt + ButtonMin, ButtonAt + ButtonMax,
-                                              MakeStringLiteral("Play"),
-                                              State->Interface, Mouse);
-    ButtonAt.x += ButtonWidth + 2;
-    button_result StopResult = EvaluateButton(RenderBuffer, 
-                                              ButtonAt + ButtonMin, ButtonAt + ButtonMax,
-                                              MakeStringLiteral("Stop"),
-                                              State->Interface, Mouse);
-    
-    if (PauseResult.Pressed)
-    {
-        State->AnimationSystem.TimelineShouldAdvance = false;
-    }
-    
-    if (PlayResult.Pressed)
-    {
-        State->AnimationSystem.TimelineShouldAdvance = true;
-    }
-    
-    if (StopResult.Pressed)
-    {
-        State->AnimationSystem.TimelineShouldAdvance = false;
-        State->AnimationSystem.CurrentFrame = 0;
+        SelectedBlockHandle = DrawAnimationTimeline(AnimationSystem, TimelineState, TimelineBounds, SelectedBlockHandle, Interface, State);
+        DrawAnimationClipsList(AnimationListBounds, Interface, State->SelectedAnimationLayer, &State->AnimationSystem);
     }
 }
 
