@@ -20,10 +20,10 @@ DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 M
     s32 AlignedMaxX = AlignedMinX + (CodepointInfo.Width);
     s32 AlignedMaxY = AlignedMinY + (CodepointInfo.Height);
     
-    PushQuad2DOnBatch(BatchConstructor, 
-                      v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY}, 
-                      v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},  
-                      CodepointInfo.UVMin, CodepointInfo.UVMax, 
+    PushQuad2DOnBatch(BatchConstructor,
+                      v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY},
+                      v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},
+                      CodepointInfo.UVMin, CodepointInfo.UVMax,
                       Color);
 }
 
@@ -33,12 +33,12 @@ DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char 
     s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
     codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
     
-    // NOTE(Peter): 
+    // NOTE(Peter):
     r32 MinX = Position.x + CodepointInfo.XOffset;
     r32 MinY = Position.y + CodepointInfo.YOffset;
     DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
     
-    // NOTE(Peter): 
+    // NOTE(Peter):
     v2 PointAfterCharacter = v2{Position.x + CodepointInfo.Width, Position.y};
     return PointAfterCharacter;
 }
@@ -49,12 +49,12 @@ DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char
     s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
     codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
     
-    // NOTE(Peter): 
+    // NOTE(Peter):
     r32 MinX = Position.x - (CodepointInfo.XOffset + CodepointInfo.Width);
     r32 MinY = Position.y + CodepointInfo.YOffset + CodepointInfo.YOffset;
     DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
     
-    // NOTE(Peter): 
+    // NOTE(Peter):
     v2 PointAfterCharacter = v2{Position.x-(CodepointInfo.Width + CodepointInfo.XOffset), Position.y};
     return PointAfterCharacter;
 }
@@ -153,7 +153,7 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 Cu
         {
             RegisterPosition = DrawStringLeftAligned(&BatchConstructor,
                                                      String.Length - CursorPosition,
-                                                     String.Memory + CursorPosition, 
+                                                     String.Memory + CursorPosition,
                                                      RegisterPosition, Font, Color);
         }
     }
@@ -167,7 +167,7 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, string String, s32 Cu
         {
             RegisterPosition = DrawStringRightAligned(&BatchConstructor,
                                                       String.Length - CursorPosition,
-                                                      String.Memory + CursorPosition, 
+                                                      String.Memory + CursorPosition,
                                                       RegisterPosition, Font, Color);
         }
     }
@@ -265,12 +265,12 @@ ui_TryReserveElementBounds(ui_layout* Layout, rect* Bounds)
         {
             Assert(Layout->RowElementsCount < Layout->RowDivisions);
             r32 ElementWidth = Width(Layout->Bounds) / Layout->RowDivisions;
-            Bounds->Min = { 
+            Bounds->Min = {
                 Layout->Bounds.Min.x + (ElementWidth * Layout->RowElementsCount) + Layout->Margin.x,
                 Layout->RowYAt
             };
-            Bounds->Max = { 
-                Bounds->Min.x + ElementWidth - Layout->Margin.x, 
+            Bounds->Max = {
+                Bounds->Min.x + ElementWidth - Layout->Margin.x,
                 Bounds->Min.y + Layout->RowHeight
             };
             Layout->RowElementsCount++;
@@ -288,6 +288,17 @@ ui_ReserveTextLineBounds(ui_interface Interface, string Text, ui_layout* Layout)
 {
     rect Bounds = {0};
     
+    return Bounds;
+}
+
+static rect
+ui_ReserveElementBounds(ui_layout* Layout)
+{
+    rect Bounds = {0};
+    if (!ui_TryReserveElementBounds(Layout, &Bounds))
+    {
+        InvalidCodePath;
+    }
     return Bounds;
 }
 
@@ -311,7 +322,7 @@ internal void
 ui_DrawString(ui_interface* Interface, string String, rect Bounds, v4 Color, string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
-    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(Interface->RenderBuffer, 
+    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(Interface->RenderBuffer,
                                                                               String.Length,
                                                                               Interface->Style.Font->BitmapMemory,
                                                                               Interface->Style.Font->BitmapTextureHandle,
@@ -333,6 +344,19 @@ ui_DrawString(ui_interface* Interface, string String, rect Bounds, v4 Color, str
     {
         InvalidCodePath;
     }
+}
+
+static void
+ui_LayoutDrawString(ui_interface* Interface, ui_layout* Layout, string String, v4 Color, string_alignment Alignment = Align_Left)
+{
+    rect Bounds = {0};
+    if (!ui_TryReserveElementBounds(Layout, &Bounds))
+    {
+        // TODO(NAME): Not invalid, just haven't implemented yet.
+        // This is the case where Layout is in row mode without a fixed number of elements
+        InvalidCodePath;
+    }
+    ui_DrawString(Interface, String, Bounds, Color, Alignment);
 }
 
 static void
@@ -370,18 +394,30 @@ ui_Button(ui_interface* Interface, string Text, rect Bounds)
 }
 
 static b32
-ui_LayoutButton(ui_interface* Interface, string Text, ui_layout* Layout)
+ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, string Text, v4 BGColor, v4 HoverColor, v4 SelectColor)
 {
     rect ButtonBounds = {0};
     if (!ui_TryReserveElementBounds(Layout, &ButtonBounds))
     {
         ButtonBounds = ui_ReserveTextLineBounds(*Interface, Text, Layout);
     }
-    
+    return ui_Button(Interface, Text, ButtonBounds, BGColor, HoverColor, SelectColor);
+}
+
+static b32
+ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, string Text)
+{
     v4 BGColor = Interface->Style.ButtonColor_Inactive;
     v4 HoverColor = Interface->Style.ButtonColor_Active;
     v4 SelectedColor = Interface->Style.ButtonColor_Selected;
-    return ui_Button(Interface, Text, ButtonBounds, BGColor, HoverColor, SelectedColor);
+    return ui_LayoutButton(Interface, Layout, Text, BGColor, HoverColor, SelectedColor);
+}
+
+inline v4
+ui_GetListItemBGColor(interface_config Style, u32 ElementIndex)
+{
+    v4 Result = Style.ListBGColors[ElementIndex % LIST_BG_COLORS_COUNT];
+    return Result;
 }
 
 static b32
@@ -396,7 +432,7 @@ ui_LayoutListEntry(ui_interface* Interface, ui_layout* Layout, string Text, u32 
         // Punting this till I have a use case
         InvalidCodePath;
     }
-    v4 BGColor = Interface->Style.ListBGColors[Index % LIST_BG_COLORS_COUNT];
+    v4 BGColor = ui_GetListItemBGColor(Interface->Style, Index);
     v4 HoverColor = Interface->Style.ListBGHover;
     v4 SelectedColor = Interface->Style.ListBGSelected;
     return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
@@ -405,52 +441,6 @@ ui_LayoutListEntry(ui_interface* Interface, ui_layout* Layout, string Text, u32 
 //
 // OLD
 //
-
-struct slider_result
-{
-    r32 Percent;
-    r32 Advance;
-};
-
-internal slider_result
-EvaluateSlider (render_command_buffer* RenderBuffer, v2 Min, v2 Max, string Label, r32 Percent, interface_config Config, mouse_state Mouse)
-{
-    slider_result Result = {};
-    
-    v4 BGColor = Config.ButtonColor_Inactive;
-    v4 FillColor = Config.ButtonColor_Selected;
-    
-    r32 DisplayPercent = Percent;
-    
-    if (PointIsInRange(Mouse.Pos, Min, Max))
-    {
-        BGColor = Config.ButtonColor_Active;
-    }
-    
-    if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
-    {
-        if (PointIsInRange(Mouse.DownPos, Min, Max))
-        {
-            r32 TempFillPercent = (Mouse.Pos.y - Min.y) / (Max.y - Min.y);
-            
-            DisplayPercent = GSClamp(0.0f, TempFillPercent, 1.0f);
-        }
-    }
-    
-    r32 FillHeight = ((Max.y - Min.y) - 4) * DisplayPercent;
-    
-    PushRenderQuad2D(RenderBuffer, Min, Max, BGColor);
-    PushRenderQuad2D(RenderBuffer, Min + v2{2, 2}, v2{Max.x - 2, Min.y + 2 + FillHeight}, FillColor);
-    
-    // TODO(Peter): display the actual value of the slider
-    
-    DrawString(RenderBuffer, Label, Config.Font, Min, Config.TextColor);
-    
-    Result.Percent = DisplayPercent;
-    Result.Advance = (Max.y - Min.y) + Config.Margin.y; 
-    
-    return Result;
-}
 
 enum selection_state
 {
@@ -517,7 +507,7 @@ EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask,
     v4 LeftColor = ChannelMask * 0;
     LeftColor.a = 1.f;
     v4 RightColor = ChannelMask;
-    PushQuad2DOnBatch(&Batch, 
+    PushQuad2DOnBatch(&Batch,
                       Min, v2{Max.x, Min.y}, Max, v2{Min.x, Max.y},
                       v2{0, 0}, v2{1, 0}, v2{1, 1}, v2{0, 1},
                       LeftColor, RightColor, RightColor, LeftColor);
@@ -555,7 +545,7 @@ EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin
         PushRenderQuad2D(RenderBuffer, PanelMin, PanelMax, v4{.5f, .5f, .5f, 1.f});
         
         v2 TitleMin = v2{PanelMin.x + 5, PanelMax.y - (Config.Font->PixelHeight + 5)};
-        DrawString(RenderBuffer, MakeStringLiteral("Color Picker"), Config.Font, 
+        DrawString(RenderBuffer, MakeStringLiteral("Color Picker"), Config.Font,
                    TitleMin, WhiteV4);
         
         v2 SliderDim = v2{(PanelMax.x - PanelMin.x) - 20, 32};
@@ -587,7 +577,7 @@ struct search_lister_result
 typedef string search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, string SearchString, s32 Offset);
 
 internal search_lister_result
-EvaluateSearchLister (ui_interface* Interface, v2 TopLeft, v2 Dimension, string Title, 
+EvaluateSearchLister (ui_interface* Interface, v2 TopLeft, v2 Dimension, string Title,
                       string* ItemList, s32* ListLUT, s32 ListLength,
                       s32 HotItem,
                       string* SearchString, s32 SearchStringCursorPosition)

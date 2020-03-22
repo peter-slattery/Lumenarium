@@ -29,71 +29,56 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    r32 PanelWidth = PanelBounds.Max.x - PanelBounds.Min.x;
-    r32 PanelHeight = PanelBounds.Max.y - PanelBounds.Min.y;
+    ui_layout Layout = ui_CreateLayout(State->Interface_, PanelBounds);
+    v4 ListItemHover = State->Interface_.Style.ListBGHover;
+    v4 ListItemSelected = State->Interface_.Style.ListBGSelected;
     
-    v4 LineBGColors[] = {
-        { .16f, .16f, .16f, 1.f },
-        { .18f, .18f, .18f, 1.f },
-    };
-    
-    // TODO(Peter): use the new ui system
-    interface_list List = {};
-    List.LineBGColors = LineBGColors;
-    List.LineBGColorsCount = sizeof(LineBGColors) / sizeof(LineBGColors[0]);
-    List.LineBGHoverColor = v4{ .22f, .22f, .22f, 1.f };
-    List.ListBounds = PanelBounds;
-    List.ListElementDimensions = v2{
-        Width(PanelBounds), 
-        (r32)(State->Interface.Font->PixelHeight + 8),
-    };
-    
-    v2 TextOffset = v2{10, 4};
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 0, 256);
     
-    u32 LineCount = (u32)(PanelHeight / List.ListElementDimensions.y) + 1;
-    for (u32 i = 0; i < LineCount; i++)
+    u32 LineCount = (u32)(Height(PanelBounds) / Layout.RowHeight) + 1;
+    u32 LinesDrawn = 0;
+    u32 AssembliesToDraw = GSMin(LineCount, State->ActiveAssemblyIndecies.Used);
+    for (; LinesDrawn < AssembliesToDraw; LinesDrawn++)
     {
-        rect ElementBounds = DrawListElementBackground(&List, Mouse, RenderBuffer);
+        rect Bounds = ui_ReserveElementBounds(&Layout);
+        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, LinesDrawn);
+        ui_FillRect(&State->Interface_, Bounds, ListItemBGColor);
+        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(LinesDrawn);
+        assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+        PrintF(&TempString, "%S", Assembly.Name);
         
-        if (i < State->ActiveAssemblyIndecies.Used)
+        ui_layout ItemLayout = ui_CreateLayout(State->Interface_, Bounds);
+        ui_StartRow(&ItemLayout, 2);
         {
-            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-            assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-            PrintF(&TempString, "%S", Assembly.Name);
-            
-            DrawString(RenderBuffer, TempString, State->Interface.Font, ElementBounds.Min + TextOffset, WhiteV4);
-            
-            PrintF(&TempString, "X");
-            
-            v2 XLowerRight = v2{ElementBounds.Max.x - 25, ElementBounds.Min.y + TextOffset.y};
-            v2 XLowerLeft = DrawString(RenderBuffer, TempString, State->Interface.Font, XLowerRight, WhiteV4, Align_Right);
-            
-            if (MouseButtonTransitionedUp(Mouse.LeftButtonState) 
-                && PointIsInRange(Mouse.Pos, XLowerLeft, ElementBounds.Max))
+            ui_LayoutDrawString(&State->Interface_, &ItemLayout, TempString, State->Interface_.Style.TextColor);
+            if (ui_LayoutButton(&State->Interface_, &ItemLayout, MakeStringLiteral("X"), ListItemBGColor, ListItemHover, ListItemSelected))
             {
                 UnloadAssembly(AssemblyHandle.Index, State, Context);
             }
         }
-        else if (i == State->ActiveAssemblyIndecies.Used)
+        ui_EndRow(&ItemLayout);
+    }
+    
+    if (LinesDrawn < LineCount)
+    {
+        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, LinesDrawn++);
+        PrintF(&TempString, "+ Add Assembly");
+        if (ui_LayoutButton(&State->Interface_, &Layout, TempString, ListItemBGColor, ListItemHover, ListItemSelected))
         {
-            PrintF(&TempString, "+ Add Assembly");
-            v2 TextMinX = ElementBounds.Min + TextOffset;
-            DrawString(RenderBuffer, TempString, State->Interface.Font, TextMinX, WhiteV4);
-            
-            if (MouseButtonTransitionedUp(Mouse.LeftButtonState)
-                && PointIsInRange(Mouse.Pos, ElementBounds.Min, ElementBounds.Max))
+            char FilePath[256];
+            b32 Success = Context.PlatformGetFilePath(FilePath, 256, "Foldhaus Files\0*.fold\0\0");
+            if (Success)
             {
-                char FilePath[256];
-                b32 Success = Context.PlatformGetFilePath(FilePath, 256, "Foldhaus Files\0*.fold\0\0");
-                if (Success)
-                {
-                    LoadAssembly(State, Context, FilePath);
-                }
+                LoadAssembly(State, Context, FilePath);
             }
         }
         
-        List.ListElementsCount++;
+        for (; LinesDrawn < LineCount; LinesDrawn++)
+        {
+            rect Bounds = ui_ReserveElementBounds(&Layout);
+            ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, LinesDrawn);
+            ui_FillRect(&State->Interface_, Bounds, ListItemBGColor);
+        }
     }
 }
 

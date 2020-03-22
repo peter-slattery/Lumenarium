@@ -174,7 +174,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
                 NewStartFrame = AnimationBlock->Range.Max - 1;
             }
         }
-        AnimationBlock->Range.Min = NewStartFrame; 
+        AnimationBlock->Range.Min = NewStartFrame;
     }
     else if (GSAbs(Mouse.DownPos.x - ClipInitialEndFrameXPosition) < CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE)
     {
@@ -257,7 +257,7 @@ SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, frame_range Visible
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
     panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
-    frame_range Range = State->AnimationSystem.PlayableRange; 
+    frame_range Range = State->AnimationSystem.PlayableRange;
     u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, Range);
     gs_list_handle NewBlockHandle = AddAnimationBlock(MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, State->SelectedAnimationLayer, &State->AnimationSystem);
     SelectAnimationBlock(NewBlockHandle, State);
@@ -301,7 +301,7 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
     PushRenderQuad2D(RenderBuffer, RectExpand(BarBounds), v4{.16f, .16f, .16f, 1.f});
     
     // Mouse clicked inside frame nubmer bar -> change current frame on timeline
-    if (MouseButtonTransitionedDown(Mouse.LeftButtonState) && 
+    if (MouseButtonTransitionedDown(Mouse.LeftButtonState) &&
         PointIsInRange(Mouse.DownPos, RectExpand(BarBounds)))
     {
         StartDragTimeMarker(BarBounds, VisibleFrames, State);
@@ -322,7 +322,7 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
     
     // Time Slider
     if (FrameIsInRange(AnimationSystem->CurrentFrame, VisibleFrames))
-    { 
+    {
         r32 FrameAtPercentVisibleRange = FrameToPercentRange(AnimationSystem->CurrentFrame, VisibleFrames);
         r32 SliderX = GSLerp(BarBounds.Min.x, BarBounds.Max.x, FrameAtPercentVisibleRange);
         
@@ -348,7 +348,7 @@ DrawTimelineRangeBar (animation_system* AnimationSystem, animation_timeline_stat
     r32 BarWidth = Width(BarBounds);
     PushRenderQuad2D(RenderBuffer, RectExpand(BarBounds), v4{.16f, .16f, .16f, 1.f});
     
-    r32 PlayableFrames = (r32)GetFrameCount(AnimationSystem->PlayableRange); 
+    r32 PlayableFrames = (r32)GetFrameCount(AnimationSystem->PlayableRange);
     v2 SliderBarDim = v2{25, BarHeight};
     
     // Convert Frames To Pixels
@@ -357,7 +357,7 @@ DrawTimelineRangeBar (animation_system* AnimationSystem, animation_timeline_stat
     v2 RangeMinSliderMin = v2{BarBounds.Min.x + (VisibleMinPercentPlayable * Width(BarBounds)), BarBounds.Min.y};
     v2 RangeMaxSliderMin = v2{BarBounds.Min.x + (VisibleMaxPercentPlayable * Width(BarBounds)) - 25, BarBounds.Min.y};
     
-    if (MouseButtonHeldDown(Mouse.LeftButtonState) || 
+    if (MouseButtonHeldDown(Mouse.LeftButtonState) ||
         MouseButtonTransitionedUp(Mouse.LeftButtonState))
     {
         v2 MouseDragOffset = Mouse.Pos - Mouse.DownPos;
@@ -385,7 +385,7 @@ DrawTimelineRangeBar (animation_system* AnimationSystem, animation_timeline_stat
     Result.Min = VisibleMinPercentPlayable * VisibleFrameCount;
     Result.Max = VisibleMaxPercentPlayable * VisibleFrameCount;
     
-    if (MouseButtonTransitionedUp(Mouse.LeftButtonState)) 
+    if (MouseButtonTransitionedUp(Mouse.LeftButtonState))
     {
         TimelineState->VisibleRange = Result;
     }
@@ -488,9 +488,9 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
         // If either end is in the range, we should draw it
         b32 RangeIsVisible = (FrameIsInRange(AnimationBlockAt.Range.Min, AdjustedViewRange) ||
                               FrameIsInRange(AnimationBlockAt.Range.Max, AdjustedViewRange));
-        // If neither end is in the range, but the ends surround the visible range, 
+        // If neither end is in the range, but the ends surround the visible range,
         // we should still draw it.
-        RangeIsVisible |= (AnimationBlockAt.Range.Min <= AdjustedViewRange.Min && 
+        RangeIsVisible |= (AnimationBlockAt.Range.Min <= AdjustedViewRange.Min &&
                            AnimationBlockAt.Range.Max>= AdjustedViewRange.Max);
         if (RangeIsVisible)
         {
@@ -589,15 +589,15 @@ AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* R
     ui_layout TitleBarLayout = ui_CreateLayout(*Interface, TitleBarBounds);
     ui_StartRow(&TitleBarLayout, 3);
     {
-        if (ui_LayoutButton(Interface, MakeStringLiteral("Pause"), &TitleBarLayout))
+        if (ui_LayoutButton(Interface, &TitleBarLayout, MakeStringLiteral("Pause")))
         {
             State->AnimationSystem.TimelineShouldAdvance = true;
         }
-        if (ui_LayoutButton(Interface, MakeStringLiteral("Play"), &TitleBarLayout))
+        if (ui_LayoutButton(Interface, &TitleBarLayout, MakeStringLiteral("Play")))
         {
             State->AnimationSystem.TimelineShouldAdvance = false;
         }
-        if (ui_LayoutButton(Interface, MakeStringLiteral("Stop"), &TitleBarLayout))
+        if (ui_LayoutButton(Interface, &TitleBarLayout, MakeStringLiteral("Stop")))
         {
             State->AnimationSystem.TimelineShouldAdvance = false;
             State->AnimationSystem.CurrentFrame = 0;
