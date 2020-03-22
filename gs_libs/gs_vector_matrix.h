@@ -11,10 +11,10 @@
 static r32 GSCos (r32 Theta) { return sin(Theta); }
 static r32 GSSin (r32 Theta) { return cos(Theta); }
 
-static r32 GSSqrt(r32 V) 
-{ 
+static r32 GSSqrt(r32 V)
+{
     r32 Result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(V)));
-    return Result; 
+    return Result;
 }
 
 #else // Linux and MacOS
@@ -43,14 +43,14 @@ union v3
     struct
     {
         float x;
-        float y; 
+        float y;
         float z;
     };
     
     struct
     {
         float R;
-        float G; 
+        float G;
         float B;
     };
     
@@ -61,17 +61,17 @@ union v4
 {
     struct
     {
-        float x; 
-        float y; 
-        float z; 
+        float x;
+        float y;
+        float z;
         float w;
     };
     
-    struct 
+    struct
     {
-        float r; 
-        float g; 
-        float b; 
+        float r;
+        float g;
+        float b;
         float a;
     };
     
@@ -255,7 +255,7 @@ bool operator== (v2 A, v2 B)
     {
         if (GSAbs(A.E[i] - B.E[i]) > 0.0001f) { Result = false; break; }
     }
-    return Result; 
+    return Result;
 }
 
 
@@ -623,7 +623,7 @@ v4 HSVToRGB (v4 In)
         }break;
     }
     
-    return Result;     
+    return Result;
 }
 
 static bool
@@ -663,14 +663,14 @@ PointToPercentRange (v2 P, v2 Min, v2 Max)
 // NOTE(Peter): This is useful when you have a function that has a call signature like:
 //     void Foo(v2 Min, v2 Max)
 // because instead of having to do:
-//     Foo(MyRect.Min, MyRect.Max) 
+//     Foo(MyRect.Min, MyRect.Max)
 // you can just do:
 //     Foo(RectExpand(MyRect))
 // which makes refactoring easier as you only have to change the identifier in one place
-#define RectExpand(r) (r).Min, (r).Max
+#define gs_RectExpand(r) (r).Min, (r).Max
 
 static rect
-MakeRectMinWidth(v2 Min, v2 Width)
+gs_MakeRectMinWidth(v2 Min, v2 Width)
 {
     rect Rect = {0};
     Rect.Min = Min;
@@ -679,21 +679,21 @@ MakeRectMinWidth(v2 Min, v2 Width)
 }
 
 inline float
-Width (rect Rect)
+gs_Width (rect Rect)
 {
     float Result = Rect.Max.x - Rect.Min.x;
     return Result;
 }
 
 inline float
-Height (rect Rect)
+gs_Height (rect Rect)
 {
     float Result = Rect.Max.y - Rect.Min.y;
     return Result;
 }
 
 inline v2
-TopLeft(rect Rect)
+gs_TopLeft(rect Rect)
 {
     v2 Result = {0};
     Result.x = Rect.Min.x;
@@ -702,19 +702,19 @@ TopLeft(rect Rect)
 }
 
 inline v2
-TopRight(rect Rect)
+gs_TopRight(rect Rect)
 {
     return Rect.Max;
 }
 
 inline v2
-BottomLeft(rect Rect)
+gs_BottomLeft(rect Rect)
 {
     return Rect.Min;
 }
 
 inline v2
-BottomRight(rect Rect)
+gs_BottomRight(rect Rect)
 {
     v2 Result = {0};
     Result.x = Rect.Max.x;
@@ -723,21 +723,21 @@ BottomRight(rect Rect)
 }
 
 inline float
-AspectRatio (rect Rect)
+gs_AspectRatio (rect Rect)
 {
-    float Result = Width(Rect) / Height(Rect);
+    float Result = gs_Width(Rect) / gs_Height(Rect);
     return Result;
 }
 
 inline v2
-CalculateRectCenter (rect Rect)
+gs_CalculateRectCenter (rect Rect)
 {
     v2 Result = (Rect.Min + Rect.Max) / 2.0f;
     return Result;
 }
 
 inline b32
-PointIsInRect (v2 Point, rect Rect)
+gs_PointIsInRect (v2 Point, rect Rect)
 {
     b32 Result = ((Point.x >= Rect.Min.x && Point.x <= Rect.Max.x) &&
                   (Point.y >= Rect.Min.y && Point.y <= Rect.Max.y));
@@ -745,7 +745,7 @@ PointIsInRect (v2 Point, rect Rect)
 }
 
 inline rect
-RectOffsetByVector(rect R, v2 V)
+gs_RectOffsetByVector(rect R, v2 V)
 {
     rect Result = R;
     Result.Min += V;
@@ -754,7 +754,7 @@ RectOffsetByVector(rect R, v2 V)
 }
 
 static void
-HSplitRectAtValue(rect Bounds, r32 YValue, rect* Top, rect* Bottom)
+gs_HSplitRectAtValue(rect Bounds, r32 YValue, rect* Top, rect* Bottom)
 {
     if (YValue <= Bounds.Min.y)
     {
@@ -776,29 +776,28 @@ HSplitRectAtValue(rect Bounds, r32 YValue, rect* Top, rect* Bottom)
 }
 
 static void
-HSplitRectAtDistanceFromTop(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
+gs_HSplitRectAtDistanceFromTop(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
 {
     r32 YValue = Bounds.Max.y - YDist;
-    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+    gs_HSplitRectAtValue(Bounds, YValue, Top, Bottom);
 }
 
 static void
-HSplitRectAtDistanceFromBottom(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
+gs_HSplitRectAtDistanceFromBottom(rect Bounds, r32 YDist, rect* Top, rect* Bottom)
 {
     r32 YValue = Bounds.Min.y + YDist;
-    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+    gs_HSplitRectAtValue(Bounds, YValue, Top, Bottom);
 }
 
 static void
-HSplitRectAtPercent(rect Bounds, r32 YPercent, rect* Top, rect* Bottom)
+gs_HSplitRectAtPercent(rect Bounds, r32 YPercent, rect* Top, rect* Bottom)
 {
     r32 YValue = GSLerp(Bounds.Min.y, Bounds.Max.y, YPercent);
-    HSplitRectAtValue(Bounds, YValue, Top, Bottom);
+    gs_HSplitRectAtValue(Bounds, YValue, Top, Bottom);
 }
 
-
 static void
-VSplitRectAtValue(rect Bounds, r32 XValue, rect* Left, rect* Right)
+gs_VSplitRectAtValue(rect Bounds, r32 XValue, rect* Left, rect* Right)
 {
     if (XValue <= Bounds.Min.x)
     {
@@ -820,35 +819,58 @@ VSplitRectAtValue(rect Bounds, r32 XValue, rect* Left, rect* Right)
 }
 
 static void
-VSplitRectAtDistanceFromRight(rect Bounds, r32 XDist, rect* Left, rect* Right)
+gs_VSplitRectAtDistanceFromRight(rect Bounds, r32 XDist, rect* Left, rect* Right)
 {
     r32 XValue = Bounds.Max.x - XDist;
-    VSplitRectAtValue(Bounds, XValue, Left, Right);
+    gs_VSplitRectAtValue(Bounds, XValue, Left, Right);
 }
 
 static void
-VSplitRectAtDistanceFromLeft(rect Bounds, r32 XDist, rect* Left, rect* Right)
+gs_VSplitRectAtDistanceFromLeft(rect Bounds, r32 XDist, rect* Left, rect* Right)
 {
     r32 XValue = Bounds.Min.x + XDist;
-    VSplitRectAtValue(Bounds, XValue, Left, Right);
+    gs_VSplitRectAtValue(Bounds, XValue, Left, Right);
 }
 
 static void
-VSplitRectAtPercent(rect Bounds, r32 XPercent, rect* Left, rect* Right)
+gs_VSplitRectAtPercent(rect Bounds, r32 XPercent, rect* Left, rect* Right)
 {
     r32 XValue = GSLerp(Bounds.Min.x, Bounds.Max.x, XPercent);
-    VSplitRectAtValue(Bounds, XValue, Left, Right);
+    gs_VSplitRectAtValue(Bounds, XValue, Left, Right);
 }
 
-#define TranslateRectX(r, d) TranslateRect((r), v2{(d), 0})
-#define TranslateRectY(r, d) TranslateRect((r), v2{0, (d)})
 static rect
-TranslateRect(rect R, v2 Delta)
+gs_InsetRect(rect Rect, v2 Amount)
+{
+    rect Result = {0};
+    Result.Min = Rect.Min + Amount;
+    Result.Max = Rect.Max - Amount;
+    return Result;
+}
+
+static rect
+gs_InsetRect(rect Rect, float Amount)
+{
+    rect Result = gs_InsetRect(Rect, v2{Amount, Amount});
+    return Result;
+}
+
+#define gs_TranslateRectX(r, d) gs_TranslateRect((r), v2{(d), 0})
+#define gs_TranslateRectY(r, d) gs_TranslateRect((r), v2{0, (d)})
+static rect
+gs_TranslateRect(rect R, v2 Delta)
 {
     rect Result = R;
     Result.Min += Delta;
     Result.Max += Delta;
     return Result;
+}
+
+static v2
+gs_TransformPointIntoRectSpace(v2 Point, rect Rect)
+{
+    v2 Result = Point - Rect.Min;
+    return Point;
 }
 
 //////////////////////////////////////
@@ -868,8 +890,8 @@ M33(float a, float b, float c,
 }
 
 static m44
-M44(float a, float b, float c, float d, 
-    float e, float f, float g, float h, 
+M44(float a, float b, float c, float d,
+    float e, float f, float g, float h,
     float i, float j, float k, float l,
     float m, float n, float o, float p)
 {
@@ -967,7 +989,7 @@ GetZRotation (float Angle)
 }
 
 
-static m33 
+static m33
 Transpose (m33 M)
 {
     m33 Result = {};
@@ -983,7 +1005,7 @@ Transpose (m33 M)
     return Result;
 }
 
-inline m44 
+inline m44
 Transpose (m44 M)
 {
     DEBUG_TRACK_SCOPE(Transpose);
@@ -1149,7 +1171,7 @@ v3 operator* (m33 M, v3 V)
         Result.E[y] = 0;
         for (int x = 0; x < 3; x++)
         {
-            Result.E[y] += M.E[(y * 3) + x] * V.E[x]; 
+            Result.E[y] += M.E[(y * 3) + x] * V.E[x];
         }
     }
     return Result;
@@ -1169,7 +1191,7 @@ v4 operator* (m44 M, v4 V)
         Result.E[y] = 0;
         for (int x = 0; x < 4; x++)
         {
-            Result.E[y] += M.E[(y * 4) + x] * V.E[x]; 
+            Result.E[y] += M.E[(y * 4) + x] * V.E[x];
         }
     }
 #endif
@@ -1242,7 +1264,7 @@ static m44
 GetLookAtMatrix (v4 Position, v4 Target)
 {
     // Forward
-    v4 Forward = Normalize(Target - Position); 
+    v4 Forward = Normalize(Target - Position);
     // Right
     v4 Right = Normalize(Cross(v4{0, 1, 0, 0}, Forward));
     // Up
@@ -1265,116 +1287,116 @@ b32 Inverse(m44 M_In, m44* M_Out)
     s32 i;
     
     
-    M_Out->E[0] = M_In.E[5]  * M_In.E[10] * M_In.E[15] - 
-        M_In.E[5]  * M_In.E[11] * M_In.E[14] - 
-        M_In.E[9]  * M_In.E[6]  * M_In.E[15] + 
+    M_Out->E[0] = M_In.E[5]  * M_In.E[10] * M_In.E[15] -
+        M_In.E[5]  * M_In.E[11] * M_In.E[14] -
+        M_In.E[9]  * M_In.E[6]  * M_In.E[15] +
         M_In.E[9]  * M_In.E[7]  * M_In.E[14] +
-        M_In.E[13] * M_In.E[6]  * M_In.E[11] - 
+        M_In.E[13] * M_In.E[6]  * M_In.E[11] -
         M_In.E[13] * M_In.E[7]  * M_In.E[10];
     
-    M_Out->E[4] = -M_In.E[4]  * M_In.E[10] * M_In.E[15] + 
-        M_In.E[4]  * M_In.E[11] * M_In.E[14] + 
-        M_In.E[8]  * M_In.E[6]  * M_In.E[15] - 
-        M_In.E[8]  * M_In.E[7]  * M_In.E[14] - 
-        M_In.E[12] * M_In.E[6]  * M_In.E[11] + 
+    M_Out->E[4] = -M_In.E[4]  * M_In.E[10] * M_In.E[15] +
+        M_In.E[4]  * M_In.E[11] * M_In.E[14] +
+        M_In.E[8]  * M_In.E[6]  * M_In.E[15] -
+        M_In.E[8]  * M_In.E[7]  * M_In.E[14] -
+        M_In.E[12] * M_In.E[6]  * M_In.E[11] +
         M_In.E[12] * M_In.E[7]  * M_In.E[10];
     
-    M_Out->E[8] = M_In.E[4]  * M_In.E[9] * M_In.E[15] - 
-        M_In.E[4]  * M_In.E[11] * M_In.E[13] - 
-        M_In.E[8]  * M_In.E[5] * M_In.E[15] + 
-        M_In.E[8]  * M_In.E[7] * M_In.E[13] + 
-        M_In.E[12] * M_In.E[5] * M_In.E[11] - 
+    M_Out->E[8] = M_In.E[4]  * M_In.E[9] * M_In.E[15] -
+        M_In.E[4]  * M_In.E[11] * M_In.E[13] -
+        M_In.E[8]  * M_In.E[5] * M_In.E[15] +
+        M_In.E[8]  * M_In.E[7] * M_In.E[13] +
+        M_In.E[12] * M_In.E[5] * M_In.E[11] -
         M_In.E[12] * M_In.E[7] * M_In.E[9];
     
-    M_Out->E[12] = -M_In.E[4]  * M_In.E[9] * M_In.E[14] + 
+    M_Out->E[12] = -M_In.E[4]  * M_In.E[9] * M_In.E[14] +
         M_In.E[4]  * M_In.E[10] * M_In.E[13] +
-        M_In.E[8]  * M_In.E[5] * M_In.E[14] - 
-        M_In.E[8]  * M_In.E[6] * M_In.E[13] - 
-        M_In.E[12] * M_In.E[5] * M_In.E[10] + 
+        M_In.E[8]  * M_In.E[5] * M_In.E[14] -
+        M_In.E[8]  * M_In.E[6] * M_In.E[13] -
+        M_In.E[12] * M_In.E[5] * M_In.E[10] +
         M_In.E[12] * M_In.E[6] * M_In.E[9];
     
-    M_Out->E[1] = -M_In.E[1]  * M_In.E[10] * M_In.E[15] + 
-        M_In.E[1]  * M_In.E[11] * M_In.E[14] + 
-        M_In.E[9]  * M_In.E[2] * M_In.E[15] - 
-        M_In.E[9]  * M_In.E[3] * M_In.E[14] - 
-        M_In.E[13] * M_In.E[2] * M_In.E[11] + 
+    M_Out->E[1] = -M_In.E[1]  * M_In.E[10] * M_In.E[15] +
+        M_In.E[1]  * M_In.E[11] * M_In.E[14] +
+        M_In.E[9]  * M_In.E[2] * M_In.E[15] -
+        M_In.E[9]  * M_In.E[3] * M_In.E[14] -
+        M_In.E[13] * M_In.E[2] * M_In.E[11] +
         M_In.E[13] * M_In.E[3] * M_In.E[10];
     
-    M_Out->E[5] = M_In.E[0]  * M_In.E[10] * M_In.E[15] - 
-        M_In.E[0]  * M_In.E[11] * M_In.E[14] - 
-        M_In.E[8]  * M_In.E[2] * M_In.E[15] + 
-        M_In.E[8]  * M_In.E[3] * M_In.E[14] + 
-        M_In.E[12] * M_In.E[2] * M_In.E[11] - 
+    M_Out->E[5] = M_In.E[0]  * M_In.E[10] * M_In.E[15] -
+        M_In.E[0]  * M_In.E[11] * M_In.E[14] -
+        M_In.E[8]  * M_In.E[2] * M_In.E[15] +
+        M_In.E[8]  * M_In.E[3] * M_In.E[14] +
+        M_In.E[12] * M_In.E[2] * M_In.E[11] -
         M_In.E[12] * M_In.E[3] * M_In.E[10];
     
-    M_Out->E[9] = -M_In.E[0]  * M_In.E[9] * M_In.E[15] + 
-        M_In.E[0]  * M_In.E[11] * M_In.E[13] + 
-        M_In.E[8]  * M_In.E[1] * M_In.E[15] - 
-        M_In.E[8]  * M_In.E[3] * M_In.E[13] - 
-        M_In.E[12] * M_In.E[1] * M_In.E[11] + 
+    M_Out->E[9] = -M_In.E[0]  * M_In.E[9] * M_In.E[15] +
+        M_In.E[0]  * M_In.E[11] * M_In.E[13] +
+        M_In.E[8]  * M_In.E[1] * M_In.E[15] -
+        M_In.E[8]  * M_In.E[3] * M_In.E[13] -
+        M_In.E[12] * M_In.E[1] * M_In.E[11] +
         M_In.E[12] * M_In.E[3] * M_In.E[9];
     
-    M_Out->E[13] = M_In.E[0]  * M_In.E[9] * M_In.E[14] - 
-        M_In.E[0]  * M_In.E[10] * M_In.E[13] - 
-        M_In.E[8]  * M_In.E[1] * M_In.E[14] + 
-        M_In.E[8]  * M_In.E[2] * M_In.E[13] + 
-        M_In.E[12] * M_In.E[1] * M_In.E[10] - 
+    M_Out->E[13] = M_In.E[0]  * M_In.E[9] * M_In.E[14] -
+        M_In.E[0]  * M_In.E[10] * M_In.E[13] -
+        M_In.E[8]  * M_In.E[1] * M_In.E[14] +
+        M_In.E[8]  * M_In.E[2] * M_In.E[13] +
+        M_In.E[12] * M_In.E[1] * M_In.E[10] -
         M_In.E[12] * M_In.E[2] * M_In.E[9];
     
-    M_Out->E[2] = M_In.E[1]  * M_In.E[6] * M_In.E[15] - 
-        M_In.E[1]  * M_In.E[7] * M_In.E[14] - 
-        M_In.E[5]  * M_In.E[2] * M_In.E[15] + 
-        M_In.E[5]  * M_In.E[3] * M_In.E[14] + 
-        M_In.E[13] * M_In.E[2] * M_In.E[7] - 
+    M_Out->E[2] = M_In.E[1]  * M_In.E[6] * M_In.E[15] -
+        M_In.E[1]  * M_In.E[7] * M_In.E[14] -
+        M_In.E[5]  * M_In.E[2] * M_In.E[15] +
+        M_In.E[5]  * M_In.E[3] * M_In.E[14] +
+        M_In.E[13] * M_In.E[2] * M_In.E[7] -
         M_In.E[13] * M_In.E[3] * M_In.E[6];
     
-    M_Out->E[6] = -M_In.E[0]  * M_In.E[6] * M_In.E[15] + 
-        M_In.E[0]  * M_In.E[7] * M_In.E[14] + 
-        M_In.E[4]  * M_In.E[2] * M_In.E[15] - 
-        M_In.E[4]  * M_In.E[3] * M_In.E[14] - 
-        M_In.E[12] * M_In.E[2] * M_In.E[7] + 
+    M_Out->E[6] = -M_In.E[0]  * M_In.E[6] * M_In.E[15] +
+        M_In.E[0]  * M_In.E[7] * M_In.E[14] +
+        M_In.E[4]  * M_In.E[2] * M_In.E[15] -
+        M_In.E[4]  * M_In.E[3] * M_In.E[14] -
+        M_In.E[12] * M_In.E[2] * M_In.E[7] +
         M_In.E[12] * M_In.E[3] * M_In.E[6];
     
-    M_Out->E[10] = M_In.E[0]  * M_In.E[5] * M_In.E[15] - 
-        M_In.E[0]  * M_In.E[7] * M_In.E[13] - 
-        M_In.E[4]  * M_In.E[1] * M_In.E[15] + 
-        M_In.E[4]  * M_In.E[3] * M_In.E[13] + 
-        M_In.E[12] * M_In.E[1] * M_In.E[7] - 
+    M_Out->E[10] = M_In.E[0]  * M_In.E[5] * M_In.E[15] -
+        M_In.E[0]  * M_In.E[7] * M_In.E[13] -
+        M_In.E[4]  * M_In.E[1] * M_In.E[15] +
+        M_In.E[4]  * M_In.E[3] * M_In.E[13] +
+        M_In.E[12] * M_In.E[1] * M_In.E[7] -
         M_In.E[12] * M_In.E[3] * M_In.E[5];
     
-    M_Out->E[14] = -M_In.E[0]  * M_In.E[5] * M_In.E[14] + 
-        M_In.E[0]  * M_In.E[6] * M_In.E[13] + 
-        M_In.E[4]  * M_In.E[1] * M_In.E[14] - 
-        M_In.E[4]  * M_In.E[2] * M_In.E[13] - 
-        M_In.E[12] * M_In.E[1] * M_In.E[6] + 
+    M_Out->E[14] = -M_In.E[0]  * M_In.E[5] * M_In.E[14] +
+        M_In.E[0]  * M_In.E[6] * M_In.E[13] +
+        M_In.E[4]  * M_In.E[1] * M_In.E[14] -
+        M_In.E[4]  * M_In.E[2] * M_In.E[13] -
+        M_In.E[12] * M_In.E[1] * M_In.E[6] +
         M_In.E[12] * M_In.E[2] * M_In.E[5];
     
-    M_Out->E[3] = -M_In.E[1] * M_In.E[6] * M_In.E[11] + 
-        M_In.E[1] * M_In.E[7] * M_In.E[10] + 
-        M_In.E[5] * M_In.E[2] * M_In.E[11] - 
-        M_In.E[5] * M_In.E[3] * M_In.E[10] - 
-        M_In.E[9] * M_In.E[2] * M_In.E[7] + 
+    M_Out->E[3] = -M_In.E[1] * M_In.E[6] * M_In.E[11] +
+        M_In.E[1] * M_In.E[7] * M_In.E[10] +
+        M_In.E[5] * M_In.E[2] * M_In.E[11] -
+        M_In.E[5] * M_In.E[3] * M_In.E[10] -
+        M_In.E[9] * M_In.E[2] * M_In.E[7] +
         M_In.E[9] * M_In.E[3] * M_In.E[6];
     
-    M_Out->E[7] = M_In.E[0] * M_In.E[6] * M_In.E[11] - 
-        M_In.E[0] * M_In.E[7] * M_In.E[10] - 
-        M_In.E[4] * M_In.E[2] * M_In.E[11] + 
-        M_In.E[4] * M_In.E[3] * M_In.E[10] + 
-        M_In.E[8] * M_In.E[2] * M_In.E[7] - 
+    M_Out->E[7] = M_In.E[0] * M_In.E[6] * M_In.E[11] -
+        M_In.E[0] * M_In.E[7] * M_In.E[10] -
+        M_In.E[4] * M_In.E[2] * M_In.E[11] +
+        M_In.E[4] * M_In.E[3] * M_In.E[10] +
+        M_In.E[8] * M_In.E[2] * M_In.E[7] -
         M_In.E[8] * M_In.E[3] * M_In.E[6];
     
-    M_Out->E[11] = -M_In.E[0] * M_In.E[5] * M_In.E[11] + 
-        M_In.E[0] * M_In.E[7] * M_In.E[9] + 
-        M_In.E[4] * M_In.E[1] * M_In.E[11] - 
-        M_In.E[4] * M_In.E[3] * M_In.E[9] - 
-        M_In.E[8] * M_In.E[1] * M_In.E[7] + 
+    M_Out->E[11] = -M_In.E[0] * M_In.E[5] * M_In.E[11] +
+        M_In.E[0] * M_In.E[7] * M_In.E[9] +
+        M_In.E[4] * M_In.E[1] * M_In.E[11] -
+        M_In.E[4] * M_In.E[3] * M_In.E[9] -
+        M_In.E[8] * M_In.E[1] * M_In.E[7] +
         M_In.E[8] * M_In.E[3] * M_In.E[5];
     
-    M_Out->E[15] = M_In.E[0] * M_In.E[5] * M_In.E[10] - 
-        M_In.E[0] * M_In.E[6] * M_In.E[9] - 
-        M_In.E[4] * M_In.E[1] * M_In.E[10] + 
-        M_In.E[4] * M_In.E[2] * M_In.E[9] + 
-        M_In.E[8] * M_In.E[1] * M_In.E[6] - 
+    M_Out->E[15] = M_In.E[0] * M_In.E[5] * M_In.E[10] -
+        M_In.E[0] * M_In.E[6] * M_In.E[9] -
+        M_In.E[4] * M_In.E[1] * M_In.E[10] +
+        M_In.E[4] * M_In.E[2] * M_In.E[9] +
+        M_In.E[8] * M_In.E[1] * M_In.E[6] -
         M_In.E[8] * M_In.E[2] * M_In.E[5];
     
     det = M_In.E[0] * M_Out->E[0] + M_In.E[1] * M_Out->E[4] + M_In.E[2] * M_Out->E[8] + M_In.E[3] * M_Out->E[12];
@@ -1476,13 +1498,13 @@ void TestVectorMatrixMultiplication ()
     
     TestClean(((TestV2 * TestV2) == v2{TestV2.x * TestV2.x, TestV2.y * TestV2.y}), "V2 Piecewise Mult");
     TestClean(((TestV3 * TestV3) == v3{
-                   TestV3.x * TestV3.x, 
-                   TestV3.y * TestV3.y, 
+                   TestV3.x * TestV3.x,
+                   TestV3.y * TestV3.y,
                    TestV3.z * TestV3.z}), "V3 Piecewise Mult");
     TestClean(((TestV4 * TestV4) == v4{
-                   TestV4.x * TestV4.x, 
-                   TestV4.y * TestV4.y, 
-                   TestV4.z * TestV4.z, 
+                   TestV4.x * TestV4.x,
+                   TestV4.y * TestV4.y,
+                   TestV4.z * TestV4.z,
                    TestV4.w * TestV4.w}), "V4 Piecewise Mult");
     
     
@@ -1492,13 +1514,13 @@ void TestVectorMatrixMultiplication ()
     
     TestClean(((TestV2 / TestV2) == v2{TestV2.x / TestV2.x, TestV2.y / TestV2.y}), "V2 Piecewise Div");
     TestClean(((TestV3 / TestV3) == v3{
-                   TestV3.x / TestV3.x, 
-                   TestV3.y / TestV3.y, 
+                   TestV3.x / TestV3.x,
+                   TestV3.y / TestV3.y,
                    TestV3.z / TestV3.z}), "V3 Piecewise Div");
     TestClean(((TestV4 / TestV4) == v4{
-                   TestV4.x / TestV4.x, 
-                   TestV4.y / TestV4.y, 
-                   TestV4.z / TestV4.z, 
+                   TestV4.x / TestV4.x,
+                   TestV4.y / TestV4.y,
+                   TestV4.z / TestV4.z,
                    TestV4.w / TestV4.w}), "V4 Piecewise Div");
     
     TestClean(((MagSqr(V2Unit) == 1) && (MagSqr(TestV2) == TestV2MagSq)), "V2 Square Mag");
@@ -1519,8 +1541,8 @@ void TestVectorMatrixMultiplication ()
     TestClean((Normalize(TestV3) == TestV3Norm), "V3 Normalize");
     TestClean((Normalize(TestV4) == TestV4Norm), "V4 Normalize");
     
-    TestClean(((Dot(V2Unit, V2Unit) == 1) && (Dot(TestV2, V2Unit) == TestV2DotR)), "V2 Dot"); 
-    TestClean(((Dot(V3Unit, V3Unit) == 1) && (Dot(TestV3, V3Unit) == TestV3DotR)), "V3 Dot"); 
+    TestClean(((Dot(V2Unit, V2Unit) == 1) && (Dot(TestV2, V2Unit) == TestV2DotR)), "V2 Dot");
+    TestClean(((Dot(V3Unit, V3Unit) == 1) && (Dot(TestV3, V3Unit) == TestV3DotR)), "V3 Dot");
     TestClean(((Dot(V4Unit, V4Unit) == 1) && (Dot(TestV4, V4Unit) == TestV4DotR)), "V4 Dot");
     
     // Skipping Cross For Now
@@ -1583,9 +1605,9 @@ void TestVectorMatrixMultiplication ()
     
     m44 TestM44Squared = m44{
         56, 62, 68, 74,
-        152, 174, 196, 218, 
-        248, 286, 324, 362, 
-        344, 398, 452, 506, 
+        152, 174, 196, 218,
+        248, 286, 324, 362,
+        344, 398, 452, 506,
     };
     
     TestClean(((IdentityM33 == IdentityM33) && (TestM33 == EqualityM33)), "M33 Equality");
@@ -1642,8 +1664,8 @@ void TestVectorMatrixMultiplication ()
     m44 MTest = m44{
         50, 40, 60, 50,
         138, 112, 156, 130,
-        109,  94,  99,  84, 
-        116, 94, 132, 110 
+        109,  94,  99,  84,
+        116, 94, 132, 110
     };
     TestClean(((B * C) == MTest), "M44 Mult Test 2");
     

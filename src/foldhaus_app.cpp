@@ -12,8 +12,8 @@ internal v4
 MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
 {
     DEBUG_TRACK_SCOPE(MouseToWorldRay);
-    r32 X = ((2.0f * MouseX) / Width(WindowBounds)) - 1;
-    r32 Y = ((2.0f * MouseY) / Height(WindowBounds)) - 1;
+    r32 X = ((2.0f * MouseX) / gs_Width(WindowBounds)) - 1;
+    r32 Y = ((2.0f * MouseY) / gs_Height(WindowBounds)) - 1;
     
     v4 ScreenPos = v4{X, Y, -1, 1};
     
@@ -82,8 +82,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     *State->GlobalLog = {0};
     
     s32 CommandQueueSize = 32;
-    command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent, 
-                                                        command_queue_entry, 
+    command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent,
+                                                        command_queue_entry,
                                                         CommandQueueSize);
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
@@ -127,9 +127,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
                 u32 CodepointW, CodepointH;
                 Context.PlatformDrawFontCodepoint(
                                                   Font->BitmapMemory,
-                                                  Font->BitmapWidth, 
+                                                  Font->BitmapWidth,
                                                   Font->BitmapHeight,
-                                                  CodepointX, CodepointY, 
+                                                  CodepointX, CodepointY,
                                                   Codepoint, FontInfo,
                                                   &CodepointW, &CodepointH);
                 
@@ -138,10 +138,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
             
             State->Interface.Font = Font;
             
-            Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory, 
+            Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory,
                                                                             Font->BitmapWidth, Font->BitmapHeight);
-        } 
-        else 
+        }
+        else
         {
             LogError(State->GlobalLog, "Unable to load font");
         }
@@ -169,7 +169,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
     
     State->Camera.FieldOfView = DegreesToRadians(45.0f);
-    State->Camera.AspectRatio = AspectRatio(State->WindowBounds);
+    State->Camera.AspectRatio = gs_AspectRatio(State->WindowBounds);
     State->Camera.Near = 1.0f;
     State->Camera.Far = 100.0f;
     State->Camera.Position = v3{0, 0, -250};
@@ -242,20 +242,20 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
         {
             input_entry Event = InputQueue.Entries[EventIdx];
             
-            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege 
-            // Down and Up over Held. In other words, we don't want to call a Held command on the 
+            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege
+            // Down and Up over Held. In other words, we don't want to call a Held command on the
             // frame when the button was released, even if the command is registered to both events
             if (KeyTransitionedDown(Event))
             {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue);
             }
             else if (KeyTransitionedUp(Event))
             {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue);
             }
             else if (KeyHeldDown(Event))
             {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue); 
+                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue);
             }
         }
     }
@@ -292,8 +292,8 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
         NewBuffer->Next = 0;
         
         // Append
-        if (!Result) { 
-            Result = NewBuffer; 
+        if (!Result) {
+            Result = NewBuffer;
             Head = Result;
         }
         Head->Next = NewBuffer;
@@ -325,21 +325,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
-    // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically 
+    // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(&State->Transient);
     Context->Mouse.CursorType = CursorType_Arrow;
     
     HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse);
     
-    if (State->AnimationSystem.TimelineShouldAdvance) { 
+    if (State->AnimationSystem.TimelineShouldAdvance) {
         // TODO(Peter): Revisit this. This implies that the framerate of the animation system
         // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-        State->AnimationSystem.CurrentFrame += 1; 
+        State->AnimationSystem.CurrentFrame += 1;
         // Loop back to the beginning
         if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.PlayableRange.Max)
         {
-            State->AnimationSystem.CurrentFrame = 0; 
+            State->AnimationSystem.CurrentFrame = 0;
         }
     }
     
@@ -386,9 +386,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 // TODO(Peter): Temporary
                 switch(Block.AnimationProcHandle)
                 {
-                    case 1: 
+                    case 1:
                     {
-                        TestPatternOne(&LayerLEDBuffers[Layer], SecondsIntoBlock); 
+                        TestPatternOne(&LayerLEDBuffers[Layer], SecondsIntoBlock);
                     }break;
                     
                     case 2:
@@ -498,7 +498,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    PushRenderOrthographic(RenderBuffer, 0, 0, Width(State->WindowBounds), Height(State->WindowBounds));
+    PushRenderOrthographic(RenderBuffer, 0, 0, gs_Width(State->WindowBounds), gs_Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
     
     State->WindowBounds = Context->WindowBounds;

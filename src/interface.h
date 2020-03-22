@@ -207,8 +207,9 @@ struct ui_layout
     r32 RowYAt;
     
     b32 DrawHorizontal;
-    u32 RowDivisions;
-    u32 RowElementsCount;
+    u32 ColumnsMax;
+    r32* ColumnWidths;
+    u32 ColumnsCount;
 };
 
 struct ui_interface
@@ -230,11 +231,12 @@ ui_CreateLayout(ui_interface Interface, rect Bounds)
 }
 
 static void
-ui_StartRow(ui_layout* Layout, u32 RowDivisions)
+ui_StartRow(ui_layout* Layout, u32 ColumnsMax)
 {
     Layout->DrawHorizontal = true;
-    Layout->RowDivisions = RowDivisions;
-    Layout->RowElementsCount = 0;
+    Layout->ColumnsMax = ColumnsMax;
+    Layout->ColumnWidths = 0;
+    Layout->ColumnsCount = 0;
 }
 
 static void
@@ -244,9 +246,20 @@ ui_StartRow(ui_layout* Layout)
 }
 
 static void
+ui_StartRow(ui_layout* Layout, u32 ColumnsMax, r32* ColumnWidths)
+{
+    Layout->DrawHorizontal = true;
+    Layout->ColumnsMax = ColumnsMax;
+    Layout->ColumnWidths = ColumnWidths;
+    Layout->ColumnsCount = 0;
+}
+
+static void
 ui_EndRow(ui_layout* Layout)
 {
     Layout->DrawHorizontal = false;
+    Layout->ColumnWidths = 0;
+    Layout->RowYAt -= Layout->RowHeight;
 }
 
 static b32
@@ -261,19 +274,32 @@ ui_TryReserveElementBounds(ui_layout* Layout, rect* Bounds)
     }
     else
     {
-        if (Layout->RowDivisions > 0)
+        if (Layout->ColumnsMax > 0)
         {
-            Assert(Layout->RowElementsCount < Layout->RowDivisions);
-            r32 ElementWidth = Width(Layout->Bounds) / Layout->RowDivisions;
-            Bounds->Min = {
-                Layout->Bounds.Min.x + (ElementWidth * Layout->RowElementsCount) + Layout->Margin.x,
-                Layout->RowYAt
-            };
-            Bounds->Max = {
-                Bounds->Min.x + ElementWidth - Layout->Margin.x,
-                Bounds->Min.y + Layout->RowHeight
-            };
-            Layout->RowElementsCount++;
+            Assert(Layout->ColumnsCount < Layout->ColumnsMax);
+            if (Layout->ColumnWidths != 0)
+            {
+                v2 Min = { Layout->Bounds.Min.x, Layout->RowYAt };
+                for (u32 i = 0; i < Layout->ColumnsCount; i++)
+                {
+                    Min.x += Layout->ColumnWidths[i];
+                }
+                Bounds->Min = Min;
+                Bounds->Max = Bounds->Min + v2{ Layout->ColumnWidths[Layout->ColumnsCount], Layout->RowHeight };
+            }
+            else
+            {
+                r32 ElementWidth = gs_Width(Layout->Bounds) / Layout->ColumnsMax;
+                Bounds->Min = {
+                    Layout->Bounds.Min.x + (ElementWidth * Layout->ColumnsCount) + Layout->Margin.x,
+                    Layout->RowYAt
+                };
+                Bounds->Max = {
+                    Bounds->Min.x + ElementWidth - Layout->Margin.x,
+                    Bounds->Min.y + Layout->RowHeight
+                };
+            }
+            Layout->ColumnsCount++;
         }
         else
         {
@@ -302,6 +328,17 @@ ui_ReserveElementBounds(ui_layout* Layout)
     return Bounds;
 }
 
+static rect
+ui_LayoutRemaining(ui_layout Layout)
+{
+    rect Result = Layout.Bounds;
+    Result.Max.y = Layout.RowYAt;
+    if (Layout.DrawHorizontal)
+    {
+        Result.Max.y -= Layout.RowHeight;
+    }
+    return Result;
+}
 //
 // Drawing Functions
 //
@@ -309,7 +346,7 @@ ui_ReserveElementBounds(ui_layout* Layout)
 static void
 ui_FillRect(ui_interface* Interface, rect Bounds, v4 Color)
 {
-    PushRenderQuad2D(Interface->RenderBuffer, RectExpand(Bounds), Color);
+    PushRenderQuad2D(Interface->RenderBuffer, gs_RectExpand(Bounds), Color);
 }
 
 static void
@@ -371,7 +408,7 @@ ui_Button(ui_interface* Interface, string Text, rect Bounds, v4 InactiveColor, v
 {
     b32 Pressed = false;
     v4 ButtonBG = InactiveColor;
-    if (PointIsInRect(Interface->Mouse.Pos, Bounds))
+    if (gs_PointIsInRect(Interface->Mouse.Pos, Bounds))
     {
         ButtonBG = HoverColor;
         if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))

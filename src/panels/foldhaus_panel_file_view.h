@@ -44,10 +44,10 @@ FileView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuff
     
     rect ListBounds = {0};
     ListBounds.Min = PanelBounds.Min;
-    ListBounds.Max = BottomRight(HeaderBounds);
+    ListBounds.Max = gs_BottomRight(HeaderBounds);
     
-    PushRenderQuad2D(RenderBuffer, RectExpand(HeaderBounds), PinkV4);
-    PushRenderQuad2D(RenderBuffer, RectExpand(ListBounds), RedV4);
+    PushRenderQuad2D(RenderBuffer, gs_RectExpand(HeaderBounds), PinkV4);
+    PushRenderQuad2D(RenderBuffer, gs_RectExpand(ListBounds), RedV4);
 }
 
 

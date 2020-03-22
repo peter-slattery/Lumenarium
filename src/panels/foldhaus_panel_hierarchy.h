@@ -35,7 +35,7 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     
     string TempString = MakeString(PushArray(&State->Transient, char, 256), 0, 256);
     
-    u32 LineCount = (u32)(Height(PanelBounds) / Layout.RowHeight) + 1;
+    u32 LineCount = (u32)(gs_Height(PanelBounds) / Layout.RowHeight) + 1;
     u32 LinesDrawn = 0;
     u32 AssembliesToDraw = GSMin(LineCount, State->ActiveAssemblyIndecies.Used);
     for (; LinesDrawn < AssembliesToDraw; LinesDrawn++)

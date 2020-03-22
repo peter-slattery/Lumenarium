@@ -5,7 +5,6 @@
 //
 #ifndef ASSEMBLY_PARSER_CPP
 
-
 internal assembly_token
 ParseToken (tokenizer* Tokenizer)
 {
@@ -129,7 +128,7 @@ ParseLEDStrip (tokenizer* Tokenizer)
     Result.StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token).SignedIntValue;
     
     // Strip Type
-    // TODO(Peter): This is unused for now, and would be a branch point for parsing 
+    // TODO(Peter): This is unused for now, and would be a branch point for parsing
     // the rest of the info. Fix this.
     EatPastCharacter(Tokenizer, ',');
     EatWhitespace(Tokenizer);

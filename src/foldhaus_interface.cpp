@@ -123,7 +123,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             }
             else
             {
-                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Height(PanelBounds);
+                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / gs_Height(PanelBounds);
             }
         }
         else if (Panel->SplitDirection == PanelSplit_Vertical)
@@ -139,7 +139,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             }
             else
             {
-                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Width(PanelBounds); 
+                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / gs_Width(PanelBounds);
             }
         }
     }
@@ -241,12 +241,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
     
     if (XDistance > YDistance)
     {
-        r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Width(PanelBounds);
+        r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / gs_Width(PanelBounds);
         SplitPanelVertically(Panel, XPercent, PanelBounds, &State->PanelSystem);
     }
     else
     {
-        r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Height(PanelBounds);
+        r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / gs_Height(PanelBounds);
         SplitPanelHorizontally(Panel, YPercent, PanelBounds, &State->PanelSystem);
     }
     
@@ -301,11 +301,11 @@ HandleMouseDownPanelInteractionOrRecurse(panel* Panel, panel_edit_mode PanelEdit
         {
             rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
             rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-            if (PointIsInRect(Mouse.DownPos, BottomPanelBounds))
+            if (gs_PointIsInRect(Mouse.DownPos, BottomPanelBounds))
             {
                 HandleMouseDownPanelInteractionOrRecurse(&Panel->Bottom->Panel, PanelEditMode, BottomPanelBounds, Mouse, State);
             }
-            if (PointIsInRect(Mouse.DownPos, TopPanelBounds))
+            if (gs_PointIsInRect(Mouse.DownPos, TopPanelBounds))
             {
                 HandleMouseDownPanelInteractionOrRecurse(&Panel->Top->Panel, PanelEditMode, TopPanelBounds, Mouse, State);
             }
@@ -324,11 +324,11 @@ HandleMouseDownPanelInteractionOrRecurse(panel* Panel, panel_edit_mode PanelEdit
         {
             rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
             rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-            if (PointIsInRect(Mouse.DownPos, LeftPanelBounds))
+            if (gs_PointIsInRect(Mouse.DownPos, LeftPanelBounds))
             {
                 HandleMouseDownPanelInteractionOrRecurse(&Panel->Left->Panel, PanelEditMode, LeftPanelBounds, Mouse, State);
             }
-            if (PointIsInRect(Mouse.DownPos, RightPanelBounds))
+            if (gs_PointIsInRect(Mouse.DownPos, RightPanelBounds))
             {
                 HandleMouseDownPanelInteractionOrRecurse(&Panel->Right->Panel, PanelEditMode, RightPanelBounds, Mouse, State);
             }
@@ -403,14 +403,14 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, v2{FooterBounds.Max.x, FooterBounds.Min.y + 25}, v4{.5f, .5f, .5f, 1.f});
     PushRenderQuad2D(RenderBuffer, FooterBounds.Min, FooterBounds.Min + v2{25, 25}, WhiteV4);
     
-    rect PanelSelectBtnBounds = MakeRectMinWidth(FooterBounds.Min + v2{30, 1}, v2{100, 23});
+    rect PanelSelectBtnBounds = gs_MakeRectMinWidth(FooterBounds.Min + v2{30, 1}, v2{100, 23});
     
     if (Panel->PanelSelectionMenuOpen)
     {
-        rect ButtonBounds = MakeRectMinWidth(v2{ PanelSelectBtnBounds.Min.x, FooterBounds.Max.y }, v2{ 100, 25 });
+        rect ButtonBounds = gs_MakeRectMinWidth(v2{ PanelSelectBtnBounds.Min.x, FooterBounds.Max.y }, v2{ 100, 25 });
         
         v2 MenuMin = ButtonBounds.Min;
-        v2 MenuMax = v2{ButtonBounds.Min.x + Width(ButtonBounds), ButtonBounds.Min.y + (Height(ButtonBounds) * GlobalPanelDefsCount)};
+        v2 MenuMax = v2{ButtonBounds.Min.x + gs_Width(ButtonBounds), ButtonBounds.Min.y + (gs_Height(ButtonBounds) * GlobalPanelDefsCount)};
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
             && !PointIsInRange(Mouse.DownPos, MenuMin, MenuMax))
         {
@@ -428,7 +428,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
                 Panel->PanelSelectionMenuOpen = false;
             }
             
-            ButtonBounds = TranslateRectY(ButtonBounds, Height(ButtonBounds));
+            ButtonBounds = gs_TranslateRectY(ButtonBounds, gs_Height(ButtonBounds));
         }
     }
     
