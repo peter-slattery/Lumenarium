@@ -1,5 +1,5 @@
 pushd build
-clang++ ../osx/gs_osx.mm \
+clang++ ../src/gs_osx.mm \
 -g \
 -Wno-c11-extensions -Wno-unused-variable -Wno-unused-function \
 -framework Cocoa -framework OpenGL \
