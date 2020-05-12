@@ -23,3 +23,7 @@ IF NOT EXIST %BuildPath% mkdir %BuildPath%
 IF NOT EXIST %StatsPath% mkdir %StatsPath%
 
 C:\apps\ctime\ctime.exe -begin %StatsPath%\%StatsFile%
+echo.
+echo BUILDING TO %BuildPath%
+echo STATS IN %StatsPath%\%StatsFile%
+echo.
