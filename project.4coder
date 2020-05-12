@@ -26,19 +26,14 @@ load_paths = {
 command_list = {
  { .name = "build_application",
    .out = "*app compilation*", .footer_panel = false, .save_dirty_files = true,
-   .cmd = { { "build.bat" , .os = "win"   },
+   .cmd = { { "./build/build_app_msvc_win32_debug.bat" , .os = "win"   },
             { "./build.sh", .os = "linux" },
             { "./build.sh", .os = "mac"   }, }, },
  { .name = "build_meta",
    .out = "*meta compilation*", .footer_panel = false, .save_dirty_files = true,
-   .cmd = { { "build_meta.bat" , .os = "win"   },
+   .cmd = { { "./build/build_meta_msvc_win32_debug.bat" , .os = "win"   },
             { "./build_meta.sh", .os = "linux" },
             { "./build_meta.sh", .os = "mac"   }, }, },
- { .name = "run_application",
-   .out = "*run*", .footer_panel = false, .save_dirty_files = false,
-   .cmd = { { "build\\win32_foldhaus.exe", .os = "win"   },
-            { "build/main.exe" , .os = "linux" },
-            { "build/main.exe" , .os = "mac"   }, }, },
 };
 fkey_command[1] = "build_application";
 fkey_command[2] = "build_meta";

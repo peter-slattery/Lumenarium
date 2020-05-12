@@ -1,0 +1,162 @@
+TODO FOLDHAUS
+
+STREAM #0: Metaprogramming
+- Metaprogramming
+    - fix memory layout (remeber to profile before and after)
+- Make everything truly platform agnostic
+    - Application DLL
+        - math.h: present for trig functions (though this is part of the c-std lib, so it should be everywhere)
+        - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
+    - Meta Layer
+        - ???
+
+STREAM #1: 3D Overhaul
+- Rendering (Working on this elsewhere)
+    - OpenGL 3
+    - Vertex Buffers
+    - Clipping in shaders
+    - Layers
+    - Lighting
+
+- Camera
+    - pan
+    - zoom
+    - leds always face camera
+
+- Sculptures
+    - store scale in the assembly definition file
+    - cache led vertex buffers
+    - custom sculpture update functions (for motion)
+    - placing sculptures
+    - editing sculpture files (change universe output)
+    - led groups & subgroups - defined in file
+    - motion
+
+- Sculpture View
+    - mouse spatial interaction - handles, and hover for info
+    - debug capabilities (toggle strip/led/universe colors)
+
+STREAM #2: Memory
+- Buckets & Lists
+    - On second thought, I just really don't like these. Lets get rid of them, and put custom structures in place
+
+- Internal Log File
+    NOTE: This should not be a part of the debug system
+    - Save output log to a file continuously
+    - Have a window where we can view the log within the app
+    - Create a bar that displays the most recent error message
+    - :ErrorLogging
+
+STREAM #3: Nodes
+- Animation System
+    - blending between animation
+    - layers
+        - layer masks by sculpture
+    - interface for animation system
+        - add/remove layers
+        - select blend modes
+        - change which layer an animation is on
+    - setting start and end of timeline (how long is a loop)
+    - clips can have parameters that drive them?
+    - clips cannot overlap eachother on the same layer
+
+- Node System
+    - automatic node layout
+    - blending node layouts
+    - workspace -> animation block
+    - generating node workspace as code
+    - compiling node workspace
+    - hotload compiled pattern sets
+
+- Serialization
+    - saving scenes
+    - saving node graphs
+    - saving animation timelines
+    - saving projects
+
+STRAM #4: Completeness
+- Win32 Platform Layer
+    - Enumerate Directory Contents (you started this in win32_foldhaus_fileio.h)
+
+- Platform Layer
+    - Mac Platform Layer
+
+- Make sure it works without building in Debug Mode
+
+- Network
+    - Handle Error Cases
+    - Handle connecting a sculpture after launch
+    - Artnet
+    - Universe offsets (per sculpture)
+
+- Interface
+    - text input
+    - lister with icon options
+
+- Asset Loading
+    - Need to figure out which textures are currently in graphics memory and which need to be resubmitted
+    - images
+    - icon system - integrate with interface
+
+- Settings
+
+Assembly -> SACN interface
+- need to create a data structure in CreateDMXBuffers that prevents duplication of DMXBuffers.
+-   - thinking about a dictionary. Key is Universe, length is 256, create parallel arrays as necessary
+
+BUGS
+- Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
+
+Switch To Nodes
+- BUG: Connect a solid color node to output then try and pick a color. I think temporary node buffers are
+-      overwriting other data when they get evaluated. Bigger solution is to create a system of working
+-      led buffers that get assigned to nodes as needed.
+- gonna need to remove output node from the node lister
+- delete nodes
+-  - Simplify node storage
+-     - investigate if node connections can be operated on separately from the node headers
+-       - UpdatedThisFrame can probably go into each connection
+-  - Allow insertion/deletion within connection table
+-  - Allow inerstion/deletion within header table
+-  - maintain free list of connections and headers
+- separate node functionality from drawing the nodes
+-   - pull node position, size, etc out into a parallel data structure. after split names: node_header, interface_node
+-   - create separate files: foldhaus_node_engine, foldhaus_node_gui
+-   - store interface_nodes in binary tree
+-   - allow panning and zooming around the node canvas
+-   - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds
+- selector node (has a list of connections that it can switch between)
+- evaluation step (one node at a time)
+
+Hardening
+- Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel
+update functions
+- memory visualization
+- separate rendering thread
+
+
+UI Improvements
+- shift drag to 10x drag speed
+- Text editing improvements
+-   - draw cursor in node field under active edit
+-   - better/intelligent zero padding
+
+Application
+- More efficient HSV <-> RGB
+
+Development
+- Fix your scope time tracker to account for threads.
+- Nest scope times so you can see totals/dig in
+
+Optimization
+- patterns are asking to be multithreaded
+    - OOH I KNOW HOW TO DO THIS NOW!!! - each layer gets calculated independently, and combined
+      so just do each layer on its own thread, then combine as they are finished
+- probably want to convert as much color functions to use u32 Packed Colors
+-  - Probably want to think about this more. What about supporting different color depths
+-    for different output devices?
+
+Name
+- Splash screen (like blender) (thisll be fun)
+-  - Image importer (stb image? or find a png > bmp converter for the image you have)
+-  - Display on startup
