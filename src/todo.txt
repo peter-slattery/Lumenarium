@@ -3,6 +3,28 @@ TODO FOLDHAUS
 STREAM #0: Metaprogramming
 - Metaprogramming
     - fix memory layout (remeber to profile before and after)
+         - use a base_allocator struct to track allocations to begin with
+         - introduce memory_arenas
+         - get rid of gs_bucket and gs_list or whatever, just use custom bucket lists
+
+Profile 0:
+Total Allocated Space: 1186150 bytes, or 1.131201 MB
+Total Time: 0.062665 seconds
+
+Profile 1:
+Total Allocated Space: 1217890 bytes, or 1.161470 MB
+Total Time: 0.061852 seconds
+
+
+
+
+
+
+
+
+
+    - convert gs_memory_arena to using 64 bit integers
+    - investigate centralizing type table type creation in a similar place, rather than scattered all over
 - Make everything truly platform agnostic
     - Application DLL
         - math.h: present for trig functions (though this is part of the c-std lib, so it should be everywhere)

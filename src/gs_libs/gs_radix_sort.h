@@ -10,31 +10,31 @@ TODO
 #if !defined(GSRad_Assert)
 #define GSRad_Assert(expression) \
 if(!(expression)) { \
-*((int *)0) = 5; \
+    *((int *)0) = 5; \
 }
 #endif // !defined(GSRad_Assert)
 #endif // DEBUG
 
-typedef unsigned int gs_rad_u32;
+typedef unsigned long long int gs_rad_u64;
 typedef unsigned int gs_rad_b32;
 
 struct gs_radix_entry
 {
-    gs_rad_u32 Radix;
-    gs_rad_u32 ID;
+    gs_rad_u64 Radix;
+    gs_rad_u64 ID;
 };
 
 static void
-RadixSortInPlace_ (gs_radix_entry* Data, gs_rad_u32 Start, gs_rad_u32 End, gs_rad_u32 Iteration)
+RadixSortInPlace_ (gs_radix_entry* Data, gs_rad_u64 Start, gs_rad_u64 End, gs_rad_u64 Iteration)
 {
-    gs_rad_u32 Shift = Iteration;
-    gs_rad_u32 ZerosBoundary = Start;
-    gs_rad_u32 OnesBoundary = End - 1;
+    gs_rad_u64 Shift = Iteration;
+    gs_rad_u64 ZerosBoundary = Start;
+    gs_rad_u64 OnesBoundary = End - 1;
     
-    for (gs_rad_u32 d = Start; d < End; d++)
+    for (gs_rad_u64 d = Start; d < End; d++)
     {
         gs_radix_entry Entry = Data[ZerosBoundary];
-        gs_rad_u32 Place = (Entry.Radix >> Shift) & 0x1;
+        gs_rad_u64 Place = (Entry.Radix >> Shift) & 0x1;
         if (Place)
         {
             gs_radix_entry Evicted = Data[OnesBoundary];
@@ -56,10 +56,10 @@ RadixSortInPlace_ (gs_radix_entry* Data, gs_rad_u32 Start, gs_rad_u32 End, gs_ra
 }
 
 static void
-RadixSortInPlace (gs_radix_entry* Data, gs_rad_u32 Count)
+RadixSortInPlace (gs_radix_entry* Data, gs_rad_u64 Count)
 {
-    gs_rad_u32 Highest = 0;
-    for (gs_rad_u32 i = 0; i < Count; i++)
+    gs_rad_u64 Highest = 0;
+    for (gs_rad_u64 i = 0; i < Count; i++)
     {
         if (Data[i].Radix > Highest)
         {
@@ -67,7 +67,7 @@ RadixSortInPlace (gs_radix_entry* Data, gs_rad_u32 Count)
         }
     }
     
-    gs_rad_u32 Iterations = 0;
+    gs_rad_u64 Iterations = 0;
     while (Highest > 1)
     {
         ++Iterations;

@@ -3,9 +3,9 @@
 // Author: Peter Slattery
 // Creation Date: 2020-01-19
 //
-// Usage 
+// Usage
 // TODO
-// 
+//
 //
 #ifndef GS_META_TYPEINFO_GENERATOR_H
 
@@ -31,15 +31,15 @@ struct typeinfo_generator
 
 #define TypeHandleToIndex(handle) ((handle.BucketIndex * TYPE_TABLE_BUCKET_MAX) + handle.IndexInBucket)
 internal typeinfo_generator
-InitTypeInfoGenerator(type_table TypeTable)
+InitTypeInfoGenerator(type_table* TypeTable)
 {
     typeinfo_generator Result = {};
     
-    Result.TypesMax = TypeTable.TypeBucketsCount * TYPE_TABLE_BUCKET_MAX;
-    Result.TypesGeneratedMask = (b8*)malloc(sizeof(b8) * Result.TypesMax);
+    Result.TypesMax = TypeTable->TypeBucketsCount * TYPE_TABLE_BUCKET_MAX;
+    Result.TypesGeneratedMask = PushArray(&TypeTable->Arena, b8, Result.TypesMax);
     GSZeroMemory((u8*)Result.TypesGeneratedMask, Result.TypesMax);
     
-    Result.TypeList = BeginEnumGeneration("gsm_struct_type", "gsm_StructType", false, true);
+    Result.TypeList = BeginEnumGeneration(&TypeTable->Arena, "gsm_struct_type", "gsm_StructType", false, true);
     
     WriteF(&Result.TypeDefinitions, "static gsm_struct_type_info StructTypes[] = {\n");
     return Result;
@@ -73,7 +73,7 @@ internal void
 GenerateStructMemberInfo (variable_decl* Member, string StructIdentifier, type_table TypeTable, typeinfo_generator* Gen)
 {
     WriteF(&Gen->StructMembers, "{ \"%S\", %d, ", Member->Identifier, Member->Identifier.Length);
-    WriteF(&Gen->StructMembers, "(u64)&((%S*)0)->%S, ", StructIdentifier, Member->Identifier); 
+    WriteF(&Gen->StructMembers, "(u64)&((%S*)0)->%S, ", StructIdentifier, Member->Identifier);
     GenerateMetaTagInfo(Member->MetaTags, TypeTable, &Gen->StructMembers);
     WriteF(&Gen->StructMembers, "},\n");
 }
@@ -81,7 +81,7 @@ GenerateStructMemberInfo (variable_decl* Member, string StructIdentifier, type_t
 internal void
 GenerateTypeInfo (type_definition* Type, type_table_handle TypeHandle, type_table TypeTable, typeinfo_generator* Generator)
 {
-    // TODO(Peter): 
+    // TODO(Peter):
     // 1. allocate the full range of the types hash table
     // 2. use bucketindex * bucket_max + indexinbucket to get the consecutive index
     Generator->TypesGeneratedMask[TypeHandleToIndex(TypeHandle)] = true;
@@ -114,7 +114,7 @@ GenerateTypeInfo (type_definition* Type, type_table_handle TypeHandle, type_tabl
         }
     }
     
-    if (Type->Type == TypeDef_Struct || 
+    if (Type->Type == TypeDef_Struct ||
         Type->Type == TypeDef_Union)
     {
         for (u32 m = 0; m < Type->Struct.MemberDecls.Used; m++)
@@ -124,10 +124,10 @@ GenerateTypeInfo (type_definition* Type, type_table_handle TypeHandle, type_tabl
             
             if ((MemberType->Type == TypeDef_Struct ||
                  MemberType->Type == TypeDef_Union) &&
-                MemberType->Struct.IsAnonymous) 
-            { 
+                MemberType->Struct.IsAnonymous)
+            {
                 continue; // Don't gen info for anonymous struct and union members
-            } 
+            }
             
             if (Generator->TypesGeneratedMask[TypeHandleToIndex(Member->TypeHandle)]) { continue; }
             

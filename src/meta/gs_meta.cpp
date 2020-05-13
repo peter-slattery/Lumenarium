@@ -9,8 +9,8 @@
 // GSMetaTag(<tag name>) to give commands to the meta layer
 //
 // Tag Values
-// 
-// breakpoint 
+//
+// breakpoint
 //   will cause the meta layer to break in the debugger when it reaches
 //   that point in processing the file
 //   TODO: specify which stage you want it to break at
@@ -21,40 +21,12 @@
 #include <stdio.h>
 
 #include "..\gs_libs\gs_language.h"
+#include "..\gs_libs\gs_radix_sort.h"
 #include "..\gs_libs\gs_bucket.h"
 
 #include "..\gs_libs\gs_memory_arena.h"
+#include "..\gs_libs\gs_profiler.h"
 #include "..\gs_libs\gs_string.h"
-
-#include "gs_meta_lexer.h"
-#include "gs_meta_error.h"
-
-#include "gs_meta_type_table.h"
-
-struct source_code_file
-{
-    string Path;
-    s32 FileSize;
-    string Contents;
-    
-    s32 FirstTokenIndex;
-    s32 LastTokenIndex;
-};
-
-struct token_iter
-{
-    gs_bucket<token>* Tokens;
-    token* TokenAt;
-    s32 TokenAtIndex;
-    s32 FirstToken;
-    s32 LastToken;
-    
-#define TOKEN_ITER_SNAPSHOTS_MAX 64
-    u32 SnapshotsUsed;
-    u32 Snapshots[TOKEN_ITER_SNAPSHOTS_MAX];
-    
-    errors* Errors;
-};
 
 struct gsm_profiler_scope
 {
@@ -81,31 +53,10 @@ struct gsm_profiler
     gs_bucket<gsm_profiler_category> Categories;
 };
 
-struct gs_meta_preprocessor
-{
-    errors Errors;
-    
-    gs_bucket<source_code_file> SourceFiles;
-    gs_bucket<token> Tokens;
-    
-    gs_bucket<type_table_handle> TagList;
-    
-    type_table TypeTable;
-    
-    // Performance
-    s64 PreprocessorStartTime;
-    s64 TokenizeTime;
-    s64 PreprocTime;
-    s64 FixupTime;
-    s64 PreprocessorEndTime;
-    
-    gsm_profiler Profiler;
-};
-
 // ------------------------
 //   Timing / Performance
 // ------------------------
-
+#if 0
 internal s64
 GetWallClock ()
 {
@@ -119,7 +70,7 @@ GetWallClock ()
     }
     return (s64)Time.QuadPart;
 }
-
+#endif
 internal s64
 GetPerformanceFrequency ()
 {
@@ -274,6 +225,63 @@ PrintAllCategories(gsm_profiler* Profiler)
     }
 }
 
+#include "gs_meta_lexer.h"
+#include "gs_meta_error.h"
+
+#include "gs_meta_type_table.h"
+
+struct token_array
+{
+    token* List;
+    u32 Count;
+};
+
+struct source_code_file
+{
+    string Path;
+    s32 FileSize;
+    string Contents;
+    
+    token_array Tokens;
+};
+
+struct token_iter
+{
+    token_array Tokens;
+    token* TokenAt;
+    u32 TokenAtIndex;
+    
+#define TOKEN_ITER_SNAPSHOTS_MAX 64
+    u32 SnapshotsUsed;
+    u32 Snapshots[TOKEN_ITER_SNAPSHOTS_MAX];
+    
+    errors* Errors;
+};
+
+struct gs_meta_preprocessor
+{
+    memory_arena Permanent;
+    memory_arena Transient;
+    
+    errors Errors;
+    
+    gs_bucket<source_code_file> SourceFiles;
+    //gs_bucket<token> Tokens;
+    
+    gs_bucket<type_table_handle> TagList;
+    
+    type_table TypeTable;
+    
+    // Performance
+    s64 PreprocessorStartTime;
+    s64 TokenizeTime;
+    s64 PreprocTime;
+    s64 FixupTime;
+    s64 PreprocessorEndTime;
+    
+    gsm_profiler Profiler;
+};
+
 // ------------------------
 //   Token Iterator
 // ------------------------
@@ -281,10 +289,10 @@ PrintAllCategories(gsm_profiler* Profiler)
 internal token*
 NextToken (token_iter* Iter)
 {
-    if (Iter->TokenAtIndex < Iter->LastToken)
+    DEBUG_TRACK_FUNCTION;
+    if (Iter->TokenAtIndex < Iter->Tokens.Count)
     {
-        Iter->TokenAtIndex++;
-        Iter->TokenAt = Iter->Tokens->GetElementAtIndex(Iter->TokenAtIndex);
+        Iter->TokenAt = Iter->Tokens.List + Iter->TokenAtIndex++;
     }
     
     return Iter->TokenAt;
@@ -293,6 +301,7 @@ NextToken (token_iter* Iter)
 internal b32
 TokenAtEquals(token_iter* Iter, char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (StringEqualsCharArray(Iter->TokenAt->Text, String))
     {
@@ -305,6 +314,7 @@ TokenAtEquals(token_iter* Iter, char* String)
 internal b32
 TokenAtEquals(token_iter* Iter, token_type Type)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (Iter->TokenAt->Type == Type)
     {
@@ -317,6 +327,7 @@ TokenAtEquals(token_iter* Iter, token_type Type)
 internal b32
 TokenAtEquals(token_iter* Iter, token_type Type, token* Token)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (Iter->TokenAt->Type == Type)
     {
@@ -330,12 +341,14 @@ TokenAtEquals(token_iter* Iter, token_type Type, token* Token)
 internal void
 PushSnapshot (token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     Iter->Snapshots[Iter->SnapshotsUsed++] = Iter->TokenAtIndex;
 }
 
 internal void
 PopSnapshot (token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     if (Iter->SnapshotsUsed > 0)
     {
         Iter->SnapshotsUsed -= 1;
@@ -345,15 +358,17 @@ PopSnapshot (token_iter* Iter)
 internal void
 ApplySnapshot (token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     u32 SnapshotIndex = Iter->SnapshotsUsed;
     u32 SnapshotPoint = Iter->Snapshots[SnapshotIndex];
     Iter->TokenAtIndex = SnapshotPoint;
-    Iter->TokenAt = Iter->Tokens->GetElementAtIndex(SnapshotPoint);
+    Iter->TokenAt = Iter->Tokens.List + Iter->TokenAtIndex;
 }
 
 internal void
 ApplySnapshotIfNotParsedAndPop(b32 ParseSuccess, token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     PopSnapshot(Iter);
     if (!ParseSuccess)
     {
@@ -365,6 +380,7 @@ ApplySnapshotIfNotParsedAndPop(b32 ParseSuccess, token_iter* Iter)
 internal s32
 GetFileSize (char* FileName)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = 0;
     
     FILE* ReadFile = fopen(FileName, "r");
@@ -386,8 +402,9 @@ GetFileSize (char* FileName)
 // -------------------------
 
 internal s32
-ReadEntireFileAndNullTerminate (source_code_file* File, errors* Errors)
+ReadEntireFileAndNullTerminate (memory_arena* Storage, source_code_file* File, errors* Errors)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 LengthRead = 0;
     
     FILE* ReadFile = fopen(File->Path.Memory, "r");
@@ -399,7 +416,7 @@ ReadEntireFileAndNullTerminate (source_code_file* File, errors* Errors)
         
         Assert(File->Contents.Memory == 0);
         File->Contents.Max = (s32)FileSize + 1;
-        File->Contents.Memory = (char*)malloc(File->Contents.Max);
+        File->Contents.Memory = (char*)PushSize(Storage, File->Contents.Max);
         
         size_t ReadSize = fread(File->Contents.Memory, 1, FileSize, ReadFile);
         File->Contents.Memory[FileSize] = 0;
@@ -415,6 +432,7 @@ ReadEntireFileAndNullTerminate (source_code_file* File, errors* Errors)
 internal b32
 FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     
     for (u32 i = 0; i < SourceFiles.Used; i++)
@@ -431,19 +449,18 @@ FileAlreadyInSource(string Path, gs_bucket<source_code_file> SourceFiles)
 }
 
 internal void
-AddFileToSource(string RelativePath, source_code_file CurrentFile, gs_bucket<source_code_file>* SourceFiles, errors* Errors)
+AddFileToSource(memory_arena* Storage, string RelativePath, source_code_file CurrentFile, gs_bucket<source_code_file>* SourceFiles, errors* Errors)
 {
+    DEBUG_TRACK_FUNCTION;
     source_code_file File = {0};
     
-    File.FirstTokenIndex = -1;
-    File.LastTokenIndex = -1;
-    
     u32 PathLength = RelativePath.Length + 1;
-    File.Path = MakeString((char*)malloc(sizeof(char) * PathLength), 0, PathLength);
+    char* PathData = PushArray(Storage,  char, PathLength);
+    File.Path = MakeString(PathData, 0, PathLength);
     CopyStringTo(RelativePath, &File.Path);
     NullTerminate(&File.Path);
     
-    File.FileSize = ReadEntireFileAndNullTerminate(&File, Errors);
+    File.FileSize = ReadEntireFileAndNullTerminate(Storage, &File, Errors);
     
     if (File.FileSize > 0)
     {
@@ -460,8 +477,21 @@ AddFileToSource(string RelativePath, source_code_file CurrentFile, gs_bucket<sou
 }
 
 internal void
-TokenizeFile (source_code_file* File, gs_bucket<token>* Tokens)
+TokenizeFile (gs_meta_preprocessor* Meta, source_code_file* File)
 {
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* Scope = BeginScope(&Meta->Profiler, MakeStringLiteral("tokenize"), File->Path);
+    
+    struct token_list
+    {
+        token Token;
+        token_list* Next;
+    };
+    
+    u32 TokensCount = 0;
+    token_list* TokensHead = 0;
+    token_list* TokensTail = 0;
+    
     tokenizer Tokenizer = {};
     Tokenizer.At = File->Contents.Memory;
     Tokenizer.Memory = File->Contents.Memory;
@@ -470,15 +500,35 @@ TokenizeFile (source_code_file* File, gs_bucket<token>* Tokens)
     token* LastToken = 0;
     while(AtValidPosition(Tokenizer))
     {
-        token NewToken = GetNextToken(&Tokenizer);
-        u32 TokenIndex = Tokens->PushElementOnBucket(NewToken);
-        if (File->FirstTokenIndex < 0)
+        token_list* NewToken = PushStruct(&Meta->Transient, token_list);
+        NewToken->Token = GetNextToken(&Tokenizer);
+        NewToken->Next = 0;
+        
+        TokensCount++;
+        if (TokensHead != 0)
         {
-            File->FirstTokenIndex = (s32)TokenIndex;
+            TokensTail->Next = NewToken;
+            TokensTail = NewToken;
+        }
+        else
+        {
+            TokensHead = NewToken;
+            TokensTail = NewToken;
         }
     }
     
-    File->LastTokenIndex = Tokens->Used - 1;
+    File->Tokens = {0};
+    File->Tokens.Count = TokensCount;
+    File->Tokens.List = PushArray(&Meta->Permanent, token, File->Tokens.Count);
+    
+    token_list* At = TokensHead;
+    for (u32 i = 0; i < TokensCount; i++)
+    {
+        Assert(At != 0);
+        File->Tokens.List[i] = At->Token;
+        At = At->Next;
+    }
+    EndScope(Scope);
 }
 
 // ------------------------
@@ -488,7 +538,8 @@ TokenizeFile (source_code_file* File, gs_bucket<token>* Tokens)
 internal b32
 ParseMetaTag(token_iter* Iter, gs_meta_preprocessor* Meta)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseMetaTag"));
     b32 Result = false;
@@ -517,7 +568,7 @@ ParseMetaTag(token_iter* Iter, gs_meta_preprocessor* Meta)
                 
                 if (StringsEqual(MetaIdentifier.Text, MakeStringLiteral("breakpoint")))
                 {
-                    // NOTE(Peter): This is not a temporary breakpoint. It is 
+                    // NOTE(Peter): This is not a temporary breakpoint. It is
                     // used to be able to break the meta program at specific points
                     // throughout execution
                     __debugbreak();
@@ -534,7 +585,8 @@ ParseMetaTag(token_iter* Iter, gs_meta_preprocessor* Meta)
 internal b32
 ParseSignedness (token_iter* Iter)
 {
-    // NOTE(Peter): This doesn't really do much at the moment, but 
+    DEBUG_TRACK_FUNCTION;
+    // NOTE(Peter): This doesn't really do much at the moment, but
     // I want all signedness parsing to happen in one place in case
     // we ever need to do anything with it.
     
@@ -552,6 +604,7 @@ ParseSignedness (token_iter* Iter)
 internal b32
 ShortInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -566,8 +619,8 @@ ShortInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    if (Result) 
-    { 
+    if (Result)
+    {
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("short int"), TypeTable);
     }
     return Result;
@@ -576,6 +629,7 @@ ShortInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
 internal b32
 Int (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -586,8 +640,8 @@ Int (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    if (Result) 
-    { 
+    if (Result)
+    {
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("int"), TypeTable);
     }
     return Result;
@@ -596,6 +650,7 @@ Int (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 internal b32
 LongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -610,8 +665,8 @@ LongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTabl
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    if (Result) 
-    { 
+    if (Result)
+    {
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("long int"), TypeTable);
     }
     return Result;
@@ -620,6 +675,7 @@ LongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTabl
 internal b32
 LongLongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -637,8 +693,8 @@ LongLongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table Type
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    if (Result) 
-    { 
+    if (Result)
+    {
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("long long int"), TypeTable);
     }
     return Result;
@@ -647,6 +703,7 @@ LongLongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table Type
 internal b32
 ParseChar(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -669,6 +726,7 @@ ParseChar(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
 internal b32
 ParseBool(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -685,6 +743,7 @@ ParseBool(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
 internal b32
 ParseFloat(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -701,6 +760,7 @@ ParseFloat(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTa
 internal b32
 ParseDouble(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -720,7 +780,8 @@ ParseDouble(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeT
 internal b32
 ParseType(token_iter* Iter, gs_meta_preprocessor* Meta, type_table_handle* TypeHandleOut)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseType"));
     b32 Result = false;
@@ -737,16 +798,16 @@ ParseType(token_iter* Iter, gs_meta_preprocessor* Meta, type_table_handle* TypeH
         ParseDouble(Iter, TypeHandleOut, Meta->TypeTable))
     {
         Result = true;
-    } 
+    }
     else if (StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("void")))
     {
         NextToken(Iter);
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("void"), Meta->TypeTable);
     }
-    else 
+    else
     {
-        gsm_profiler_scope* ProfileInnerScope = BeginScope(&Meta->Profiler, 
+        gsm_profiler_scope* ProfileInnerScope = BeginScope(&Meta->Profiler,
                                                            MakeStringLiteral("parse"),
                                                            MakeStringLiteral("ParseTypeInner"));
         
@@ -760,9 +821,9 @@ ParseType(token_iter* Iter, gs_meta_preprocessor* Meta, type_table_handle* TypeH
         {
             Result = true;
             // NOTE(Peter): In this case, we believe we are at a type identifier,
-            // however, it hasn't been declared yet. This is due to the fact that we 
+            // however, it hasn't been declared yet. This is due to the fact that we
             // tokenize files, then parse them, then import the files they include, and
-            // then begin tokenizing, parsing, etc for those files. 
+            // then begin tokenizing, parsing, etc for those files.
             // In the case that we get an as-of-yet undeclared type, we leave it
             // up to the calling site to determine what to do with that information
             // :UndeclaredType
@@ -780,6 +841,7 @@ ParseType(token_iter* Iter, gs_meta_preprocessor* Meta, type_table_handle* TypeH
 internal b32
 ParsePointer (token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (TokenAtEquals(Iter, "*"))
     {
@@ -791,6 +853,7 @@ ParsePointer (token_iter* Iter)
 internal b32
 ParseConstVolatile (token_iter* Iter)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -807,7 +870,8 @@ ParseConstVolatile (token_iter* Iter)
 internal b32
 ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_meta_preprocessor* Meta)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseVariableDecl"));
     b32 Result = false;
@@ -842,14 +906,14 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_m
             if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken))
             {
                 // Array Notationg ie r32 x[2];
-                // NOTE(Peter): True initially because if there is no array notation, we 
+                // NOTE(Peter): True initially because if there is no array notation, we
                 // are still ok to proceed
                 b32 ArrayParseSuccess = true;
                 u32 ArrayCount = 0;
                 if (TokenAtEquals(Iter, "["))
                 {
                     // NOTE(Peter): Once we get to this point, we have to complete the entire
-                    // array notation before we have successfully parsed, hence setting 
+                    // array notation before we have successfully parsed, hence setting
                     // ArrayParseSucces to false here.
                     ArrayParseSuccess = false;
                     token NumberToken = {};
@@ -934,6 +998,7 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_m
 internal b32
 StructOrUnion(token_iter* Iter, type_definition_type* Type)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (TokenAtEquals(Iter, "struct"))
     {
@@ -954,7 +1019,8 @@ StructOrUnion(token_iter* Iter, type_definition_type* Type)
 internal b32
 ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_preprocessor* Meta, type_definition*  ContainingStruct = 0)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseStruct"));
     b32 Result = false;
@@ -988,7 +1054,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
                 
                 string AnonStructIdentifier = {};
                 AnonStructIdentifier.Max = 256;
-                AnonStructIdentifier.Memory = (char*)malloc(sizeof(char) * AnonStructIdentifier.Max);
+                AnonStructIdentifier.Memory = PushArray(&Meta->Permanent, char, AnonStructIdentifier.Max);
                 
                 PrintF(&AnonStructIdentifier, "%S_%d", ContainingStruct->Identifier, ContainingStruct->Struct.MemberDecls.Used);
                 
@@ -1017,11 +1083,11 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
                 else if (ParseStruct(Iter, &MemberStructTypeHandle, Meta, &StructDecl))
                 {
                     // NOTE(Peter): Pretty sure, since we just parsed the struct, that
-                    // MemberStructTypeIndex should never be Invalid (unknown type). 
+                    // MemberStructTypeIndex should never be Invalid (unknown type).
                     // Putting this Assert here for now, but remove if there's a valid
                     // reason that you might not be able to find a struct just parsed at
                     // this point.
-                    Assert(TypeHandleIsValid(MemberStructTypeHandle)); 
+                    Assert(TypeHandleIsValid(MemberStructTypeHandle));
                     
                     MemberDecl.TypeHandle = MemberStructTypeHandle;
                     StructDecl.Struct.MemberDecls.PushElementOnBucket(MemberDecl);
@@ -1053,6 +1119,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
 internal b32
 ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, gs_meta_preprocessor* Meta)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -1088,16 +1155,17 @@ ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, 
 internal b32
 ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_meta_preprocessor* Meta)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     PushSnapshot(Iter);
     
     type_table_handle ReturnTypeHandle = InvalidTypeTableHandle;
     if (ParseType(Iter, Meta, &ReturnTypeHandle))
     {
-        if (!TypeHandleIsValid(ReturnTypeHandle)) 
-        { 
+        if (!TypeHandleIsValid(ReturnTypeHandle))
+        {
             ReturnTypeHandle = PushUndeclaredType(Iter->TokenAt->Text, &Meta->TypeTable);
-            NextToken(Iter); 
+            NextToken(Iter);
         }
         
         b32 IsPointer = ParsePointer(Iter);
@@ -1125,17 +1193,18 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_meta_preproces
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    if (!Result) 
-    { 
+    if (!Result)
+    {
         *Identifier = {0};
     }
     return Result;
 }
 
-internal b32 
+internal b32
 ParseTypedef(token_iter* Iter, gs_meta_preprocessor* Meta)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseTypedef"));
     b32 Result = false;
@@ -1170,7 +1239,7 @@ ParseTypedef(token_iter* Iter, gs_meta_preprocessor* Meta)
             NewType.Size = BasisType->Size;
             CopyMetaTagsAndClear(&Meta->TagList, &NewType.MetaTags);
             NewType.Type = BasisType->Type;
-            if (NewType.Type == TypeDef_Struct || 
+            if (NewType.Type == TypeDef_Struct ||
                 NewType.Type == TypeDef_Union)
             {
                 NewType.Struct = BasisType->Struct;
@@ -1207,7 +1276,8 @@ ParseTypedef(token_iter* Iter, gs_meta_preprocessor* Meta)
 internal b32
 ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseEnum"));
     b32 Result = false;
@@ -1236,8 +1306,8 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
                         if (TokenAtEquals(Iter, "="))
                         {
                             // TODO(Peter): TempValue is just here until we handle all
-                            // const expr that could define an enum value. Its there so 
-                            // that if the first token of an expression is a number, 
+                            // const expr that could define an enum value. Its there so
+                            // that if the first token of an expression is a number,
                             // we can avoid using anything from the expression.
                             u32 TempValue = EnumAcc;
                             token NumberToken = {};
@@ -1293,7 +1363,9 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
 internal b32
 ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
 {
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler, 
+    DEBUG_TRACK_FUNCTION;
+    
+    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
                                                    MakeStringLiteral("parse"),
                                                    MakeStringLiteral("ParseFunction"));
     b32 Result = false;
@@ -1306,7 +1378,7 @@ ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
         if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken) &&
             TokenAtEquals(Iter, "("))
         {
-            gsm_profiler_scope* ProfilerInnerScope = BeginScope(&Meta->Profiler, 
+            gsm_profiler_scope* ProfilerInnerScope = BeginScope(&Meta->Profiler,
                                                                 MakeStringLiteral("parse"),
                                                                 MakeStringLiteral("ParseFunctionInner"));
             type_definition FunctionDecl = {};
@@ -1346,6 +1418,8 @@ ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
 internal void
 PrintIndent (u32 Indent)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     for (u32 i = 0; i < Indent; i++)
     {
         printf("    ");
@@ -1357,6 +1431,8 @@ internal void PrintStructDecl (type_definition* StructDecl, type_table TypeTable
 internal void
 PrintVariableDecl (variable_decl Member, type_table TypeTable, u32 Indent = 0)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     type_definition* MemberTypeDef = GetTypeDefinition(Member.TypeHandle, TypeTable);
     if ((MemberTypeDef->Type == TypeDef_Struct || MemberTypeDef->Type == TypeDef_Union)
         && MemberTypeDef->Identifier.Length == 0)
@@ -1389,6 +1465,8 @@ PrintVariableDecl (variable_decl Member, type_table TypeTable, u32 Indent = 0)
 internal void
 PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent = 0)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     Assert(StructDecl->Type == TypeDef_Struct ||
            StructDecl->Type == TypeDef_Union);
     
@@ -1422,6 +1500,8 @@ PrintStructDecl (type_definition* StructDecl, type_table TypeTable, u32 Indent =
 internal void
 PrintFunctionPtrDecl (type_definition* FnPtrDecl, type_table TypeTable)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     type_definition* ReturnType = GetTypeDefinition(FnPtrDecl->FunctionPtr.ReturnTypeHandle, TypeTable);
     printf("%.*s ", StringExpand(ReturnType->Identifier));
     
@@ -1442,9 +1522,19 @@ PrintFunctionPtrDecl (type_definition* FnPtrDecl, type_table TypeTable)
 }
 
 internal gs_meta_preprocessor
-PreprocessProgram (char* SourceFile)
+PreprocessProgram (base_allocator Allocator, char* SourceFile)
 {
+    GlobalDebugServices.Arena = CreateMemoryArena(Allocator);
+    GlobalDebugServices.Transient = CreateMemoryArena(Allocator);
+    
+    DEBUG_TRACK_FUNCTION;
+    
     gs_meta_preprocessor Meta = {};
+    Meta.Permanent = CreateMemoryArena(Allocator);
+    Meta.Transient = CreateMemoryArena(Allocator);
+    
+    Meta.Errors.Arena = CreateMemoryArena(Allocator);
+    Meta.TypeTable.Arena = CreateMemoryArena(Allocator);
     
     gsm_profiler_scope* TotalScope = BeginScope(&Meta.Profiler, "total", "total");
     
@@ -1452,10 +1542,10 @@ PreprocessProgram (char* SourceFile)
     
     PopulateTableWithDefaultCPPTypes(&Meta.TypeTable);
     
-    string CurrentWorkingDirectory = MakeString((char*)malloc(1024), 0, 1024);
+    string CurrentWorkingDirectory = MakeString(PushArray(&Meta.Permanent, char, 1024), 0, 1024);
     
     string RootFile = MakeString(SourceFile);
-    AddFileToSource(RootFile, {}, &Meta.SourceFiles, &Meta.Errors);
+    AddFileToSource(&Meta.Permanent, RootFile, {}, &Meta.SourceFiles, &Meta.Errors);
     
     s32 LastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
     if (LastSlash <= 0)
@@ -1471,28 +1561,22 @@ PreprocessProgram (char* SourceFile)
     {
         source_code_file* File = Meta.SourceFiles.GetElementAtIndex(SourceFileIdx);
         
-        gsm_profiler_scope* FileScope = BeginScope(&Meta.Profiler, 
+        gsm_profiler_scope* FileScope = BeginScope(&Meta.Profiler,
                                                    MakeStringLiteral("file"),
                                                    File->Path);
         
-        gsm_profiler_scope* TokenizeScope = BeginScope(&Meta.Profiler, 
-                                                       MakeStringLiteral("tokenize"),
-                                                       File->Path);
-        TokenizeFile(File, &Meta.Tokens);
-        EndScope(TokenizeScope);
+        TokenizeFile(&Meta, File);
         
-        gsm_profiler_scope* PreprocScope = BeginScope(&Meta.Profiler, 
+        gsm_profiler_scope* PreprocScope = BeginScope(&Meta.Profiler,
                                                       MakeStringLiteral("preproc"),
                                                       File->Path);
         token_iter Iter = {};
-        Iter.Tokens = &Meta.Tokens;
-        Iter.FirstToken = File->FirstTokenIndex;
-        Iter.LastToken = File->LastTokenIndex;
-        Iter.TokenAtIndex = Iter.FirstToken;
-        Iter.TokenAt = Meta.Tokens.GetElementAtIndex(Iter.TokenAtIndex);
+        Iter.Tokens = File->Tokens;
+        Iter.TokenAtIndex = 0;
+        Iter.TokenAt = File->Tokens.List + Iter.TokenAtIndex;
         Iter.Errors = &Meta.Errors;
         
-        while (Iter.TokenAtIndex < Iter.LastToken)
+        while (Iter.TokenAtIndex < Iter.Tokens.Count)
         {
             b32 ParseSuccess = false;
             
@@ -1504,19 +1588,19 @@ PreprocessProgram (char* SourceFile)
                 // NOTE(Peter): For now we aren't going in and preprocessing the header files
                 // we include from the system
                 // Token_Operator is used to check if the include is of the form '#include <header.h>'
-                // and skip it. 
+                // and skip it.
                 // TODO(Peter): This is only a rough approximation of ignoring system headers
                 // TODO(Peter): We should actually see what parsing system headers would entail
                 if (IncludeFile->Type != Token_Operator)
                 {
                     string TempFilePath = IncludeFile->Text;
-                    gsm_profiler_scope* IncludeScope = BeginScope(&Meta.Profiler, 
+                    gsm_profiler_scope* IncludeScope = BeginScope(&Meta.Profiler,
                                                                   MakeStringLiteral("include"),
                                                                   TempFilePath);
                     
                     // NOTE(Peter): if the path is NOT absolute ie "C:\etc
-                    if (!(IsAlpha(TempFilePath.Memory[0]) && 
-                          TempFilePath.Memory[1] == ':' && 
+                    if (!(IsAlpha(TempFilePath.Memory[0]) &&
+                          TempFilePath.Memory[1] == ':' &&
                           TempFilePath.Memory[2] == '\\'))
                     {
                         TempFilePath = CurrentWorkingDirectory;
@@ -1527,7 +1611,7 @@ PreprocessProgram (char* SourceFile)
                     ParseSuccess = true;
                     if (!FileAlreadyInSource(TempFilePath, Meta.SourceFiles))
                     {
-                        AddFileToSource(TempFilePath, *File, &Meta.SourceFiles, &Meta.Errors);
+                        AddFileToSource(&Meta.Permanent, TempFilePath, *File, &Meta.SourceFiles, &Meta.Errors);
                     }
                     EndScope(IncludeScope);
                 }
@@ -1600,6 +1684,8 @@ PreprocessProgram (char* SourceFile)
 internal void
 FinishMetaprogram(gs_meta_preprocessor* Meta)
 {
+    CollateFrame(&GlobalDebugServices);
+    
     FinishProfiler(&Meta->Profiler);
     
     PrintAllErrors(Meta->Errors);

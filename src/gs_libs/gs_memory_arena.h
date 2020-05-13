@@ -2,8 +2,8 @@
 // Description: Single header file library that defines a push-only memory arena
 // Author: Peter Slattery
 // Date Created: 2019-12-22
-// 
-// 
+//
+//
 // -----------------
 //     Set Up
 // -----------------
@@ -16,26 +16,26 @@
 // Simply create a memory_arena and use PushSize, PushStruct, or PushArray
 // to allocate out of it.
 // See Example Program below.
-// 
+//
 // While there are options you can set (see Options below), the library adheres
 // to a 'zero-is-initialization' policy, that is, a memory_arena initialized to
-// zero, under all default options, will 'just work'. 
+// zero, under all default options, will 'just work'.
 //
 // Alignment:
 // By default, the Push functions use 4 byte alignment
-// If you need to control the alignment of an allocation, there are variants of the 
+// If you need to control the alignment of an allocation, there are variants of the
 // Push functions that allow for this: PushSizeAligned, PushStructAligned, and PushArrayAligned
-// These functions simply take a final parameter which specifies the alignment. 
+// These functions simply take a final parameter which specifies the alignment.
 // Note: Alignment must be a power of two
 //
 // -----------------
 //   Options
 // -----------------
-// 
-// DEBUG: 
+//
+// DEBUG:
 // Define DEBUG for debug functionality.
-// 
-// To override the default assert function define GSMem_Assert(expression) 
+//
+// To override the default assert function define GSMem_Assert(expression)
 // before inluding this file.
 //
 // GS_MEMORY_NO_STD_LIBS:
@@ -61,8 +61,8 @@
 // this file
 //
 // GS_MEMORY_TRACK_ALLOCATIONS:
-// If you want to keep records of each allocation performed in every arena, define 
-// GS_MEMORY_TRACK_ALLOCATIONS before including this file. 
+// If you want to keep records of each allocation performed in every arena, define
+// GS_MEMORY_TRACK_ALLOCATIONS before including this file.
 // When defined, memory arenas gain fields that allow them to keep a list of every
 // allocation they contain. It also adds a footer on the end of each allocation that
 // can be checked to ensure there are no writes to allocations that overflow their bounds
@@ -78,8 +78,8 @@
 
 // Places the characters 'gs' at the end of each allocation. This would allow for an external
 // function to check that we haven't written past the end of an allocation
-void* MallocWrapper(gs_mem_u32 Size) 
-{ 
+void* MallocWrapper(gs_mem_u32 Size)
+{
     int SizeWithFooter = Size + (sizeof(char) * 2);
     void* Result = malloc(SizeWithFooter);
     char* Footer = (char*)(Result + Size);
@@ -88,17 +88,17 @@ void* MallocWrapper(gs_mem_u32 Size)
     return Result;
 }
 
-void* ReallocWrapper(void* Address, gs_mem_u32 Size) 
-{ 
-    return realloc(Address, Size); 
+void* ReallocWrapper(void* Address, gs_mem_u32 Size)
+{
+    return realloc(Address, Size);
 }
 
-int 
+int
 main(int ArgCount, char** Args)
 {
     memory_arena Arena = {};
     // Uncomment these lines for an example of how you can implement custom allocation functions
-    // Arena.Alloc = MallocWrapper; 
+    // Arena.Alloc = MallocWrapper;
     // Arena.Realloc = ReallocWrapper;
     
     int ArrayLength = 10;
@@ -139,9 +139,9 @@ main(int ArgCount, char** Args)
 #ifndef GS_MEMORY_NO_STD_LIBS
 
 // NOTE(Peter): We use this so that we can fall back on malloc and realloc
-// in the event that a memory_arena needs to grow but doesn't have a 
+// in the event that a memory_arena needs to grow but doesn't have a
 // alloc or realloc function pointer assigned to it.
-// 
+//
 // See GrowArena to see where this is used
 //
 #include <stdlib.h>
@@ -167,6 +167,21 @@ if((expression)) { \
 #define GSMem_Assert(expression)
 #endif
 
+struct data
+{
+    u8* Memory;
+    u64 Size;
+};
+
+typedef data allocator_alloc(u64 Size);
+typedef void allocator_free(u8* Base, u64 Size);
+
+struct base_allocator
+{
+    allocator_alloc* Alloc;
+    allocator_free* Free;
+};
+
 enum gs_memory_expansion_rule
 {
     MemoryExpansion_Allowed, // Zero is initialization lets the memory grow on its own
@@ -177,13 +192,13 @@ enum gs_memory_expansion_rule
 
 // NOTE(Peter):
 // This rule is only here to allow for taking arena snapshots. The problem this solves
-// is if you take a snapshot while there are 'holes' in memory_buffers behind the 
+// is if you take a snapshot while there are 'holes' in memory_buffers behind the
 // most recently added memory_buffer, take a snapshot of that arena, then push something
 // on that fits in one of those holes, we will fill the hole and be unable to track/free
-// that addition via the snapshot construct. 
+// that addition via the snapshot construct.
 //
 // By requiring that allocations in a buffer only come from the most recent memory_buffer
-// we can very easily rewind the buffer to the correct location. 
+// we can very easily rewind the buffer to the correct location.
 // Hence FindAddress_InLastBufferOnly
 enum gs_memory_find_address_rule
 {
@@ -229,6 +244,8 @@ struct memory_buffer
 
 struct memory_arena
 {
+    base_allocator Allocator;
+    
     memory_buffer* Buffers;
     gs_mem_u32 BuffersCount;
     
@@ -265,6 +282,30 @@ struct arena_snapshot
     gs_mem_u32 AllocationsUsedAtSnapshot;
 #endif
 };
+
+#define AllocatorAllocArray(alloc,type,count) (type*)(AllocatorAlloc((alloc), sizeof(type) * (count)).Memory)
+#define AllocatorAllocStruct(alloc,type) (type*)(AllocatorAlloc((alloc), sizeof(type)).Memory)
+static data
+AllocatorAlloc(base_allocator Allocator, gs_mem_u64 Size)
+{
+    return Allocator.Alloc(Size);
+}
+
+static void
+AllocatorFree(base_allocator Allocator, gs_mem_u8* Base, gs_mem_u64 Size)
+{
+    Allocator.Free(Base, Size);
+}
+
+static memory_arena
+CreateMemoryArena(base_allocator Allocator)
+{
+    memory_arena Result = {0};
+    Result.Allocator = Allocator;
+    Result.ExpansionRule = MemoryExpansion_Allowed;
+    Result.FindAddressRule = FindAddress_InLastBufferOnly;
+    return Result;
+}
 
 static void
 FreeMemoryArena(memory_arena* Arena, gs_memory_free* Free = 0)
@@ -340,7 +381,7 @@ FindAlignedAddressInBufferWithRoom(memory_arena* Arena, gs_mem_u32 Size, gs_mem_
             Result = AddressInCurrentBuffer;
             break;
         }
-    } 
+    }
     return Result;
 }
 
@@ -348,22 +389,8 @@ static gs_mem_u8*
 ArenaAlloc(memory_arena* Arena, gs_mem_u32 Size)
 {
     gs_mem_u8* Result = 0;
-    
-    if (Arena->Alloc)
-    {
-        Result = (gs_mem_u8*)Arena->Alloc(sizeof(gs_mem_u8) * Size);
-    }
-    else
-    {
-#ifdef GS_MEMORY_NO_STD_LIBS
-        // NOTE(Peter): If you specify no std libs AND don't supply a allocation function
-        // we should assert as this is an invalid codepath
-        GSMem_Assert(0);
-#else
-        Result = (gs_mem_u8*)malloc(sizeof(gs_mem_u8) * Size);
-#endif
-    }
-    
+    data Data = AllocatorAlloc(Arena->Allocator, Size);
+    Result = Data.Memory;
     return Result;
 }
 
@@ -372,21 +399,21 @@ ArenaRealloc(memory_arena* Arena, gs_mem_u8* Head, gs_mem_u32 OldSize, gs_mem_u3
 {
     gs_mem_u8* Result = 0;
     
-    if (Arena->Realloc != 0)
+    GSMem_Assert(Arena->Allocator.Alloc);
+    GSMem_Assert(Arena->Allocator.Free);
+    
+    data Data = AllocatorAlloc(Arena->Allocator, NewSize);
+    for (gs_mem_u64 i = 0; i < (gs_mem_u64)OldSize; i++)
     {
-        Result = (gs_mem_u8*)Arena->Realloc(Head, OldSize, NewSize);
-    }
-    else
-    {
-#ifdef GS_MEMORY_NO_STD_LIBS
-        // NOTE(Peter): If you specify no std libs AND don't supply a reallocation function
-        // we should assert as this is an invalid codepath
-        GSMem_Assert(0);
-#else
-        Result = (gs_mem_u8*)realloc(Head, NewSize);
-#endif
+        Data.Memory[i] = Head[i];
     }
     
+    if (Head != 0)
+    {
+        AllocatorFree(Arena->Allocator, Head, OldSize);
+    }
+    
+    Result = Data.Memory;
     return Result;
 }
 
@@ -396,7 +423,7 @@ GrowArena(memory_arena* Arena, gs_mem_u32 SizeNeeded)
     GSMem_Assert(Arena->ExpansionRule != MemoryExpansion_Disallowed);
     if (Arena->ExpansionRule == MemoryExpansion_OnlyIfFunctionsProvided)
     {
-        GSMem_Assert((Arena->Alloc != 0) && (Arena->Realloc != 0));
+        GSMem_Assert((Arena->Allocator.Alloc != 0) && (Arena->Allocator.Free != 0));
     }
     
     gs_mem_u32 NewBuffersCount = (Arena->BuffersCount + 1);
@@ -433,8 +460,8 @@ TrackAllocation(memory_arena* Arena, gs_mem_u8* Head, gs_mem_u32 Size, char* Fil
     if (Arena->AllocationsUsed >= AllocationsMax)
     {
         gs_mem_u32 NewAllocationBuffersCount = Arena->AllocationBuffersCount + 1;
-        Arena->AllocationBuffers = (tracked_allocation_buffer**)ArenaRealloc(Arena, 
-                                                                             (gs_mem_u8*)Arena->AllocationBuffers, 
+        Arena->AllocationBuffers = (tracked_allocation_buffer**)ArenaRealloc(Arena,
+                                                                             (gs_mem_u8*)Arena->AllocationBuffers,
                                                                              Arena->AllocationBuffersCount * sizeof(void*),
                                                                              NewAllocationBuffersCount * sizeof(void*));
         Arena->AllocationBuffersCount = NewAllocationBuffersCount;
@@ -474,8 +501,8 @@ VerifyAllocationNoOverflow (tracked_allocation Allocation)
 static void
 AssertAllocationsNoOverflow (memory_arena Arena)
 {
-    for (gs_mem_u32 AllocationIndex = 0; 
-         AllocationIndex< Arena.AllocationsUsed; 
+    for (gs_mem_u32 AllocationIndex = 0;
+         AllocationIndex< Arena.AllocationsUsed;
          AllocationIndex++)
     {
         gs_mem_u32 BufferIndex = AllocationIndex / GS_MEM_TRACKED_ALLOCATION_BUFFER_SIZE;
@@ -502,7 +529,7 @@ AssertAllocationsNoOverflow (memory_arena Arena)
 #define ClearAllocationsUsed(arena)
 #define ClearAllocationsUsedToSnapshot(arena, snapshot)
 
-#define TrackAllocation(arena, head, size, filename, linenumber) 
+#define TrackAllocation(arena, head, size, filename, linenumber)
 
 #define PushSize(arena, size) PushSize_((arena), (size))
 #define PushArray(arena, type, length) (type*)PushSize_((arena), sizeof(type) * length)
@@ -517,7 +544,7 @@ static gs_mem_u8*
 PushSize_(memory_arena* Arena, gs_mem_u32 Size, gs_mem_u32 Alignment = 4, char* Filename = 0, gs_mem_u32 LineNumber = 0)
 {
     // ie. Alignment = 4 = 100 (binary)
-    // 4 - 1 = 3 
+    // 4 - 1 = 3
     // 100 - 1 = 011 which is a mask of the bits we don't want set in the start address
     GSMem_Assert(IsPowerOfTwo(Alignment));
     gs_mem_u32 AlignmentMask = Alignment - 1;
@@ -560,7 +587,7 @@ ClearArena(memory_arena* Arena)
     {
         memory_buffer* At = Arena->Buffers + i;
         At->Used = 0;
-    } 
+    }
     
     Arena->TotalUsed = 0;
     ClearAllocationsUsed(Arena);

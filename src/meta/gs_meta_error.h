@@ -9,12 +9,13 @@ struct error_buffer
 #define ERROR_BUFFER_SIZE 256
 struct errors
 {
+    memory_arena Arena;
     error_buffer* Buffers;
     u32 BuffersCount;
     u32 Used;
 };
 
-internal void 
+internal void
 PushFError (errors* Errors, char* Format, ...)
 {
     if (Errors->Used >= (Errors->BuffersCount * ERROR_BUFFER_SIZE))
@@ -23,8 +24,8 @@ PushFError (errors* Errors, char* Format, ...)
         Errors->Buffers = (error_buffer*)realloc(Errors->Buffers, sizeof(error_buffer*) * Errors->BuffersCount);
         
         error_buffer* NewBuffer = Errors->Buffers + (Errors->BuffersCount - 1);
-        NewBuffer->Backbuffer = (char*)malloc(sizeof(char) * ERROR_MAX_LENGTH * ERROR_BUFFER_SIZE);
-        NewBuffer->Contents = (string*)malloc(sizeof(string) * ERROR_BUFFER_SIZE);
+        NewBuffer->Backbuffer = PushArray(&Errors->Arena, char, ERROR_MAX_LENGTH * ERROR_BUFFER_SIZE);
+        NewBuffer->Contents = PushArray(&Errors->Arena, string, ERROR_BUFFER_SIZE);
         
         for (u32 i = 0; i < ERROR_BUFFER_SIZE; i++)
         {

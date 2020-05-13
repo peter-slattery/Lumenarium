@@ -12,7 +12,7 @@ internal void
 GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* NodeSpecificationGen, string_builder* CallNodeProcGen, gs_meta_preprocessor Meta)
 {
     // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
-    // of type_definition** 
+    // of type_definition**
     
     WriteF(NodeSpecificationGen, "static node_specification_ NodeSpecifications[] = {\n");
     
@@ -225,7 +225,7 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelEnumGen, s
         panel_elements* Panel = Panels.GetElementAtIndex(i);
         string PanelIdentifier = {0};
         PanelIdentifier.Max = Panel->PanelIdentifier.Length;
-        PanelIdentifier.Memory = (char*)malloc(sizeof(char) * PanelIdentifier.Max);
+        PanelIdentifier.Memory = PushArray(&Meta.Permanent, char, PanelIdentifier.Max);
         CopyStringTo(Substring(Panel->PanelIdentifier, 11), &PanelIdentifier);
         MakeReadableIdentifier(&PanelIdentifier);
         
@@ -259,16 +259,36 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelEnumGen, s
 }
 
 internal string
-AllocAndConcatStrings(string First, string Second)
+AllocAndConcatStrings(base_allocator Allocator, string First, string Second)
 {
     string Result = {0};
     Result.Max = First.Length + Second.Length + 1;
-    Result.Memory = (char*)malloc(sizeof(char) * Result.Max);
+    Result.Memory = AllocatorAllocArray(Allocator, char, Result.Max);
     ConcatString(First, &Result);
     ConcatString(Second, &Result);
     NullTerminate(&Result);
     Result.Length -= 1;
     return Result;
+}
+
+u64 TotalAllocatedSpace = 0;
+
+internal data
+PlatformAlloc(u64 Size)
+{
+    data Result = {0};
+    Result.Memory = (u8*)malloc(Size);
+    Result.Size = Size;
+    
+    TotalAllocatedSpace += Size;
+    
+    return Result;
+}
+
+internal void
+PlatformFree(u8* Base, u64 Size)
+{
+    free((void*)Base);
 }
 
 int main(int ArgCount, char* Args[])
@@ -279,22 +299,27 @@ int main(int ArgCount, char* Args[])
         return 0;
     }
     
+    base_allocator Allocator = {0};
+    Allocator.Alloc = (allocator_alloc*)PlatformAlloc;
+    Allocator.Free = (allocator_free*)PlatformFree;
+    
+    
     string RootFile = MakeString(Args[1]);
     s32 IndexOfLastSlash = ReverseSearchForCharInSet(RootFile, "\\/");
     string WorkingDirectory = Substring(RootFile, 0, IndexOfLastSlash + 1);
     string GeneratedDirectoryName = MakeStringLiteral("generated\\");
-    string GeneratedFilesDirectory = AllocAndConcatStrings(WorkingDirectory, GeneratedDirectoryName);
+    string GeneratedFilesDirectory = AllocAndConcatStrings(Allocator, WorkingDirectory, GeneratedDirectoryName);
     printf("Putting Generated Files In %s\n", GeneratedFilesDirectory.Memory);
     
-    gs_meta_preprocessor Meta = PreprocessProgram(Args[1]);
+    gs_meta_preprocessor Meta = PreprocessProgram(Allocator, Args[1]);
     
-    typeinfo_generator TypeGenerator = InitTypeInfoGenerator(Meta.TypeTable);
+    typeinfo_generator TypeGenerator = InitTypeInfoGenerator(&Meta.TypeTable);
     GenerateMetaTagList(Meta.TypeTable, &TypeGenerator);
     GenerateFilteredTypeInfo(MakeStringLiteral("node_struct"), Meta.TypeTable, &TypeGenerator);
     GenerateFilteredTypeInfo(MakeStringLiteral("gen_type_info"), Meta.TypeTable, &TypeGenerator);
     FinishGeneratingTypes(&TypeGenerator);
     
-    gsm_code_generator NodeTypeGen = BeginEnumGeneration("node_type", "NodeType", false, true);
+    gsm_code_generator NodeTypeGen = BeginEnumGeneration(&Meta.TypeTable.Arena, "node_type", "NodeType", false, true);
     string_builder NodeSpecificationGen = {0};
     string_builder CallNodeProcGen = {0};
     GenerateNodeMetaInfo(&NodeTypeGen, &NodeSpecificationGen, &CallNodeProcGen, Meta);
@@ -303,7 +328,7 @@ int main(int ArgCount, char* Args[])
     string_builder PanelCodeGen = {0};
     GeneratePanelMetaInfo(Meta, &PanelEnumGen, &PanelCodeGen);
     
-    string TypeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("gs_meta_generated_typeinfo.h"));
+    string TypeInfoHFilePath = AllocAndConcatStrings(Allocator, GeneratedFilesDirectory, MakeStringLiteral("gs_meta_generated_typeinfo.h"));
     FILE* TypeInfoH = fopen(TypeInfoHFilePath.Memory, "w");
     if (TypeInfoH)
     {
@@ -319,7 +344,7 @@ int main(int ArgCount, char* Args[])
         printf("Error: Unable to open file at %.*s\n", StringExpand(TypeInfoHFilePath));
     }
     
-    string NodeInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("foldhaus_nodes_generated.h"));
+    string NodeInfoHFilePath = AllocAndConcatStrings(Allocator, GeneratedFilesDirectory, MakeStringLiteral("foldhaus_nodes_generated.h"));
     FILE* NodeInfoH = fopen(NodeInfoHFilePath.Memory, "w");
     if (NodeInfoH)
     {
@@ -333,7 +358,7 @@ int main(int ArgCount, char* Args[])
         printf("Error: Unable to open file at %.*s\n", StringExpand(NodeInfoHFilePath));
     }
     
-    string PanelInfoHFilePath = AllocAndConcatStrings(GeneratedFilesDirectory, MakeStringLiteral("foldhaus_panels_generated.h"));
+    string PanelInfoHFilePath = AllocAndConcatStrings(Allocator, GeneratedFilesDirectory, MakeStringLiteral("foldhaus_panels_generated.h"));
     FILE* PanelInfoH = fopen(PanelInfoHFilePath.Memory, "w");
     if (PanelInfoH)
     {
@@ -347,6 +372,9 @@ int main(int ArgCount, char* Args[])
     }
     
     FinishMetaprogram(&Meta);
+    
+    r64 AllocatedMegabytes = (r64)TotalAllocatedSpace / (1024 * 1024);
+    printf("Total Allocated Space: %lld bytes, or %f MB\n", TotalAllocatedSpace, AllocatedMegabytes);
     
     //__debugbreak();
     return 0;
