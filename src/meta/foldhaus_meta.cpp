@@ -303,6 +303,9 @@ int main(int ArgCount, char* Args[])
     Allocator.Alloc = (allocator_alloc*)PlatformAlloc;
     Allocator.Free = (allocator_free*)PlatformFree;
     
+    GlobalDebugServices.Arena = CreateMemoryArena(Allocator);
+    GlobalDebugServices.Transient = CreateMemoryArena(Allocator);
+    GlobalDebugServices.ShouldProfile = true;
     
     string RootFile = MakeString(Args[1]);
     s32 IndexOfLastSlash = ReverseSearchForCharInSet(RootFile, "\\/");

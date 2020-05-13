@@ -66,6 +66,7 @@ struct debug_services
 {
     memory_arena Arena;
     memory_arena Transient;
+    bool ShouldProfile;
     
     u32 CollatedScopesCount;
     collated_scopes_hash_table* CollatedScopes;
@@ -161,22 +162,33 @@ PushScopeOnList(debug_services* Services, char* ScopeName, s64 Start, s64 End)
     NewRecord->EndTime = End;
 }
 
-#define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker ((char*)__func__)
+#define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker ((char*)__func__, &GlobalDebugServices)
 struct scope_tracker
 {
     s64 ScopeStart;
     char* ScopeName;
-    
-    scope_tracker(char* ScopeName)
+    debug_services* Services;
+    scope_tracker(char* ScopeName, debug_services* Services)
     {
-        this->ScopeName = ScopeName;
-        this->ScopeStart = GetWallClock();
+        if (Services && Services->ShouldProfile)
+        {
+            this->ScopeName = ScopeName;
+            this->ScopeStart = GetWallClock();
+            this->Services = Services;
+        }
+        else
+        {
+            this->Services = 0;
+        }
     }
     
     ~scope_tracker()
     {
-        s64 ScopeEnd = GetWallClock();
-        PushScopeOnList(&GlobalDebugServices, this->ScopeName, this->ScopeStart, ScopeEnd);
+        if (this->Services != 0)
+        {
+            s64 ScopeEnd = GetWallClock();
+            PushScopeOnList(&GlobalDebugServices, this->ScopeName, this->ScopeStart, ScopeEnd);
+        }
     }
 };
 
@@ -243,14 +255,19 @@ CollateFrame(debug_services* Services)
     
     RadixSortInPlace(SortList, SortListCount);
     
-    for (u32 i = 0; i < SortListCount; i++)
+    for (s32 i = SortListCount - 1; i >= 0; i--)
     {
         u64 Hash = SortList[i].ID;
         collated_scope_record* ScopeData = GetCollatedRecordForScope(Services, Hash);
+        
+        u64 AverageDuration = ScopeData->TotalCycles / ScopeData->CallCount;
+        
         printf("Scope: %s\n", ScopeData->Identifier);
-        printf("    Call Count:       %lld\n", ScopeData->CallCount);
+        printf("    %d / %d\n", SortListCount - i, SortListCount);
         printf("    Total Cycles:     %lld\n", ScopeData->TotalCycles);
+        printf("    Call Count:       %lld\n", ScopeData->CallCount);
         printf("    Longest Duration: %lld\n", ScopeData->LongestDuration);
+        printf("    Average Duration: %lld\n", AverageDuration);
     }
 }
 

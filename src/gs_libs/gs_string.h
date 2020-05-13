@@ -114,6 +114,7 @@ struct token
 {
     token_type Type;
     u32 LineNumber;
+    u64 TextHash;
     string Text;
     token* Next; // TODO(Peter): Get rid of this
 };
@@ -376,6 +377,7 @@ GSPow (float N, s32 Power)
 static void
 InitializeEmptyString (string* String, char* Data, s32 DataSize)
 {
+    DEBUG_TRACK_FUNCTION;
     String->Memory = Data;
     String->Max = DataSize;
     String->Length = 0;
@@ -384,6 +386,7 @@ InitializeEmptyString (string* String, char* Data, s32 DataSize)
 static void
 InitializeString(string* String, char* Data, s32 Used, s32 Max)
 {
+    DEBUG_TRACK_FUNCTION;
     String->Memory = Data;
     String->Max = Max;
     String->Length = Used;
@@ -392,6 +395,7 @@ InitializeString(string* String, char* Data, s32 Used, s32 Max)
 static string
 InitializeEmptyString (char* Data, s32 DataSize)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {};
     Result.Memory = Data;
     Result.Max = DataSize;
@@ -402,6 +406,7 @@ InitializeEmptyString (char* Data, s32 DataSize)
 static string
 InitializeString (char* Data, s32 Used, s32 Max)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {};
     Result.Memory = Data;
     Result.Max = Max;
@@ -412,6 +417,7 @@ InitializeString (char* Data, s32 Used, s32 Max)
 static void
 ClearString (string* String)
 {
+    DEBUG_TRACK_FUNCTION;
     String->Memory = 0;
     String->Max = 0;
     String->Length = 0;
@@ -427,31 +433,38 @@ static bool IsWhitespace (char C) { return (C == ' ') || (C == '\t'); }
 static bool IsNewlineOrWhitespace (char C) {  return (IsWhitespace(C) || IsNewline(C)); }
 static bool IsAlpha (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     // TODO(Peter): support UTF8 chars
     return ((C >= 'A') && (C <= 'Z')) || ((C >= 'a') && (C <= 'z')) || (C == '_');
 }
 static bool IsUpper (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return ((C >= 'A') && (C <= 'Z'));
 }
 static bool IsLower (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return ((C >= 'a') && (C <= 'z'));
 }
 static bool IsNumeric (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return (C >= '0') && (C <= '9');
 }
 static bool IsNumericExtended (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return (IsNumeric(C) || (C == 'x') || (C == 'f') || (C == '.'));
 }
 static bool IsAlphaNumeric (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return IsAlpha(C) || IsNumeric(C);
 }
 static bool IsOperator (char C)
 {
+    DEBUG_TRACK_FUNCTION;
     return ((C == '+') ||
             (C == '-') ||
             (C == '*') ||
@@ -463,6 +476,7 @@ static bool IsOperator (char C)
 }
 static char ToUpper (char A)
 {
+    DEBUG_TRACK_FUNCTION;
     char Result = A;
     if (IsLower(A))
     {
@@ -472,6 +486,7 @@ static char ToUpper (char A)
 }
 static char ToLower (char A)
 {
+    DEBUG_TRACK_FUNCTION;
     char Result = A;
     if (IsUpper(A))
     {
@@ -481,6 +496,7 @@ static char ToLower (char A)
 }
 static bool CharsEqualCaseInsensitive (char A, char B)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = (ToLower(A) == ToLower(B));
     return Result;
 }
@@ -492,6 +508,7 @@ static bool CharsEqualCaseInsensitive (char A, char B)
 static void
 EatChar (tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     if (AtValidPosition(*T))
     {
         if (IsNewline(*T->At))
@@ -510,6 +527,7 @@ EatChar (tokenizer* T)
 static b32
 AtValidPosition (tokenizer Tokenizer)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = (Tokenizer.At - Tokenizer.Memory) <= Tokenizer.MemoryLength;
     return Result;
 }
@@ -517,6 +535,7 @@ AtValidPosition (tokenizer Tokenizer)
 static b32
 AtValidToken(tokenizer Tokenizer)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = *Tokenizer.At && Tokenizer.At < (Tokenizer.Memory + Tokenizer.MemoryLength);
     return Result;
 }
@@ -524,6 +543,7 @@ AtValidToken(tokenizer Tokenizer)
 static char*
 EatToNewLine(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && !IsNewline(*Result))
     {
@@ -535,6 +555,7 @@ EatToNewLine(char* C)
 static s32
 EatToNewLine(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && !IsNewline(*T->At))
     {
@@ -546,6 +567,7 @@ EatToNewLine(tokenizer* T)
 static char*
 EatPastNewLine(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = EatToNewLine(C);
     while(*Result && IsNewline(*Result))
     {
@@ -557,6 +579,7 @@ EatPastNewLine(char* C)
 static s32
 EatPastNewLine(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     
     EatToNewLine(T);
@@ -571,6 +594,7 @@ EatPastNewLine(tokenizer* T)
 static char*
 EatWhitespace(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && IsNewlineOrWhitespace(*Result)) { Result++; }
     return Result;
@@ -579,6 +603,7 @@ EatWhitespace(char* C)
 static s32
 EatWhitespace(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && IsNewlineOrWhitespace(*T->At)) { EatChar(T); }
     return T->At - TStart;
@@ -587,6 +612,7 @@ EatWhitespace(tokenizer* T)
 static char*
 EatToNonWhitespaceOrNewline(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && IsWhitespace(*Result)) { Result++; }
     return Result;
@@ -595,6 +621,7 @@ EatToNonWhitespaceOrNewline(char* C)
 static s32
 EatToNonWhitespaceOrNewline(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && IsWhitespace(*T->At)) { EatChar(T); }
     return T->At - TStart;
@@ -603,6 +630,7 @@ EatToNonWhitespaceOrNewline(tokenizer* T)
 static char*
 EatToWhitespace(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && !IsWhitespace(*Result)) { Result++; }
     return Result;
@@ -611,6 +639,7 @@ EatToWhitespace(char* C)
 static s32
 EatToWhitespace(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && !IsWhitespace(*T->At)) { EatChar(T); }
     return T->At - TStart;
@@ -619,6 +648,7 @@ EatToWhitespace(tokenizer* T)
 static char*
 EatToCharacter(char* C, char Char)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && *Result != Char) { Result++; }
     return Result;
@@ -627,6 +657,7 @@ EatToCharacter(char* C, char Char)
 static s32
 EatToCharacter(tokenizer* T, char Char)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && *T->At != Char) { EatChar(T); }
     return T->At - TStart;
@@ -635,6 +666,7 @@ EatToCharacter(tokenizer* T, char Char)
 static char*
 EatPastCharacter(char* C, char Char)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = EatToCharacter(C, Char);
     if (*Result && *Result == Char) { Result++; }
     return Result;
@@ -643,6 +675,7 @@ EatPastCharacter(char* C, char Char)
 static s32
 EatPastCharacter(tokenizer* T, char Char)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     EatToCharacter(T, Char);
     if (AtValidPosition(*T) && *T->At == Char) { EatChar(T); }
@@ -652,6 +685,7 @@ EatPastCharacter(tokenizer* T, char Char)
 static char*
 EatNumber(char* C)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Result = C;
     while (*Result && IsNumericExtended(*Result)) { Result++; }
     return Result;
@@ -660,6 +694,7 @@ EatNumber(char* C)
 static s32
 EatNumber(tokenizer* T)
 {
+    DEBUG_TRACK_FUNCTION;
     char* TStart = T->At;
     while (AtValidPosition(*T) && IsNumericExtended(*T->At)) { EatChar(T); }
     return T->At - TStart;
@@ -669,7 +704,9 @@ EatNumber(tokenizer* T)
 //        Basic Char Operations
 ////////////////////////////////////////////////////////////////
 
-static u32 CharToUInt (char C) {
+static u32 CharToUInt (char C)
+{
+    DEBUG_TRACK_FUNCTION;
     u32 Result = (C - '0');
     return Result;
 }
@@ -677,6 +714,7 @@ static u32 CharToUInt (char C) {
 static s32
 CharArrayLength (char* Array)
 {
+    DEBUG_TRACK_FUNCTION;
     char* C = Array;
     s32 Result = 0;
     while (*C)
@@ -690,6 +728,7 @@ CharArrayLength (char* Array)
 static s32
 NullTerminatedCharArrayLength (char* CharArray)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Iter = CharArray;
     while (*Iter)
     {
@@ -701,6 +740,7 @@ NullTerminatedCharArrayLength (char* CharArray)
 static bool
 CharArraysEqual (char* A, s32 ALength, char* B, s32 BLength)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = false;
     if (ALength == BLength)
     {
@@ -722,6 +762,7 @@ CharArraysEqual (char* A, s32 ALength, char* B, s32 BLength)
 static bool
 CharArraysEqualUnsafe (char* A, char* B)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = true;
     
     char* AIter = A;
@@ -746,6 +787,7 @@ CharArraysEqualUnsafe (char* A, char* B)
 static bool
 CharArraysEqualUpToLength (char* A, char* B, s32 Length)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = true;
     
     char* AIter = A;
@@ -765,6 +807,7 @@ CharArraysEqualUpToLength (char* A, char* B, s32 Length)
 static void
 ReverseCharArray (char* Array, s32 Length)
 {
+    DEBUG_TRACK_FUNCTION;
     char* ForwardIter = Array;
     char* BackwardIter = Array + Length - 1;
     for (s32 i = 0; i < (Length / 2); i++)
@@ -779,6 +822,7 @@ ReverseCharArray (char* Array, s32 Length)
 static s32
 IndexOfChar (char* Array, s32 After, char Find)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     
     s32 Counter = After;
@@ -800,6 +844,7 @@ IndexOfChar (char* Array, s32 After, char Find)
 static s32
 FastReverseIndexOfChar (char* Array, s32 Length, s32 OffsetFromEnd, char Find)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     
     s32 Counter = Length - OffsetFromEnd;
@@ -822,6 +867,7 @@ FastReverseIndexOfChar (char* Array, s32 Length, s32 OffsetFromEnd, char Find)
 static s32
 ReverseIndexOfChar (char* Array, s32 OffsetFromEnd, char Find)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 StringLength = NullTerminatedCharArrayLength(Array);
     return FastReverseIndexOfChar(Array, StringLength, OffsetFromEnd, Find);
 }
@@ -829,6 +875,7 @@ ReverseIndexOfChar (char* Array, s32 OffsetFromEnd, char Find)
 static b32
 CharArrayContains(char* Array, char* CheckFor)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     
     char* Src = Array;
@@ -859,6 +906,7 @@ CharArrayContains(char* Array, char* CheckFor)
 static b32
 CharArrayContainsSafe(char* Array, s32 ArrayLength, char* CheckFor, s32 CheckForLength)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     
     if (ArrayLength >= CheckForLength)
@@ -897,6 +945,7 @@ CharArrayContainsSafe(char* Array, s32 ArrayLength, char* CheckFor, s32 CheckFor
 static bool
 StringsEqual (string A, string B)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = false;
     
     if (A.Length == B.Length)
@@ -920,6 +969,7 @@ StringsEqual (string A, string B)
 static string
 MakeString (char* Array, s32 Length, s32 Max)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {};
     Result.Memory = Array;
     Result.Length = Length;
@@ -930,6 +980,7 @@ MakeString (char* Array, s32 Length, s32 Max)
 static string
 MakeString (char* Array, s32 Length)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {};
     Result.Memory = Array;
     Result.Length = Length;
@@ -940,6 +991,7 @@ MakeString (char* Array, s32 Length)
 static string
 MakeString (char* Array)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Length = CharArrayLength (Array);
     return MakeString(Array, Length);
 }
@@ -947,6 +999,7 @@ MakeString (char* Array)
 static string
 MakeStringLiteral (char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {};
     Result.Memory = String;
     Result.Max = CharArrayLength(String);
@@ -957,6 +1010,7 @@ MakeStringLiteral (char* String)
 static bool
 StringEqualsCharArray (string String, char* CharArray, s32 CharArrayLength)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = false;
     
     if (CharArrayLength == String.Length)
@@ -981,6 +1035,7 @@ StringEqualsCharArray (string String, char* CharArray, s32 CharArrayLength)
 static bool
 StringEqualsCharArray (string String, char* CharArray)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 CLength = CharArrayLength(CharArray);
     return StringEqualsCharArray(String, CharArray, CLength);
 }
@@ -988,6 +1043,7 @@ StringEqualsCharArray (string String, char* CharArray)
 static s32
 FindFirstChar (string String, char C)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     
     char* Iter = String.Memory;
@@ -1006,6 +1062,7 @@ FindFirstChar (string String, char C)
 static void
 SetStringToChar (string* Dest, char C, s32 Count)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Count <= Dest->Max);
     
     char* Iter = Dest->Memory;
@@ -1019,6 +1076,7 @@ SetStringToChar (string* Dest, char C, s32 Count)
 static void
 SetStringToCharArray (string* Dest, char* Source)
 {
+    DEBUG_TRACK_FUNCTION;
     Dest->Length = 0;
     
     char* Src = Source;
@@ -1033,6 +1091,7 @@ SetStringToCharArray (string* Dest, char* Source)
 static void
 ConcatString (string Source, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert((Dest->Length + Source.Length) <= Dest->Max);
     
     char* Dst = Dest->Memory + Dest->Length;
@@ -1047,6 +1106,7 @@ ConcatString (string Source, string* Dest)
 static void
 ConcatString (string Source, s32 Length, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Length <= Source.Length);
     Assert((Dest->Length + Length) <= Dest->Max);
     
@@ -1062,6 +1122,7 @@ ConcatString (string Source, s32 Length, string* Dest)
 static void
 ConcatCharToString (string* Dest, char C)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Dest->Length + 1 <= Dest->Max);
     
     char* Dst = Dest->Memory + Dest->Length;
@@ -1072,6 +1133,7 @@ ConcatCharToString (string* Dest, char C)
 static void
 ConcatCharArrayToString (char* Source, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(CharArrayLength(Source) + Dest->Length <= Dest->Max);
     
     char* Dst = Dest->Memory + Dest->Length;
@@ -1087,6 +1149,7 @@ ConcatCharArrayToString (char* Source, string* Dest)
 static void
 ConcatCharArrayToString (char* Source, s32 SourceLength, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(SourceLength + Dest->Length <= Dest->Max);
     
     char* Dst = Dest->Memory + Dest->Length;
@@ -1101,6 +1164,7 @@ ConcatCharArrayToString (char* Source, s32 SourceLength, string* Dest)
 static void
 CopyStringTo (string Source, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Src = Source.Memory;
     char* Dst = Dest->Memory;
     s32 CopyLength = GSMin(Source.Length, Dest->Max);
@@ -1114,6 +1178,7 @@ CopyStringTo (string Source, string* Dest)
 static s32
 CopyStringToCharArray (string Source, char* Dest, s32 DestLength)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Src = Source.Memory;
     char* Dst = Dest;
     s32 CopyLength = GSMin(Source.Length, DestLength);
@@ -1127,6 +1192,7 @@ CopyStringToCharArray (string Source, char* Dest, s32 DestLength)
 static void
 CopyCharArrayToString (char* Source, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Src = Source;
     char* Dst = Dest->Memory;
     s32 Copied = 0;
@@ -1142,6 +1208,7 @@ CopyCharArrayToString (char* Source, string* Dest)
 static void
 CopyCharArrayToString (char* Source, s32 SourceLength, string* Dest)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(SourceLength <= Dest->Max);
     
     char* Src = Source;
@@ -1157,6 +1224,7 @@ CopyCharArrayToString (char* Source, s32 SourceLength, string* Dest)
 static s32
 CopyCharArray (char* Source, char* Dest, s32 DestLength)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Src = Source;
     char* Dst = Dest;
     s32 i = 0;
@@ -1171,6 +1239,7 @@ CopyCharArray (char* Source, char* Dest, s32 DestLength)
 static s32
 CopyCharArrayAt (char* Source, char* Dest, s32 DestLength, s32 Offset)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Offset < DestLength);
     
     char* Src = Source;
@@ -1187,6 +1256,7 @@ CopyCharArrayAt (char* Source, char* Dest, s32 DestLength, s32 Offset)
 static void
 InsertChar (string* String, char Char, s32 Index)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Index >= 0 && Index < String->Max);
     Assert(String->Length < String->Max);
     
@@ -1204,6 +1274,7 @@ InsertChar (string* String, char Char, s32 Index)
 static void
 RemoveCharAt (string* String, s32 Index)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Index >= 0 && Index < String->Max);
     
     char* Dst = String->Memory + Index;
@@ -1219,6 +1290,7 @@ RemoveCharAt (string* String, s32 Index)
 static s32
 IndexOfChar(string String, char C)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     char* At = String.Memory;
     for (s32 i = 0; i < String.Length; i++)
@@ -1236,6 +1308,7 @@ IndexOfChar(string String, char C)
 static s32
 LastIndexOfChar(string String, char C)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     char* At = String.Memory + String.Length - 1;
     for (s32 i = 0; i < String.Length; i++)
@@ -1253,6 +1326,7 @@ LastIndexOfChar(string String, char C)
 static s32
 SearchForCharInSet(string String, char* Set)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Index = -1;
     
     char* At = String.Memory;
@@ -1284,6 +1358,7 @@ SearchForCharInSet(string String, char* Set)
 static s32
 ReverseSearchForCharInSet(string String, char* Set)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Index = -1;
     
     for (s32 i = String.Length - 1; i >= 0; i--)
@@ -1312,6 +1387,7 @@ ReverseSearchForCharInSet(string String, char* Set)
 static string
 Substring (string String, s32 Start, s32 End)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Start >= 0 && End > Start && End <= String.Length);
     
     string Result = {};
@@ -1323,6 +1399,7 @@ Substring (string String, s32 Start, s32 End)
 static string
 Substring (string String, s32 Start)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Start >= 0 && Start < String.Length);
     
     string Result = {};
@@ -1334,6 +1411,7 @@ Substring (string String, s32 Start)
 static b32
 StringContainsCharArray(string SearchIn, char* SearchFor, s32 SearchForLength)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     
     char* SearchInAt = SearchIn.Memory;
@@ -1362,12 +1440,14 @@ StringContainsCharArray(string SearchIn, char* SearchFor, s32 SearchForLength)
 static b32
 StringContainsString(string SearchIn, string SearchFor)
 {
+    DEBUG_TRACK_FUNCTION;
     return StringContainsCharArray(SearchIn, SearchFor.Memory, SearchFor.Length);
 }
 
 static b32
 StringContainsCharArrayCaseInsensitive(string SearchIn, char* SearchFor, s32 SearchForLength)
 {
+    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     
     char* SearchInAt = SearchIn.Memory;
@@ -1396,12 +1476,14 @@ StringContainsCharArrayCaseInsensitive(string SearchIn, char* SearchFor, s32 Sea
 static b32
 StringContainsStringCaseInsensitive(string SearchIn, string SearchFor)
 {
+    DEBUG_TRACK_FUNCTION;
     return StringContainsCharArrayCaseInsensitive(SearchIn, SearchFor.Memory, SearchFor.Length);
 }
 
 static void
 NullTerminate (string* String)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(String->Length + 1 <= String->Max);
     *(String->Memory + String->Length) = 0;
     String->Length++;
@@ -1412,6 +1494,7 @@ NullTerminate (string* String)
 static u32
 HashString(string String)
 {
+    DEBUG_TRACK_FUNCTION;
     u32 Hash = 5381;
     for (s32 i = 0; i < String.Length; i++)
     {
@@ -1423,6 +1506,7 @@ HashString(string String)
 static void
 InsertStringAt (string* Dest, string Source, s32 At)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(At + Source.Length < Dest->Max);
     Assert(At < Dest->Length);
     
@@ -1455,6 +1539,7 @@ InsertStringAt (string* Dest, string Source, s32 At)
 static parse_result
 ParseUnsignedInt (s32 Length, char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(IsNumeric(*String));
     parse_result Result = {};
     Result.Type = ParseType_UnsignedInt;
@@ -1475,6 +1560,7 @@ ParseUnsignedInt (s32 Length, char* String)
 static parse_result
 ParseUnsignedIntUnsafe (char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Start = String;
     char* End = EatNumber(String + 1);
     return ParseUnsignedInt(End - Start, String);
@@ -1484,6 +1570,7 @@ ParseUnsignedIntUnsafe (char* String)
 static parse_result
 ParseSignedInt (s32 Length, char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(Length > 0);
     parse_result Result = {};
     Result.Type = ParseType_SignedInt;
@@ -1515,6 +1602,7 @@ ParseSignedInt (s32 Length, char* String)
 static parse_result
 ParseSignedIntUnsafe (char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Start = String;
     char* End = EatNumber(String + 1);
     return ParseSignedInt(End - Start, String);
@@ -1524,6 +1612,7 @@ ParseSignedIntUnsafe (char* String)
 static parse_result
 ParseFloat (s32 Length, char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     parse_result Result = {};
     Result.Type = ParseType_Float;
     
@@ -1585,6 +1674,7 @@ ParseFloat (s32 Length, char* String)
 static parse_result
 ParseFloatUnsafe (char* String)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Start = String;
     char* End = EatNumber(String + 1);
     return ParseFloat(End - Start, String);
@@ -1593,6 +1683,7 @@ ParseFloatUnsafe (char* String)
 static s32
 UIntToString (u32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 MinimumLength = 0)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Remaining = Int;
     char* Iter = String;
     while (Remaining > 0 && (Iter - String) < MaxLength)
@@ -1608,6 +1699,7 @@ UIntToString (u32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 Min
 static s32
 IntToString (s32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 MinimumLength = 0)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 Remaining = Int;
     s32 CharsCopied = 0;
     
@@ -1643,6 +1735,7 @@ IntToString (s32 Int, char* String, s32 MaxLength, b32 FormatFlags = 0, s32 Mini
 static s32
 IntToString (s32 Int, char* String, s32 MaxLength, s32 Offset, b32 FormatFlags = 0, s32 MinimumWidth = 0)
 {
+    DEBUG_TRACK_FUNCTION;
     char* StringStart = String + Offset;
     s32 LengthWritten = IntToString(Int, StringStart, MaxLength - Offset);
     return LengthWritten;
@@ -1651,6 +1744,7 @@ IntToString (s32 Int, char* String, s32 MaxLength, s32 Offset, b32 FormatFlags =
 static s32
 FloatToString(float Float, char *String, s32 MaxLength, s32 AfterPoint = 0, b32 FormatFlags = 0, s32 MinimumWidth = 0)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 IPart = (s32)Float;
     float FPart = GSAbs(Float - (float)IPart);
     
@@ -1674,6 +1768,7 @@ FloatToString(float Float, char *String, s32 MaxLength, s32 AfterPoint = 0, b32 
 static void
 OutChar (string* String, char C)
 {
+    DEBUG_TRACK_FUNCTION;
     if (String->Length < String->Max)
     {
         String->Memory[String->Length] = C;
@@ -1688,6 +1783,7 @@ char HexDigits[] = "0123456789ABCDEF";
 static void
 U64ToASCII (string* String, u64 Value, s32 Base, char* Digits)
 {
+    DEBUG_TRACK_FUNCTION;
     u64 ValueRemaining = Value;
     char* Start = String->Memory + String->Length;
     do {
@@ -1711,6 +1807,7 @@ U64ToASCII (string* String, u64 Value, s32 Base, char* Digits)
 static void
 F64ToASCII (string* String, r64 Value, s32 Precision)
 {
+    DEBUG_TRACK_FUNCTION;
     if (Value < 0)
     {
         OutChar(String, '-');
@@ -1736,6 +1833,7 @@ F64ToASCII (string* String, r64 Value, s32 Precision)
 internal s64
 ReadVarArgsSignedInteger (s32 Width, va_list* Args)
 {
+    DEBUG_TRACK_FUNCTION;
     s64 Result = 0;
     switch (Width)
     {
@@ -1751,6 +1849,7 @@ ReadVarArgsSignedInteger (s32 Width, va_list* Args)
 internal r64
 ReadVarArgsUnsignedInteger (s32 Width, va_list* Args)
 {
+    DEBUG_TRACK_FUNCTION;
     u64 Result = 0;
     switch (Width)
     {
@@ -1766,6 +1865,7 @@ ReadVarArgsUnsignedInteger (s32 Width, va_list* Args)
 internal r64
 ReadVarArgsFloat (s32 Width, va_list* Args)
 {
+    DEBUG_TRACK_FUNCTION;
     r64 Result = 0;
     switch (Width)
     {
@@ -1779,6 +1879,7 @@ ReadVarArgsFloat (s32 Width, va_list* Args)
 internal s32
 PrintFArgsList (char* Dest, s32 DestMax, char* Format, va_list Args)
 {
+    DEBUG_TRACK_FUNCTION;
     char* DestAt = Dest;
     
     char* FormatAt = Format;
@@ -2005,6 +2106,7 @@ PrintFArgsList (char* Dest, s32 DestMax, char* Format, va_list Args)
 static void
 PrintF (string* String, char* Format, ...)
 {
+    DEBUG_TRACK_FUNCTION;
     va_list Args;
     va_start(Args, Format);
     String->Length = 0;
@@ -2015,6 +2117,7 @@ PrintF (string* String, char* Format, ...)
 static void
 AppendPrintF (string* String, char* Format, ...)
 {
+    DEBUG_TRACK_FUNCTION;
     va_list Args;
     va_start(Args, Format);
     String->Length += PrintFArgsList(String->Memory + String->Length, String->Max - String->Length, Format, Args);
@@ -2025,6 +2128,7 @@ AppendPrintF (string* String, char* Format, ...)
 static u32
 GetU32NumberOfCharactersNeeded(u32 Value, u32 Base)
 {
+    DEBUG_TRACK_FUNCTION;
     u32 Result = 0;
     u32 ValueLeft = Value;
     // NOTE(Peter): This is in a do while loop because even if the number is 0,
@@ -2040,6 +2144,7 @@ GetU32NumberOfCharactersNeeded(u32 Value, u32 Base)
 static u32
 GetS32NumberOfCharactersNeeded(s32 Value, s32 Base)
 {
+    DEBUG_TRACK_FUNCTION;
     u32 Result = 0;
     s32 ValueLeft = Value;
     if (Value < 0)
@@ -2064,6 +2169,7 @@ GetS32NumberOfCharactersNeeded(s32 Value, s32 Base)
 static s32
 CalculateSlotCountFromSize (s32 RequestedSize, s32 SlotSize)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 SlotCount = RequestedSize / SlotSize;
     if (SlotCount * SlotSize < RequestedSize)
     {
@@ -2075,6 +2181,7 @@ CalculateSlotCountFromSize (s32 RequestedSize, s32 SlotSize)
 static bool
 SlotsAreContiguous (slot_header* First, slot_header* Second)
 {
+    DEBUG_TRACK_FUNCTION;
     bool Result = false;
     u8* FirstSlotNextAddress = (u8*)First + First->Size;
     u8* SecondAddress = (u8*)Second;
@@ -2085,6 +2192,7 @@ SlotsAreContiguous (slot_header* First, slot_header* Second)
 static contiguous_slot_count_result
 CountContiguousSlots (slot_header* First)
 {
+    DEBUG_TRACK_FUNCTION;
     Assert(First != 0);
     
     contiguous_slot_count_result Result = {};
@@ -2106,6 +2214,7 @@ CountContiguousSlots (slot_header* First)
 static slot_header*
 GetSlotAtOffset(slot_header* First, s32 Offset)
 {
+    DEBUG_TRACK_FUNCTION;
     slot_header* Iter = First;
     s32 Count = 0;
     while (Count < Offset && Iter)
@@ -2119,6 +2228,7 @@ GetSlotAtOffset(slot_header* First, s32 Offset)
 static slot_header*
 InsertSlotIntoList (slot_header* NewSlot, slot_header* ListStart)
 {
+    DEBUG_TRACK_FUNCTION;
     slot_header* List = ListStart;
     if (NewSlot < List)
     {
@@ -2152,6 +2262,7 @@ InsertSlotIntoList (slot_header* NewSlot, slot_header* ListStart)
 static void
 AllocStringFromStringArena (string* String, s32 Size, slot_arena* Storage)
 {
+    DEBUG_TRACK_FUNCTION;
     s32 SlotCount = CalculateSlotCountFromSize(Size, Storage->SlotSize);
     slot_header* Slot = Storage->FreeList;
     slot_header* PrevSlot = 0;
@@ -2190,6 +2301,7 @@ AllocStringFromStringArena (string* String, s32 Size, slot_arena* Storage)
 static string
 AllocStringFromStringArena (s32 Size, slot_arena* Storage)
 {
+    DEBUG_TRACK_FUNCTION;
     string Result = {0};
     AllocStringFromStringArena(&Result, Size, Storage);
     return Result;
@@ -2198,6 +2310,7 @@ AllocStringFromStringArena (s32 Size, slot_arena* Storage)
 static void
 FreeToStringArena (string* String, slot_arena* Storage)
 {
+    DEBUG_TRACK_FUNCTION;
     u8* Base = (u8*)(String->Memory);
     u8* End = Base + String->Max - 1;
     u8* MemoryEnd = Storage->Memory + (Storage->SlotSize * Storage->SlotCount);
@@ -2222,6 +2335,7 @@ FreeToStringArena (string* String, slot_arena* Storage)
 static void
 ReallocFromStringArena (string* String, s32 NewSize, slot_arena* Storage)
 {
+    DEBUG_TRACK_FUNCTION;
     string NewString = AllocStringFromStringArena(NewSize, Storage);
     CopyStringTo(*String, &NewString);
     FreeToStringArena(String, Storage);
@@ -2232,6 +2346,7 @@ ReallocFromStringArena (string* String, s32 NewSize, slot_arena* Storage)
 
 void DEBUGPrintChars (string* String, s32 Count)
 {
+    DEBUG_TRACK_FUNCTION;
     char* Iter = String->Memory;
     for (int i = 0; i < Count; i++)
     {
@@ -2247,6 +2362,7 @@ void DEBUGPrintChars (string* String, s32 Count)
 static void
 TestStrings()
 {
+    
     
     slot_arena StringArena = {};
     

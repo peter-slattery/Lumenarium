@@ -59,7 +59,7 @@ EatIdentifier (tokenizer* Tokenizer)
 {
     s32 Length = 0;
     
-    while (Tokenizer->At[0] && 
+    while (Tokenizer->At[0] &&
            (IsAlpha(Tokenizer->At[0]) || IsNumericExtended(Tokenizer->At[0])))
     {
         ++Tokenizer->At;
@@ -135,7 +135,7 @@ GetNextToken (tokenizer* Tokenizer)
     char C = Tokenizer->At[0];
     ++Tokenizer->At;
     
-    if (C == 0) { Result.Type = Token_EndOfStream; } 
+    if (C == 0) { Result.Type = Token_EndOfStream; }
     else if (C == '(') { Result.Type = Token_LeftParen; }
     else if (C == ')') { Result.Type = Token_RightParen; }
     else if (C == '[') { Result.Type = Token_LeftSquareBracket; }
@@ -145,9 +145,9 @@ GetNextToken (tokenizer* Tokenizer)
     else if (C == ';') { Result.Type = Token_Semicolon; }
     else if (C == ',') { Result.Type = Token_Comma; }
     else if (C == '.') { Result.Type = Token_Period; }
-    else if (C == '-' && Tokenizer->At[0] && Tokenizer->At[0] == '>') 
-    { 
-        Result.Type = Token_PointerReference; 
+    else if (C == '-' && Tokenizer->At[0] && Tokenizer->At[0] == '>')
+    {
+        Result.Type = Token_PointerReference;
         Result.Text.Length = 2;
         ++Tokenizer->At;
     }
@@ -157,67 +157,67 @@ GetNextToken (tokenizer* Tokenizer)
         EatWhitespace(Tokenizer);
         
         if (TokenAtEquals(Tokenizer, "define"))
-        { 
-            Result.Type = Token_PoundDefine; 
+        {
+            Result.Type = Token_PoundDefine;
             EatPreprocessor(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "undef"))
-        { 
-            Result.Type = Token_PoundUndef; 
+        {
+            Result.Type = Token_PoundUndef;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "include"))
-        { 
-            Result.Type = Token_PoundInclude; 
+        {
+            Result.Type = Token_PoundInclude;
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "ifdef"))
-        { 
-            Result.Type = Token_PoundIfDef; 
+        {
+            Result.Type = Token_PoundIfDef;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "ifndef"))
-        { 
-            Result.Type = Token_PoundIfNDef; 
+        {
+            Result.Type = Token_PoundIfNDef;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "if"))
-        { 
-            Result.Type = Token_PoundIf; 
+        {
+            Result.Type = Token_PoundIf;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "elif"))
-        { 
-            Result.Type = Token_PoundElif; 
+        {
+            Result.Type = Token_PoundElif;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "else"))
-        { 
-            Result.Type = Token_PoundElse; 
+        {
+            Result.Type = Token_PoundElse;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "endif"))
-        { 
-            Result.Type = Token_PoundEndif; 
+        {
+            Result.Type = Token_PoundEndif;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "error"))
-        { 
-            Result.Type = Token_PoundError; 
+        {
+            Result.Type = Token_PoundError;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
         else if (TokenAtEquals(Tokenizer, "pragma"))
-        { 
-            Result.Type = Token_PoundPragma; 
+        {
+            Result.Type = Token_PoundPragma;
             EatToNewLine(Tokenizer);
             Result.Text.Length = Tokenizer->At - Result.Text.Memory;
         }
@@ -257,5 +257,6 @@ GetNextToken (tokenizer* Tokenizer)
         Result.Text.Length += EatIdentifier(Tokenizer);
     }
     
+    Result.TextHash = HashDJB2ToU64(Result.Text.Memory);
     return Result;
 }

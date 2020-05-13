@@ -15,6 +15,14 @@ Profile 1:
 Total Allocated Space: 1217890 bytes, or 1.161470 MB
 Total Time: 0.061852 seconds
 
+Profile 2:
+
+
+
+Profile 3:
+Converted many of the TokenAtEquals to TokenAtHashEquals
+Total Allocated Space: 912143773 bytes, or 869.888089 MB
+Total Time: 4.915469
 
 
 

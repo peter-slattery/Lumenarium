@@ -28,6 +28,34 @@
 #include "..\gs_libs\gs_profiler.h"
 #include "..\gs_libs\gs_string.h"
 
+global_variable u64 TokenHash_GSMetaTag = HashDJB2ToU64("GSMetaTag");
+global_variable u64 TokenHash_OpenParen = HashDJB2ToU64("(");
+global_variable u64 TokenHash_CloseParen = HashDJB2ToU64(")");
+global_variable u64 TokenHash_Semicolon = HashDJB2ToU64(";");
+global_variable u64 TokenHash_Unsigned = HashDJB2ToU64("unsigned");
+global_variable u64 TokenHash_Signed = HashDJB2ToU64("signed");
+global_variable u64 TokenHash_Short = HashDJB2ToU64("short");
+global_variable u64 TokenHash_Int = HashDJB2ToU64("int");
+global_variable u64 TokenHash_Long = HashDJB2ToU64("long");
+global_variable u64 TokenHash_Char = HashDJB2ToU64("char");
+global_variable u64 TokenHash_WCharT = HashDJB2ToU64("wchar_t");
+global_variable u64 TokenHash_Bool = HashDJB2ToU64("bool");
+global_variable u64 TokenHash_Float = HashDJB2ToU64("float");
+global_variable u64 TokenHash_Double = HashDJB2ToU64("double");
+global_variable u64 TokenHash_Star = HashDJB2ToU64("*");
+global_variable u64 TokenHash_Volatile = HashDJB2ToU64("volatile");
+global_variable u64 TokenHash_Const = HashDJB2ToU64("const");
+global_variable u64 TokenHash_OpenSquareBracket = HashDJB2ToU64("[");
+global_variable u64 TokenHash_CloseSquareBracket = HashDJB2ToU64("]");
+global_variable u64 TokenHash_Comma = HashDJB2ToU64(",");
+global_variable u64 TokenHash_Struct = HashDJB2ToU64("struct");
+global_variable u64 TokenHash_Union = HashDJB2ToU64("union");
+global_variable u64 TokenHash_OpenCurlyBracket = HashDJB2ToU64("{");
+global_variable u64 TokenHash_CloseCurlyBracket = HashDJB2ToU64("}");
+global_variable u64 TokenHash_Typedef = HashDJB2ToU64("typedef");
+global_variable u64 TokenHash_Enum = HashDJB2ToU64("enum");
+global_variable u64 TokenHash_Equals = HashDJB2ToU64("=");
+
 struct gsm_profiler_scope
 {
     s64 StartTime;
@@ -312,6 +340,19 @@ TokenAtEquals(token_iter* Iter, char* String)
 }
 
 internal b32
+TokenAtHashEquals(token_iter* Iter, u64 Hash)
+{
+    DEBUG_TRACK_FUNCTION;
+    b32 Result = false;
+    if (Hash == Iter->TokenAt->TextHash)
+    {
+        Result = true;
+        NextToken(Iter);
+    }
+    return Result;
+}
+
+internal b32
 TokenAtEquals(token_iter* Iter, token_type Type)
 {
     DEBUG_TRACK_FUNCTION;
@@ -545,14 +586,14 @@ ParseMetaTag(token_iter* Iter, gs_meta_preprocessor* Meta)
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "GSMetaTag") &&
-        TokenAtEquals(Iter, "("))
+    if (TokenAtHashEquals(Iter, TokenHash_GSMetaTag) &&
+        TokenAtHashEquals(Iter, TokenHash_OpenParen))
     {
         token MetaIdentifier = {0};
         if (TokenAtEquals(Iter, Token_Identifier, &MetaIdentifier))
         {
-            if (TokenAtEquals(Iter, ")") &&
-                TokenAtEquals(Iter, ";"))
+            if (TokenAtHashEquals(Iter, TokenHash_OpenParen) &&
+                TokenAtHashEquals(Iter, TokenHash_Semicolon))
             {
                 Result = true;
                 type_table_handle MetaTagHandle = GetMetaTagHandle(MetaIdentifier.Text, Meta->TypeTable);
@@ -592,8 +633,8 @@ ParseSignedness (token_iter* Iter)
     
     b32 Result = false;
     
-    if (TokenAtEquals(Iter, "unsigned") ||
-        TokenAtEquals(Iter, "signed"))
+    if (TokenAtHashEquals(Iter, TokenHash_Unsigned) ||
+        TokenAtHashEquals(Iter, TokenHash_Signed))
     {
         Result = true;
     }
@@ -609,10 +650,10 @@ ShortInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
     PushSnapshot(Iter);
     
     ParseSignedness(Iter);
-    if (TokenAtEquals(Iter, "short"))
+    if (TokenAtHashEquals(Iter, TokenHash_Short))
     {
         Result = true;
-        if (TokenAtEquals(Iter, "int"))
+        if (TokenAtHashEquals(Iter, TokenHash_Int))
         {
             Result = true;
         }
@@ -634,7 +675,7 @@ Int (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTable)
     PushSnapshot(Iter);
     
     ParseSignedness(Iter);
-    if (TokenAtEquals(Iter, "int"))
+    if (TokenAtHashEquals(Iter, TokenHash_Int))
     {
         Result = true;
     }
@@ -655,10 +696,10 @@ LongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTabl
     PushSnapshot(Iter);
     
     ParseSignedness(Iter);
-    if (TokenAtEquals(Iter, "long"))
+    if (TokenAtHashEquals(Iter, TokenHash_Long))
     {
         Result = true;
-        if (TokenAtEquals(Iter, "int"))
+        if (TokenAtHashEquals(Iter, TokenHash_Int))
         {
             Result = true;
         }
@@ -680,12 +721,12 @@ LongLongInt (token_iter* Iter, type_table_handle* TypeHandleOut, type_table Type
     PushSnapshot(Iter);
     
     ParseSignedness(Iter);
-    if (TokenAtEquals(Iter, "long"))
+    if (TokenAtHashEquals(Iter, TokenHash_Long))
     {
-        if (TokenAtEquals(Iter, "long"))
+        if (TokenAtHashEquals(Iter, TokenHash_Long))
         {
             Result = true;
-            if (TokenAtEquals(Iter, "int"))
+            if (TokenAtHashEquals(Iter, TokenHash_Int))
             {
                 Result = true;
             }
@@ -708,12 +749,12 @@ ParseChar(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
     PushSnapshot(Iter);
     
     ParseSignedness(Iter);
-    if (TokenAtEquals(Iter, "char"))
+    if (TokenAtHashEquals(Iter, TokenHash_Char))
     {
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("char"), TypeTable);
     }
-    else if (TokenAtEquals(Iter, "wchar_t"))
+    else if (TokenAtHashEquals(Iter, TokenHash_WCharT))
     {
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("wchar_t"), TypeTable);
@@ -730,7 +771,7 @@ ParseBool(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTab
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "bool"))
+    if (TokenAtHashEquals(Iter, TokenHash_Bool))
     {
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("bool"), TypeTable);
@@ -747,7 +788,7 @@ ParseFloat(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeTa
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "float"))
+    if (TokenAtHashEquals(Iter, TokenHash_Float))
     {
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("float"), TypeTable);
@@ -764,7 +805,7 @@ ParseDouble(token_iter* Iter, type_table_handle* TypeHandleOut, type_table TypeT
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "double"))
+    if (TokenAtHashEquals(Iter, TokenHash_Double))
     {
         Result = true;
         *TypeHandleOut = GetTypeHandle(MakeStringLiteral("double"), TypeTable);
@@ -843,7 +884,7 @@ ParsePointer (token_iter* Iter)
 {
     DEBUG_TRACK_FUNCTION;
     b32 Result = false;
-    if (TokenAtEquals(Iter, "*"))
+    if (TokenAtHashEquals(Iter, TokenHash_Star))
     {
         Result = true;
     }
@@ -857,8 +898,8 @@ ParseConstVolatile (token_iter* Iter)
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "volatile") ||
-        TokenAtEquals(Iter, "const"))
+    if (TokenAtHashEquals(Iter, TokenHash_Volatile) ||
+        TokenAtHashEquals(Iter, TokenHash_Const))
     {
         Result = true;
     }
@@ -910,7 +951,7 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_m
                 // are still ok to proceed
                 b32 ArrayParseSuccess = true;
                 u32 ArrayCount = 0;
-                if (TokenAtEquals(Iter, "["))
+                if (TokenAtHashEquals(Iter, TokenHash_OpenSquareBracket))
                 {
                     // NOTE(Peter): Once we get to this point, we have to complete the entire
                     // array notation before we have successfully parsed, hence setting
@@ -931,7 +972,7 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_m
                         }
                     }
                     
-                    if (TokenAtEquals(Iter, "]"))
+                    if (TokenAtHashEquals(Iter, TokenHash_CloseSquareBracket))
                     {
                         ArrayParseSuccess = true;
                     }
@@ -969,7 +1010,7 @@ ParseVariableDecl(token_iter* Iter, gs_bucket<variable_decl>* VariableList, gs_m
                 PushSnapshot(Iter);
                 
                 if (TokenAtEquals(Iter, Token_Identifier) &&
-                    (TokenAtEquals(Iter, ",") || TokenAtEquals(Iter, ";")))
+                    (TokenAtHashEquals(Iter, TokenHash_Comma) || TokenAtHashEquals(Iter, TokenHash_Semicolon)))
                 {
                     // We are in a declaration list (case 1)
                     ApplySnapshotIfNotParsedAndPop(false, Iter);
@@ -1000,12 +1041,12 @@ StructOrUnion(token_iter* Iter, type_definition_type* Type)
 {
     DEBUG_TRACK_FUNCTION;
     b32 Result = false;
-    if (TokenAtEquals(Iter, "struct"))
+    if (TokenAtHashEquals(Iter, TokenHash_Struct))
     {
         Result = true;
         *Type = TypeDef_Struct;
     }
-    else if (TokenAtEquals(Iter, "union"))
+    else if (TokenAtHashEquals(Iter, TokenHash_Union))
     {
         Result = true;
         *Type = TypeDef_Union;
@@ -1035,7 +1076,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
         if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken)) {}
         
         // TODO(Peter): Handle name coming after the struct
-        if (TokenAtEquals(Iter, "{"))
+        if (TokenAtHashEquals(Iter, TokenHash_OpenCurlyBracket))
         {
             type_definition StructDecl = {};
             if (IdentifierToken.Text.Length > 0)
@@ -1065,7 +1106,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
             StructDecl.Type = DeclType;
             CopyMetaTagsAndClear(&Meta->TagList, &StructDecl.MetaTags);
             
-            while (!TokenAtEquals(Iter, "}"))
+            while (!TokenAtHashEquals(Iter, TokenHash_CloseCurlyBracket))
             {
                 type_table_handle MemberStructTypeHandle = InvalidTypeTableHandle;
                 variable_decl MemberDecl = {};
@@ -1075,7 +1116,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
                 }
                 else if (ParseVariableDecl(Iter, &StructDecl.Struct.MemberDecls, Meta))
                 {
-                    if (!TokenAtEquals(Iter, ";"))
+                    if (!TokenAtHashEquals(Iter, TokenHash_Semicolon))
                     {
                         PushFError(Iter->Errors, "No semicolon after struct member variable declaration. %S", StructDecl.Identifier);
                     }
@@ -1102,7 +1143,7 @@ ParseStruct(token_iter* Iter, type_table_handle* StructTypeHandleOut, gs_meta_pr
                 }
             }
             
-            if (TokenAtEquals(Iter, ";"))
+            if (TokenAtHashEquals(Iter, TokenHash_Semicolon))
             {
                 Result = true;
                 *StructTypeHandleOut = PushTypeDefOnTypeTable(StructDecl, &Meta->TypeTable);
@@ -1123,7 +1164,7 @@ ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, 
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "("))
+    if (TokenAtHashEquals(Iter, TokenHash_OpenParen))
     {
         Result = true;
         
@@ -1142,7 +1183,7 @@ ParseFunctionParameterList (token_iter* Iter, type_definition* FunctionPtrDecl, 
             }
         }
         
-        if (TokenAtEquals(Iter, ")"))
+        if (TokenAtHashEquals(Iter, TokenHash_CloseParen))
         {
             Result = true;
         }
@@ -1183,7 +1224,7 @@ ParseFunctionDeclaration (token_iter* Iter, token* Identifier, gs_meta_preproces
             
             if (ParseFunctionParameterList(Iter, &FunctionPtr, Meta))
             {
-                if (TokenAtEquals(Iter, ";"))
+                if (TokenAtHashEquals(Iter, TokenHash_Semicolon))
                 {
                     Result = true;
                     PushTypeDefOnTypeTable(FunctionPtr, &Meta->TypeTable);
@@ -1214,7 +1255,7 @@ ParseTypedef(token_iter* Iter, gs_meta_preprocessor* Meta)
     {
         token TypeToken = {0};
         type_table_handle TypeHandle = InvalidTypeTableHandle;
-        if (TokenAtEquals(Iter, "struct") &&
+        if (TokenAtHashEquals(Iter, TokenHash_Struct) &&
             ParseStruct(Iter, &TypeHandle, Meta))
         {
             Result = true;
@@ -1258,7 +1299,7 @@ ParseTypedef(token_iter* Iter, gs_meta_preprocessor* Meta)
         {
             string* Error = TakeError(Iter->Errors);
             PrintF(Error, "unhandled typedef ");
-            while (!TokenAtEquals(Iter, ";"))
+            while (!TokenAtHashEquals(Iter, TokenHash_Semicolon))
             {
                 PrintF(Error, "%S ", Iter->TokenAt->Text);
                 NextToken(Iter);
@@ -1283,7 +1324,7 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
     b32 Result = false;
     PushSnapshot(Iter);
     
-    if (TokenAtEquals(Iter, "enum"))
+    if (TokenAtHashEquals(Iter, TokenHash_Enum))
     {
         token IdentifierToken = {};
         if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken))
@@ -1294,7 +1335,7 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
             CopyMetaTagsAndClear(&Meta->TagList, &EnumDecl.MetaTags);
             EnumDecl.Type = TypeDef_Enum;
             
-            if (TokenAtEquals(Iter, "{"))
+            if (TokenAtHashEquals(Iter, TokenHash_OpenCurlyBracket))
             {
                 u32 EnumAcc = 0;
                 
@@ -1303,7 +1344,7 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
                     token EnumIdentifierToken = {};
                     if (TokenAtEquals(Iter, Token_Identifier, &EnumIdentifierToken))
                     {
-                        if (TokenAtEquals(Iter, "="))
+                        if (TokenAtHashEquals(Iter, TokenHash_Equals))
                         {
                             // TODO(Peter): TempValue is just here until we handle all
                             // const expr that could define an enum value. Its there so
@@ -1331,7 +1372,7 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
                         }
                         
                         s32 EnumValue = EnumAcc++;
-                        if (TokenAtEquals(Iter, ",") ||
+                        if (TokenAtHashEquals(Iter, TokenHash_Comma) ||
                             StringsEqual(Iter->TokenAt->Text, MakeStringLiteral("}")))
                         {
                             EnumDecl.Enum.Identifiers.PushElementOnBucket(EnumIdentifierToken.Text);
@@ -1345,8 +1386,8 @@ ParseEnum (token_iter* Iter, gs_meta_preprocessor* Meta)
                     }
                 }
                 
-                if (TokenAtEquals(Iter, "}") &&
-                    TokenAtEquals(Iter, ";"))
+                if (TokenAtHashEquals(Iter, TokenHash_OpenCurlyBracket) &&
+                    TokenAtHashEquals(Iter, TokenHash_Semicolon))
                 {
                     PushTypeDefOnTypeTable(EnumDecl, &Meta->TypeTable);
                     Result = true;
@@ -1365,9 +1406,6 @@ ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
 {
     DEBUG_TRACK_FUNCTION;
     
-    gsm_profiler_scope* ProfilerScope = BeginScope(&Meta->Profiler,
-                                                   MakeStringLiteral("parse"),
-                                                   MakeStringLiteral("ParseFunction"));
     b32 Result = false;
     PushSnapshot(Iter);
     
@@ -1376,11 +1414,8 @@ ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
     {
         token IdentifierToken = {};
         if (TokenAtEquals(Iter, Token_Identifier, &IdentifierToken) &&
-            TokenAtEquals(Iter, "("))
+            TokenAtHashEquals(Iter, TokenHash_OpenParen))
         {
-            gsm_profiler_scope* ProfilerInnerScope = BeginScope(&Meta->Profiler,
-                                                                MakeStringLiteral("parse"),
-                                                                MakeStringLiteral("ParseFunctionInner"));
             type_definition FunctionDecl = {};
             FunctionDecl.Identifier = IdentifierToken.Text;
             FunctionDecl.Function.ReturnTypeHandle = ReturnTypeHandle;
@@ -1395,23 +1430,21 @@ ParseFunction (token_iter* Iter, gs_meta_preprocessor* Meta)
                     
                 }
                 
-                if(!TokenAtEquals(Iter, ","))
+                if(!TokenAtHashEquals(Iter, TokenHash_Comma))
                 {
                     break;
                 }
             }
             
-            if (TokenAtEquals(Iter, ")"))
+            if (TokenAtHashEquals(Iter, TokenHash_OpenParen))
             {
                 Result = true;
                 PushTypeDefOnTypeTable(FunctionDecl, &Meta->TypeTable);
             }
-            EndScope(ProfilerInnerScope);
         }
     }
     
     ApplySnapshotIfNotParsedAndPop(Result, Iter);
-    EndScope(ProfilerScope);
     return Result;
 }
 
@@ -1524,9 +1557,6 @@ PrintFunctionPtrDecl (type_definition* FnPtrDecl, type_table TypeTable)
 internal gs_meta_preprocessor
 PreprocessProgram (base_allocator Allocator, char* SourceFile)
 {
-    GlobalDebugServices.Arena = CreateMemoryArena(Allocator);
-    GlobalDebugServices.Transient = CreateMemoryArena(Allocator);
-    
     DEBUG_TRACK_FUNCTION;
     
     gs_meta_preprocessor Meta = {};
