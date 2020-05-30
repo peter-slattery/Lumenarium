@@ -63,6 +63,8 @@ enum platform_memory_error
     PlatformMemory_UnknownError, // You should implement handling this when you see it
 };
 
+// TODO(Peter): Change this to just be data
+// - Base, and Size
 struct platform_memory_result
 {
     u8* Base;
@@ -104,6 +106,13 @@ typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 #define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength, const char* FilterStrings)
 typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
 
+struct platform_file_handler
+{
+    platform_read_entire_file* ReadEntireFile;
+    platform_write_entire_file* WriteEntireFile;
+    platform_get_file_path* GetFilePath;
+};
+
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
 typedef PLATFORM_GET_GPU_TEXTURE_HANDLE(platform_get_gpu_texture_handle);
 
@@ -117,13 +126,13 @@ struct platform_network_address
 typedef s32 platform_socket_handle;
 typedef s32 platform_network_address_handle;
 
-#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive) 
+#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive)
 typedef PLATFORM_GET_SOCKET_HANDLE(platform_get_socket_handle);
 
 #define PLATFORM_GET_SEND_ADDRESS_HANDLE(name) platform_network_address_handle name(s32 AddressFamily, u16 Port, u32 Address)
 typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
 
-#define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength) 
+#define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength)
 typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
 
 #define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, u32 Address, u32 Port, const char* Buffer, s32 BufferLength, s32 Flags)
@@ -134,7 +143,7 @@ typedef PLATFORM_CLOSE_SOCKET(platform_close_socket);
 
 // File IO
 
-// TODO(Peter): 
+// TODO(Peter):
 struct directory_listing
 {
     string Path;
@@ -258,7 +267,9 @@ struct context
     platform_alloc* PlatformAlloc;
     platform_free* PlatformFree;
     platform_realloc* PlatformRealloc;
-    platform_read_entire_file* PlatformReadEntireFile;
+    
+    platform_file_handler FileHandler;
+    
     platform_write_entire_file* PlatformWriteEntireFile;
     platform_get_file_path* PlatformGetFilePath;
     platform_get_gpu_texture_handle* PlatformGetGPUTextureHandle;
@@ -269,6 +280,47 @@ struct context
     platform_send_to* PlatformSendTo;
     platform_close_socket* PlatformCloseSocket;
 };
+
+// File Handler
+internal platform_memory_result
+ReadEntireFile(platform_file_handler FileHandler, char* Path)
+{
+    // TODO(Peter): Convert Path to be a string
+    platform_memory_result Result = FileHandler.ReadEntireFile(Path);
+    return Result;
+}
+internal platform_memory_result
+ReadEntireFile(context Context, char* Path)
+{
+    return ReadEntireFile(Context.FileHandler, Path);
+}
+
+internal b32
+WriteEntireFile(platform_file_handler FileHandler, char* Path, u8* Contents, u32 Size)
+{
+    // TODO(Peter): Convert Path to be a string
+    // TODO(Peter): Overload to take a data struct instead of Contents And Size
+    b32 Result = FileHandler.WriteEntireFile(Path, Contents, Size);
+    return Result;
+}
+internal b32
+WriteEntireFile(context Context, char* Path, u8* Contents, u32 Size)
+{
+    return WriteEntireFile(Context.FileHandler, Path, Contents, Size);
+}
+
+internal b32
+GetFilePath(platform_file_handler FileHandler, char* PathBuffer, s32 BufferLength, char* FilterStrings)
+{
+    // TODO(Peter): Convert Path to be a string
+    b32 Result = FileHandler.GetFilePath(PathBuffer, BufferLength, (const char*)FilterStrings);
+    return Result;
+}
+internal b32
+GetFilePath(context Context, char* PathBuffer, s32 BufferLength, char* FilterStrings)
+{
+    return GetFilePath(Context.FileHandler, PathBuffer, BufferLength, FilterStrings);
+}
 
 
 #define FOLDHAUS_PLATFORM_H

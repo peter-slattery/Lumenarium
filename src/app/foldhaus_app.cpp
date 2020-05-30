@@ -92,7 +92,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
     {
-        platform_memory_result FontFile = Context.PlatformReadEntireFile("Anonymous Pro.ttf");
+        platform_memory_result FontFile = ReadEntireFile(Context, "data/Anonymous Pro.ttf");
         if (!FontFile.Error)
         {
             bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
@@ -176,7 +176,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.LookAt = v3{0, 0, 0};
     
 #if 1
-    char Path[] = "blumen_lumen.fold";
+    char Path[] = "data/blumen_lumen.fold";
     LoadAssembly(State, Context, Path);
 #endif
     

@@ -66,7 +66,7 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
         if (ui_LayoutButton(&State->Interface_, &Layout, TempString, ListItemBGColor, ListItemHover, ListItemSelected))
         {
             char FilePath[256];
-            b32 Success = Context.PlatformGetFilePath(FilePath, 256, "Foldhaus Files\0*.fold\0\0");
+            b32 Success = GetFilePath(Context, FilePath, 256, "Foldhaus Files\0*.fold\0\0");
             if (Success)
             {
                 LoadAssembly(State, Context, FilePath);

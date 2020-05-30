@@ -132,7 +132,7 @@ WorkerThreadProc (LPVOID InputThreadInfo)
         Entry = CompleteAndTakeNextJob(ThreadInfo->Queue, Entry);
         if (Entry.IsValid)
         {
-            ThreadInfo->Queue->Jobs[Entry.Index].WorkProc(ThreadInfo->ID, 
+            ThreadInfo->Queue->Jobs[Entry.Index].WorkProc(ThreadInfo->ID,
                                                           ThreadInfo->Queue->Jobs[Entry.Index].Data);
         }
         else
@@ -176,10 +176,10 @@ PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
 
 PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
 {
-    // NOTE(Peter): These used to be passed in as paramters, but we only use this function 
+    // NOTE(Peter): These used to be passed in as paramters, but we only use this function
     // with AF_INET, SOCK_DGRAM, and Protocol = 0. These are also platform specific values
     // so I was having to include windows.h in the platform agnostic code to accomodate that
-    // function signature. 
+    // function signature.
     s32 AddressFamily = AF_INET;
     s32 Type = SOCK_DGRAM;
     s32 Protocol = 0;
@@ -207,7 +207,7 @@ PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
     
     SocketValues[NewSocketIndex].Socket = socket(AddressFamily, Type, Protocol);
     
-    int Error = Win32SetSocketOption(NewSocketIndex, IPPROTO_IP, IP_MULTICAST_TTL, 
+    int Error = Win32SetSocketOption(NewSocketIndex, IPPROTO_IP, IP_MULTICAST_TTL,
                                      (const char*)(&Multicast_TimeToLive), sizeof(Multicast_TimeToLive));
     
     return (platform_socket_handle)NewSocketIndex;
@@ -265,7 +265,7 @@ GET_FONT_INFO(Win32GetFontInfo)
     
     CurrentFont = CreateFont(PixelHeight, 0, 0, 0,
                              FontWeight,
-                             Italic, 
+                             Italic,
                              Underline,
                              Strikeout,
                              ANSI_CHARSET,
@@ -311,7 +311,7 @@ DRAW_FONT_CODEPOINT(Win32DrawFontCodepoint)
         COLORREF PixelColor;
         for (u32 Y = 0; Y < *OutHeight; Y++)
         {
-            // NOTE(Peter): XOffset * 4 b/c its 4 bytes per pixel. 
+            // NOTE(Peter): XOffset * 4 b/c its 4 bytes per pixel.
             u8* Channel = (u8*)Row + (XOffset * 4);
             for (u32 X = 0; X < *OutWidth; X++)
             {
@@ -392,7 +392,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true,
                                ShiftDown, AltDown, CtrlDown, false);
             
             Mouse->LeftButtonState = KeyState_IsDown & ~KeyState_WasDown;
@@ -414,7 +414,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, false, true, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, false, true,
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->MiddleButtonState = KeyState_IsDown & ~KeyState_WasDown;
             
@@ -428,7 +428,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, false, true,
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = KeyState_IsDown & ~KeyState_WasDown;
             Mouse->DownPos = Mouse->Pos;
@@ -443,7 +443,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false,
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->LeftButtonState = ~KeyState_IsDown & KeyState_WasDown;
             
@@ -457,7 +457,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, true, false, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseMiddleButton, true, false,
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->MiddleButtonState = ~KeyState_IsDown & KeyState_WasDown;
             
@@ -471,7 +471,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
-            AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, true, false, 
+            AddInputEventEntry(InputQueue, KeyCode_MouseRightButton, true, false,
                                ShiftDown, AltDown, CtrlDown, false);
             Mouse->RightButtonState = ~KeyState_IsDown & KeyState_WasDown;
             
@@ -496,7 +496,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
             
             // New Input Queue
-            AddInputEventEntry(InputQueue, Key, KeyWasDown, KeyIsDown, 
+            AddInputEventEntry(InputQueue, Key, KeyWasDown, KeyIsDown,
                                ShiftDown, AltDown, CtrlDown, false);
         }break;
         
@@ -553,7 +553,7 @@ Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
     return NewMemory;
 }
 
-internal s32 
+internal s32
 Win32GetThreadId()
 {
     s32 Result = GetCurrentThreadId();
@@ -561,8 +561,8 @@ Win32GetThreadId()
 }
 
 // NOTE(Peter): Only meant to take one of the values specified below:
-// IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM, 
-// IDC_ICON, IDC_NO, IDC_SIZE, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, 
+// IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM,
+// IDC_ICON, IDC_NO, IDC_SIZE, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE,
 // IDC_SIZEWE, IDC_UPARROW, IDC_WAIT
 internal HCURSOR
 Win32LoadSystemCursor(char* CursorIdentifier)
@@ -601,12 +601,12 @@ WinMain (
     
     GlobalDebugServices = (debug_services*)malloc(sizeof(debug_services));
     s32 DebugThreadCount = PLATFORM_THREAD_COUNT + 1;
-    InitDebugServices(GlobalDebugServices, 
-                      PerformanceCountFrequency, 
-                      DEBUGAlloc, 
-                      Win32Realloc, 
-                      GetWallClock, 
-                      Win32GetThreadId, 
+    InitDebugServices(GlobalDebugServices,
+                      PerformanceCountFrequency,
+                      DEBUGAlloc,
+                      Win32Realloc,
+                      GetWallClock,
+                      Win32GetThreadId,
                       DebugThreadCount);
     
     input_queue InputQueue;
@@ -666,9 +666,9 @@ WinMain (
     Context.PlatformAlloc = Win32Alloc;
     Context.PlatformFree = Win32Free;
     Context.PlatformRealloc = Win32Realloc;
-    Context.PlatformReadEntireFile = Win32ReadEntireFile;
-    Context.PlatformWriteEntireFile = Win32WriteEntireFile;
-    Context.PlatformGetFilePath = Win32SystemDialogueOpenFile;
+    Context.FileHandler.ReadEntireFile = Win32ReadEntireFile;
+    Context.FileHandler.WriteEntireFile = Win32WriteEntireFile;
+    Context.FileHandler.GetFilePath = Win32SystemDialogueOpenFile;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
     Context.PlatformSetSocketOption = Win32SetSocketOption;
@@ -702,9 +702,9 @@ WinMain (
     Context.WindowIsVisible = true;
     while (Running)
     {
-        if (GlobalDebugServices->RecordFrames) 
-        { 
-            EndDebugFrame(GlobalDebugServices); 
+        if (GlobalDebugServices->RecordFrames)
+        {
+            EndDebugFrame(GlobalDebugServices);
         }
         DEBUG_TRACK_SCOPE(MainLoop);
         

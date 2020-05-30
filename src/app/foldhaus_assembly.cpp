@@ -70,7 +70,7 @@ s32 TempAssemblyOffsetsCount = 3;
 internal void
 LoadAssembly (app_state* State, context Context, char* Path)
 {
-    platform_memory_result AssemblyFile = Context.PlatformReadEntireFile(Path);
+    platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
     if (AssemblyFile.Error == PlatformMemory_NoError)
     {
         assembly_definition AssemblyDefinition = ParseAssemblyFile(AssemblyFile.Base, AssemblyFile.Size, &State->Transient, State->GlobalLog);
