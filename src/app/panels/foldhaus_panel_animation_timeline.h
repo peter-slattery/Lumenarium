@@ -291,7 +291,7 @@ AnimationTimeline_Cleanup(panel* Panel, app_state* State)
 internal void
 DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBuffer, frame_range VisibleFrames, rect BarBounds, mouse_state Mouse, app_state* State)
 {
-    MakeStringBuffer(TempString, 256);
+    string TempString = PushString(&State->Transient, 256);
     
     s32 VisibleFrameCount = VisibleFrames.Max - VisibleFrames.Min;
     
@@ -450,7 +450,7 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range V
 internal gs_list_handle
 DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect PanelBounds, gs_list_handle SelectedBlockHandle, ui_interface* Interface, app_state* State)
 {
-    string TempString = MakeString(PushArray(&State->Transient, char, 256), 256);
+    string TempString = PushString(&State->Transient, 256);
     gs_list_handle Result = SelectedBlockHandle;
     
     rect LayerMenuBounds, TimelineBounds;

@@ -14,6 +14,7 @@ struct string
 {
     char* Memory;
     s32 Length;
+    // TODO(Peter): Max -> LengthMax for clarity
     s32 Max;
 };
 
@@ -159,10 +160,7 @@ static float   GSPowF (float N, s32 Power);
 #endif
 
 // Setup
-
-#ifdef GS_MEMORY_H
-#define PushString(str, arena, size) (str)->Memory = PushArray(arena, char, size); (str)->Length = 0; (str)->Max = size;
-#endif
+#define PushString(arena, size) MakeString(PushArray(arena, char, size), 0, size);
 
 static void   InitializeEmptyString (string* String, char* Data, s32 DataSize);
 static void   InitializeString(string* String, char* Data, s32 Used, s32 Max);
@@ -421,6 +419,12 @@ ClearString (string* String)
 //        Char Value Types
 ////////////////////////////////////////////////////////////////
 
+static bool IsNullTerminated(string Str)
+{
+    char LastChar = Str.Memory[Str.Length];
+    bool Result = (LastChar == 0);
+    return Result;
+}
 static bool IsSlash (char C) { return ((C == '\\') || (C == '/')); }
 static bool IsNewline (char C) { return (C == '\n') || (C == '\r'); }
 static bool IsWhitespace (char C) { return (C == ' ') || (C == '\t'); }

@@ -97,13 +97,13 @@ typedef PLATFORM_FREE(platform_free);
 #define PLATFORM_REALLOC(name) u8* name(u8* Base, u32 OldSize, u32 NewSize)
 typedef PLATFORM_REALLOC(platform_realloc);
 
-#define PLATFORM_READ_ENTIRE_FILE(name) platform_memory_result name(char* Path)
+#define PLATFORM_READ_ENTIRE_FILE(name) platform_memory_result name(string Path)
 typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 
-#define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(char* Path, u8* Contents, s32 Size)
+#define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(string Path, u8* Contents, s32 Size)
 typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 
-#define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength, const char* FilterStrings)
+#define PLATFORM_GET_FILE_PATH(name) b32 name(string* PathBuffer, const char* FilterStrings)
 typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
 
 struct platform_file_handler
@@ -283,43 +283,40 @@ struct context
 
 // File Handler
 internal platform_memory_result
-ReadEntireFile(platform_file_handler FileHandler, char* Path)
+ReadEntireFile(platform_file_handler FileHandler, string Path)
 {
-    // TODO(Peter): Convert Path to be a string
     platform_memory_result Result = FileHandler.ReadEntireFile(Path);
     return Result;
 }
 internal platform_memory_result
-ReadEntireFile(context Context, char* Path)
+ReadEntireFile(context Context, string Path)
 {
     return ReadEntireFile(Context.FileHandler, Path);
 }
 
 internal b32
-WriteEntireFile(platform_file_handler FileHandler, char* Path, u8* Contents, u32 Size)
+WriteEntireFile(platform_file_handler FileHandler, string Path, u8* Contents, u32 Size)
 {
-    // TODO(Peter): Convert Path to be a string
     // TODO(Peter): Overload to take a data struct instead of Contents And Size
     b32 Result = FileHandler.WriteEntireFile(Path, Contents, Size);
     return Result;
 }
 internal b32
-WriteEntireFile(context Context, char* Path, u8* Contents, u32 Size)
+WriteEntireFile(context Context, string Path, u8* Contents, u32 Size)
 {
     return WriteEntireFile(Context.FileHandler, Path, Contents, Size);
 }
 
 internal b32
-GetFilePath(platform_file_handler FileHandler, char* PathBuffer, s32 BufferLength, char* FilterStrings)
+GetFilePath(platform_file_handler FileHandler, string* PathBuffer, char* FilterStrings)
 {
-    // TODO(Peter): Convert Path to be a string
-    b32 Result = FileHandler.GetFilePath(PathBuffer, BufferLength, (const char*)FilterStrings);
+    b32 Result = FileHandler.GetFilePath(PathBuffer, (const char*)FilterStrings);
     return Result;
 }
 internal b32
-GetFilePath(context Context, char* PathBuffer, s32 BufferLength, char* FilterStrings)
+GetFilePath(context Context, string* PathBuffer, char* FilterStrings)
 {
-    return GetFilePath(Context.FileHandler, PathBuffer, BufferLength, FilterStrings);
+    return GetFilePath(Context.FileHandler, PathBuffer, FilterStrings);
 }
 
 

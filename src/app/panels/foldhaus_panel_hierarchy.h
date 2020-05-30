@@ -33,7 +33,7 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     v4 ListItemHover = State->Interface_.Style.ListBGHover;
     v4 ListItemSelected = State->Interface_.Style.ListBGSelected;
     
-    string TempString = MakeString(PushArray(&State->Transient, char, 256), 0, 256);
+    string TempString = PushString(&State->Transient, 256);
     
     u32 LineCount = (u32)(gs_Height(PanelBounds) / Layout.RowHeight) + 1;
     u32 LinesDrawn = 0;
@@ -65,8 +65,8 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
         PrintF(&TempString, "+ Add Assembly");
         if (ui_LayoutButton(&State->Interface_, &Layout, TempString, ListItemBGColor, ListItemHover, ListItemSelected))
         {
-            char FilePath[256];
-            b32 Success = GetFilePath(Context, FilePath, 256, "Foldhaus Files\0*.fold\0\0");
+            string FilePath = PushString(&State->Transient, 256);
+            b32 Success = GetFilePath(Context, &FilePath, "Foldhaus Files\0*.fold\0\0");
             if (Success)
             {
                 LoadAssembly(State, Context, FilePath);

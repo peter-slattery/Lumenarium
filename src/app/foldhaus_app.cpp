@@ -92,7 +92,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
     {
-        platform_memory_result FontFile = ReadEntireFile(Context, "data/Anonymous Pro.ttf");
+        platform_memory_result FontFile = ReadEntireFile(Context, MakeStringLiteral("data/Anonymous Pro.ttf"));
         if (!FontFile.Error)
         {
             bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
@@ -176,8 +176,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.LookAt = v3{0, 0, 0};
     
 #if 1
-    char Path[] = "data/blumen_lumen.fold";
-    LoadAssembly(State, Context, Path);
+    string SculpturePath = MakeStringLiteral("data/blumen_lumen.fold");
+    LoadAssembly(State, Context, SculpturePath);
 #endif
     
     State->PixelsToWorldScale = .01f;

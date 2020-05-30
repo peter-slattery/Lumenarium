@@ -68,16 +68,15 @@ static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 
 s32 TempAssemblyOffsetsCount = 3;
 
 internal void
-LoadAssembly (app_state* State, context Context, char* Path)
+LoadAssembly (app_state* State, context Context, string Path)
 {
     platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
     if (AssemblyFile.Error == PlatformMemory_NoError)
     {
         assembly_definition AssemblyDefinition = ParseAssemblyFile(AssemblyFile.Base, AssemblyFile.Size, &State->Transient, State->GlobalLog);
         
-        string PathString = MakeStringLiteral(Path);
-        s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(PathString.Memory, PathString.Length, '\\');
-        string FileName = Substring(PathString, IndexOfLastSlash + 1);
+        s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(Path.Memory, Path.Length, '\\');
+        string FileName = Substring(Path, IndexOfLastSlash + 1);
         
         memory_arena AssemblyArena = {};
         AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;

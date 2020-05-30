@@ -13,13 +13,14 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
     platform_memory_result Result = {};
     Result.Error = PlatformMemory_NoError;
     
-    HANDLE FileHandle = CreateFileA (Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    Assert(IsNullTerminated(Path));
+    HANDLE FileHandle = CreateFileA (Path.Memory, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     
     if (FileHandle != INVALID_HANDLE_VALUE)
     {
         DWORD FileSize = GetFileSize(FileHandle, NULL);
         Result.Base = (u8*)VirtualAlloc(NULL, FileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-        if (Result.Base) 
+        if (Result.Base)
         {
             Result.Size = FileSize;
             
@@ -49,9 +50,10 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
 
 PLATFORM_WRITE_ENTIRE_FILE(Win32WriteEntireFile)
 {
+    Assert(IsNullTerminated(Path));
     b32 Result = false;
     HANDLE FileHandle = CreateFileA (
-                                     Path,
+                                     Path.Memory,
                                      GENERIC_WRITE,
                                      0,
                                      NULL,
@@ -111,7 +113,7 @@ PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
 {
     b32 Result = false;
     
-    PathBuffer[0] = 0;
+    PathBuffer->Memory[0] = 0;
     
     OPENFILENAMEA OpenFileName = {};
     OpenFileName.lStructSize = sizeof(OpenFileName);
@@ -120,8 +122,8 @@ PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
     OpenFileName.lpstrCustomFilter = NULL; // NOTE(Peter): for preserving last filter string chosen
     OpenFileName.nMaxCustFilter = 0; // NOTE(Peter): ignored since we left CustomFilter null
     OpenFileName.nFilterIndex = 1;
-    OpenFileName.lpstrFile = PathBuffer;
-    OpenFileName.nMaxFile = BufferLength;
+    OpenFileName.lpstrFile = PathBuffer->Memory;
+    OpenFileName.nMaxFile = PathBuffer->Max;
     OpenFileName.lpstrFileTitle = NULL;
     OpenFileName.nMaxFileTitle = 0; // NOTE(Peter): Ignored since fileTitle is null
     OpenFileName.lpstrInitialDir = NULL;
@@ -138,7 +140,7 @@ internal directory_listing
 EnumerateDirectory(char* Path, memory_arena* Storage)
 {
     directory_listing Result = {};
-    // TODO(Peter): 
+    // TODO(Peter):
     return Result;
 }
 
