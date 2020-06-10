@@ -4,7 +4,7 @@
 // Creation Date: 2019-12-26
 //
 // Usage:
-// Include this file in ONE file in your project. 
+// Include this file in ONE file in your project.
 // Define SetPanelDefinitionExternal
 //
 #ifndef FOLDHAUS_PANEL_H
@@ -67,8 +67,8 @@ struct panel_system
 };
 
 // NOTE(Peter): This representation is used to let external code render and interact
-// with panels. It shouldn't be stored across frame boundaries  as the pointers to 
-// Panel's are liable to change. 
+// with panels. It shouldn't be stored across frame boundaries  as the pointers to
+// Panel's are liable to change.
 struct panel_with_layout
 {
     panel* Panel;
@@ -154,10 +154,9 @@ FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
 }
 
 internal void
-SplitPanelVertically(panel* Parent, r32 Percent, rect ParentBounds, panel_system* PanelSystem)
+SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem)
 {
-    r32 SplitX = GSLerp(ParentBounds.Min.x, ParentBounds.Max.x, Percent);
-    if (SplitX > ParentBounds.Min.x && SplitX < ParentBounds.Max.x)
+    if (Percent >= 0.0f && Percent <= 1.0f)
     {
         Parent->SplitDirection = PanelSplit_Vertical;
         Parent->SplitPercent = Percent;
@@ -171,10 +170,9 @@ SplitPanelVertically(panel* Parent, r32 Percent, rect ParentBounds, panel_system
 }
 
 internal void
-SplitPanelHorizontally(panel* Parent, r32 Percent, rect ParentBounds, panel_system* PanelSystem)
+SplitPanelHorizontally(panel* Parent, r32 Percent, panel_system* PanelSystem)
 {
-    r32 SplitY = GSLerp(ParentBounds.Min.y, ParentBounds.Max.y, Percent);
-    if (SplitY > ParentBounds.Min.y && SplitY < ParentBounds.Max.y)
+    if (Percent >= 0.0f && Percent <= 1.0f)
     {
         Parent->SplitDirection = PanelSplit_Horizontal;
         Parent->SplitPercent = Percent;

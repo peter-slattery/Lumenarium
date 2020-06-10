@@ -242,12 +242,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
     if (XDistance > YDistance)
     {
         r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / gs_Width(PanelBounds);
-        SplitPanelVertically(Panel, XPercent, PanelBounds, &State->PanelSystem);
+        SplitPanelVertically(Panel, XPercent, &State->PanelSystem);
     }
     else
     {
         r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / gs_Height(PanelBounds);
-        SplitPanelHorizontally(Panel, YPercent, PanelBounds, &State->PanelSystem);
+        SplitPanelHorizontally(Panel, YPercent, &State->PanelSystem);
     }
     
     Panel->Left->Panel.PanelDefinitionIndex = Panel->PanelDefinitionIndex;

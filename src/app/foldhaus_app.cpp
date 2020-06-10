@@ -176,7 +176,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.LookAt = v3{0, 0, 0};
     
 #if 1
-    string SculpturePath = MakeStringLiteral("data/blumen_lumen.fold");
+    string SculpturePath = MakeStringLiteral("data/blumen_lumen_v2.fold");
     LoadAssembly(State, Context, SculpturePath);
 #endif
     
@@ -208,7 +208,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, PanelType_SculptureView, State);
+    SplitPanelVertically(Panel, .5f, &State->PanelSystem);
+    SetPanelDefinition(&Panel->Left->Panel, PanelType_ProfilerView, State);
+    SetPanelDefinition(&Panel->Right->Panel, PanelType_SculptureView, State);
 }
 
 internal void
@@ -462,6 +464,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
+    // TODO(Peter): Come back and re add this in. It was tanking frame rate after
+    // updates to the assembly file format
+#if 0
     for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
         gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
@@ -469,6 +474,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
+#endif
     
     //DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {

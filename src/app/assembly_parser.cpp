@@ -5,440 +5,386 @@
 //
 #ifndef ASSEMBLY_PARSER_CPP
 
-internal assembly_token
-ParseToken (tokenizer* Tokenizer)
+enum assembly_field
 {
-    assembly_token Result = {};
-    Result.Token = Tokenizer->At;
-    Result.Length = 1;
-    EatChar(Tokenizer);
+    AssemblyField_AssemblyName,
+    AssemblyField_AssemblyScale,
+    AssemblyField_LedStripCount,
     
-    if (*Result.Token == ':'){ Result.Type = AssemblyToken_Colon; }
-    else if (*Result.Token == ';'){ Result.Type = AssemblyToken_SemiColon; }
-    else if (*Result.Token =='{'){ Result.Type = AssemblyToken_LeftCurlyBrace; }
-    else if (*Result.Token =='}'){ Result.Type = AssemblyToken_RightCurlyBrace; }
-    else if (*Result.Token ==','){ Result.Type = AssemblyToken_Comma; }
-    else if (IsNumericExtended(*Result.Token))
-    {
-        while(*Tokenizer->At && IsNumericExtended(*Tokenizer->At)) { EatChar(Tokenizer); }
-        Result.Type = AssemblyToken_Number;
-        Result.Length = Tokenizer->At - Result.Token;
-    }
-    else if (*Result.Token =='\"')
-    {
-        while(*Tokenizer->At && *Tokenizer->At != '\"') { EatChar(Tokenizer); }
-        Result.Token++; // Skip the quote
-        Result.Type = AssemblyToken_String;
-        Result.Length = (Tokenizer->At - Result.Token) - 1;
-    }
-    else if (*Result.Token == '(')
-    {
-        while(*Tokenizer->At && *Tokenizer->At != ')') { EatChar(Tokenizer); }
-        Result.Token++; // Skip the paren
-        Result.Type = AssemblyToken_Vector;
-        Result.Length = (Tokenizer->At - Result.Token) - 1;
-    }
-    else if (CharArraysEqualUpToLength(Result.Token, LED_STRIP_IDENTIFIER, CharArrayLength(LED_STRIP_IDENTIFIER)))
-    {
-        Result.Type = AssemblyToken_LEDStrip;
-        Result.Length = CharArrayLength(LED_STRIP_IDENTIFIER);
-        Tokenizer->At += Result.Length - 1;
-    }
-    else if (CharArraysEqualUpToLength(Result.Token, END_ASSEMBLY_FILE_IDENTIFIER, CharArrayLength(END_ASSEMBLY_FILE_IDENTIFIER)))
-    {
-        Result.Type = AssemblyToken_EndOfFile;
-        Result.Length = CharArrayLength(END_ASSEMBLY_FILE_IDENTIFIER);
-        Tokenizer->At += Result.Length - 1;
-    }
-    else
-    {
-        Result.Type = AssemblyToken_Identifier;
-        while(*Tokenizer->At && !IsWhitespace(*Tokenizer->At)) { EatChar(Tokenizer); }
-    }
+    AssemblyField_LedStrip,
+    AssemblyField_ControlBoxId,
+    AssemblyField_StartUniverse,
+    AssemblyField_StartChannel,
+    AssemblyField_PointPlacementType,
+    AssemblyField_InterpolatePoints,
+    AssemblyField_Start,
+    AssemblyField_End,
+    AssemblyField_LedCount,
+    AssemblyField_TagsCount,
+    AssemblyField_Tag,
+    AssemblyField_Name,
+    AssemblyField_Value,
     
-    return Result;
-}
+    AssemblyField_Count,
+};
 
-internal v3
-ParseAssemblyVector (char* String)
-{
-    v3 Result = {};
+global_variable char* AssemblyFieldIdentifiers[] = {
+    "assembly_name", // AssemblyField_AssemblyName
+    "assembly_scale", // AssemblyField_AssemblyScale
+    "led_strip_count", // AssemblyField_LedStripCount
     
-    tokenizer Tokenizer = {};
-    Tokenizer.At = String;
+    "led_strip", // AssemblyField_LedStrip
     
-    EatWhitespace(&Tokenizer);
-    Result.x = ParseFloatUnsafe(Tokenizer.At).FloatValue;
-    EatPastCharacter(&Tokenizer, ',');
+    "control_box_id", // AssemblyField_ControlBoxId
+    "start_universe", // AssemblyField_StartUniverse
+    "start_channel", // AssemblyField_StartChannel
     
-    EatWhitespace(&Tokenizer);
-    Result.y = ParseFloatUnsafe(Tokenizer.At).FloatValue;
-    EatPastCharacter(&Tokenizer, ',');
+    "point_placement_type", // AssemblyField_PointPlacementType
+    "interpolate_points", // AssemblyField_InterpolatePoints
+    "start", // AssemblyField_Start
+    "end", // AssemblyField_End
     
-    EatWhitespace(&Tokenizer);
-    Result.z = ParseFloatUnsafe(Tokenizer.At).FloatValue;
-    EatPastCharacter(&Tokenizer, ',');
+    "led_count", // AssemblyField_LedCount
     
-    return Result;
-}
+    "tags_count", // AssemblyField_TagCount
+    "tag", // AssemblyField_Tag
+    "name", // AssemblyField_Name
+    "value", // AssemblyField_Value
+};
 
-internal b32
-ParseAssemblyFileHeader (assembly_definition* Assembly, tokenizer* Tokenizer)
+struct assembly_tokenizer
 {
-    b32 HeaderIsValid = false;
+    string Text;
+    char* At;
     
-    if (CharArraysEqualUpToLength(Tokenizer->At, LED_STRIP_COUNT_IDENTIFIER, CharArrayLength(LED_STRIP_COUNT_IDENTIFIER)))
-    {
-        Tokenizer->At += CharArrayLength(LED_STRIP_COUNT_IDENTIFIER);
-        EatWhitespace(Tokenizer);
-        assembly_token CountToken = ParseToken(Tokenizer);
-        if (CountToken.Type == AssemblyToken_Number)
-        {
-            Assembly->LEDStripSize = ParseSignedIntUnsafe(CountToken.Token).SignedIntValue;
-            HeaderIsValid = true;
-        }
-        EatWhitespace(Tokenizer);
-    }
-    return HeaderIsValid;
-}
+    u32 LineNumber;
+};
 
-internal led_strip_definition
-ParseLEDStrip (tokenizer* Tokenizer)
+internal bool
+AtValidPosition(assembly_tokenizer* T)
 {
-    led_strip_definition Result = {};
-    
-    // Control Box Index
-    while (*Tokenizer->At && !IsNumericExtended(*Tokenizer->At)) { EatChar(Tokenizer); }
-    assembly_token BoxIDToken = ParseToken(Tokenizer);
-    Assert(BoxIDToken.Type == AssemblyToken_Number);
-    Result.ControlBoxID = ParseSignedIntUnsafe(BoxIDToken.Token).SignedIntValue;
-    
-    // Start Universe
-    EatPastCharacter(Tokenizer, ',');
-    EatWhitespace(Tokenizer);
-    assembly_token StartUniverseToken = ParseToken(Tokenizer);
-    Assert(BoxIDToken.Type == AssemblyToken_Number);
-    Result.StartUniverse = ParseSignedIntUnsafe(StartUniverseToken.Token).SignedIntValue;
-    
-    // Start Channel
-    EatPastCharacter(Tokenizer, ',');
-    EatWhitespace(Tokenizer);
-    assembly_token StartChannelToken = ParseToken(Tokenizer);
-    Assert(BoxIDToken.Type == AssemblyToken_Number);
-    Result.StartChannel = ParseSignedIntUnsafe(StartChannelToken.Token).SignedIntValue;
-    
-    // Strip Type
-    // TODO(Peter): This is unused for now, and would be a branch point for parsing
-    // the rest of the info. Fix this.
-    EatPastCharacter(Tokenizer, ',');
-    EatWhitespace(Tokenizer);
-    if (CharArraysEqualUpToLength(Tokenizer->At, INTERPOLATE_POINTS_IDENTIFIER, CharArrayLength(INTERPOLATE_POINTS_IDENTIFIER)))
-    {
-        Result.InterpolationType = StripInterpolate_Points;
-        
-        // Start Position
-        EatPastCharacter(Tokenizer, ',');
-        EatWhitespace(Tokenizer);
-        assembly_token StartPositionToken = ParseToken(Tokenizer);
-        Assert(StartPositionToken.Type == AssemblyToken_Vector);
-        Result.InterpolatePositionStart = ParseAssemblyVector(StartPositionToken.Token);
-        
-        // End Position
-        EatPastCharacter(Tokenizer, ',');
-        EatWhitespace(Tokenizer);
-        assembly_token EndPositionToken = ParseToken(Tokenizer);
-        Assert(EndPositionToken.Type == AssemblyToken_Vector);
-        Result.InterpolatePositionEnd = ParseAssemblyVector(EndPositionToken.Token);
-        
-        // LEDs Per Strip
-        EatPastCharacter(Tokenizer, ',');
-        EatWhitespace(Tokenizer);
-        assembly_token LEDsPerStripToken = ParseToken(Tokenizer);
-        Assert(BoxIDToken.Type == AssemblyToken_Number);
-        Result.LEDsPerStrip = ParseSignedIntUnsafe(LEDsPerStripToken.Token).SignedIntValue;
-    }
-    
-    EatPastCharacter(Tokenizer, '}');
-    EatWhitespace(Tokenizer);
-    
+    bool Result = ((T->At - T->Text.Memory) < T->Text.Length);
     return Result;
 }
 
 internal void
-ParseAssemblyFileBody (assembly_definition* Assembly, tokenizer* Tokenizer)
+AdvanceChar(assembly_tokenizer* T)
 {
-    EatWhitespace(Tokenizer);
-    
-    while(*Tokenizer->At)
+    if (IsNewline(T->At[0]))
     {
-        EatWhitespace(Tokenizer);
-        assembly_token Token = ParseToken(Tokenizer);
-        
-        if (Token.Type != AssemblyToken_EndOfFile)
-        {
-            switch (Token.Type)
-            {
-                case AssemblyToken_LEDStrip:
-                {
-                    led_strip_definition* LEDStripDef = Assembly->LEDStrips + Assembly->LEDStripCount;
-                    Assert(Assembly->LEDStripCount < Assembly->LEDStripSize);
-                    
-                    *LEDStripDef = ParseLEDStrip(Tokenizer);
-                    Assembly->TotalLEDCount += LEDStripDef->LEDsPerStrip;
-                    
-                    Assembly->LEDStripCount++;
-                } break;
-                
-                // TODO(Peter): Other cases? What else would need to be in the assembly body?
-                
-                InvalidDefaultCase;
-            }
-        }
-        else
-        {
-            break;
-        }
+        T->LineNumber += 1;
     }
-    
-    // NOTE(Peter): Ensure the validity of the assembly file. We probably don't want an assert here,
-    // more likely we want to load a valid assembly anyways, and just raise this as an error to the user
-    // so they can fix it.
-    Assert(Assembly->LEDStripCount == Assembly->LEDStripSize);
+    T->At++;
 }
 
-inline b32
-ParseTokenEquals (tokenizer* T, char* Validate)
+internal void
+EatWhitespace(assembly_tokenizer* T)
 {
-    b32 Result = true;
+    while(AtValidPosition(T) && IsNewlineOrWhitespace(T->At[0]))
+    {
+        AdvanceChar(T);
+    }
+}
+
+internal bool
+AdvanceIfTokenEquals(assembly_tokenizer* T, char* Value)
+{
+    bool Result = true;
     
     char* TAt = T->At;
-    char* VAt = Validate;
-    while (((TAt - T->Memory) < T->MemoryLength) && *VAt)
+    char* VAt = Value;
+    while (*VAt != 0)
     {
-        if (*VAt != *TAt)
+        if (*TAt != *VAt)
         {
             Result = false;
             break;
         }
-        TAt++;
-        *VAt++;
+        TAt += 1;
+        VAt += 1;
     }
+    
+    // TODO(Peter): What if the token is a subset of Value? ie. this would return true for
+    //    T->At = hello_world and Value = hello_
+    // But the next token we read would fail
     
     if (Result)
     {
         T->At = TAt;
         EatWhitespace(T);
     }
-    
     return Result;
 }
 
-internal b32
-ParseComma(tokenizer* T)
+internal bool
+ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
 {
-    b32 Result = ParseTokenEquals(T, ",");
-    return Result;
-}
-
-internal b32
-ParseOpenCurlyBrace(tokenizer* T)
-{
-    b32 Result = ParseTokenEquals(T, "{");
-    return Result;
-}
-
-internal b32
-ParseCloseCurlyBrace(tokenizer* T)
-{
-    b32 Result = ParseTokenEquals(T, "}");
-    return Result;
-}
-
-internal b32
-ParseOpenParen(tokenizer* T)
-{
-    b32 Result = ParseTokenEquals(T, "(");
-    return Result;
-}
-
-internal b32
-ParseCloseParen(tokenizer* T)
-{
-    b32 Result = ParseTokenEquals(T, ")");
-    return Result;
-}
-
-internal b32
-ParseUnsignedInteger(tokenizer* T, u32* Value)
-{
-    parse_result Result = ParseUnsignedIntUnsafe(T->At);
-    *Value = Result.UnsignedIntValue;
-    T->At = Result.OnePastLast;
-    
-    // TODO(Peter): Parse functions in gs_string don't actually check for errors or
-    // whether or not they actually parsed an int.
-    // :GSStringParseErrors
-    return true;
-}
-
-internal b32
-ParseFloat(tokenizer* T, r32* Value)
-{
-    parse_result ParseResult = ParseFloatUnsafe(T->At);
-    *Value = ParseResult.FloatValue;
-    T->At = ParseResult.OnePastLast;
-    
-    // TODO(Peter):
-    // :GSStringParseErrors
-    return true;
-}
-
-internal b32
-ParseVector(tokenizer* T, v3* Value)
-{
-    b32 Result = true;
-    
-    if (ParseOpenParen(T))
+    bool Result = false;
+    if (AdvanceIfTokenEquals(T, AssemblyFieldIdentifiers[Field]))
     {
-        for (u32 i = 0; i < 3; i++)
+        if (AdvanceIfTokenEquals(T, ":"))
         {
-            b32 ValueSuccess = ParseFloat(T, &(Value->E[i]));
-            if (!ValueSuccess)
-            {
-                Result = false;
-                break;
-            }
-            
-            b32 CommaSuccess = ParseComma(T);
-            if (!CommaSuccess)
-            {
-                break;
-            }
+            Result = true;
         }
-        
-        if (!ParseCloseParen(T))
+        else
         {
-            Result = false;
+            // TODO(Peter): Error
         }
     }
     else
     {
-        Result = false;
+        // TODO(Peter): Error
     }
-    
     return Result;
 }
 
-// TODO(Peter): :ErrorLogging
-#define ParseLEDStripToken(tokenizer, parse_expr, error_msg) \
-(parse_expr) && (ParseComma(tokenizer))
-
-internal b32
-ParseLEDStripCount (tokenizer* T, u32* Value)
+internal bool
+ReadFieldEnd(assembly_tokenizer* T)
 {
-    b32 Result = false;
-    
-    if (ParseTokenEquals(T, LED_STRIP_COUNT_IDENTIFIER))
+    bool Result = AdvanceIfTokenEquals(T, ";");
+    if (Result)
     {
         EatWhitespace(T);
-        if (ParseUnsignedInteger(T, Value))
+    }
+    else
+    {
+        // TODO(Peter): Error
+    }
+    return Result;
+}
+
+internal string
+ReadString(assembly_tokenizer* T)
+{
+    string Result = {};
+    if (AdvanceIfTokenEquals(T, "\""))
+    {
+        char* StringStart = T->At;
+        while(AtValidPosition(T) && T->At[0] != '\"')
+        {
+            T->At++;
+        }
+        Result.Memory = StringStart;
+        Result.Max = T->At - StringStart;
+        Result.Length = Result.Max;
+        if (AdvanceIfTokenEquals(T, "\""))
+        {
+            // Success
+        }
+        else
+        {
+            // TODO(Peter): Error
+        }
+    }
+    return Result;
+}
+
+internal string
+GetNumberString(assembly_tokenizer* T)
+{
+    string Result = {};
+    Result.Memory = T->At;
+    while(AtValidPosition(T) && IsNumericExtended(T->At[0]))
+    {
+        AdvanceChar(T);
+    }
+    Result.Length = T->At - Result.Memory;
+    Result.Max = Result.Length;
+    return Result;
+}
+
+internal r32
+ReadFloat(assembly_tokenizer* T)
+{
+    r32 Result = 0;
+    string NumberString = GetNumberString(T);
+    parse_result ParsedFloat = ParseFloat(StringExpand(NumberString));
+    Result = ParsedFloat.FloatValue;
+    return Result;
+}
+
+internal s32
+ReadInt(assembly_tokenizer* T)
+{
+    s32 Result = 0;
+    string NumberString = GetNumberString(T);
+    parse_result ParsedInt = ParseSignedInt(StringExpand(NumberString));
+    Result = ParsedInt.SignedIntValue;
+    return Result;
+}
+
+internal string
+ReadStringField(assembly_field Field, assembly_tokenizer* T, memory_arena* Arena)
+{
+    string Result = {};
+    if (ReadFieldIdentifier(Field, T))
+    {
+        string ExistingString = ReadString(T);
+        if (ReadFieldEnd(T))
+        {
+            // Success
+            Result = PushString(Arena, ExistingString.Length);
+            CopyStringTo(ExistingString, &Result);
+        }
+        else
+        {
+            // TODO(Peter): Error
+        }
+    }
+    return Result;
+}
+
+internal r32
+ReadFloatField(assembly_field Field, assembly_tokenizer* T)
+{
+    r32 Result = 0.0f;
+    if (ReadFieldIdentifier(Field, T))
+    {
+        Result = ReadFloat(T);
+        if (!ReadFieldEnd(T))
+        {
+            // TODO(Peter): Error
+        }
+    }
+    return Result;
+}
+
+internal s32
+ReadIntField(assembly_field Field, assembly_tokenizer* T)
+{
+    r32 Result = 0.0f;
+    if (ReadFieldIdentifier(Field, T))
+    {
+        Result = ReadInt(T);
+        if (!ReadFieldEnd(T))
+        {
+            // TODO(Peter): Error
+        }
+    }
+    return Result;
+}
+
+internal v3
+ReadV3Field(assembly_field Field, assembly_tokenizer* T)
+{
+    v3 Result = {};
+    if (ReadFieldIdentifier(Field, T))
+    {
+        if (AdvanceIfTokenEquals(T, "("))
+        {
+            Result.x = ReadFloat(T);
+            if (AdvanceIfTokenEquals(T, ","))
+            {
+                Result.y = ReadFloat(T);
+                if (AdvanceIfTokenEquals(T, ","))
+                {
+                    Result.z = ReadFloat(T);
+                    
+                    if (AdvanceIfTokenEquals(T, ")"))
+                    {
+                        if (!ReadFieldEnd(T))
+                        {
+                            // TODO(Peter): Error
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return Result;
+}
+
+internal bool
+ReadStructOpening(assembly_field Field, assembly_tokenizer* T)
+{
+    bool Result = false;
+    if (ReadFieldIdentifier(Field, T))
+    {
+        if (AdvanceIfTokenEquals(T, "{"))
         {
             Result = true;
         }
     }
-    
     return Result;
 }
 
-internal b32
-ParseLEDStrip (led_strip_definition* Strip, tokenizer* T, memory_arena* Arena)
+internal bool
+ReadStructClosing(assembly_tokenizer* T)
 {
-    b32 Result = false;
-    
-    if (ParseTokenEquals(T, LED_STRIP_IDENTIFIER) &&
-        ParseOpenCurlyBrace(T))
-    {
-        Result = true;
-        
-        u32 ControlBoxIndex, StartUniverse, StartChannel;
-        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->ControlBoxID), "Control Box Error");
-        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->StartUniverse), "Start Universe Error");
-        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->StartChannel), "Start Channel Error");
-        
-        if (ParseTokenEquals(T, INTERPOLATE_POINTS_IDENTIFIER) &&
-            ParseComma(T))
-        {
-            Strip->InterpolationType = StripInterpolate_Points;
-            
-            ParseLEDStripToken(T, ParseVector(T, &Strip->InterpolatePositionStart), "Position Start Error");
-            ParseLEDStripToken(T, ParseVector(T, &Strip->InterpolatePositionEnd), "Position End Error");
-        }
-        
-        ParseLEDStripToken(T, ParseUnsignedInteger(T, &Strip->LEDsPerStrip), "LEDs Per Strip Error");
-        
-        EatWhitespace(T);
-        if (!ParseCloseCurlyBrace(T))
-        {
-            Result = false;
-        }
-    }
-    
+    bool Result = AdvanceIfTokenEquals(T, "};");
     return Result;
 }
 
-internal assembly_definition
-ParseAssemblyFile (u8* FileBase, s32 FileSize, memory_arena* Arena, event_log* EventLog)
+internal void
+ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
 {
-    assembly_definition Assembly = {};
+    Assert(Assembly->Arena.Alloc != 0);
+    Assembly->LedCountTotal = 0;
     
-    tokenizer Tokenizer = {};
-    Tokenizer.At = (char*)FileBase;
-    Tokenizer.Memory = (char*)FileBase;
-    Tokenizer.MemoryLength = FileSize;
+    assembly_tokenizer Tokenizer = {};
+    Tokenizer.Text = FileText;
+    Tokenizer.At = Tokenizer.Text.Memory;
     
-    if (ParseLEDStripCount(&Tokenizer, &Assembly.LEDStripSize))
+    Assembly->Name = ReadStringField(AssemblyField_AssemblyName, &Tokenizer, &Assembly->Arena);
+    Assembly->Scale = ReadFloatField(AssemblyField_AssemblyScale, &Tokenizer);
+    
+    Assembly->StripCount = ReadIntField(AssemblyField_LedStripCount, &Tokenizer);
+    Assembly->Strips = PushArray(&Assembly->Arena, v2_strip, Assembly->StripCount);
+    
+    for (u32 i = 0; i < Assembly->StripCount; i++)
     {
-        Assembly.LEDStrips = PushArray(Arena, led_strip_definition, Assembly.LEDStripSize);
-        
-        while (AtValidPosition(Tokenizer))
+        v2_strip* StripAt = Assembly->Strips + i;
+        if (ReadStructOpening(AssemblyField_LedStrip, &Tokenizer))
         {
-            EatWhitespace(&Tokenizer);
+            StripAt->ControlBoxID = ReadIntField(AssemblyField_ControlBoxId, &Tokenizer);
+            StripAt->StartUniverse = ReadIntField(AssemblyField_StartUniverse, &Tokenizer);
+            StripAt->StartChannel = ReadIntField(AssemblyField_StartChannel, &Tokenizer);
             
-            if (Assembly.LEDStripCount < Assembly.LEDStripSize)
+            // TODO(Peter): Need to store this
+            string PointPlacementType = ReadStringField(AssemblyField_PointPlacementType, &Tokenizer, &Assembly->Arena);
+            // TODO(Peter): Switch on value of PointPlacementType
+            if (ReadStructOpening(AssemblyField_InterpolatePoints, &Tokenizer))
             {
-                led_strip_definition* LEDStrip = Assembly.LEDStrips + Assembly.LEDStripCount++;
-                
-                if (ParseLEDStrip(LEDStrip, &Tokenizer, Arena))
+                StripAt->StartPosition = ReadV3Field(AssemblyField_Start, &Tokenizer);
+                StripAt->EndPosition = ReadV3Field(AssemblyField_End, &Tokenizer);
+                if (!ReadStructClosing(&Tokenizer))
                 {
-                    Assembly.TotalLEDCount += LEDStrip->LEDsPerStrip;
-                }
-                else
-                {
-                    LogError(EventLog, "Unable to parse LED strip in assembly file");
-                    break;
+                    // TODO(Peter): Error
+                    InvalidCodePath;
                 }
             }
-            else
+            
+            StripAt->LedCount = ReadIntField(AssemblyField_LedCount, &Tokenizer);
+            Assembly->LedCountTotal += StripAt->LedCount;
+            
+            StripAt->TagsCount = ReadIntField(AssemblyField_TagsCount, &Tokenizer);
+            StripAt->Tags = PushArray(&Assembly->Arena, v2_tag, StripAt->TagsCount);
+            for (u32 Tag = 0; Tag < StripAt->TagsCount; Tag++)
             {
-                if (ParseTokenEquals(&Tokenizer, END_ASSEMBLY_FILE_IDENTIFIER))
+                v2_tag* TagAt = StripAt->Tags + Tag;
+                if (ReadStructOpening(AssemblyField_Tag, &Tokenizer))
                 {
-                    break;
+                    // TODO(Peter): Need to store the string somewhere we can look it up for display in the interface
+                    // right now they are stored in temp memory and won't persist
+                    string TagName = ReadStringField(AssemblyField_Name, &Tokenizer, Transient);
+                    string TagValue = ReadStringField(AssemblyField_Value, &Tokenizer, Transient);
+                    TagAt->NameHash = HashString(TagName);
+                    TagAt->ValueHash = HashString(TagValue);
+                    if (!ReadStructClosing(&Tokenizer))
+                    {
+                        // TODO(Peter): Error
+                        InvalidCodePath;
+                    }
                 }
-                else
-                {
-                    LogError(EventLog, "Did not find ent of file identifier in assembly file");
-                    break;
-                }
+            }
+            
+            if (!ReadStructClosing(&Tokenizer))
+            {
+                // TODO(Peter): Error
+                InvalidCodePath;
             }
         }
     }
-    else
-    {
-        // TODO(Peter): :ErrorLoggong
-        InvalidCodePath;
-    }
-    
-    return Assembly;
 }
 
 #define ASSEMBLY_PARSER_CPP

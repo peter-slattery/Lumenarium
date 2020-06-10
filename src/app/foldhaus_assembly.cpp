@@ -5,60 +5,40 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_CPP
 
-internal assembly
-ConstructAssemblyFromDefinition (assembly_definition Definition,
-                                 string AssemblyName,
-                                 v4 RootPosition,
-                                 r32 Scale,
-                                 memory_arena Arena)
+internal void
+ConstructAssemblyFromDefinition (assembly* Assembly, string AssemblyName, v4 RootPosition)
 {
-    assembly Assembly = {};
-    Assembly.Arena = Arena;
-    
-    Assembly.Name = MakeString(PushArray(&Assembly.Arena, char, AssemblyName.Length), AssemblyName.Length);
-    CopyStringTo(AssemblyName, &Assembly.Name);
-    
-    // NOTE(Peter): Setting this to zero so we can check at the end of the loop that creates leds
-    // and make sure we created to correct number. By the time this function returns it should be
-    // the case that: (Assembly.LEDCount == Definition.TotalLEDCount)
-    Assembly.LEDBuffer.LEDCount = 0;
-    Assembly.LEDBuffer.Colors = PushArray(&Assembly.Arena, pixel, Definition.TotalLEDCount);
-    Assembly.LEDBuffer.LEDs = PushArray(&Assembly.Arena, led, Definition.TotalLEDCount);
-    Assembly.LEDUniverseMapCount = Definition.LEDStripCount;
-    Assembly.LEDUniverseMap = PushArray(&Assembly.Arena, leds_in_universe_range, Definition.LEDStripCount);
+    Assembly->LEDBuffer.LEDCount = 0;
+    Assembly->LEDBuffer.Colors = PushArray(&Assembly->Arena, pixel, Assembly->LedCountTotal);
+    Assembly->LEDBuffer.LEDs = PushArray(&Assembly->Arena, led, Assembly->LedCountTotal);
+    Assembly->LEDUniverseMapCount = Assembly->LedCountTotal;
+    Assembly->LEDUniverseMap = PushArray(&Assembly->Arena, leds_in_universe_range, Assembly->LedCountTotal);
     
     // Add LEDs
-    for (u32 StripIdx = 0; StripIdx < Definition.LEDStripCount; StripIdx++)
+    for (u32 StripIdx = 0; StripIdx < Assembly->StripCount; StripIdx++)
     {
-        led_strip_definition StripDef = Definition.LEDStrips[StripIdx];
+        //led_strip_definition StripDef = Definition.LEDStrips[StripIdx];
+        v2_strip* StripAt = &Assembly->Strips[StripIdx];
         
-        leds_in_universe_range* LEDUniverseRange = Assembly.LEDUniverseMap + StripIdx;
-        LEDUniverseRange->Universe = StripDef.StartUniverse;
-        LEDUniverseRange->RangeStart = Assembly.LEDBuffer.LEDCount;
-        LEDUniverseRange->RangeOnePastLast = Assembly.LEDBuffer.LEDCount + StripDef.LEDsPerStrip;
+        leds_in_universe_range* LEDUniverseRange = &Assembly->LEDUniverseMap[StripIdx];
         
-        // NOTE(Peter): this should be a switch on the type, but we only have one for
-        // now. The assert is to remind you to create more cases when necessary
-        Assert(StripDef.InterpolationType == StripInterpolate_Points);
+        LEDUniverseRange->Universe = StripAt->StartUniverse;
+        LEDUniverseRange->RangeStart = Assembly->LEDBuffer.LEDCount;
+        LEDUniverseRange->RangeOnePastLast = Assembly->LEDBuffer.LEDCount + StripAt->LedCount;
         
-        v4 WS_StripStart = RootPosition + V4(StripDef.InterpolatePositionStart * Scale, 1);
-        v4 WS_StripEnd = RootPosition + V4(StripDef.InterpolatePositionEnd * Scale, 1);
-        s32 LEDsInStripCount = StripDef.LEDsPerStrip;
-        
-        Assert(Assembly.LEDBuffer.LEDCount + LEDsInStripCount <= Definition.TotalLEDCount);
+        v4 WS_StripStart = RootPosition + V4(StripAt->StartPosition * Assembly->Scale, 1);
+        v4 WS_StripEnd = RootPosition + V4(StripAt->EndPosition * Assembly->Scale, 1);
+        s32 LEDsInStripCount = StripAt->LedCount;
         
         v4 SingleStep = (WS_StripEnd - WS_StripStart) / (r32)LEDsInStripCount;
         for (s32 Step = 0; Step < LEDsInStripCount; Step++)
         {
-            s32 LEDIndex = Assembly.LEDBuffer.LEDCount++;
-            Assembly.LEDBuffer.LEDs[LEDIndex].Position = WS_StripStart + (SingleStep * Step);
-            Assembly.LEDBuffer.LEDs[LEDIndex].Index = LEDIndex;
+            s32 LEDIndex = Assembly->LEDBuffer.LEDCount;
+            Assembly->LEDBuffer.LEDs[LEDIndex].Position = WS_StripStart + (SingleStep * Step);
+            Assembly->LEDBuffer.LEDs[LEDIndex].Index = LEDIndex;
+            Assembly->LEDBuffer.LEDCount += 1;
         }
     }
-    
-    // NOTE(Peter): Did we create the correct number of LEDs?
-    Assert(Assembly.LEDBuffer.LEDCount == Definition.TotalLEDCount);
-    return Assembly;
 }
 
 // NOTE(Peter): These are here so that if we load 2+ sculptures, they don't all
@@ -73,18 +53,18 @@ LoadAssembly (app_state* State, context Context, string Path)
     platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
     if (AssemblyFile.Error == PlatformMemory_NoError)
     {
-        assembly_definition AssemblyDefinition = ParseAssemblyFile(AssemblyFile.Base, AssemblyFile.Size, &State->Transient, State->GlobalLog);
+        string AssemblyFileText = MakeString((char*)AssemblyFile.Base);
         
         s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(Path.Memory, Path.Length, '\\');
         string FileName = Substring(Path, IndexOfLastSlash + 1);
         
-        memory_arena AssemblyArena = {};
-        AssemblyArena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-        AssemblyArena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+        assembly NewAssembly = {};
+        NewAssembly.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
+        NewAssembly.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+        ParseAssemblyFile(&NewAssembly, AssemblyFileText, &State->Transient);
         
         v4 Offset = TempAssemblyOffsets[State->ActiveAssemblyIndecies.Used % TempAssemblyOffsetsCount];
-        r32 Scale = 100;
-        assembly NewAssembly = ConstructAssemblyFromDefinition(AssemblyDefinition, FileName, Offset, Scale, AssemblyArena);
+        ConstructAssemblyFromDefinition(&NewAssembly, FileName, Offset);
         gs_list_handle NewAssemblyHandle = State->AssemblyList.PushElementOnList(NewAssembly);
         
         State->ActiveAssemblyIndecies.PushElementOnList(NewAssemblyHandle);

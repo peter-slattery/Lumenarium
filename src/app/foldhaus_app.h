@@ -18,25 +18,19 @@
 #include "sacn/sacn.h"
 
 #include "foldhaus_assembly.h"
+#include "assembly_parser.cpp"
 
-#include "assembly_parser.h"
 
 #include "foldhaus_node.h"
 
-// TODO(Peter): TEMPORARY
-//u32 NodeSpecificationsCount = 0;
-//node_specification* NodeSpecifications = 0;
+typedef struct app_state app_state;
 
-
-#include "assembly_parser.cpp"
 #include "test_patterns.h"
 
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
 // perform operations on, like panel_draw_requests = { bounds, panel* } etc.
 #include "foldhaus_panel.h"
-
-typedef struct app_state app_state;
 
 #include "foldhaus_command_dispatch.h"
 #include "foldhaus_operation_mode.h"
@@ -55,11 +49,18 @@ enum network_protocol
     NetworkProtocol_Count,
 };
 
+struct led_buffer
+{
+    led* Leds;
+    pixel* Colors;
+    led_buffer* Next;
+};
+
 struct app_state
 {
     rect WindowBounds;
     
-    memory_arena Permanent; 
+    memory_arena Permanent;
     memory_arena Transient;
     
     s32 NetworkProtocolHeaderSize;
