@@ -54,7 +54,7 @@ global_variable s32 SculptureView_CommandsCount = 1;
 
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_sculpture_view);
-internal void 
+internal void
 SculptureView_Init(panel* Panel, app_state* State)
 {
     
@@ -62,7 +62,7 @@ SculptureView_Init(panel* Panel, app_state* State)
 
 GSMetaTag(panel_cleanup);
 GSMetaTag(panel_type_sculpture_view);
-internal void 
+internal void
 SculptureView_Cleanup(panel* Panel, app_state* State)
 {
     
@@ -133,7 +133,7 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
 
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_sculpture_view);
-internal void 
+internal void
 SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
@@ -154,21 +154,21 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     FaceCameraMatrix = FaceCameraMatrix;
     
     u32 MaxLEDsPerJob = 2048;
-    render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->TotalLEDsCount);
+    render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->LedSystem.LedsCountTotal);
     
-    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    for (u32 i = 0; i < State->Assemblies.Count; i++)
     {
-        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-        assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-        u32 JobsNeeded = IntegerDivideRoundUp(Assembly.LEDBuffer.LEDCount, MaxLEDsPerJob);
+        assembly Assembly = State->Assemblies.Values[i];
+        led_buffer* LedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly.LedBufferIndex);
+        u32 JobsNeeded = IntegerDivideRoundUp(LedBuffer->LedCount, MaxLEDsPerJob);
         
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
             draw_leds_job_data* JobData = PushStruct(&State->Transient, draw_leds_job_data);
-            JobData->LEDs = Assembly.LEDBuffer.LEDs;
-            JobData->Colors = Assembly.LEDBuffer.Colors;
+            JobData->LEDs = LedBuffer->Leds;
+            JobData->Colors = LedBuffer->Colors;
             JobData->StartIndex = Job * MaxLEDsPerJob;
-            JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, Assembly.LEDBuffer.LEDCount);
+            JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, LedBuffer->LedCount);
             JobData->Batch = &RenderLEDsBatch;
             JobData->FaceCameraMatrix;
             JobData->ModelViewMatrix = ModelViewMatrix;

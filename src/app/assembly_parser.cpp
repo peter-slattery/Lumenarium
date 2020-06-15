@@ -58,6 +58,8 @@ struct assembly_tokenizer
     char* At;
     
     u32 LineNumber;
+    
+    bool ParsingIsValid;
 };
 
 internal bool
@@ -128,12 +130,12 @@ ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
         }
         else
         {
-            // TODO(Peter): Error
+            T->ParsingIsValid = false;
         }
     }
     else
     {
-        // TODO(Peter): Error
+        T->ParsingIsValid = false;
     }
     return Result;
 }
@@ -148,7 +150,7 @@ ReadFieldEnd(assembly_tokenizer* T)
     }
     else
     {
-        // TODO(Peter): Error
+        T->ParsingIsValid = false;
     }
     return Result;
 }
@@ -228,7 +230,7 @@ ReadStringField(assembly_field Field, assembly_tokenizer* T, memory_arena* Arena
         }
         else
         {
-            // TODO(Peter): Error
+            T->ParsingIsValid = false;
         }
     }
     return Result;
@@ -243,7 +245,7 @@ ReadFloatField(assembly_field Field, assembly_tokenizer* T)
         Result = ReadFloat(T);
         if (!ReadFieldEnd(T))
         {
-            // TODO(Peter): Error
+            T->ParsingIsValid = false;
         }
     }
     return Result;
@@ -258,7 +260,7 @@ ReadIntField(assembly_field Field, assembly_tokenizer* T)
         Result = ReadInt(T);
         if (!ReadFieldEnd(T))
         {
-            // TODO(Peter): Error
+            T->ParsingIsValid = false;
         }
     }
     return Result;
@@ -279,16 +281,31 @@ ReadV3Field(assembly_field Field, assembly_tokenizer* T)
                 if (AdvanceIfTokenEquals(T, ","))
                 {
                     Result.z = ReadFloat(T);
-                    
                     if (AdvanceIfTokenEquals(T, ")"))
                     {
                         if (!ReadFieldEnd(T))
                         {
-                            // TODO(Peter): Error
+                            T->ParsingIsValid = false;
                         }
                     }
+                    else
+                    {
+                        T->ParsingIsValid = false;
+                    }
+                }
+                else
+                {
+                    T->ParsingIsValid = false;
                 }
             }
+            else
+            {
+                T->ParsingIsValid = false;
+            }
+        }
+        else
+        {
+            T->ParsingIsValid = false;
         }
     }
     return Result;
@@ -315,15 +332,15 @@ ReadStructClosing(assembly_tokenizer* T)
     return Result;
 }
 
-internal void
+internal bool
 ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
 {
-    Assert(Assembly->Arena.Alloc != 0);
     Assembly->LedCountTotal = 0;
     
     assembly_tokenizer Tokenizer = {};
     Tokenizer.Text = FileText;
     Tokenizer.At = Tokenizer.Text.Memory;
+    Tokenizer.ParsingIsValid = true;
     
     Assembly->Name = ReadStringField(AssemblyField_AssemblyName, &Tokenizer, &Assembly->Arena);
     Assembly->Scale = ReadFloatField(AssemblyField_AssemblyScale, &Tokenizer);
@@ -349,8 +366,7 @@ ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
                 StripAt->EndPosition = ReadV3Field(AssemblyField_End, &Tokenizer);
                 if (!ReadStructClosing(&Tokenizer))
                 {
-                    // TODO(Peter): Error
-                    InvalidCodePath;
+                    Tokenizer.ParsingIsValid = false;
                 }
             }
             
@@ -372,19 +388,27 @@ ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
                     TagAt->ValueHash = HashString(TagValue);
                     if (!ReadStructClosing(&Tokenizer))
                     {
-                        // TODO(Peter): Error
-                        InvalidCodePath;
+                        Tokenizer.ParsingIsValid = false;
                     }
+                }
+                else
+                {
+                    Tokenizer.ParsingIsValid = false;
                 }
             }
             
             if (!ReadStructClosing(&Tokenizer))
             {
-                // TODO(Peter): Error
-                InvalidCodePath;
+                Tokenizer.ParsingIsValid = false;
             }
         }
+        else
+        {
+            Tokenizer.ParsingIsValid = false;
+        }
     }
+    
+    return Tokenizer.ParsingIsValid;
 }
 
 #define ASSEMBLY_PARSER_CPP

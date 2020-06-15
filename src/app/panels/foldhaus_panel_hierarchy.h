@@ -37,14 +37,14 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     
     u32 LineCount = (u32)(gs_Height(PanelBounds) / Layout.RowHeight) + 1;
     u32 LinesDrawn = 0;
-    u32 AssembliesToDraw = GSMin(LineCount, State->ActiveAssemblyIndecies.Used);
-    for (; LinesDrawn < AssembliesToDraw; LinesDrawn++)
+    u32 AssembliesToDraw = GSMin(LineCount, State->Assemblies.Count);
+    for (u32 AssemblyIndex = 0; AssemblyIndex < AssembliesToDraw; AssemblyIndex++)
     {
         rect Bounds = ui_ReserveElementBounds(&Layout);
-        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, LinesDrawn);
+        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, AssemblyIndex);
         ui_FillRect(&State->Interface_, Bounds, ListItemBGColor);
-        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(LinesDrawn);
-        assembly Assembly = *State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+        
+        assembly Assembly = State->Assemblies.Values[AssemblyIndex];
         PrintF(&TempString, "%S", Assembly.Name);
         
         ui_layout ItemLayout = ui_CreateLayout(State->Interface_, Bounds);
@@ -53,10 +53,12 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
             ui_LayoutDrawString(&State->Interface_, &ItemLayout, TempString, State->Interface_.Style.TextColor);
             if (ui_LayoutButton(&State->Interface_, &ItemLayout, MakeStringLiteral("X"), ListItemBGColor, ListItemHover, ListItemSelected))
             {
-                UnloadAssembly(AssemblyHandle.Index, State, Context);
+                UnloadAssembly(AssemblyIndex, State, Context);
             }
         }
         ui_EndRow(&ItemLayout);
+        
+        LinesDrawn += 1;
     }
     
     if (LinesDrawn < LineCount)

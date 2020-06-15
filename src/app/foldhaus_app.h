@@ -49,13 +49,6 @@ enum network_protocol
     NetworkProtocol_Count,
 };
 
-struct led_buffer
-{
-    led* Leds;
-    pixel* Colors;
-    led_buffer* Next;
-};
-
 struct app_state
 {
     rect WindowBounds;
@@ -68,9 +61,8 @@ struct app_state
     
     streaming_acn SACN;
     
-    s32 TotalLEDsCount;
-    gs_list<assembly> AssemblyList;
-    gs_list<gs_list_handle> ActiveAssemblyIndecies;
+    led_system LedSystem;
+    assembly_array Assemblies;
     
     camera Camera;
     r32 PixelsToWorldScale;
@@ -98,28 +90,28 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 
 // BEGIN TEMPORARY PATTERNS
 internal void
-TestPatternOne(assembly_led_buffer* Assembly, r32 Time)
+TestPatternOne(led_buffer* Assembly, r32 Time)
 {
-    for (u32 LEDIdx = 0; LEDIdx < Assembly->LEDCount; LEDIdx++)
+    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led LED = Assembly->LEDs[LEDIdx];
-        if (LED.Position.x < 0)
+        led Led = Assembly->Leds[LedIndex];
+        if (Led.Position.x < 0)
         {
-            Assembly->Colors[LED.Index].R = 255;
-            Assembly->Colors[LED.Index].B = 255;
-            Assembly->Colors[LED.Index].G = 255;
+            Assembly->Colors[Led.Index].R = 255;
+            Assembly->Colors[Led.Index].B = 255;
+            Assembly->Colors[Led.Index].G = 255;
         }
         else
         {
-            Assembly->Colors[LED.Index].R = 0;
-            Assembly->Colors[LED.Index].B = 0;
-            Assembly->Colors[LED.Index].G = 0;
+            Assembly->Colors[Led.Index].R = 0;
+            Assembly->Colors[Led.Index].B = 0;
+            Assembly->Colors[Led.Index].G = 0;
         }
     }
 }
 
 internal void
-TestPatternTwo(assembly_led_buffer* Assembly, r32 Time)
+TestPatternTwo(led_buffer* Assembly, r32 Time)
 {
     r32 PeriodicTime = (Time / PI) * 2;
     
@@ -138,11 +130,11 @@ TestPatternTwo(assembly_led_buffer* Assembly, r32 Time)
     r32 OuterRadiusSquared = 1000000;
     r32 InnerRadiusSquared = 0;
     
-    for (u32 LEDIdx = 0; LEDIdx < Assembly->LEDCount; LEDIdx++)
+    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led LED = Assembly->LEDs[LEDIdx];
+        led Led = Assembly->Leds[LedIndex];
         
-        v4 Position = LED.Position;
+        v4 Position = Led.Position;
         
         v4 ToFront = Position + FrontCenter;
         v4 ToBack = Position + BackCenter;
@@ -158,22 +150,22 @@ TestPatternTwo(assembly_led_buffer* Assembly, r32 Time)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
-                Assembly->Colors[LED.Index] = Color;
+                Assembly->Colors[Led.Index] = Color;
             }
             else
             {
-                //Assembly->Colors[LED.Index] = {};
+                //Assembly->Colors[Led.Index] = {};
             }
         }
         else
         {
-            //Assembly->Colors[LED.Index] = {};
+            //Assembly->Colors[Led.Index] = {};
         }
     }
 }
 
 internal void
-TestPatternThree(assembly_led_buffer* Assembly, r32 Time)
+TestPatternThree(led_buffer* Assembly, r32 Time)
 {
     v4 GreenCenter = v4{0, 0, 150, 1};
     r32 GreenRadius = GSAbs(GSSin(Time)) * 200;
@@ -184,25 +176,25 @@ TestPatternThree(assembly_led_buffer* Assembly, r32 Time)
     r32 FadeDist = 35;
     
     
-    for (u32 LEDIdx = 0; LEDIdx < Assembly->LEDCount; LEDIdx++)
+    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led LED = Assembly->LEDs[LEDIdx];
+        led Led = Assembly->Leds[LedIndex];
         u8 Red = 0;
         u8 Green = 0;
         u8 Blue = 0;
         
-        r32 GreenDist = GSAbs(Mag(LED.Position - GreenCenter) - GreenRadius);
+        r32 GreenDist = GSAbs(Mag(Led.Position - GreenCenter) - GreenRadius);
         r32 GreenBrightness = GSClamp(0.f, FadeDist - GSAbs(GreenDist), FadeDist);
         Green = (u8)(GreenBrightness * 255);
         
-        r32 TealDist = GSAbs(Mag(LED.Position - TealCenter) - TealRadius);
+        r32 TealDist = GSAbs(Mag(Led.Position - TealCenter) - TealRadius);
         r32 TealBrightness = GSClamp(0.f, FadeDist - GSAbs(TealDist), FadeDist);
         Red = (u8)(TealBrightness * 255);
         Blue = (u8)(TealBrightness * 255);
         
-        Assembly->Colors[LED.Index].R = Red;
-        Assembly->Colors[LED.Index].B = Green;
-        Assembly->Colors[LED.Index].G = Green;
+        Assembly->Colors[Led.Index].R = Red;
+        Assembly->Colors[Led.Index].B = Green;
+        Assembly->Colors[Led.Index].G = Green;
     }
 }
 

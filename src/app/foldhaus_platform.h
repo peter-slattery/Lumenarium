@@ -88,15 +88,6 @@ struct system_path
     s32 IndexOfLastSlash;
 };
 
-#define PLATFORM_ALLOC(name) u8* name(s32 Size)
-typedef PLATFORM_ALLOC(platform_alloc);
-
-#define PLATFORM_FREE(name) b32 name(u8* Base, s32 Size)
-typedef PLATFORM_FREE(platform_free);
-
-#define PLATFORM_REALLOC(name) u8* name(u8* Base, u32 OldSize, u32 NewSize)
-typedef PLATFORM_REALLOC(platform_realloc);
-
 #define PLATFORM_READ_ENTIRE_FILE(name) platform_memory_result name(string Path)
 typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
 
@@ -264,10 +255,7 @@ struct context
     // Platform Services
     work_queue* GeneralWorkQueue;
     
-    platform_alloc* PlatformAlloc;
-    platform_free* PlatformFree;
-    platform_realloc* PlatformRealloc;
-    
+    platform_memory_handler PlatformMemory;
     platform_file_handler FileHandler;
     
     platform_write_entire_file* PlatformWriteEntireFile;

@@ -70,13 +70,16 @@ RELOAD_STATIC_DATA(ReloadStaticData)
 INITIALIZE_APPLICATION(InitializeApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
+    *State = {};
+    
     State->Permanent = {};
-    State->Permanent.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Permanent.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    State->Permanent.PlatformMemory = Context.PlatformMemory;
     State->Transient = {};
     State->Transient.FindAddressRule = FindAddress_InLastBufferOnly;
-    State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    State->Transient.PlatformMemory = Context.PlatformMemory;
+    
+    State->Assemblies.CountMax = 8;
+    State->Assemblies.Values = PushArray(&State->Permanent, assembly, State->Assemblies.CountMax);
     
     State->GlobalLog = PushStruct(&State->Transient, event_log);
     *State->GlobalLog = {0};
@@ -175,6 +178,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Position = v3{0, 0, -250};
     State->Camera.LookAt = v3{0, 0, 0};
     
+    State->LedSystem = LedSystemInitialize(Context.PlatformMemory, 128);
+    
 #if 1
     string SculpturePath = MakeStringLiteral("data/blumen_lumen_v2.fold");
     LoadAssembly(State, Context, SculpturePath);
@@ -189,12 +194,12 @@ INITIALIZE_APPLICATION(InitializeApplication)
     // Setup Operation Modes
     State->Modes.ActiveModesCount = 0;
     State->Modes.Arena = {};
-    State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    State->Modes.Arena.PlatformMemory = Context.PlatformMemory;
     State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
     
     { // Animation PLAYGROUND
         State->AnimationSystem = {};
+        State->AnimationSystem.Storage = &State->Permanent;
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         State->AnimationSystem.PlayableRange.Min = 0;
         State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
@@ -273,21 +278,24 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
 }
 
 internal dmx_buffer_list*
-CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
+CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize, memory_arena* Arena)
 {
     DEBUG_TRACK_FUNCTION;
+    
+    led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
     
     dmx_buffer_list* Result = 0;
     dmx_buffer_list* Head = 0;
     
     s32 BufferSize = BufferHeaderSize + 512;
     
-    for (u32 Range = 0; Range < Assembly.LEDUniverseMapCount; Range++)
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
-        leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
+        v2_strip Strip = Assembly.Strips[StripIndex];
         
         dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-        NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
+        NewBuffer->Buffer.Universe = Strip.StartUniverse;
+        
         NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
         NewBuffer->Buffer.TotalSize = BufferSize;
         NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
@@ -302,13 +310,12 @@ CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
         Head = NewBuffer;
         
         u8* DestChannel = Head->Buffer.Base + BufferHeaderSize;
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
-             LEDIdx < LEDUniverseRange.RangeOnePastLast;
-             LEDIdx++)
+        
+        for (u32 i = 0; i < Strip.LedCount; i++)
         {
-            led LED = Assembly.LEDBuffer.LEDs[LEDIdx];
-            pixel Color = Assembly.LEDBuffer.Colors[LED.Index];
-            
+            u32 LedIndex = Strip.LedLUT[i];
+            led LED = LedBuffer->Leds[LedIndex];
+            pixel Color = LedBuffer->Colors[LED.Index];
             
             DestChannel[0] = Color.R;
             DestChannel[1] = Color.G;
@@ -366,11 +373,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
             CurrentBlocks[Block.Layer] = Block;
         }
         
-        assembly_led_buffer* LayerLEDBuffers = PushArray(&State->Transient, assembly_led_buffer, CurrentBlocksMax);
-        for (u32 AssemblyIndex = 0; AssemblyIndex < State->ActiveAssemblyIndecies.Used; AssemblyIndex++)
+        led_buffer* LayerLEDBuffers = PushArray(&State->Transient, led_buffer, CurrentBlocksMax);
+        for (u32 AssemblyIndex = 0; AssemblyIndex < State->Assemblies.Count; AssemblyIndex++)
         {
-            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(AssemblyIndex);
-            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+            assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
+            led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly->LedBufferIndex);
             
             arena_snapshot ResetAssemblyMemorySnapshot = TakeSnapshotOfArena(&State->Transient);
             
@@ -380,8 +387,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 animation_block Block = CurrentBlocks[Layer];
                 
                 // Prep Temp Buffer
-                LayerLEDBuffers[Layer] = Assembly->LEDBuffer;
-                LayerLEDBuffers[Layer].Colors = PushArray(&State->Transient, pixel, Assembly->LEDBuffer.LEDCount);
+                LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
+                LayerLEDBuffers[Layer].Colors = PushArray(&State->Transient, pixel, AssemblyLedBuffer->LedCount);
                 
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
@@ -418,41 +425,41 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     case BlendMode_Overwrite:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            Assembly->LEDBuffer.Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
+                            AssemblyLedBuffer->Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
                         }
                     }break;
                     
                     case BlendMode_Add:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            u32 R = (u32)Assembly->LEDBuffer.Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
-                            u32 G = (u32)Assembly->LEDBuffer.Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
-                            u32 B = (u32)Assembly->LEDBuffer.Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
+                            u32 R = (u32)AssemblyLedBuffer->Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
+                            u32 G = (u32)AssemblyLedBuffer->Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
+                            u32 B = (u32)AssemblyLedBuffer->Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
                             
-                            Assembly->LEDBuffer.Colors[LED].R = (u8)GSMin(R, (u32)255);
-                            Assembly->LEDBuffer.Colors[LED].G = (u8)GSMin(G, (u32)255);
-                            Assembly->LEDBuffer.Colors[LED].B = (u8)GSMin(B, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].R = (u8)GSMin(R, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].G = (u8)GSMin(G, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].B = (u8)GSMin(B, (u32)255);
                         }
                     }break;
                     
                     case BlendMode_Multiply:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            r32 DR = (r32)Assembly->LEDBuffer.Colors[LED].R / 255.f;
-                            r32 DG = (r32)Assembly->LEDBuffer.Colors[LED].G / 255.f;
-                            r32 DB = (r32)Assembly->LEDBuffer.Colors[LED].B / 255.f;
+                            r32 DR = (r32)AssemblyLedBuffer->Colors[LED].R / 255.f;
+                            r32 DG = (r32)AssemblyLedBuffer->Colors[LED].G / 255.f;
+                            r32 DB = (r32)AssemblyLedBuffer->Colors[LED].B / 255.f;
                             
                             r32 SR = (r32)LayerLEDBuffers[Layer].Colors[LED].R / 255.f;
                             r32 SG = (r32)LayerLEDBuffers[Layer].Colors[LED].G / 255.f;
                             r32 SB = (r32)LayerLEDBuffers[Layer].Colors[LED].B / 255.f;
                             
-                            Assembly->LEDBuffer.Colors[LED].R = (u8)((DR * SR) * 255.f);
-                            Assembly->LEDBuffer.Colors[LED].G = (u8)((DG * SG) * 255.f);
-                            Assembly->LEDBuffer.Colors[LED].B = (u8)((DB * SB) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].R = (u8)((DR * SR) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].G = (u8)((DG * SG) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].B = (u8)((DB * SB) * 255.f);
                         }
                     }break;
                 }
@@ -464,17 +471,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
-    // TODO(Peter): Come back and re add this in. It was tanking frame rate after
-    // updates to the assembly file format
-#if 0
-    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+    for (u32 i = 0; i < State->Assemblies.Count; i++)
     {
-        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-        assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
+        assembly* Assembly = &State->Assemblies.Values[i];
+        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, &State->LedSystem, HeaderSize, &State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
-#endif
     
     //DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
     {
@@ -530,10 +532,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
         AssertAllocationsNoOverflow(State->Permanent);
-        for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+        for (u32 i = 0; i < State->Assemblies.Count; i++)
         {
-            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+            assembly* Assembly = &State->Assemblies.Values[i];
             AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }

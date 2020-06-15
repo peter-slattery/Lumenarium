@@ -7,6 +7,7 @@
 
 struct led
 {
+    // TODO(Peter): Pretty sure we don't need this. led and pixel are always parallel arrays
     s32 Index;
     v4 Position;
 };
@@ -22,22 +23,22 @@ union pixel
     u8 Channels[3];
 };
 
-// NOTE(Peter): This structure is so we can keep track of
-// what LEDs output to which DMX universe. You don't need
-// to use it anywhere else, as all the data for patterns,
-// colors, and groups is/will be stored elsewhere.
-struct leds_in_universe_range
+struct led_buffer
 {
-    s32 RangeStart;
-    s32 RangeOnePastLast;
-    s32 Universe;
+    u32 LedCount;
+    pixel* Colors;
+    led* Leds;
 };
 
-struct assembly_led_buffer
+struct led_system
 {
-    u32 LEDCount;
-    pixel* Colors;
-    led* LEDs;
+    platform_memory_handler PlatformMemory;
+    
+    u32 BuffersCountMax;
+    u32 BuffersCount;
+    led_buffer* Buffers;
+    
+    u32 LedsCountTotal;
 };
 
 struct v2_tag
@@ -49,6 +50,7 @@ struct v2_tag
 struct v2_strip
 {
     s32 ControlBoxID; // TODO(Peter): I don't think we need this anymore
+    // TODO(Peter): Add in info for Serial, ArtNet, etc.
     s32 StartUniverse;
     s32 StartChannel;
     
@@ -72,17 +74,19 @@ struct assembly
     string FilePath;
     
     r32 Scale;
+    s32 LedCountTotal;
+    u32 LedBufferIndex;
     
     u32 StripCount;
     v2_strip* Strips;
-    
-    s32 LedCountTotal;
-    assembly_led_buffer LEDBuffer;
-    
-    u32 LEDUniverseMapCount;
-    leds_in_universe_range* LEDUniverseMap;
 };
 
+struct assembly_array
+{
+    u32 CountMax;
+    u32 Count;
+    assembly* Values;
+};
 
 #define FOLDHAUS_ASSEMBLY_H
 #endif // FOLDHAUS_ASSEMBLY_H

@@ -663,9 +663,9 @@ WinMain (
     
     // Platform functions
     Context.GeneralWorkQueue = &WorkQueue;
-    Context.PlatformAlloc = Win32Alloc;
-    Context.PlatformFree = Win32Free;
-    Context.PlatformRealloc = Win32Realloc;
+    Context.PlatformMemory.Alloc = Win32Alloc;
+    Context.PlatformMemory.Free = Win32Free;
+    Context.PlatformMemory.Realloc = Win32Realloc;
     Context.FileHandler.ReadEntireFile = Win32ReadEntireFile;
     Context.FileHandler.WriteEntireFile = Win32WriteEntireFile;
     Context.FileHandler.GetFilePath = Win32SystemDialogueOpenFile;

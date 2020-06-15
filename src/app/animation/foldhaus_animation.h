@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_ANIMATION
 
-#define ANIMATION_PROC(name) void name(assembly_led_buffer* Assembly, r32 Time)
+#define ANIMATION_PROC(name) void name(led_buffer* Assembly, r32 Time)
 typedef ANIMATION_PROC(animation_proc);
 
 struct frame_range
@@ -39,7 +39,7 @@ struct anim_layer
 #define ANIMATION_SYSTEM_BLOCKS_MAX 128
 struct animation_system
 {
-    memory_arena Storage;
+    memory_arena* Storage;
     
     gs_list<animation_block> Blocks;
     anim_layer* Layers;
@@ -94,7 +94,7 @@ PercentToFrameInRange(r32 Percent, frame_range Range)
     return Result;
 }
 
-internal s32 
+internal s32
 ClampFrameToRange(s32 Frame, frame_range Range)
 {
     s32 Result = Frame;
@@ -135,7 +135,7 @@ RemoveAnimationBlock(gs_list_handle AnimationBlockHandle, animation_system* Anim
 internal u32
 AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
 {
-    // TODO(Peter): If this assert fires its time to make the layer buffer system 
+    // TODO(Peter): If this assert fires its time to make the layer buffer system
     // resizable.
     Assert(AnimationSystem->LayersCount < AnimationSystem->LayersMax);
     
@@ -143,7 +143,7 @@ AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode =
     Result = AnimationSystem->LayersCount++;
     anim_layer* NewLayer = AnimationSystem->Layers + Result;
     *NewLayer = {0};
-    NewLayer->Name = MakeString(PushArray(&AnimationSystem->Storage, char, Name.Length), Name.Length);
+    NewLayer->Name = MakeString(PushArray(AnimationSystem->Storage, char, Name.Length), Name.Length);
     CopyStringTo(Name, &NewLayer->Name);
     NewLayer->BlendMode = BlendMode;
     return Result;

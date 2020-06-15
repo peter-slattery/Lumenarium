@@ -133,6 +133,8 @@ PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
     
     Result = GetOpenFileNameA (&OpenFileName);
     
+    PathBuffer->Length = CharArrayLength(PathBuffer->Memory);
+    
     return Result;
 }
 
