@@ -10,8 +10,8 @@
 
 PLATFORM_ALLOC(Win32Alloc)
 {
-    u8* Result = (u8*)VirtualAlloc(NULL, Size, 
-                                   MEM_COMMIT | MEM_RESERVE, 
+    u8* Result = (u8*)VirtualAlloc(NULL, Size,
+                                   MEM_COMMIT | MEM_RESERVE,
                                    PAGE_EXECUTE_READWRITE);
     return Result;
 }
@@ -21,7 +21,7 @@ PLATFORM_FREE(Win32Free)
     b32 Result = VirtualFree(Base, 0, MEM_RELEASE);
     if (!Result)
     {
-        s32 Error = WSAGetLastError();
+        s32 Error = GetLastError();
         // TODO(Peter): I'm waiting to see an error actually occur here
         // to know what it could possibly be.
         InvalidCodePath;

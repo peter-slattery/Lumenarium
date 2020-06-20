@@ -39,10 +39,9 @@ enum gsm_struct_type
     gsm_StructType_v4,
     gsm_StructType_float,
     gsm_StructType_color_buffer,
-    gsm_StructType_led,
-    gsm_StructType_s32,
     gsm_StructType_pixel,
     gsm_StructType_u8,
+    gsm_StructType_s32,
     gsm_StructType_sin_wave_data,
     gsm_StructType_r32,
     gsm_StructType_revolving_discs_data,
@@ -62,10 +61,6 @@ static gsm_struct_member_type_info StructMembers_v4[] = {
 { "a", 1, (u64)&((v4*)0)->a, {}, 0},
 { "E", 1, (u64)&((v4*)0)->E, {}, 0},
 };
-static gsm_struct_member_type_info StructMembers_led[] = {
-{ "Index", 5, (u64)&((led*)0)->Index, {}, 0},
-{ "Position", 8, (u64)&((led*)0)->Position, {}, 0},
-};
 static gsm_struct_member_type_info StructMembers_pixel[] = {
 { "R", 1, (u64)&((pixel*)0)->R, {}, 0},
 { "G", 1, (u64)&((pixel*)0)->G, {}, 0},
@@ -73,7 +68,7 @@ static gsm_struct_member_type_info StructMembers_pixel[] = {
 { "Channels", 8, (u64)&((pixel*)0)->Channels, {}, 0},
 };
 static gsm_struct_member_type_info StructMembers_color_buffer[] = {
-{ "LEDs", 4, (u64)&((color_buffer*)0)->LEDs, {}, 0},
+{ "LedPositions", 12, (u64)&((color_buffer*)0)->LedPositions, {}, 0},
 { "Colors", 6, (u64)&((color_buffer*)0)->Colors, {}, 0},
 { "LEDCount", 8, (u64)&((color_buffer*)0)->LEDCount, {}, 0},
 };
@@ -115,14 +110,13 @@ static gsm_struct_type_info StructTypes[] = {
 { gsm_StructType_v4, "v4", 2, 16, 0, 0, StructMembers_v4, 3 },
 { gsm_StructType_float, "float", 5, 4, 0, 0, 0, 0 },
 { gsm_StructType_color_buffer, "color_buffer", 12, 20, 0, 0, StructMembers_color_buffer, 3 },
-{ gsm_StructType_led, "led", 3, 20, 0, 0, StructMembers_led, 2 },
-{ gsm_StructType_s32, "s32", 3, 4, 0, 0, 0, 0 },
 { gsm_StructType_pixel, "pixel", 5, 3, 0, 0, StructMembers_pixel, 2 },
 { gsm_StructType_u8, "u8", 2, 1, 0, 0, 0, 0 },
+{ gsm_StructType_s32, "s32", 3, 4, 0, 0, 0, 0 },
 { gsm_StructType_sin_wave_data, "sin_wave_data", 13, 20, 0, 0, StructMembers_sin_wave_data, 5 },
 { gsm_StructType_r32, "r32", 3, 4, 0, 0, 0, 0 },
 { gsm_StructType_revolving_discs_data, "revolving_discs_data", 20, 60, 0, 0, StructMembers_revolving_discs_data, 8 },
 { gsm_StructType_vertical_color_fade_data, "vertical_color_fade_data", 24, 44, 0, 0, StructMembers_vertical_color_fade_data, 4 },
 { gsm_StructType_multiply_patterns_data, "multiply_patterns_data", 22, 60, 0, 0, StructMembers_multiply_patterns_data, 3 },
 };
-static gsm_u32 StructTypesCount = 13;
+static gsm_u32 StructTypesCount = 12;

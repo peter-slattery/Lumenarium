@@ -94,18 +94,18 @@ TestPatternOne(led_buffer* Assembly, r32 Time)
 {
     for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led Led = Assembly->Leds[LedIndex];
-        if (Led.Position.x < 0)
+        v4 LedPosition = Assembly->Positions[LedIndex];
+        if (LedPosition.x < 0)
         {
-            Assembly->Colors[Led.Index].R = 255;
-            Assembly->Colors[Led.Index].B = 255;
-            Assembly->Colors[Led.Index].G = 255;
+            Assembly->Colors[LedIndex].R = 255;
+            Assembly->Colors[LedIndex].B = 255;
+            Assembly->Colors[LedIndex].G = 255;
         }
         else
         {
-            Assembly->Colors[Led.Index].R = 0;
-            Assembly->Colors[Led.Index].B = 0;
-            Assembly->Colors[Led.Index].G = 0;
+            Assembly->Colors[LedIndex].R = 0;
+            Assembly->Colors[LedIndex].B = 0;
+            Assembly->Colors[LedIndex].G = 0;
         }
     }
 }
@@ -132,9 +132,7 @@ TestPatternTwo(led_buffer* Assembly, r32 Time)
     
     for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led Led = Assembly->Leds[LedIndex];
-        
-        v4 Position = Led.Position;
+        v4 Position = Assembly->Positions[LedIndex];
         
         v4 ToFront = Position + FrontCenter;
         v4 ToBack = Position + BackCenter;
@@ -150,16 +148,16 @@ TestPatternTwo(led_buffer* Assembly, r32 Time)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
-                Assembly->Colors[Led.Index] = Color;
+                Assembly->Colors[LedIndex] = Color;
             }
             else
             {
-                //Assembly->Colors[Led.Index] = {};
+                //Assembly->Colors[LedIndex] = {};
             }
         }
         else
         {
-            //Assembly->Colors[Led.Index] = {};
+            //Assembly->Colors[LedIndex] = {};
         }
     }
 }
@@ -178,23 +176,23 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
     
     for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
-        led Led = Assembly->Leds[LedIndex];
+        v4 LedPosition = Assembly->Positions[LedIndex];
         u8 Red = 0;
         u8 Green = 0;
         u8 Blue = 0;
         
-        r32 GreenDist = GSAbs(Mag(Led.Position - GreenCenter) - GreenRadius);
+        r32 GreenDist = GSAbs(Mag(LedPosition - GreenCenter) - GreenRadius);
         r32 GreenBrightness = GSClamp(0.f, FadeDist - GSAbs(GreenDist), FadeDist);
         Green = (u8)(GreenBrightness * 255);
         
-        r32 TealDist = GSAbs(Mag(Led.Position - TealCenter) - TealRadius);
+        r32 TealDist = GSAbs(Mag(LedPosition - TealCenter) - TealRadius);
         r32 TealBrightness = GSClamp(0.f, FadeDist - GSAbs(TealDist), FadeDist);
         Red = (u8)(TealBrightness * 255);
         Blue = (u8)(TealBrightness * 255);
         
-        Assembly->Colors[Led.Index].R = Red;
-        Assembly->Colors[Led.Index].B = Green;
-        Assembly->Colors[Led.Index].G = Green;
+        Assembly->Colors[LedIndex].R = Red;
+        Assembly->Colors[LedIndex].B = Green;
+        Assembly->Colors[LedIndex].G = Green;
     }
 }
 

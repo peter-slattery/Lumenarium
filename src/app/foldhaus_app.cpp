@@ -314,8 +314,7 @@ CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize,
         for (u32 i = 0; i < Strip.LedCount; i++)
         {
             u32 LedIndex = Strip.LedLUT[i];
-            led LED = LedBuffer->Leds[LedIndex];
-            pixel Color = LedBuffer->Colors[LED.Index];
+            pixel Color = LedBuffer->Colors[LedIndex];
             
             DestChannel[0] = Color.R;
             DestChannel[1] = Color.G;
@@ -529,6 +528,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
     
     // Checking for overflows
+#if 0
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
         AssertAllocationsNoOverflow(State->Permanent);
@@ -538,6 +538,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }
+#endif
 }
 
 CLEANUP_APPLICATION(CleanupApplication)

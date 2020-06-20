@@ -5,13 +5,6 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_H
 
-struct led
-{
-    // TODO(Peter): Pretty sure we don't need this. led and pixel are always parallel arrays
-    s32 Index;
-    v4 Position;
-};
-
 union pixel
 {
     struct
@@ -27,7 +20,7 @@ struct led_buffer
 {
     u32 LedCount;
     pixel* Colors;
-    led* Leds;
+    v4* Positions;
 };
 
 struct led_system
@@ -50,6 +43,7 @@ struct v2_tag
 struct v2_strip
 {
     s32 ControlBoxID; // TODO(Peter): I don't think we need this anymore
+    
     // TODO(Peter): Add in info for Serial, ArtNet, etc.
     s32 StartUniverse;
     s32 StartChannel;

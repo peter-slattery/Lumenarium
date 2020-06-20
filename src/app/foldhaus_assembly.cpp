@@ -34,7 +34,7 @@ LedSystemTakeFreeBuffer(led_system* System, u32 LedCount)
         {
             if (System->Buffers[i].LedCount == 0
                 && System->Buffers[i].Colors == 0
-                && System->Buffers[i].Leds == 0)
+                && System->Buffers[i].Positions == 0)
             {
                 Result = i;
                 break;
@@ -46,7 +46,7 @@ LedSystemTakeFreeBuffer(led_system* System, u32 LedCount)
     led_buffer* Buffer = &System->Buffers[Result];
     Buffer->LedCount = LedCount;
     Buffer->Colors = PlatformAllocArray(System->PlatformMemory, pixel, Buffer->LedCount);
-    Buffer->Leds = PlatformAllocArray(System->PlatformMemory, led, Buffer->LedCount);
+    Buffer->Positions = PlatformAllocArray(System->PlatformMemory, v4, Buffer->LedCount);
     
     System->LedsCountTotal += LedCount;
     
@@ -59,7 +59,7 @@ LedSystemFreeBuffer(led_system* System, u32 BufferIndex)
     Assert(BufferIndex < System->BuffersCountMax);
     led_buffer* Buffer = &System->Buffers[BufferIndex];
     PlatformFreeArray(System->PlatformMemory, Buffer->Colors, pixel, Buffer->LedCount);
-    PlatformFreeArray(System->PlatformMemory, Buffer->Leds, led, Buffer->LedCount);
+    PlatformFreeArray(System->PlatformMemory, Buffer->Positions, v4, Buffer->LedCount);
     System->LedsCountTotal -= Buffer->LedCount;
     *Buffer = {};
 }
@@ -75,8 +75,7 @@ internal void
 LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 {
     Assert(Led < Buffer->LedCount);
-    Buffer->Leds[Led].Position = Position;
-    Buffer->Leds[Led].Index = Led;
+    Buffer->Positions[Led] = Position;
 }
 
 // Assembly

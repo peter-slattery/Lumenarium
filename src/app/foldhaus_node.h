@@ -14,7 +14,7 @@ typedef enum node_type node_type;
 
 struct color_buffer
 {
-    led* LEDs;
+    v4* LedPositions;
     pixel* Colors;
     s32 LEDCount;
 };
@@ -66,7 +66,7 @@ struct node_specification_
 struct pattern_node
 {
     // TODO(Peter): Something to think about further down the line is the fact that
-    // SpecificationIndex doesn't have to stay static throughout a single instance of 
+    // SpecificationIndex doesn't have to stay static throughout a single instance of
     // an application, let alone across separate runs. If you recompile (hot load or not)
     // with a new specification, the indecies all get thrown off. Should we hash the spec
     // names or something?
@@ -90,7 +90,7 @@ struct pattern_node_workspace
     gs_bucket<pattern_node_connection> Connections;
     
     // This is storage for all the structures which follow.
-    // It is cleared when new nodes are added so that the 
+    // It is cleared when new nodes are added so that the
     // acceleration structures can be recalculated
     memory_arena Storage;
     s32* SparseToSortedNodeMap;
@@ -109,7 +109,7 @@ struct data_name
 struct data_name
 
 #define NODE_PROC(proc_name, input_type) \
-void proc_name(input_type* Data, r32 DeltaTime) 
+void proc_name(input_type* Data, r32 DeltaTime)
 
 #define NODE_IN(type, name) type name
 #define NODE_OUT(type, name) type name

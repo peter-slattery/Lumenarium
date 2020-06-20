@@ -117,7 +117,7 @@ NODE_PROC(SinWave, sin_wave_data)
 //
 /////////////////////////////////
 
-GSMetaTag(node_struct); 
+GSMetaTag(node_struct);
 struct multiply_patterns_data
 {
     GSMetaTag(node_input);
@@ -132,28 +132,25 @@ struct multiply_patterns_data
 
 NODE_PROC(MultiplyPatterns, multiply_patterns_data)
 {
-    led* LED = Data->Result.LEDs;
-    for (s32 l = 0; l < Data->Result.LEDCount; l++)
+    for (s32 LedIndex = 0; LedIndex < Data->Result.LEDCount; LedIndex++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
+        Assert(LedIndex >= 0 && LedIndex < Data->Result.LEDCount);
         
-        s32 AR = Data->A.Colors[LED->Index].R;
-        s32 AG = Data->A.Colors[LED->Index].G;
-        s32 AB = Data->A.Colors[LED->Index].B;
+        s32 AR = Data->A.Colors[LedIndex].R;
+        s32 AG = Data->A.Colors[LedIndex].G;
+        s32 AB = Data->A.Colors[LedIndex].B;
         
-        s32 BR = Data->B.Colors[LED->Index].R;
-        s32 BG = Data->B.Colors[LED->Index].G;
-        s32 BB = Data->B.Colors[LED->Index].B;
+        s32 BR = Data->B.Colors[LedIndex].R;
+        s32 BG = Data->B.Colors[LedIndex].G;
+        s32 BB = Data->B.Colors[LedIndex].B;
         
         s32 RCombined = (AR * BR) / 255;
         s32 GCombined = (AG * BG) / 255;
         s32 BCombined = (AB * BB) / 255;
         
-        Data->Result.Colors[LED->Index].R = (u8)RCombined;
-        Data->Result.Colors[LED->Index].G = (u8)GCombined;
-        Data->Result.Colors[LED->Index].B = (u8)BCombined;
-        
-        LED++;
+        Data->Result.Colors[LedIndex].R = (u8)RCombined;
+        Data->Result.Colors[LedIndex].G = (u8)GCombined;
+        Data->Result.Colors[LedIndex].B = (u8)BCombined;
     }
 }
 

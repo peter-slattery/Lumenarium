@@ -8,49 +8,47 @@
 GSMetaTag(node_struct);
 struct solid_color_data
 {
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     v4 Color;
     
     GSMetaTag(node_output);
     color_buffer Result;
 };
 
-GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs
 void SolidColorProc(solid_color_data* Data)
 {
     u8 R = (u8)GSClamp(0.f, (Data->Color.r * 255), 255.f);
     u8 G = (u8)GSClamp(0.f, (Data->Color.g * 255), 255.f);
     u8 B = (u8)GSClamp(0.f, (Data->Color.b * 255), 255.f);
     
-    led* LED = Data->Result.LEDs;
-    for (s32 l = 0; l < Data->Result.LEDCount; l++)
+    for (s32 LedIndex = 0; LedIndex < Data->Result.LEDCount; LedIndex++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
+        Assert(LedIndex >= 0 && LedIndex < Data->Result.LEDCount);
         
-        Data->Result.Colors[LED->Index].R = R;
-        Data->Result.Colors[LED->Index].G = G;
-        Data->Result.Colors[LED->Index].B = B;
-        LED++;
+        Data->Result.Colors[LedIndex].R = R;
+        Data->Result.Colors[LedIndex].G = G;
+        Data->Result.Colors[LedIndex].B = B;
     }
 }
 
 GSMetaTag(node_struct);
 struct vertical_color_fade_data
 {
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     v4 Color;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 Min;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 Max;
     
     GSMetaTag(node_output);
     color_buffer Result;
 };
 
-GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs
 void VerticalColorFadeProc(vertical_color_fade_data* Data)
 {
     r32 R = (Data->Color.r * 255);
@@ -59,18 +57,18 @@ void VerticalColorFadeProc(vertical_color_fade_data* Data)
     
     r32 Range = Data->Max - Data->Min;
     
-    led* LED = Data->Result.LEDs;
-    for (s32 l = 0; l < Data->Result.LEDCount; l++)
+    
+    for (s32 LedIndex = 0; LedIndex < Data->Result.LEDCount; LedIndex++)
     {
-        Assert(LED->Index >= 0 && LED->Index < Data->Result.LEDCount);
+        Assert(LedIndex >= 0 && LedIndex < Data->Result.LEDCount);
+        v4 LedPosition = Data->Result.LedPositions[LedIndex];
         
-        r32 Amount = (LED->Position.y - Data->Min) / Range;
+        r32 Amount = (LedPosition.y - Data->Min) / Range;
         Amount = GSClamp01(1.0f - Amount);
         
-        Data->Result.Colors[LED->Index].R = (u8)(R * Amount);
-        Data->Result.Colors[LED->Index].G = (u8)(G * Amount);
-        Data->Result.Colors[LED->Index].B = (u8)(B * Amount);
-        LED++;
+        Data->Result.Colors[LedIndex].R = (u8)(R * Amount);
+        Data->Result.Colors[LedIndex].G = (u8)(G * Amount);
+        Data->Result.Colors[LedIndex].B = (u8)(B * Amount);
     }
 }
 
@@ -78,32 +76,32 @@ void VerticalColorFadeProc(vertical_color_fade_data* Data)
 GSMetaTag(node_struct);
 struct revolving_discs_data
 {
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 Rotation;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 ThetaZ;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 ThetaY;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 DiscWidth;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 InnerRadius;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     r32 OuterRadius;
     
-    GSMetaTag(node_input); 
+    GSMetaTag(node_input);
     v4 Color;
     
     GSMetaTag(node_output);
     color_buffer Result;
 };
 
-GSMetaTag(node_proc); // :TagParamsForNodeParamStructs 
+GSMetaTag(node_proc); // :TagParamsForNodeParamStructs
 void RevolvingDiscs(revolving_discs_data* Data)
 {
     DEBUG_TRACK_FUNCTION;
@@ -124,10 +122,9 @@ void RevolvingDiscs(revolving_discs_data* Data)
     r32 OuterRadiusSquared = Data->OuterRadius * Data->OuterRadius;
     r32 InnerRadiusSquared = Data->InnerRadius * Data->InnerRadius;
     
-    led* LED = Data->Result.LEDs;
-    for (s32 l = 0; l < Data->Result.LEDCount; l++)
+    for (s32 LedIndex = 0; LedIndex < Data->Result.LEDCount; LedIndex++)
     {
-        v4 Position = LED->Position;
+        v4 Position = Data->Result.LedPositions[LedIndex];
         
         v4 ToFront = Position + FrontCenter;
         v4 ToBack = Position + BackCenter;
@@ -143,10 +140,9 @@ void RevolvingDiscs(revolving_discs_data* Data)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
-                Data->Result.Colors[LED->Index] = Color;
+                Data->Result.Colors[LedIndex] = Color;
             }
         }
-        LED++;
     }
 }
 

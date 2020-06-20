@@ -71,7 +71,7 @@ SculptureView_Cleanup(panel* Panel, app_state* State)
 
 struct draw_leds_job_data
 {
-    led* LEDs;
+    v4* Positions;
     pixel* Colors;
     s32 StartIndex;
     s32 OnePastLastIndex;
@@ -107,15 +107,13 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     v2 UV2 = v2{1, 1};
     v2 UV3 = v2{0, 1};
     
-    led* LED = Data->LEDs + Data->StartIndex;
-    for (s32 LEDIdx = 0;
-         LEDIdx < LEDCount;
-         LEDIdx++)
+    
+    for (s32 LedIndex = 0; LedIndex < LEDCount; LedIndex++)
     {
-        pixel PixelColor = Data->Colors[LED->Index];
+        pixel PixelColor = Data->Colors[LedIndex];
         v4 Color = v4{PixelColor.R / 255.f, PixelColor.G / 255.f, PixelColor.B / 255.f, 1.0f};
         
-        v4 V4Position = LED->Position;
+        v4 V4Position = Data->Positions[Data->StartIndex + LedIndex];
         V4Position.w = 0;
         v4 P0 = P0_In + V4Position;
         v4 P1 = P1_In + V4Position;
@@ -126,8 +124,6 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
                         P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
         SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
                         P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
-        
-        LED++;
     }
 }
 
@@ -165,7 +161,7 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
             draw_leds_job_data* JobData = PushStruct(&State->Transient, draw_leds_job_data);
-            JobData->LEDs = LedBuffer->Leds;
+            JobData->Positions = LedBuffer->Positions;
             JobData->Colors = LedBuffer->Colors;
             JobData->StartIndex = Job * MaxLEDsPerJob;
             JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, LedBuffer->LedCount);
