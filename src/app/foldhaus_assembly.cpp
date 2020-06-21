@@ -5,8 +5,6 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_CPP
 
-// Led System
-
 internal led_system
 LedSystemInitialize(platform_memory_handler PlatformMemory, u32 BuffersMax)
 {
@@ -78,8 +76,6 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
     Buffer->Positions[Led] = Position;
 }
 
-// Assembly
-
 internal void
 ConstructAssemblyFromDefinition (assembly* Assembly, string AssemblyName, v4 RootPosition, led_system* LedSystem)
 {
@@ -114,37 +110,36 @@ ConstructAssemblyFromDefinition (assembly* Assembly, string AssemblyName, v4 Roo
 static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 0, 75, 0} };
 s32 TempAssemblyOffsetsCount = 3;
 
-// TODO(Peter): Don't reference State, pull back to the Led buffer and Assembly Array
 internal void
-LoadAssembly (app_state* State, context Context, string Path)
+LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, memory_arena* Scratch, context Context, string Path, event_log* GlobalLog)
 {
     platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
     if (AssemblyFile.Error == PlatformMemory_NoError && AssemblyFile.Size > 0)
     {
         string AssemblyFileText = MakeString((char*)AssemblyFile.Base);
         
-        Assert(State->Assemblies.Count < State->Assemblies.CountMax);
-        assembly* NewAssembly = &State->Assemblies.Values[State->Assemblies.Count++];
+        Assert(Assemblies->Count < Assemblies->CountMax);
+        assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
         
         s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(Path.Memory, Path.Length, '\\');
         string FileName = Substring(Path, IndexOfLastSlash + 1);
         
         NewAssembly->Arena.PlatformMemory = Context.PlatformMemory;
-        if (ParseAssemblyFile(NewAssembly, AssemblyFileText, &State->Transient))
+        if (ParseAssemblyFile(NewAssembly, AssemblyFileText, Scratch))
         {
-            v4 Offset = TempAssemblyOffsets[State->Assemblies.Count % TempAssemblyOffsetsCount];
-            ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, &State->LedSystem);
+            v4 Offset = TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
+            ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, LedSystem);
             PlatformFree(Context.PlatformMemory, AssemblyFile.Base, AssemblyFile.Size);
         }
         else
         {
             FreeMemoryArena(&NewAssembly->Arena);
-            State->Assemblies.Count -= 1;
+            Assemblies->Count -= 1;
         }
     }
     else
     {
-        LogError(State->GlobalLog, "Unable to load assembly file");
+        LogError(GlobalLog, "Unable to load assembly file");
     }
 }
 

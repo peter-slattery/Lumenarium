@@ -182,7 +182,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
 #if 1
     string SculpturePath = MakeStringLiteral("data/blumen_lumen_v2.fold");
-    LoadAssembly(State, Context, SculpturePath);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
     State->PixelsToWorldScale = .01f;

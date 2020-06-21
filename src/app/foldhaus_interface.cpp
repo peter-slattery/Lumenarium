@@ -477,6 +477,5 @@ DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mou
     }
 }
 
-
 #define FOLDHAUS_INTERFACE_CPP
 #endif // FOLDHAUS_INTERFACE_CPP

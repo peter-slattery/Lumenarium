@@ -12,7 +12,7 @@
 #define IP_ADDRESS_BYTES 16
 #define STARTCODE_DMX 0
 
-/* 
+/*
  * a description of the address space being used
  */
 #define PREAMBLE_SIZE_ADDR 0
@@ -52,7 +52,7 @@
 /*
  * data definitions
  */
-#define ACN_IDENTIFIER "ASC-E1.17\0\0\0"	
+#define ACN_IDENTIFIER "ASC-E1.17\0\0\0"
 #define ROOT_VECTOR 4
 #define FRAMING_VECTOR 2
 #define DMP_VECTOR 2
@@ -159,7 +159,7 @@ VHD_PackLength_(u8* Buffer, u32 Length, b32 IncludeLength)
     return Cursor;
 }
 
-internal cid 
+internal cid
 StringToCID_ (const char* String)
 {
     cid Result = {};
@@ -193,11 +193,11 @@ StringToCID_ (const char* String)
         Src++;
     }
     
-    return Result; 
+    return Result;
 }
 
 internal void
-InitStreamHeader (u8* Buffer, s32 BufferSize, 
+InitStreamHeader (u8* Buffer, s32 BufferSize,
                   u16 SlotCount,
                   u8 StartCode,
                   u16 Universe,
@@ -220,8 +220,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     
     // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
     VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor, 
-                             STREAM_HEADER_SIZE - RLP_PREAMBLE_SIZE + SlotCount, 
+    Cursor = VHD_PackLength_(Cursor,
+                             STREAM_HEADER_SIZE - RLP_PREAMBLE_SIZE + SlotCount,
                              false);
     
     // root vector
@@ -234,8 +234,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     }
     
     VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor, 
-                             STREAM_HEADER_SIZE - FRAMING_FLAGS_AND_LENGTH_ADDR + SlotCount, 
+    Cursor = VHD_PackLength_(Cursor,
+                             STREAM_HEADER_SIZE - FRAMING_FLAGS_AND_LENGTH_ADDR + SlotCount,
                              false);
     
     // framing vector
@@ -263,7 +263,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     Cursor = PackB2(Cursor, Universe);
     
     VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor, 
+    Cursor = VHD_PackLength_(Cursor,
                              STREAM_HEADER_SIZE - DMP_FLAGS_AND_LENGTH_ADDR + SlotCount,
                              false);
     
@@ -292,7 +292,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
 //
 
 internal streaming_acn
-InitializeSACN ( context Context)
+InitializeSACN (context Context)
 {
     streaming_acn SACN = {};
     
@@ -313,7 +313,7 @@ internal void
 SACNUpdateSequence (streaming_acn* SACN)
 {
     // Never use 0 after the first one
-    if (++SACN->SequenceIterator == 0) 
+    if (++SACN->SequenceIterator == 0)
     {
         ++SACN->SequenceIterator;
     }

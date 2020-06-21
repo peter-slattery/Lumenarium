@@ -71,7 +71,7 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
             b32 Success = GetFilePath(Context, &FilePath, "Foldhaus Files\0*.fold\0\0");
             if (Success)
             {
-                LoadAssembly(State, Context, FilePath);
+                LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, FilePath, State->GlobalLog);
             }
         }
         
