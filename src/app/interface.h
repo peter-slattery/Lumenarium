@@ -339,9 +339,17 @@ ui_LayoutRemaining(ui_layout Layout)
     }
     return Result;
 }
+
 //
 // Drawing Functions
 //
+
+static r32
+ui_GetTextLineHeight(ui_interface Interface)
+{
+    r32 Result = Interface.Style.Font->PixelHeight + (2 * Interface.Style.Margin.y);
+    return Result;
+}
 
 static void
 ui_FillRect(ui_interface* Interface, rect Bounds, v4 Color)
@@ -430,6 +438,37 @@ ui_Button(ui_interface* Interface, string Text, rect Bounds)
     return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
 }
 
+struct list_item_colors
+{
+    v4 Hover;
+    v4 Selected;
+    v4 BGColor;
+};
+
+inline v4
+ui_GetListItemBGColor(interface_config Style, u32 ElementIndex)
+{
+    v4 Result = Style.ListBGColors[ElementIndex % LIST_BG_COLORS_COUNT];
+    return Result;
+}
+
+static list_item_colors
+ui_GetListItemColors(ui_interface* Interface, u32 ListItemIndex)
+{
+    list_item_colors Result = {};
+    Result.Hover = Interface->Style.ListBGHover;
+    Result.Selected = Interface->Style.ListBGSelected;
+    Result.BGColor = ui_GetListItemBGColor(Interface->Style, ListItemIndex);
+    return Result;
+}
+
+static b32
+ui_ListButton(ui_interface* Interface, string Text, rect Bounds, u32 ListItemIndex)
+{
+    list_item_colors Colors = ui_GetListItemColors(Interface, ListItemIndex);
+    return ui_Button(Interface, Text, Bounds, Colors.Hover, Colors.Selected, Colors.BGColor);
+}
+
 static b32
 ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, string Text, v4 BGColor, v4 HoverColor, v4 SelectColor)
 {
@@ -450,11 +489,11 @@ ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, string Text)
     return ui_LayoutButton(Interface, Layout, Text, BGColor, HoverColor, SelectedColor);
 }
 
-inline v4
-ui_GetListItemBGColor(interface_config Style, u32 ElementIndex)
+static b32
+ui_LayoutListButton(ui_interface* Interface, ui_layout* Layout, string Text, u32 ListItemIndex)
 {
-    v4 Result = Style.ListBGColors[ElementIndex % LIST_BG_COLORS_COUNT];
-    return Result;
+    list_item_colors Colors = ui_GetListItemColors(Interface, ListItemIndex);
+    return ui_LayoutButton(Interface, Layout, Text, Colors.Hover, Colors.Selected, Colors.BGColor);
 }
 
 static b32

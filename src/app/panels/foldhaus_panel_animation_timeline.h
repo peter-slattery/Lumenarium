@@ -317,7 +317,7 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
         r32 FramePercent = FrameToPercentRange(Frame, VisibleFrames);
         r32 FrameX = GSLerp(BarBounds.Min.x, BarBounds.Max.x, FramePercent);
         v2 FrameTextPos = v2{FrameX, BarBounds.Min.y + 2};
-        DrawString(RenderBuffer, TempString, State->Interface.Font, FrameTextPos, WhiteV4);
+        DrawString(RenderBuffer, TempString, State->Interface_.Style.Font, FrameTextPos, WhiteV4);
     }
     
     // Time Slider
@@ -335,7 +335,7 @@ DrawFrameBar (animation_system* AnimationSystem, render_command_buffer* RenderBu
         PushRenderQuad2D(RenderBuffer, HeadMin, HeadMax, TimeSliderColor);
         
         PrintF(&TempString, "%d", AnimationSystem->CurrentFrame);
-        DrawString(RenderBuffer, TempString, State->Interface.Font, HeadMin + v2{6, 4}, WhiteV4);
+        DrawString(RenderBuffer, TempString, State->Interface_.Style.Font, HeadMin + v2{6, 4}, WhiteV4);
     }
 }
 
@@ -418,7 +418,7 @@ DrawLayerMenu(animation_system* AnimationSystem, rect PanelDim, render_command_b
         {
             PushRenderBoundingBox2D(RenderBuffer, gs_RectExpand(LayerBounds), 1, WhiteV4);
         }
-        DrawString(RenderBuffer, Layer->Name, State->Interface.Font, LayerTextPos, WhiteV4);
+        DrawString(RenderBuffer, Layer->Name, State->Interface_.Style.Font, LayerTextPos, WhiteV4);
     }
 }
 

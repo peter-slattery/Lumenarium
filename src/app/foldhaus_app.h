@@ -72,7 +72,6 @@ struct app_state
     text_entry ActiveTextEntry;
     
     ui_interface Interface_;
-    interface_config Interface;
     
     animation_system AnimationSystem;
     gs_list_handle SelectedAnimationBlockHandle;

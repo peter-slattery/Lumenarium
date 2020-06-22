@@ -82,7 +82,7 @@ GetNextCodepointOffset (bitmap_font* Font, u32* X, u32* Y)
 }
 
 internal void
-AddCodepointToFont (bitmap_font* Font, char Codepoint, 
+AddCodepointToFont (bitmap_font* Font, char Codepoint,
                     s32 XOffset, s32 YOffset, s32 Width, s32 Height,
                     s32 BitmapX, s32 BitmapY)
 {
@@ -100,7 +100,7 @@ AddCodepointToFont (bitmap_font* Font, char Codepoint,
     Value->BitmapX = BitmapX;
     Value->BitmapY = BitmapY;
     Value->UVMin = v2{(r32)BitmapX / (r32)Font->BitmapWidth, (r32)BitmapY / (r32)Font->BitmapHeight};
-    Value->UVMax = 
+    Value->UVMax =
         Value->UVMin + v2{(r32)Width / (r32)Font->BitmapWidth, (r32)Height / (r32)Font->BitmapHeight};
 }
 
