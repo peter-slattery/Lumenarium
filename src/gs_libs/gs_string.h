@@ -448,7 +448,7 @@ static bool IsNumeric (char C)
 }
 static bool IsNumericExtended (char C)
 {
-    return (IsNumeric(C) || (C == 'x') || (C == 'f') || (C == '.'));
+    return (IsNumeric(C) || (C == '-') || (C == 'x') || (C == 'f') || (C == '.'));
 }
 static bool IsAlphaNumeric (char C)
 {

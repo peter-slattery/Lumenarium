@@ -181,7 +181,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->LedSystem = LedSystemInitialize(Context.PlatformMemory, 128);
     
 #if 1
-    string SculpturePath = MakeStringLiteral("data/blumen_lumen_v2.fold");
+    string SculpturePath = MakeStringLiteral("data/radialumia_v2.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
@@ -213,9 +213,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SplitPanelVertically(Panel, .5f, &State->PanelSystem);
-    SetPanelDefinition(&Panel->Left->Panel, PanelType_ProfilerView, State);
-    SetPanelDefinition(&Panel->Right->Panel, PanelType_SculptureView, State);
+    SetPanelDefinition(Panel, PanelType_SculptureView, State);
 }
 
 internal void
@@ -378,8 +376,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
             assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
             led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly->LedBufferIndex);
             
-            arena_snapshot ResetAssemblyMemorySnapshot = TakeSnapshotOfArena(&State->Transient);
-            
             for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
             {
                 if (!CurrentBlocksFilled[Layer]) { continue; }
@@ -463,11 +459,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
                     }break;
                 }
             }
-            
-            ClearArenaToSnapshot(&State->Transient, ResetAssemblyMemorySnapshot);
         }
     }
     
+    // Skipped for performance at the moment
+#if 0
     s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
     for (u32 i = 0; i < State->Assemblies.Count; i++)
@@ -504,6 +500,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             InvalidDefaultCase;
         }
     }
+#endif
     
     PushRenderOrthographic(RenderBuffer, 0, 0, gs_Width(State->WindowBounds), gs_Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
