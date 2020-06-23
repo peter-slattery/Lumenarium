@@ -422,7 +422,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
         {
             panel_definition Def = GlobalPanelDefs[i];
             string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-            if (ui_Button(&State->Interface_, DefName, ButtonBounds))
+            if (ui_Button(&State->Interface, DefName, ButtonBounds))
             {
                 SetPanelDefinition(Panel, i, State);
                 Panel->PanelSelectionMenuOpen = false;
@@ -432,7 +432,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect FooterBo
         }
     }
     
-    if (ui_Button(&State->Interface_, MakeStringLiteral("Select"), PanelSelectBtnBounds))
+    if (ui_Button(&State->Interface, MakeStringLiteral("Select"), PanelSelectBtnBounds))
     {
         Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
     }

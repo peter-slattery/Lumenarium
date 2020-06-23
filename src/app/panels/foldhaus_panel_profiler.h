@@ -148,7 +148,7 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
     r32 SingleFrameStep = gs_Width(FrameListInner) / DEBUG_FRAME_COUNT;
     r32 SingleFrameWidth = (r32)((s32)SingleFrameStep - 2);
     
-    ui_OutlineRect(&State->Interface_, FrameListBounds, 2, WhiteV4);
+    ui_OutlineRect(&State->Interface, FrameListBounds, 2, WhiteV4);
     if (gs_PointIsInRect(Mouse.Pos, FrameListBounds) && MouseButtonHeldDown(Mouse.LeftButtonState))
     {
         v2 LocalMouse = gs_TransformPointIntoRectSpace(Mouse.Pos, FrameListBounds);
@@ -167,28 +167,28 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
         s32 FramesAgo = (GlobalDebugServices->CurrentDebugFrame - F);
         if (FramesAgo < 0) { FramesAgo += DEBUG_FRAME_COUNT; }
         v4 Color = FrameColors[GSClamp(0, FramesAgo, 3)];
-        ui_FillRect(&State->Interface_, PositionedFrameBounds, Color);
+        ui_FillRect(&State->Interface, PositionedFrameBounds, Color);
     }
     
     debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
-    ui_layout Layout = ui_CreateLayout(State->Interface_, ProcListBounds);
+    ui_layout Layout = ui_CreateLayout(State->Interface, ProcListBounds);
     ui_StartRow(&Layout, 4);
     {
         s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
         s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
         u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
         PrintF(&String, "Frame %d", CurrentDebugFrame);
-        ui_LayoutDrawString(&State->Interface_, &Layout, String, WhiteV4);
+        ui_LayoutDrawString(&State->Interface, &Layout, String, WhiteV4);
         
         PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
-        ui_LayoutDrawString(&State->Interface_, &Layout, String, WhiteV4);
+        ui_LayoutDrawString(&State->Interface, &Layout, String, WhiteV4);
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
         ui_ReserveElementBounds(&Layout);
         
-        if (ui_LayoutButton(&State->Interface_, &Layout, MakeString("Resume Recording")))
+        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Resume Recording")))
         {
             GlobalDebugServices->RecordFrames = true;
         }
@@ -197,11 +197,11 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
     
     ui_StartRow(&Layout, 8);
     {
-        if (ui_LayoutButton(&State->Interface_, &Layout, MakeString("Scope View")))
+        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Scope View")))
         {
             GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER;
         }
-        if (ui_LayoutButton(&State->Interface_, &Layout, MakeString("List View")))
+        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("List View")))
         {
             GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST;
         }
@@ -210,11 +210,11 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
     
     if (GlobalDebugServices->Interface.FrameView == FRAME_VIEW_PROFILER)
     {
-        RenderProfiler_ScopeVisualization(&State->Interface_, Layout, VisibleFrame, Memory);
+        RenderProfiler_ScopeVisualization(&State->Interface, Layout, VisibleFrame, Memory);
     }
     else
     {
-        RenderProfiler_ListVisualization(&State->Interface_, Layout, VisibleFrame, Memory);
+        RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
     }
 }
 

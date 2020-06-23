@@ -139,7 +139,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
                 AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
             }
             
-            State->Interface_.Style.Font = Font;
+            State->Interface.Style.Font = Font;
             
             Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory,
                                                                             Font->BitmapWidth, Font->BitmapHeight);
@@ -150,21 +150,21 @@ INITIALIZE_APPLICATION(InitializeApplication)
         }
     }
     
-    State->Interface_.Style.FontSize = FontSize;
-    State->Interface_.Style.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
-    State->Interface_.Style.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
-    State->Interface_.Style.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
-    State->Interface_.Style.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
-    State->Interface_.Style.ButtonColor_Inactive = BlackV4;
-    State->Interface_.Style.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
-    State->Interface_.Style.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
-    State->Interface_.Style.TextColor = WhiteV4;
-    State->Interface_.Style.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
-    State->Interface_.Style.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
-    State->Interface_.Style.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
-    State->Interface_.Style.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
-    State->Interface_.Style.Margin = v2{5, 5};
-    State->Interface_.Style.RowHeight = ui_GetTextLineHeight(State->Interface_);
+    State->Interface.Style.FontSize = FontSize;
+    State->Interface.Style.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
+    State->Interface.Style.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
+    State->Interface.Style.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
+    State->Interface.Style.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
+    State->Interface.Style.ButtonColor_Inactive = BlackV4;
+    State->Interface.Style.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
+    State->Interface.Style.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
+    State->Interface.Style.TextColor = WhiteV4;
+    State->Interface.Style.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
+    State->Interface.Style.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
+    State->Interface.Style.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
+    State->Interface.Style.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
+    State->Interface.Style.Margin = v2{5, 5};
+    State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
     
     State->SACN = InitializeSACN(Context);
     State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
@@ -504,8 +504,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     PushRenderClearScreen(RenderBuffer);
     
     State->WindowBounds = Context->WindowBounds;
-    State->Interface_.RenderBuffer = RenderBuffer;
-    State->Interface_.Mouse = Context->Mouse;
+    State->Interface.RenderBuffer = RenderBuffer;
+    State->Interface.Mouse = Context->Mouse;
     
     panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
     DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);

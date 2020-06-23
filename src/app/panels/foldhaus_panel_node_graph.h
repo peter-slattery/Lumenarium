@@ -436,7 +436,7 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     
     r32 NodeWidth = 150;
     r32 LayerDistance = 100;
-    r32 LineHeight = ui_GetTextLineHeight(State->Interface_);
+    r32 LineHeight = ui_GetTextLineHeight(State->Interface);
     
     if (GraphState->LayoutIsDirty)
     {
@@ -477,7 +477,7 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     {
         visual_node VisualNode = GraphState->Layout.VisualNodes[i];
         gs_list_handle NodeHandle = State->NodeWorkspace.SortedNodeHandles[i];
-        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeHandle, NodeWidth, LineHeight, State->Interface_.Style, RenderBuffer, Mouse, &State->Transient);
+        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeHandle, NodeWidth, LineHeight, State->Interface.Style, RenderBuffer, Mouse, &State->Transient);
     }
     
     for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
@@ -514,17 +514,17 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     List.ListBounds = NodeSelectionWindowBounds;
     List.ListElementDimensions = v2{
         gs_Width(NodeSelectionWindowBounds),
-        ui_GetTextLineHeight(State->Interface_)
+        ui_GetTextLineHeight(State->Interface)
     };
     List.ElementLabelIndent = v2{10, 4};
     
     string TitleString = MakeStringLiteral("Available Nodes");
-    DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface_.Style);
+    DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface.Style);
     
     for (u32 i = 0; i < NodeType_Count; i++)
     {
         node_specification_ Spec = NodeSpecifications[i];
-        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Mouse, RenderBuffer, State->Interface_.Style);
+        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Mouse, RenderBuffer, State->Interface.Style);
         
         if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
             && gs_PointIsInRect(Mouse.DownPos, ElementBounds))

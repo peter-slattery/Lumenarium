@@ -71,7 +71,7 @@ struct app_state
     input_command_queue CommandQueue;
     text_entry ActiveTextEntry;
     
-    ui_interface Interface_;
+    ui_interface Interface;
     
     animation_system AnimationSystem;
     gs_list_handle SelectedAnimationBlockHandle;

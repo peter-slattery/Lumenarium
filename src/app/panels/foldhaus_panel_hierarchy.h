@@ -29,7 +29,7 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    ui_layout Layout = ui_CreateLayout(State->Interface_, PanelBounds);
+    ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     string TempString = PushString(&State->Transient, 256);
     u32 LineCount = (u32)(gs_Height(PanelBounds) / Layout.RowHeight) + 1;
     u32 AssembliesToDraw = GSMin(LineCount, State->Assemblies.Count);
@@ -39,8 +39,8 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     for (u32 Line = 0; Line < LineCount; Line++)
     {
         LineBounds[Line] = ui_ReserveElementBounds(&Layout);
-        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface_.Style, Line);
-        ui_FillRect(&State->Interface_, LineBounds[Line], ListItemBGColor);
+        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface.Style, Line);
+        ui_FillRect(&State->Interface, LineBounds[Line], ListItemBGColor);
     }
     
     for (u32 AssemblyIndex = 0; AssemblyIndex < AssembliesToDraw; AssemblyIndex++)
@@ -48,11 +48,11 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
         assembly Assembly = State->Assemblies.Values[AssemblyIndex];
         PrintF(&TempString, "%S", Assembly.Name);
         
-        ui_layout ItemLayout = ui_CreateLayout(State->Interface_, LineBounds[AssemblyIndex]);
+        ui_layout ItemLayout = ui_CreateLayout(State->Interface, LineBounds[AssemblyIndex]);
         ui_StartRow(&ItemLayout, 2);
         {
-            ui_LayoutDrawString(&State->Interface_, &ItemLayout, TempString, State->Interface_.Style.TextColor);
-            if (ui_LayoutListButton(&State->Interface_, &ItemLayout, MakeStringLiteral("X"), AssemblyIndex))
+            ui_LayoutDrawString(&State->Interface, &ItemLayout, TempString, State->Interface.Style.TextColor);
+            if (ui_LayoutListButton(&State->Interface, &ItemLayout, MakeStringLiteral("X"), AssemblyIndex))
             {
                 UnloadAssembly(AssemblyIndex, State, Context);
             }
@@ -62,8 +62,9 @@ HierarchyView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     
     if (AssembliesToDraw < LineCount)
     {
+        // NOTE(Peter): Add assembly button
         PrintF(&TempString, "+ Add Assembly");
-        if (ui_ListButton(&State->Interface_, TempString, LineBounds[AssembliesToDraw], AssembliesToDraw))
+        if (ui_ListButton(&State->Interface, TempString, LineBounds[AssembliesToDraw], AssembliesToDraw))
         {
             string FilePath = PushString(&State->Transient, 256);
             b32 Success = GetFilePath(Context, &FilePath, "Foldhaus Files\0*.fold\0\0");
