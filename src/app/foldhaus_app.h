@@ -94,18 +94,10 @@ TestPatternOne(led_buffer* Assembly, r32 Time)
     for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
         v4 LedPosition = Assembly->Positions[LedIndex];
-        if (LedPosition.x < 0)
-        {
-            Assembly->Colors[LedIndex].R = 255;
-            Assembly->Colors[LedIndex].B = 255;
-            Assembly->Colors[LedIndex].G = 255;
-        }
-        else
-        {
-            Assembly->Colors[LedIndex].R = 0;
-            Assembly->Colors[LedIndex].B = 0;
-            Assembly->Colors[LedIndex].G = 0;
-        }
+        float PercentX = GSRemap(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
+        float PercentY = GSRemap(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
+        Assembly->Colors[LedIndex].R = (u8)(PercentX * 255);
+        Assembly->Colors[LedIndex].G = (u8)(PercentY * 255);
     }
 }
 

@@ -127,7 +127,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, memory_arena* S
         NewAssembly->Arena.PlatformMemory = Context.PlatformMemory;
         if (ParseAssemblyFile(NewAssembly, AssemblyFileText, Scratch))
         {
-            v4 Offset = TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
+            v4 Offset = v4{0,0,0,0}; //TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
             ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, LedSystem);
             PlatformFree(Context.PlatformMemory, AssemblyFile.Data.Base, AssemblyFile.Data.Size);
         }

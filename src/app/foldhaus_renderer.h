@@ -19,6 +19,7 @@ struct camera
 inline m44
 GetCameraModelViewMatrix (camera Camera)
 {
+#if 0
     // Forward
     v4 CamForward = V4(Normalize(Camera.Position - Camera.LookAt), 0);
     // Right
@@ -42,6 +43,10 @@ GetCameraModelViewMatrix (camera Camera)
                              0, 0, 1, 0,
                              -X, -Y, -Z, 1
                              );
+#else
+    m44 RotationMatrix = GetLookAtMatrix(V4(Camera.Position, 1), V4(Camera.LookAt, 1));
+    m44 PositionMatrix = GetPositionM44(V4(Camera.Position, 1));
+#endif
     
     m44 ModelViewMatrix = PositionMatrix * RotationMatrix;
     
