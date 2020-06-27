@@ -420,7 +420,7 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_node_graph);
 internal void
-NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     node_graph_state* GraphState = (node_graph_state*)Panel.PanelStateMemory;
     b32 MouseHandled = false;
@@ -477,7 +477,7 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     {
         visual_node VisualNode = GraphState->Layout.VisualNodes[i];
         gs_list_handle NodeHandle = State->NodeWorkspace.SortedNodeHandles[i];
-        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeHandle, NodeWidth, LineHeight, State->Interface.Style, RenderBuffer, Mouse, &State->Transient);
+        DrawNode(VisualNode.Position + GraphState->ViewOffset, VisualNode.Spec, NodeHandle, NodeWidth, LineHeight, State->Interface.Style, RenderBuffer, Context.Mouse, &State->Transient);
     }
     
     for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
@@ -487,12 +487,12 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
         VisualPort.PortBounds.Max += GraphState->ViewOffset;
         
         v4 PortColor = WhiteV4;
-        if (PointIsInRange(Mouse.Pos, VisualPort.PortBounds.Min, VisualPort.PortBounds.Max))
+        if (PointIsInRange(Context.Mouse.Pos, VisualPort.PortBounds.Min, VisualPort.PortBounds.Max))
         {
             PortColor = PinkV4;
-            if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
+            if (MouseButtonTransitionedDown(Context.Mouse.LeftButtonState))
             {
-                BeginConnectNodesOperation(VisualPort, p, Mouse, State);
+                BeginConnectNodesOperation(VisualPort, p, Context.Mouse, State);
                 MouseHandled = true;
             }
         }
@@ -519,15 +519,15 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     List.ElementLabelIndent = v2{10, 4};
     
     string TitleString = MakeStringLiteral("Available Nodes");
-    DrawListElement(TitleString, &List, Mouse, RenderBuffer, State->Interface.Style);
+    DrawListElement(TitleString, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
     
     for (u32 i = 0; i < NodeType_Count; i++)
     {
         node_specification_ Spec = NodeSpecifications[i];
-        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Mouse, RenderBuffer, State->Interface.Style);
+        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
         
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
-            && gs_PointIsInRect(Mouse.DownPos, ElementBounds))
+        if (MouseButtonTransitionedDown(Context.Mouse.LeftButtonState)
+            && gs_PointIsInRect(Context.Mouse.DownPos, ElementBounds))
         {
             PushNodeOnWorkspace(i, &State->NodeWorkspace, &State->Transient);
             GraphState->LayoutIsDirty = true;
@@ -535,9 +535,9 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
         }
     }
     
-    if (!MouseHandled && MouseButtonTransitionedDown(Mouse.LeftButtonState))
+    if (!MouseHandled && MouseButtonTransitionedDown(Context.Mouse.LeftButtonState))
     {
-        BeginPanNodeGraph(State, {}, Mouse);
+        BeginPanNodeGraph(State, {}, Context.Mouse);
     }
 }
 

@@ -75,6 +75,18 @@ union v4
         float a;
     };
     
+    struct
+    {
+        v2 xy;
+        v2 yz;
+    };
+    
+    struct
+    {
+        v3 xyz;
+        float z;
+    };
+    
     float E[4];
 };
 
@@ -1271,11 +1283,10 @@ GetLookAtMatrix (v4 Position, v4 Target)
     v4 Up = Normalize(Cross(Forward, Right));
     
     m44 RotationMatrix = M44(
-                             Right.x, Up.x, Forward.x, 0,
-                             Right.y, Up.y, Forward.y, 0,
-                             Right.z, Up.z, Forward.z, 0,
+                             Right.x, Right.y, Right.z, 0,
+                             Up.x, Up.y, Up.z, 0,
+                             Forward.x, Forward.y, Forward.z, 0,
                              0,       0,    0,         1);
-    
     return RotationMatrix;
 }
 

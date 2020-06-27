@@ -454,7 +454,7 @@ RenderPanel(panel* Panel, rect PanelBounds, rect WindowBounds, render_command_bu
     };
     
     panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
-    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context, Mouse);
+    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context);
     
     PushRenderOrthographic(RenderBuffer, WindowBounds.Min.x, WindowBounds.Min.y, WindowBounds.Max.x, WindowBounds.Max.y);
     DrawPanelFooter(Panel, RenderBuffer, FooterBounds, Mouse, State);

@@ -59,6 +59,10 @@ static gsm_struct_member_type_info StructMembers_v4[] = {
 { "g", 1, (u64)&((v4*)0)->g, {}, 0},
 { "b", 1, (u64)&((v4*)0)->b, {}, 0},
 { "a", 1, (u64)&((v4*)0)->a, {}, 0},
+{ "xy", 2, (u64)&((v4*)0)->xy, {}, 0},
+{ "yz", 2, (u64)&((v4*)0)->yz, {}, 0},
+{ "xyz", 3, (u64)&((v4*)0)->xyz, {}, 0},
+{ "z", 1, (u64)&((v4*)0)->z, {}, 0},
 { "E", 1, (u64)&((v4*)0)->E, {}, 0},
 };
 static gsm_struct_member_type_info StructMembers_pixel[] = {
@@ -107,7 +111,7 @@ static gsm_struct_member_type_info StructMembers_multiply_patterns_data[] = {
 
 static gsm_struct_type_info StructTypes[] = {
 { gsm_StructType_solid_color_data, "solid_color_data", 16, 36, 0, 0, StructMembers_solid_color_data, 2 },
-{ gsm_StructType_v4, "v4", 2, 16, 0, 0, StructMembers_v4, 3 },
+{ gsm_StructType_v4, "v4", 2, 16, 0, 0, StructMembers_v4, 5 },
 { gsm_StructType_float, "float", 5, 4, 0, 0, 0, 0 },
 { gsm_StructType_color_buffer, "color_buffer", 12, 20, 0, 0, StructMembers_color_buffer, 3 },
 { gsm_StructType_pixel, "pixel", 5, 3, 0, 0, StructMembers_pixel, 2 },

@@ -133,7 +133,7 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debu
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_profiler);
 internal void
-ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     memory_arena* Memory = &State->Transient;
     string String = InitializeEmptyString(PushArray(Memory, char, 256), 256);
@@ -149,9 +149,9 @@ ProfilerView_Render(panel Panel, rect PanelBounds, render_command_buffer* Render
     r32 SingleFrameWidth = (r32)((s32)SingleFrameStep - 2);
     
     ui_OutlineRect(&State->Interface, FrameListBounds, 2, WhiteV4);
-    if (gs_PointIsInRect(Mouse.Pos, FrameListBounds) && MouseButtonHeldDown(Mouse.LeftButtonState))
+    if (gs_PointIsInRect(Context.Mouse.Pos, FrameListBounds) && MouseButtonHeldDown(Context.Mouse.LeftButtonState))
     {
-        v2 LocalMouse = gs_TransformPointIntoRectSpace(Mouse.Pos, FrameListBounds);
+        v2 LocalMouse = gs_TransformPointIntoRectSpace(Context.Mouse.Pos, FrameListBounds);
         s32 ClosestFrameIndex = (LocalMouse.x / SingleFrameStep);
         if (ClosestFrameIndex >= 0 && ClosestFrameIndex < DEBUG_FRAME_COUNT)
         {

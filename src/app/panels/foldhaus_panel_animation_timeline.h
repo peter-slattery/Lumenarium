@@ -572,7 +572,7 @@ DrawAnimationClipsList(rect PanelBounds, ui_interface* Interface, u32 SelectedAn
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_animation_timeline);
 internal void
-AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+AnimationTimeline_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     animation_timeline_state* TimelineState = (animation_timeline_state*)Panel.PanelStateMemory;
     gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;

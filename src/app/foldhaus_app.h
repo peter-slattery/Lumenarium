@@ -221,8 +221,7 @@ typedef PANEL_INIT_PROC(panel_init_proc);
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
-// TODO(Peter): Should be able to take the mouse out of this
-#define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+#define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 
 // NOTE(Peter): This is used by the meta system to generate panel type info

@@ -114,9 +114,9 @@ internal void
 LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, memory_arena* Scratch, context Context, string Path, event_log* GlobalLog)
 {
     platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
-    if (AssemblyFile.Error == PlatformMemory_NoError && AssemblyFile.Size > 0)
+    if (AssemblyFile.Error == PlatformMemory_NoError && AssemblyFile.Data.Size > 0)
     {
-        string AssemblyFileText = MakeString((char*)AssemblyFile.Base);
+        string AssemblyFileText = MakeString((char*)AssemblyFile.Data.Base);
         
         Assert(Assemblies->Count < Assemblies->CountMax);
         assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
@@ -129,7 +129,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, memory_arena* S
         {
             v4 Offset = TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
             ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, LedSystem);
-            PlatformFree(Context.PlatformMemory, AssemblyFile.Base, AssemblyFile.Size);
+            PlatformFree(Context.PlatformMemory, AssemblyFile.Data.Base, AssemblyFile.Data.Size);
         }
         else
         {

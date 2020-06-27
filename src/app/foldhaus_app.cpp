@@ -500,6 +500,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
 #endif
     
+    
+    
     PushRenderOrthographic(RenderBuffer, 0, 0, gs_Width(State->WindowBounds), gs_Height(State->WindowBounds));
     PushRenderClearScreen(RenderBuffer);
     

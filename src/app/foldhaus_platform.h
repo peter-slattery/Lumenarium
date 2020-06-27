@@ -63,12 +63,15 @@ enum platform_memory_error
     PlatformMemory_UnknownError, // You should implement handling this when you see it
 };
 
-// TODO(Peter): Change this to just be data
-// - Base, and Size
-struct platform_memory_result
+struct data
 {
     u8* Base;
-    s32 Size;
+    u64 Size;
+};
+
+struct platform_memory_result
+{
+    data Data;
     platform_memory_error Error;
 };
 
@@ -131,15 +134,6 @@ typedef PLATFORM_SEND_TO(platform_send_to);
 
 #define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)
 typedef PLATFORM_CLOSE_SOCKET(platform_close_socket);
-
-// File IO
-
-// TODO(Peter):
-struct directory_listing
-{
-    string Path;
-    directory_listing* Next;
-};
 
 // Font
 struct platform_font_info
@@ -285,7 +279,6 @@ ReadEntireFile(context Context, string Path)
 internal b32
 WriteEntireFile(platform_file_handler FileHandler, string Path, u8* Contents, u32 Size)
 {
-    // TODO(Peter): Overload to take a data struct instead of Contents And Size
     b32 Result = FileHandler.WriteEntireFile(Path, Contents, Size);
     return Result;
 }

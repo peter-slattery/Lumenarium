@@ -36,7 +36,7 @@ FileView_Cleanup(panel* Panel, app_state* State)
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_file_view);
 internal void
-FileView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+FileView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     rect HeaderBounds = {0};
     HeaderBounds.Min = {PanelBounds.Min.x, PanelBounds.Max.y - 32};

@@ -71,6 +71,7 @@ SculptureView_Cleanup(panel* Panel, app_state* State)
 
 struct draw_leds_job_data
 {
+    v4 CameraPosition;
     v4* Positions;
     pixel* Colors;
     s32 StartIndex;
@@ -107,18 +108,19 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
     v2 UV2 = v2{1, 1};
     v2 UV3 = v2{0, 1};
     
-    
     for (s32 LedIndex = 0; LedIndex < LEDCount; LedIndex++)
     {
         pixel PixelColor = Data->Colors[LedIndex];
         v4 Color = v4{PixelColor.R / 255.f, PixelColor.G / 255.f, PixelColor.B / 255.f, 1.0f};
         
-        v4 V4Position = Data->Positions[Data->StartIndex + LedIndex];
-        V4Position.w = 0;
-        v4 P0 = P0_In + V4Position;
-        v4 P1 = P1_In + V4Position;
-        v4 P2 = P2_In + V4Position;
-        v4 P3 = P3_In + V4Position;
+        v4 Position = Data->Positions[Data->StartIndex + LedIndex];
+        m44 FaceCameraMatrix = GetLookAtMatrix(Position, Data->CameraPosition);
+        v4 PositionOffset = V4(Position.xyz, 0); // Ensure PositionOffset is a vector, not a point
+        
+        v4 P0 = (FaceCameraMatrix * P0_In) + PositionOffset;
+        v4 P1 = (FaceCameraMatrix * P1_In) + PositionOffset;
+        v4 P2 = (FaceCameraMatrix * P2_In) + PositionOffset;
+        v4 P3 = (FaceCameraMatrix * P3_In) + PositionOffset;
         
         SetTri3DInBatch(Data->Batch, BatchReservedRange.Start + TrisUsed++,
                         P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
@@ -130,7 +132,7 @@ DrawLEDsInBufferRangeJob (s32 ThreadID, void* JobData)
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_sculpture_view);
 internal void
-SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
     
@@ -145,9 +147,7 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
     
     PushRenderPerspective(RenderBuffer, PanelBounds.Min.x, PanelBounds.Min.y, PanelWidth, PanelHeight, State->Camera);
     
-    // TODO(Peter): Pretty sure this isn't working right now
     m44 FaceCameraMatrix = GetLookAtMatrix(v4{0, 0, 0, 1}, V4(State->Camera.Position, 1));
-    FaceCameraMatrix = FaceCameraMatrix;
     
     u32 MaxLEDsPerJob = 2048;
     render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->LedSystem.LedsCountTotal);
@@ -166,13 +166,19 @@ SculptureView_Render(panel Panel, rect PanelBounds, render_command_buffer* Rende
             JobData->StartIndex = Job * MaxLEDsPerJob;
             JobData->OnePastLastIndex = GSMin(JobData->StartIndex + MaxLEDsPerJob, LedBuffer->LedCount);
             JobData->Batch = &RenderLEDsBatch;
-            JobData->FaceCameraMatrix;
+            //JobData->FaceCameraMatrix = FaceCameraMatrix;
             JobData->ModelViewMatrix = ModelViewMatrix;
             JobData->LEDHalfWidth = LEDHalfWidth;
+            
+            JobData->CameraPosition = V4(State->Camera.Position, 1);
             
             Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, DrawLEDsInBufferRangeJob, JobData, "Sculpture Draw LEDS");
         }
     }
+    
+    
+    
+    
     Context.GeneralWorkQueue->DoQueueWorkUntilDone(Context.GeneralWorkQueue, 0);
 }
 

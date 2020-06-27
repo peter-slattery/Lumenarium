@@ -20,7 +20,7 @@ inline m44
 GetCameraModelViewMatrix (camera Camera)
 {
     // Forward
-    v4 CamForward = V4(Normalize(Camera.Position - Camera.LookAt), 0); 
+    v4 CamForward = V4(Normalize(Camera.Position - Camera.LookAt), 0);
     // Right
     v4 CamRight = Normalize(Cross(v4{0, 1, 0, 0}, CamForward));
     // Up
@@ -64,7 +64,7 @@ GetCameraPerspectiveProjectionMatrix(camera Camera)
     r32 E = ((2 * Camera.Near) / (Right - Left));
     r32 F = ((2 * Camera.Near) / (Top - Bottom));
     
-    m44 PerspectiveProjectionMatrix  = 
+    m44 PerspectiveProjectionMatrix  =
     {
         E,  0,  A,  0,
         0,  F,  B,  0,
@@ -254,7 +254,7 @@ ResizeBufferIfNecessary(render_command_buffer* Buffer, s32 DataSize)
         s32 SpaceNeeded = DataSize - SpaceAvailable; // This is known to be positive at this point
         s32 AdditionSize = GSMax(SpaceNeeded, COMMAND_BUFFER_MIN_GROW_SIZE);
         s32 NewSize = Buffer->CommandMemorySize + AdditionSize;
-        Buffer->CommandMemory = Buffer->Realloc(Buffer->CommandMemory, 
+        Buffer->CommandMemory = Buffer->Realloc(Buffer->CommandMemory,
                                                 Buffer->CommandMemorySize,
                                                 NewSize);
         Buffer->CommandMemorySize = NewSize;
@@ -297,10 +297,10 @@ internal s32
 ThreadSafeIncrementQuadConstructorCount (render_quad_batch_constructor* Constructor)
 {
     s32 Result = InterlockedIncrement((long*)&Constructor->Count);
-    // NOTE(Peter): Have to decrement the value by one. 
+    // NOTE(Peter): Have to decrement the value by one.
     // Interlocked Increment acts as (++Constructor->Count), not (Constructor->Count++) which
     // is what we wanted;
-    // This was causing the first triangle to be garbage data. 
+    // This was causing the first triangle to be garbage data.
     Result -= 1;
     return Result;
 }
@@ -322,8 +322,8 @@ ThreadSafeReserveRangeInQuadConstructor(render_quad_batch_constructor* Construct
 
 inline void
 SetTri3DInBatch (render_quad_batch_constructor* Constructor, s32 TriIndex,
-                 v4 P0, v4 P1, v4 P2, 
-                 v2 UV0, v2 UV1, v2 UV2, 
+                 v4 P0, v4 P1, v4 P2,
+                 v2 UV0, v2 UV1, v2 UV2,
                  v4 C0, v4 C1, v4 C2)
 {
     // Vertecies
@@ -342,10 +342,11 @@ SetTri3DInBatch (render_quad_batch_constructor* Constructor, s32 TriIndex,
     Constructor->ColorsV[BATCH_3D_COLOR_INDEX(TriIndex, 2)] = C2;
 }
 
+
 inline void
-PushTri3DOnBatch (render_quad_batch_constructor* Constructor,  
-                  v4 P0, v4 P1, v4 P2, 
-                  v2 UV0, v2 UV1, v2 UV2, 
+PushTri3DOnBatch (render_quad_batch_constructor* Constructor,
+                  v4 P0, v4 P1, v4 P2,
+                  v2 UV0, v2 UV1, v2 UV2,
                   v4 C0, v4 C1, v4 C2)
 {
     DEBUG_TRACK_FUNCTION;
@@ -362,9 +363,9 @@ PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 
 }
 
 internal void
-PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, 
-                   v4 P0, v4 P1, v4 P2, v4 P3, 
-                   v2 UV0, v2 UV1, v2 UV2, v2 UV3, 
+PushQuad3DOnBatch (render_quad_batch_constructor* Constructor,
+                   v4 P0, v4 P1, v4 P2, v4 P3,
+                   v2 UV0, v2 UV1, v2 UV2, v2 UV3,
                    v4 C0, v4 C1, v4 C2, v4 C3)
 {
     Assert(Constructor->Count < Constructor->Max);
@@ -379,8 +380,8 @@ PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 
 }
 
 internal void
-PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, 
-                   v2 P0, v2 P1, v2 P2, v2 P3, 
+PushQuad2DOnBatch (render_quad_batch_constructor* Constructor,
+                   v2 P0, v2 P1, v2 P2, v2 P3,
                    v2 UV0, v2 UV1, v2 UV2, v2 UV3,
                    v4 C0, v4 C1, v4 C2, v4 C3)
 {
@@ -610,7 +611,7 @@ PushRenderCameraFacingQuad (render_command_buffer* Buffer, v4 Center, v2 Dimensi
 }
 
 internal render_quad_batch_constructor
-PushRenderTexture2DBatch(render_command_buffer* Buffer, s32 QuadCount, 
+PushRenderTexture2DBatch(render_command_buffer* Buffer, s32 QuadCount,
                          render_texture Texture)
 {
     s32 DataSize = BATCH_2D_SIZE(QuadCount);
@@ -628,15 +629,15 @@ PushRenderTexture2DBatch(render_command_buffer* Buffer, s32 QuadCount,
 }
 
 internal render_quad_batch_constructor
-PushRenderTexture2DBatch (render_command_buffer* Buffer, s32 QuadCount, 
+PushRenderTexture2DBatch (render_command_buffer* Buffer, s32 QuadCount,
                           u8* TextureMemory, s32 TextureHandle, s32 TextureWidth, s32 TextureHeight,
                           s32 TextureBytesPerPixel, s32 TextureStride)
 {
     render_texture Texture = render_texture{
-        TextureMemory, 
-        TextureHandle, 
-        TextureWidth, 
-        TextureHeight, 
+        TextureMemory,
+        TextureHandle,
+        TextureWidth,
+        TextureHeight,
         TextureBytesPerPixel,
         TextureStride};
     return PushRenderTexture2DBatch(Buffer, QuadCount, Texture);

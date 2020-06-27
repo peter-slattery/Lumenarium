@@ -37,7 +37,7 @@ DMXView_Cleanup(panel* Panel, app_state* State)
 // This won't actually function
 // :NoLongerFunctionalSACNCodeButThatsOk
 internal void
-DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDraw, 
+DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDraw,
                         v2 TopLeft, v2 Dimension)
 {
     Assert(ToDraw);
@@ -69,12 +69,12 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
         ++PixelsDrawn;
     }
 }
-#endif 
+#endif
 
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_dmx_view);
 internal void
-DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
+DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
 #if 0
     // :NoLongerFunctionalSACNCodeButThatsOk
@@ -121,7 +121,7 @@ DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffe
             {
                 v2 TitleDisplayStart = UniverseDisplayTopLeft + v2{0, 12};
                 PrintF(&TitleBarString, "Universe %d", Universe->Universe);
-                DrawString(RenderBuffer, TitleBarString, State->Interface.Font, 
+                DrawString(RenderBuffer, TitleBarString, State->Interface.Font,
                            TitleDisplayStart, WhiteV4);
             }
             

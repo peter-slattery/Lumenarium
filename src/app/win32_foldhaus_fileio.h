@@ -19,30 +19,33 @@ PLATFORM_READ_ENTIRE_FILE(Win32ReadEntireFile)
     if (FileHandle != INVALID_HANDLE_VALUE)
     {
         DWORD FileSize = GetFileSize(FileHandle, NULL);
-        Result.Base = (u8*)VirtualAlloc(NULL, FileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-        if (Result.Base)
+        Result.Data.Base = (u8*)VirtualAlloc(NULL, FileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (Result.Data.Base)
         {
-            Result.Size = FileSize;
+            Result.Data.Size = FileSize;
             
             s32 BytesRead = 0;
-            if (ReadFile(FileHandle, (LPVOID)Result.Base, FileSize, (LPDWORD)(&BytesRead), NULL))
+            if (ReadFile(FileHandle, (LPVOID)Result.Data.Base, FileSize, (LPDWORD)(&BytesRead), NULL))
             {
                 
             }
             else
             {
                 u32 Error = GetLastError();
-                // TODO(Peter): :ErrorLogging
-                Result.Size = 0;
+                VirtualFree(Result.Data.Base, 0, MEM_RELEASE);
+                Result.Data.Size = 0;
                 Result.Error = PlatformMemory_UnknownError;
             }
+        }
+        else
+        {
+            Result.Error = PlatformMemory_UnknownError;
         }
         CloseHandle(FileHandle);
     }
     else
     {
         Result.Error = PlatformMemory_FileNotFound;
-        // TODO(Peter): :ErrorLogging
     }
     
     return Result;
@@ -135,14 +138,6 @@ PLATFORM_GET_FILE_PATH(Win32SystemDialogueOpenFile)
     
     PathBuffer->Length = CharArrayLength(PathBuffer->Memory);
     
-    return Result;
-}
-
-internal directory_listing
-EnumerateDirectory(char* Path, memory_arena* Storage)
-{
-    directory_listing Result = {};
-    // TODO(Peter):
     return Result;
 }
 

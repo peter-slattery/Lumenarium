@@ -135,7 +135,7 @@ RemoveAnimationBlock(gs_list_handle AnimationBlockHandle, animation_system* Anim
 internal u32
 AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
 {
-    // TODO(Peter): If this assert fires its time to make the layer buffer system
+    // NOTE(Peter): If this assert fires its time to make the layer buffer system
     // resizable.
     Assert(AnimationSystem->LayersCount < AnimationSystem->LayersMax);
     
