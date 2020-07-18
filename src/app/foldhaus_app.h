@@ -13,24 +13,24 @@
 
 #include "interface.h"
 
-#include "foldhaus_network_ordering.h"
-#include "dmx/dmx.h"
-#include "sacn/sacn.h"
+#include "engine/foldhaus_network_ordering.h"
+#include "engine/dmx/dmx.h"
+#include "engine/sacn/sacn.h"
 
-#include "foldhaus_assembly.h"
-#include "assembly_parser.cpp"
+#include "engine/foldhaus_assembly.h"
+#include "engine/assembly_parser.cpp"
 
 typedef struct app_state app_state;
 
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
 // perform operations on, like panel_draw_requests = { bounds, panel* } etc.
-#include "foldhaus_panel.h"
+#include "editor/foldhaus_panel.h"
 
-#include "foldhaus_command_dispatch.h"
-#include "foldhaus_operation_mode.h"
+#include "editor/foldhaus_command_dispatch.h"
+#include "editor/foldhaus_operation_mode.h"
 
-#include "animation/foldhaus_animation.h"
+#include "engine/animation/foldhaus_animation.h"
 
 enum network_protocol
 {
@@ -42,38 +42,33 @@ enum network_protocol
 
 struct app_state
 {
-    r32 CameraTheta; // TODO(Peter): @TEMPORARY
-    rect2 WindowBounds;
-    
     gs_memory_arena Permanent;
     gs_memory_arena Transient;
     
-    s32 NetworkProtocolHeaderSize;
+    // Engine
+    //
     network_protocol NetworkProtocol;
-    
     streaming_acn SACN;
-    
     led_system LedSystem;
     assembly_array Assemblies;
+    animation_system AnimationSystem;
+    event_log* GlobalLog;
     
-    camera Camera;
-    r32 PixelsToWorldScale;
+    // Interface
+    //
+    rect2 WindowBounds;
     
     operation_mode_system Modes;
     input_command_queue CommandQueue;
     
     ui_interface Interface;
-    
-    animation_system AnimationSystem;
-    gs_list_handle SelectedAnimationBlockHandle;
-    u32 SelectedAnimationLayer;
-    
     panel_system PanelSystem;
     panel* HotPanel;
     
-    //pattern_node_workspace NodeWorkspace;
-    
-    event_log* GlobalLog;
+    camera Camera; // TODO(Peter): move into the sculpture view
+    r32 PixelsToWorldScale;
+    gs_list_handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
+    u32 SelectedAnimationLayer; // TODO(Peter): move into animation panel
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
@@ -180,7 +175,7 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
 
 // END TEMPORARY PATTERNS
 
-#include "foldhaus_assembly.cpp"
+#include "engine/foldhaus_assembly.cpp"
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
 {
@@ -208,16 +203,16 @@ struct panel_definition
     s32 InputCommandsCount;
 };
 
-#include "panels/foldhaus_panel_sculpture_view.h"
-#include "panels/foldhaus_panel_profiler.h"
-#include "panels/foldhaus_panel_dmx_view.h"
-#include "panels/foldhaus_panel_animation_timeline.h"
-#include "panels/foldhaus_panel_hierarchy.h"
-#include "panels/foldhaus_panel_file_view.h"
+#include "editor/panels/foldhaus_panel_sculpture_view.h"
+#include "editor/panels/foldhaus_panel_profiler.h"
+#include "editor/panels/foldhaus_panel_dmx_view.h"
+#include "editor/panels/foldhaus_panel_animation_timeline.h"
+#include "editor/panels/foldhaus_panel_hierarchy.h"
+#include "editor/panels/foldhaus_panel_file_view.h"
 
 #include "generated/foldhaus_panels_generated.h"
 
-#include "foldhaus_interface.cpp"
+#include "editor/foldhaus_interface.cpp"
 
 #include "../meta/gs_meta_include.cpp"
 

@@ -11,15 +11,15 @@
 #include <windowsx.h>
 #include <gl/gl.h>
 
-#include "../meta/gs_meta_include.h"
-#include "foldhaus_platform.h"
+#include "../../meta/gs_meta_include.h"
+#include "../foldhaus_platform.h"
 
-#include "../gs_libs/gs_win32.cpp"
+#include "../../gs_libs/gs_win32.cpp"
 #include "win32_foldhaus_memory.h"
 #include "win32_foldhaus_dll.h"
 #include "win32_foldhaus_timing.h"
 
-#include "foldhaus_renderer.cpp"
+#include "../foldhaus_renderer.cpp"
 
 global b32 Running = false;
 global b32 WindowIsActive = false;

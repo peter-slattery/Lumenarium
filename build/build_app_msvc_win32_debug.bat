@@ -25,7 +25,7 @@ set LastError=%ERRORLEVEL%
 
 del lock.tmp
 
-cl %CommonCompilerFlags% %SourceCodePath%\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
+cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
 
 popd
 

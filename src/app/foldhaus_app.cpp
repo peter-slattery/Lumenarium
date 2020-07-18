@@ -141,7 +141,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
     
     State->SACN = InitializeSACN(Context);
-    State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
     
     State->Camera.FieldOfView = 45.0f;
     State->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
@@ -294,9 +293,6 @@ CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize,
 }
 
 
-#define HANDMADE_MATH_IMPLEMENTATION
-#include "handmade_math.h"
-
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -440,12 +436,11 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     // Skipped for performance at the moment
 #if 0
-    s32 HeaderSize = State->NetworkProtocolHeaderSize;
     dmx_buffer_list* DMXBuffers = 0;
     for (u32 i = 0; i < State->Assemblies.Count; i++)
     {
         assembly* Assembly = &State->Assemblies.Values[i];
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, &State->LedSystem, HeaderSize, &State->Transient);
+        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, &State->LedSystem, STREAM_HEADER_SIZE, &State->Transient);
         DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
     }
     

@@ -3,6 +3,9 @@
 // Author: Peter Slattery
 // Creation Date: 2020-01-01
 //
+// DESCRIPTION:
+// This file contains profiling capabilities for both the engine and app
+//
 #ifndef FOLDHAUS_DEBUG_H
 
 #define SCOPE_NAME_LENGTH 256
