@@ -81,54 +81,44 @@ struct draw_leds_job_data
 };
 
 internal void
-DrawLEDsInBufferRangeJob (gs_thread_context Context, gs_data JobData)
+DrawLedsInBuffer(led_buffer LedBuffer, s32 StartIndex, s32 OnePastLastIndex, render_quad_batch_constructor* Batch, quad_batch_constructor_reserved_range ReservedRange, r32 LedHalfWidth)
 {
-    DEBUG_TRACK_FUNCTION;
-    
-    draw_leds_job_data* Data = (draw_leds_job_data*)JobData.Memory;
-    
-    s32 LEDCount = Data->OnePastLastIndex - Data->StartIndex;
-    
-#if 0
-    // TODO(Peter): Why are we doing this here? Shouldn't we be able to tell what the range
-    // needs to be at the time of creation? That way its all on one thread and we're not
-    // worried about locking up.
-    quad_batch_constructor_reserved_range BatchReservedRange = ThreadSafeReserveRangeInQuadConstructor(Data->Batch, LEDCount * 2);
-#endif
-    
     s32 TrisUsed = 0;
     
-    r32 HalfWidth = Data->LEDHalfWidth;
-    
-    v4 P0_In = v4{-HalfWidth, -HalfWidth, 0, 1};
-    v4 P1_In = v4{HalfWidth, -HalfWidth, 0, 1};
-    v4 P2_In = v4{HalfWidth, HalfWidth, 0, 1};
-    v4 P3_In = v4{-HalfWidth, HalfWidth, 0, 1};
+    v4 P0_In = v4{-LedHalfWidth, -LedHalfWidth, 0, 1};
+    v4 P1_In = v4{LedHalfWidth, -LedHalfWidth, 0, 1};
+    v4 P2_In = v4{LedHalfWidth, LedHalfWidth, 0, 1};
+    v4 P3_In = v4{-LedHalfWidth, LedHalfWidth, 0, 1};
     
     v2 UV0 = v2{0, 0};
     v2 UV1 = v2{1, 0};
     v2 UV2 = v2{1, 1};
     v2 UV3 = v2{0, 1};
     
-    for (s32 LedIndex = Data->StartIndex; LedIndex < Data->OnePastLastIndex; LedIndex++)
+    Assert(OnePastLastIndex <= (s32)LedBuffer.LedCount);
+    for (s32 LedIndex = StartIndex; LedIndex < OnePastLastIndex; LedIndex++)
     {
-        pixel PixelColor = Data->LedBuffer.Colors[LedIndex];
+        pixel PixelColor = LedBuffer.Colors[LedIndex];
         v4 Color = v4{PixelColor.R / 255.f, PixelColor.G / 255.f, PixelColor.B / 255.f, 1.0f};
         
-        v4 Position = Data->LedBuffer.Positions[LedIndex];
-        m44 FaceCameraMatrix = M44LookAt(Position, Data->CameraPosition);
+        v4 Position = LedBuffer.Positions[LedIndex];
         v4 PositionOffset = ToV4Vec(Position.xyz);
+        v4 P0 = P0_In + PositionOffset;
+        v4 P1 = P1_In + PositionOffset;
+        v4 P2 = P2_In + PositionOffset;
+        v4 P3 = P3_In + PositionOffset;
         
-        v4 P0 = (FaceCameraMatrix * P0_In) + PositionOffset;
-        v4 P1 = (FaceCameraMatrix * P1_In) + PositionOffset;
-        v4 P2 = (FaceCameraMatrix * P2_In) + PositionOffset;
-        v4 P3 = (FaceCameraMatrix * P3_In) + PositionOffset;
-        
-        SetTri3DInBatch(Data->Batch, Data->BatchReservedRange.Start + TrisUsed++,
-                        P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
-        SetTri3DInBatch(Data->Batch, Data->BatchReservedRange.Start + TrisUsed++,
-                        P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
+        SetTri3DInBatch(Batch, ReservedRange.Start + TrisUsed++, P0, P1, P2, UV0, UV1, UV2, Color, Color, Color);
+        SetTri3DInBatch(Batch, ReservedRange.Start + TrisUsed++, P0, P2, P3, UV0, UV2, UV3, Color, Color, Color);
     }
+}
+
+internal void
+DrawLEDsInBufferRangeJob (gs_thread_context Context, gs_data JobData)
+{
+    DEBUG_TRACK_FUNCTION;
+    draw_leds_job_data* Data = (draw_leds_job_data*)JobData.Memory;
+    DrawLedsInBuffer(Data->LedBuffer, Data->StartIndex, Data->OnePastLastIndex, Data->Batch, Data->BatchReservedRange, Data->LEDHalfWidth);
 }
 
 internal void
@@ -147,13 +137,6 @@ internal void
 SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
-    
-    // TODO(Peter): @MajorFix
-    // NOTE(Peter): Just returning from this function to make sure that this isn't a problem as I go and try to fix
-    // the other panels
-    return;
-    
-    
     State->Camera.AspectRatio = RectAspectRatio(PanelBounds);
     
     PushRenderPerspective(RenderBuffer, PanelBounds, State->Camera);
@@ -168,7 +151,6 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         led_buffer* LedBuffer = LedSystemGetBuffer(&State->LedSystem, BufferIndex);
         u32 JobsNeeded = U32DivideRoundUp(LedBuffer->LedCount, MaxLEDsPerJob);
         
-#if 1
         u32 NextLEDIndex = 0;
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
@@ -181,30 +163,14 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
             JobData->Batch = &RenderLEDsBatch;
             JobData->BatchReservedRange = ReserveRangeInQuadConstructor(JobData->Batch, JobLedCount * 2);
             JobData->LEDHalfWidth = .5f;
-            
             JobData->CameraPosition = ToV4Point(State->Camera.Position);
-            
+#if 1
             Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, (thread_proc*)DrawLEDsInBufferRangeJob, Data, ConstString("Sculpture Draw LEDS"));
-            
+#else
+            DrawLedsInBuffer(JobData->LedBuffer, JobData->StartIndex, JobData->OnePastLastIndex, JobData->Batch, JobData->BatchReservedRange, JobData->LEDHalfWidth);
+#endif
             NextLEDIndex = JobData->OnePastLastIndex;
         }
-#else
-        gs_data Data = PushSizeToData(&State->Transient, sizeof(draw_leds_job_data));
-        draw_leds_job_data* JobData = (draw_leds_job_data*)Data.Memory;
-        JobData->LedBuffer = *LedBuffer;
-        JobData->StartIndex = 0;
-        JobData->OnePastLastIndex = LedBuffer->LedCount;
-        s32 JobLedCount = JobData->OnePastLastIndex - JobData->StartIndex;
-        JobData->Batch = &RenderLEDsBatch;
-        JobData->BatchReservedRange = ReserveRangeInQuadConstructor(JobData->Batch, JobLedCount * 2);
-        JobData->LEDHalfWidth = .5f;
-        
-        JobData->CameraPosition = ToV4Point(State->Camera.Position);
-        
-        Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, (thread_proc*)DrawLEDsInBufferRangeJob, Data, ConstString("Sculpture Draw LEDS"));
-#endif
-        
-        u32 f = 0;
     }
     
     // TODO(Peter): I don't like the fact that setting an orthographic view inside a panel render function

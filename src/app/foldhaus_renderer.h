@@ -327,6 +327,7 @@ ReserveRangeInQuadConstructor(render_quad_batch_constructor* Constructor, s32 Tr
 {
     quad_batch_constructor_reserved_range Result = {};
     Result.OnePastLast = Constructor->Count + TrisNeeded;
+    Constructor->Count = Result.OnePastLast;
     Result.Start = Result.OnePastLast - TrisNeeded;
     return Result;
 }
