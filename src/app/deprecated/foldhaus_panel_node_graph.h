@@ -15,7 +15,7 @@ struct visual_port
 {
     gs_list_handle SparseNodeHandle;
     u32 PortIndex;
-    rect PortBounds;
+    rect2 PortBounds;
 };
 
 struct visual_connection
@@ -57,7 +57,7 @@ struct node_graph_state
 {
     v2 ViewOffset;
     
-    memory_arena LayoutMemory;
+    gs_memory_arena LayoutMemory;
     node_layout Layout;
     
     b32 LayoutIsDirty;
@@ -128,7 +128,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
     for (u32 p = 0; p < GraphState->Layout.VisualPortsCount; p++)
     {
         visual_port VisualPort = GraphState->Layout.VisualPorts[p];
-        rect ViewAdjustedBounds = gs_RectOffsetByVector(VisualPort.PortBounds, GraphState->ViewOffset);
+        rect2 ViewAdjustedBounds = gs_RectOffsetByVector(VisualPort.PortBounds, GraphState->ViewOffset);
         if (gs_PointIsInRect(Mouse.Pos, ViewAdjustedBounds))
         {
             visual_port UpstreamPort = (OpState->IsInput & IsInputMember) ? VisualPort : OpState->VisualPort;
@@ -196,7 +196,7 @@ NodeGraph_Cleanup(panel* Panel, app_state* State)
 }
 
 internal void
-DrawGrid (v2 Offset, v2 GridSquareDim, rect PanelBounds, render_command_buffer* RenderBuffer)
+DrawGrid (v2 Offset, v2 GridSquareDim, rect2 PanelBounds, render_command_buffer* RenderBuffer)
 {
     r32 LineValue = .16f;
     v4 LineColor = v4{LineValue, LineValue, LineValue, 1.f};
@@ -232,9 +232,9 @@ DrawGrid (v2 Offset, v2 GridSquareDim, rect PanelBounds, render_command_buffer* 
 }
 
 internal void
-DrawNodePorts(gsm_struct_type_info NodeDataTypeInfo, b32 InputMask, v2 Position, r32 LineHeight, string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
+DrawNodePorts(gsm_struct_type_info NodeDataTypeInfo, b32 InputMask, v2 Position, r32 LineHeight, gs_string_alignment TextAlign, v2 TextOffset, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse)
 {
-    rect PortBounds = rect{v2{0, 0}, v2{6, 6}};
+    rect2 PortBounds = rect2{v2{0, 0}, v2{6, 6}};
     
     v2 LinePosition = Position;
     for (u32 i = 0; i < NodeDataTypeInfo.MembersCount; i++)
@@ -244,7 +244,7 @@ DrawNodePorts(gsm_struct_type_info NodeDataTypeInfo, b32 InputMask, v2 Position,
         {
             // TODO(Peter): Can we make this rely on the same data that we use to
             // render the actual connection points?
-            string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
+            gs_string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
             DrawString(RenderBuffer, MemberName, Interface.Font, LinePosition + TextOffset, WhiteV4, TextAlign);
             LinePosition.y -= LineHeight;
         }
@@ -252,7 +252,7 @@ DrawNodePorts(gsm_struct_type_info NodeDataTypeInfo, b32 InputMask, v2 Position,
 }
 
 internal void
-DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle NodeHandle, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse, memory_arena* Scratch)
+DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle NodeHandle, r32 NodeWidth, r32 LineHeight, interface_config Interface, render_command_buffer* RenderBuffer, mouse_state Mouse, gs_memory_arena* Scratch)
 {
     gsm_struct_type_info NodeDataTypeInfo = StructTypes[NodeSpecification.DataType];
     
@@ -264,13 +264,13 @@ DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle Nod
         if (MemberIsInput(Member)) { InputMembers++; }
         if (MemberIsOutput(Member)) { OutputMembers++; }
     }
-    u32 LineCount = 1 + GSMax(InputMembers, OutputMembers);
+    u32 LineCount = 1 + Max(InputMembers, OutputMembers);
     
     v2 NodeDim = v2{
         NodeWidth,
         (LineHeight * LineCount) + Interface.Margin.y,
     };
-    rect NodeBounds = rect{
+    rect2 NodeBounds = rect2{
         v2{ Position.x, Position.y - NodeDim.y },
         v2{ Position.x + NodeDim.x, Position.y },
     };
@@ -282,7 +282,7 @@ DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle Nod
     
     PushRenderQuad2D(RenderBuffer, LinePosition, LinePosition + v2{NodeWidth, LineHeight}, v4{1.f, .24f, .39f, 1.f});
     
-    string NodePrintName = MakeString(PushArray(Scratch, char, 256), 0, 256);
+    gs_string NodePrintName = MakeString(PushArray(Scratch, char, 256), 0, 256);
     PrintF(&NodePrintName, "%S [%d]", NodeSpecification.Identifier, NodeHandle.Index);
     DrawString(RenderBuffer, NodePrintName, Interface.Font, LinePosition + TextOffset, WhiteV4);
     LinePosition.y -= LineHeight;
@@ -293,7 +293,7 @@ DrawNode (v2 Position, node_specification_ NodeSpecification, gs_list_handle Nod
     for (u32 i = 0; i < NodeDataTypeInfo.MembersCount; i++)
     {
         gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[i];
-        string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
+        gs_string MemberName = MakeString(Member.Identifier, Member.IdentifierLength);
         
         // TODO(Peter): Can we make this rely on the same data that we use to
         // render the actual connection points?
@@ -329,7 +329,7 @@ GetVisualPortIndexForNode(gs_list_handle SparseNodeHandle, u32 PortIndex, node_l
 }
 
 internal node_layout
-ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, memory_arena* Storage, app_state* State)
+ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance, r32 LineHeight, gs_memory_arena* Storage, app_state* State)
 {
     node_layout Result = {};
     
@@ -373,7 +373,7 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
         {
             gsm_struct_member_type_info Member = NodeDataTypeInfo.Members[p];
             
-            rect PortBounds = {0};
+            rect2 PortBounds = {0};
             v2 PortDim = v2{8, 8};
             PortBounds.Min = VisualNode->Position + v2{0, PortDim.y / 2};
             if (MemberIsInput(Member))
@@ -420,16 +420,16 @@ ArrangeNodes(pattern_node_workspace Workspace, r32 NodeWidth, r32 LayerDistance,
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_node_graph);
 internal void
-NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+NodeGraph_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     node_graph_state* GraphState = (node_graph_state*)Panel.PanelStateMemory;
     b32 MouseHandled = false;
     
-    rect NodeSelectionWindowBounds = rect{
+    rect2 NodeSelectionWindowBounds = rect2{
         PanelBounds.Min,
         v2{PanelBounds.Min.x + 300, PanelBounds.Max.y},
     };
-    rect GraphBounds = rect{
+    rect2 GraphBounds = rect2{
         v2{NodeSelectionWindowBounds.Max.x, PanelBounds.Min.y},
         PanelBounds.Max,
     };
@@ -513,18 +513,18 @@ NodeGraph_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     List.TextColor = WhiteV4;
     List.ListBounds = NodeSelectionWindowBounds;
     List.ListElementDimensions = v2{
-        gs_Width(NodeSelectionWindowBounds),
+        Rect2Width(NodeSelectionWindowBounds),
         ui_GetTextLineHeight(State->Interface)
     };
     List.ElementLabelIndent = v2{10, 4};
     
-    string TitleString = MakeStringLiteral("Available Nodes");
-    DrawListElement(TitleString, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
+    gs_string Titlegs_string = MakeStringLiteral("Available Nodes");
+    DrawListElement(Titlegs_string, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
     
     for (u32 i = 0; i < NodeType_Count; i++)
     {
         node_specification_ Spec = NodeSpecifications[i];
-        rect ElementBounds = DrawListElement(Spec.Identifier, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
+        rect2 ElementBounds = DrawListElement(Spec.Identifier, &List, Context.Mouse, RenderBuffer, State->Interface.Style);
         
         if (MouseButtonTransitionedDown(Context.Mouse.LeftButtonState)
             && gs_PointIsInRect(Context.Mouse.DownPos, ElementBounds))

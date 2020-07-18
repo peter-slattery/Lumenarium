@@ -14,13 +14,32 @@ struct errors
     u32 Used;
 };
 
-internal void 
+#define ErrorReallocArray(base, type, oldcount, newcount) (type*)ErrorRealloc_((u8*)(base), (u64)(sizeof(type) * oldcount), (u64)(sizeof(type) * newcount))
+internal u8*
+ErrorRealloc_(u8* Base, u64 OldSize, u64 NewSize)
+{
+    Assert(NewSize > 0);
+    u8* Result = (u8*)malloc(NewSize);
+    if (Base != 0 && OldSize > 0)
+    {
+        GSMemCopy(Base, Result, OldSize);
+        free(Base);
+    }
+    return Result;
+}
+
+internal void
 PushFError (errors* Errors, char* Format, ...)
 {
     if (Errors->Used >= (Errors->BuffersCount * ERROR_BUFFER_SIZE))
     {
+#if 0
         Errors->BuffersCount += 1;
         Errors->Buffers = (error_buffer*)realloc(Errors->Buffers, sizeof(error_buffer*) * Errors->BuffersCount);
+#else
+        Errors->Buffers = ErrorReallocArray(Errors->Buffers, error_buffer, Errors->BuffersCount, Errors->BuffersCount + 1);
+        Errors->BuffersCount += 1;
+#endif
         
         error_buffer* NewBuffer = Errors->Buffers + (Errors->BuffersCount - 1);
         NewBuffer->Backbuffer = (char*)malloc(sizeof(char) * ERROR_MAX_LENGTH * ERROR_BUFFER_SIZE);
@@ -28,8 +47,8 @@ PushFError (errors* Errors, char* Format, ...)
         
         for (u32 i = 0; i < ERROR_BUFFER_SIZE; i++)
         {
-            NewBuffer->Contents[i].Memory = NewBuffer->Backbuffer + (i * ERROR_MAX_LENGTH);
-            NewBuffer->Contents[i].Max = ERROR_MAX_LENGTH;
+            NewBuffer->Contents[i].Str = NewBuffer->Backbuffer + (i * ERROR_MAX_LENGTH);
+            NewBuffer->Contents[i].Size = ERROR_MAX_LENGTH;
             NewBuffer->Contents[i].Length = 0;
         }
     }

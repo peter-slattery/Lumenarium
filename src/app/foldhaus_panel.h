@@ -72,7 +72,7 @@ struct panel_system
 struct panel_with_layout
 {
     panel* Panel;
-    rect Bounds;
+    rect2 Bounds;
 };
 
 struct panel_layout
@@ -205,56 +205,56 @@ ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_sys
 //
 /////////////////////////////////
 
-internal rect
-GetTopPanelBounds(panel* Panel, rect PanelBounds)
+internal rect2
+GetTopPanelBounds(panel* Panel, rect2 PanelBounds)
 {
-    rect Result = {};
+    rect2 Result = {};
     Result.Min = v2{
         PanelBounds.Min.x,
-        GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent)
+        LerpR32(Panel->SplitPercent, PanelBounds.Min.y, PanelBounds.Max.y)
     };
     Result.Max = PanelBounds.Max;
     return Result;
 }
 
-internal rect
-GetBottomPanelBounds(panel* Panel, rect PanelBounds)
+internal rect2
+GetBottomPanelBounds(panel* Panel, rect2 PanelBounds)
 {
-    rect Result = {};
+    rect2 Result = {};
     Result.Min = PanelBounds.Min;
     Result.Max = v2{
         PanelBounds.Max.x,
-        GSLerp(PanelBounds.Min.y, PanelBounds.Max.y, Panel->SplitPercent)
+        LerpR32(Panel->SplitPercent, PanelBounds.Min.y, PanelBounds.Max.y)
     };
     return Result;
 }
 
-internal rect
-GetRightPanelBounds(panel* Panel, rect PanelBounds)
+internal rect2
+GetRightPanelBounds(panel* Panel, rect2 PanelBounds)
 {
-    rect Result = {};
+    rect2 Result = {};
     Result.Min = v2{
-        GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent),
+        LerpR32(Panel->SplitPercent, PanelBounds.Min.x, PanelBounds.Max.x),
         PanelBounds.Min.y
     };
     Result.Max = PanelBounds.Max;
     return Result;
 }
 
-internal rect
-GetLeftPanelBounds(panel* Panel, rect PanelBounds)
+internal rect2
+GetLeftPanelBounds(panel* Panel, rect2 PanelBounds)
 {
-    rect Result = {};
+    rect2 Result = {};
     Result.Min = PanelBounds.Min;
     Result.Max = v2{
-        GSLerp(PanelBounds.Min.x, PanelBounds.Max.x, Panel->SplitPercent),
+        LerpR32(Panel->SplitPercent, PanelBounds.Min.x, PanelBounds.Max.x),
         PanelBounds.Max.y
     };
     return Result;
 }
 
 internal void
-LayoutPanel(panel* Panel, rect PanelBounds, panel_layout* Layout)
+LayoutPanel(panel* Panel, rect2 PanelBounds, panel_layout* Layout)
 {
     if (Panel->SplitDirection == PanelSplit_NoSplit)
     {
@@ -264,22 +264,22 @@ LayoutPanel(panel* Panel, rect PanelBounds, panel_layout* Layout)
     }
     else if (Panel->SplitDirection == PanelSplit_Horizontal)
     {
-        rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-        rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+        rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
+        rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
         LayoutPanel(&Panel->Top->Panel, TopPanelBounds, Layout);
         LayoutPanel(&Panel->Bottom->Panel, BottomPanelBounds, Layout);
     }
     else if (Panel->SplitDirection == PanelSplit_Vertical)
     {
-        rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-        rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+        rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
+        rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
         LayoutPanel(&Panel->Left->Panel, LeftPanelBounds, Layout);
         LayoutPanel(&Panel->Right->Panel, RightPanelBounds, Layout);
     }
 }
 
 internal panel_layout
-GetPanelLayout(panel_system* System, rect WindowBounds, memory_arena* Storage)
+GetPanelLayout(panel_system* System, rect2 WindowBounds, gs_memory_arena* Storage)
 {
     panel_layout Result = {};
     Result.PanelsMax = System->PanelsUsed;
@@ -293,11 +293,11 @@ GetPanelLayout(panel_system* System, rect WindowBounds, memory_arena* Storage)
 struct panel_and_bounds
 {
     panel* Panel;
-    rect Bounds;
+    rect2 Bounds;
 };
 
 internal panel_and_bounds
-GetPanelContainingPoint(v2 Point, panel* Panel, rect PanelBounds)
+GetPanelContainingPoint(v2 Point, panel* Panel, rect2 PanelBounds)
 {
     panel_and_bounds Result = {0};
     
@@ -308,28 +308,28 @@ GetPanelContainingPoint(v2 Point, panel* Panel, rect PanelBounds)
     }
     else if (Panel->SplitDirection == PanelSplit_Horizontal)
     {
-        rect TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-        rect BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+        rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
+        rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
         
-        if (PointIsInRange(Point, TopPanelBounds.Min, TopPanelBounds.Max))
+        if (PointIsInRect(TopPanelBounds, Point))
         {
             Result = GetPanelContainingPoint(Point, &Panel->Top->Panel, TopPanelBounds);
         }
-        else if (PointIsInRange(Point, BottomPanelBounds.Min, BottomPanelBounds.Max))
+        else if (PointIsInRect(BottomPanelBounds, Point))
         {
             Result = GetPanelContainingPoint(Point, &Panel->Bottom->Panel, BottomPanelBounds);
         }
     }
     else if (Panel->SplitDirection == PanelSplit_Vertical)
     {
-        rect LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-        rect RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+        rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
+        rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
         
-        if (PointIsInRange(Point, LeftPanelBounds.Min, LeftPanelBounds.Max))
+        if (PointIsInRect(LeftPanelBounds, Point))
         {
             Result = GetPanelContainingPoint(Point, &Panel->Left->Panel, LeftPanelBounds);
         }
-        else if (PointIsInRange(Point, RightPanelBounds.Min, RightPanelBounds.Max))
+        else if (PointIsInRect(RightPanelBounds, Point))
         {
             Result = GetPanelContainingPoint(Point, &Panel->Right->Panel, RightPanelBounds);
         }
@@ -339,7 +339,7 @@ GetPanelContainingPoint(v2 Point, panel* Panel, rect PanelBounds)
 }
 
 internal panel_and_bounds
-GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect WindowBounds)
+GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect2 WindowBounds)
 {
     panel_and_bounds Result = {0};
     if (PanelSystem->PanelsUsed > 0)

@@ -7,22 +7,30 @@
 
 #include <windows.h>
 
-#define GS_LANGUAGE_NO_PROFILER_DEFINES
-#include "..\gs_libs\gs_language.h"
+#include <math.h> // TODO Remove
 
-#include "..\gs_libs\gs_radix_sort.h"
+#include "..\gs_libs\gs_types.h"
+#include "..\gs_libs\gs_types.cpp"
+
+//#define GS_LANGUAGE_NO_PROFILER_DEFINES
+//#include "..\gs_libs\gs_language.h"
+
+
+//#include "..\gs_libs\gs_radix_sort.h"
 #include "..\gs_libs\gs_list.h"
 #include "..\gs_libs\gs_bucket.h"
 
-#define GS_MEMORY_TRACK_ALLOCATIONS
-#include "..\gs_libs\gs_memory_arena.h"
+//#define GS_MEMORY_TRACK_ALLOCATIONS
+//#include "..\gs_libs\gs_memory_arena.h"
 
 #include "..\gs_libs\gs_string.h"
 
-#include "foldhaus_debug.h"
-global_variable debug_services* GlobalDebugServices;
 
-#include "..\gs_libs\gs_vector_matrix.h"
+
+#include "foldhaus_debug.h"
+global debug_services* GlobalDebugServices;
+
+//#include "..\gs_libs\gs_vector_matrix.h"
 #include "..\gs_libs\gs_input.h"
 
 #include "foldhaus_renderer.h"
@@ -75,15 +83,6 @@ struct platform_memory_result
     platform_memory_error Error;
 };
 
-struct texture_buffer
-{
-    u8* Memory;
-    s32 Width;
-    s32 Height;
-    s32 Pitch;
-    s32 BytesPerPixel;
-};
-
 struct system_path
 {
     char* Path;
@@ -91,20 +90,13 @@ struct system_path
     s32 IndexOfLastSlash;
 };
 
-#define PLATFORM_READ_ENTIRE_FILE(name) platform_memory_result name(string Path)
-typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
-
-#define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(string Path, u8* Contents, s32 Size)
-typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
-
-#define PLATFORM_GET_FILE_PATH(name) b32 name(string* PathBuffer, const char* FilterStrings)
-typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
-
-struct platform_file_handler
+struct texture_buffer
 {
-    platform_read_entire_file* ReadEntireFile;
-    platform_write_entire_file* WriteEntireFile;
-    platform_get_file_path* GetFilePath;
+    u8* Memory;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+    s32 BytesPerPixel;
 };
 
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
@@ -169,50 +161,11 @@ typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
 
 #define PLATFORM_THREAD_COUNT 4
 
-#define THREADED_WORK_PROC(name) void name(s32 ThreadID, void* Data)
-typedef THREADED_WORK_PROC(threaded_work_proc);
-
-typedef struct work_queue work_queue;
-
-#define PUSH_WORK_ON_QUEUE(name) void name(work_queue* Queue, threaded_work_proc* WorkProc, void* Data, char* JobName)
-typedef PUSH_WORK_ON_QUEUE(push_work_on_queue);
-
-#define DO_QUEUE_WORK_UNTIL_DONE(name) void name(work_queue* Queue, s32 ThreadID)
-typedef DO_QUEUE_WORK_UNTIL_DONE(do_queue_work_until_done);
-
-#define RESET_WORK_QUEUE(name) void name(work_queue* Queue)
-typedef RESET_WORK_QUEUE(reset_work_queue);
-
-struct worker_thread_job
-{
-    void* Data;
-    threaded_work_proc* WorkProc;
-#ifdef DEBUG
-    char* JobName;
-#endif
-};
-
-struct work_queue
-{
-    void* SemaphoreHandle;
-    
-    u32 JobsMax;
-    u32 volatile JobsCount;
-    u32 volatile NextJobIndex;
-    u32 volatile JobsCompleted;
-    worker_thread_job* Jobs;
-    
-    // Work Queue
-    push_work_on_queue* PushWorkOnQueue;
-    do_queue_work_until_done* DoQueueWorkUntilDone;
-    reset_work_queue* ResetWorkQueue;
-};
-
 RESET_WORK_QUEUE(ResetWorkQueue)
 {
     for (u32 i = 0; i < Queue->JobsMax; i++)
     {
-        Queue->Jobs[i].Data = 0;
+        Queue->Jobs[i].Data = {0};
         Queue->Jobs[i].WorkProc = 0;
     }
     
@@ -232,11 +185,13 @@ GetSecondsElapsed (s64 Start, s64 End, s64 PerformanceCountFrequency)
 
 struct context
 {
+    gs_thread_context ThreadContext;
+    
     u8* MemoryBase;
     u32 MemorySize;
     
     b32 WindowIsVisible;
-    rect WindowBounds;
+    rect2 WindowBounds;
     r32 DeltaTime;
     mouse_state Mouse;
     
@@ -247,58 +202,17 @@ struct context
     cleanup_application* CleanupApplication;
     
     // Platform Services
-    work_queue* GeneralWorkQueue;
+    gs_work_queue* GeneralWorkQueue;
     
-    platform_memory_handler PlatformMemory;
-    platform_file_handler FileHandler;
-    
-    platform_write_entire_file* PlatformWriteEntireFile;
-    platform_get_file_path* PlatformGetFilePath;
     platform_get_gpu_texture_handle* PlatformGetGPUTextureHandle;
     platform_get_font_info* PlatformGetFontInfo;
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
+    
     platform_get_socket_handle* PlatformGetSocketHandle;
     platform_set_socket_option* PlatformSetSocketOption;
     platform_send_to* PlatformSendTo;
     platform_close_socket* PlatformCloseSocket;
 };
-
-// File Handler
-internal platform_memory_result
-ReadEntireFile(platform_file_handler FileHandler, string Path)
-{
-    platform_memory_result Result = FileHandler.ReadEntireFile(Path);
-    return Result;
-}
-internal platform_memory_result
-ReadEntireFile(context Context, string Path)
-{
-    return ReadEntireFile(Context.FileHandler, Path);
-}
-
-internal b32
-WriteEntireFile(platform_file_handler FileHandler, string Path, u8* Contents, u32 Size)
-{
-    b32 Result = FileHandler.WriteEntireFile(Path, Contents, Size);
-    return Result;
-}
-internal b32
-WriteEntireFile(context Context, string Path, u8* Contents, u32 Size)
-{
-    return WriteEntireFile(Context.FileHandler, Path, Contents, Size);
-}
-
-internal b32
-GetFilePath(platform_file_handler FileHandler, string* PathBuffer, char* FilterStrings)
-{
-    b32 Result = FileHandler.GetFilePath(PathBuffer, (const char*)FilterStrings);
-    return Result;
-}
-internal b32
-GetFilePath(context Context, string* PathBuffer, char* FilterStrings)
-{
-    return GetFilePath(Context.FileHandler, PathBuffer, FilterStrings);
-}
 
 
 #define FOLDHAUS_PLATFORM_H

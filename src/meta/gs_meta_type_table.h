@@ -10,7 +10,7 @@ enum type_definition_type
     TypeDef_Invalid,
     
     // NOTE(Peter): tokens with this type require fixup later
-    TypeDef_Unknown, 
+    TypeDef_Unknown,
     TypeDef_Enum,
     TypeDef_Struct,
     TypeDef_Union,
@@ -59,7 +59,7 @@ struct meta_tag
 
 struct variable_decl
 {
-    // NOTE(Peter): Because of the way the tokenizer works, we don't lex and parse 
+    // NOTE(Peter): Because of the way the tokenizer works, we don't lex and parse
     // at the same time. This means that not all types will be able to be matched
     // up on the first pass through. A TypeIndex of -1 means we need to fixup that
     // type at a later time
@@ -161,7 +161,7 @@ HashIdentifier(string Identifier)
     u32 IdentHash = HashString(Identifier);
     if (IdentHash == 0)
     {
-        // NOTE(Peter): We are excluding a has of zero so taht 
+        // NOTE(Peter): We are excluding a has of zero so taht
         // the type_table_handle where BucketIndex and IndexInBucket
         // are both zero is an invalid handle
         IdentHash += 1;
@@ -301,7 +301,7 @@ FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
         Result.IndexInBucket = Index;
     }
     
-    // NOTE(Peter): Because we are growing the hashtable, this should never be an invalid 
+    // NOTE(Peter): Because we are growing the hashtable, this should never be an invalid
     // type handle
     Assert(TypeHandleIsValid(Result));
     return Result;
@@ -391,7 +391,7 @@ PushMetaTagOnTable(meta_tag Tag, type_table* TypeTable)
 }
 
 // Guaranteed to return a valid result
-internal type_definition* 
+internal type_definition*
 GetTypeDefinition(type_table_handle Handle, type_table TypeTable)
 {
     Assert(TypeHandleIsValid(Handle));
@@ -404,7 +404,7 @@ GetTypeDefinition(type_table_handle Handle, type_table TypeTable)
 }
 
 // May return zero
-internal type_definition* 
+internal type_definition*
 GetTypeDefinitionUnsafe(type_table_handle Handle, type_table TypeTable)
 {
     type_definition* Result = 0;
@@ -426,7 +426,7 @@ GetMetaTag(type_table_handle Handle, type_table TypeTable)
     return Result;
 }
 
-internal type_definition* 
+internal type_definition*
 GetTypeDefinition(string Identifier, type_table TypeTable)
 {
     type_definition* Result = 0;
@@ -588,21 +588,21 @@ internal void
 FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_table TypeTable, errors* Errors)
 {
     // NOTE(Peter): There are a lot of cases where struct members which are pointers
-    // to other structs cause interesting behavior here. 
+    // to other structs cause interesting behavior here.
     // For example:
     //     struct foo { foo* Next; }
     // could cause infinite loops if we try and fixup all structs with a size of 0
-    // which would happen in this case, because we wouldn't have parsed foo's size 
+    // which would happen in this case, because we wouldn't have parsed foo's size
     // yet, but would begin fixing up foo because of the type of Next
     // Another example:
     //     typedef struct bar bar;
     //     struct foo { bar* Bar; }
     //     struct bar { foo* Foo; }
-    // causes the exact same problem, but we cant detect it by just excluding 
-    // fixing up StructIndex recursively. 
-    // 
+    // causes the exact same problem, but we cant detect it by just excluding
+    // fixing up StructIndex recursively.
+    //
     // TL;DR
-    // The solution I've chosen to go with is just exclude all pointer members from 
+    // The solution I've chosen to go with is just exclude all pointer members from
     // causing recursive fixups. Those types should be fixed up at some point in the
     // process, and we already know how big a pointer is in memory, no matter the type
     if (!Member->Pointer)
@@ -617,7 +617,7 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
             {
                 FixUpUnionSize(Member->TypeHandle, TypeTable, Errors);
             }
-            else 
+            else
             {
                 if (MemberTypeDef->Type == TypeDef_Unknown)
                 {
@@ -672,7 +672,7 @@ FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Err
     {
         // NOTE(Peter): Because its recursive (it makes sure all type sizes become known
         // if it needs them) we should never get to the end of this function and not have
-        // the ability to tell how big something is. 
+        // the ability to tell how big something is.
         // TODO(Peter): We don't parse all types yet however, so for now, this is just an alert,
         // not an assert;
 #if 0

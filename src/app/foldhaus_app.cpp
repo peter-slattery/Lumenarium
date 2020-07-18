@@ -8,27 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-internal v4
-MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
-{
-    DEBUG_TRACK_SCOPE(MouseToWorldRay);
-    r32 X = ((2.0f * MouseX) / gs_Width(WindowBounds)) - 1;
-    r32 Y = ((2.0f * MouseY) / gs_Height(WindowBounds)) - 1;
-    
-    v4 ScreenPos = v4{X, Y, -1, 1};
-    
-    m44 InverseProjection = {};
-    Inverse(GetCameraPerspectiveProjectionMatrix(*Camera), &InverseProjection);
-    
-    m44 InverseModelView = {};
-    Inverse(GetCameraModelViewMatrix(*Camera), &InverseModelView);
-    InverseModelView = Transpose(InverseModelView);
-    
-    v4 ClipSpacePos = InverseProjection * ScreenPos;
-    v4 WorldPosition = InverseModelView * ClipSpacePos;
-    return WorldPosition;
-}
-
 struct send_sacn_job_data
 {
     
@@ -72,11 +51,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     app_state* State = (app_state*)Context.MemoryBase;
     *State = {};
     
-    State->Permanent = {};
-    State->Permanent.PlatformMemory = Context.PlatformMemory;
-    State->Transient = {};
-    State->Transient.FindAddressRule = FindAddress_InLastBufferOnly;
-    State->Transient.PlatformMemory = Context.PlatformMemory;
+    State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    State->Transient = CreateMemoryArena(Context.ThreadContext.Allocator);
     
     State->Assemblies.CountMax = 8;
     State->Assemblies.Values = PushArray(&State->Permanent, assembly, State->Assemblies.CountMax);
@@ -90,13 +66,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
                                                         CommandQueueSize);
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
-    State->ActiveTextEntry.Buffer = MakeString(PushArray(&State->Permanent, char, 256), 0, 256);
-    
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
     {
-        platform_memory_result FontFile = ReadEntireFile(Context, MakeStringLiteral("data/Anonymous Pro.ttf"));
-        if (!FontFile.Error)
+        gs_file FontFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/Anonymous Pro.ttf"));
+        if (FileNoError(FontFile))
         {
             bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
             
@@ -105,7 +79,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
             Font->BitmapBytesPerPixel = 4;
             Font->BitmapMemory = PushArray(&State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
             Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
-            GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
+            ZeroMemoryBlock(Font->BitmapMemory, Font->BitmapStride * Font->BitmapHeight);
             
             platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize, FontWeight_Normal, false, false, false);
             Font->PixelHeight = FontInfo.PixelHeight;
@@ -169,17 +143,18 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->SACN = InitializeSACN(Context);
     State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
     
-    State->Camera.FieldOfView = DegreesToRadians(45.0f);
-    State->Camera.AspectRatio = gs_AspectRatio(State->WindowBounds);
-    State->Camera.Near = 1.0f;
-    State->Camera.Far = 100.0f;
-    State->Camera.Position = v3{0, 0, -250};
-    State->Camera.LookAt = v3{0, 0, 0};
+    State->Camera.FieldOfView = 45.0f;
+    State->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
+    State->Camera.Near = .1f;
+    State->Camera.Far = 800.0f;
+    State->Camera.Position = v3{0, 0, 400};
+    State->Camera.LookAt = v3{0, 0, 0
+    };
     
-    State->LedSystem = LedSystemInitialize(Context.PlatformMemory, 128);
+    State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     
 #if 1
-    string SculpturePath = MakeStringLiteral("data/radialumia_v2.fold");
+    gs_const_string SculpturePath = ConstString("data/radialumia_v2.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
@@ -189,11 +164,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     ReloadStaticData(Context, GlobalDebugServices);
     
-    // Setup Operation Modes
-    State->Modes.ActiveModesCount = 0;
-    State->Modes.Arena = {};
-    State->Modes.Arena.PlatformMemory = Context.PlatformMemory;
-    State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
+    State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     { // Animation PLAYGROUND
         State->AnimationSystem = {};
@@ -203,9 +174,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
         State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         State->AnimationSystem.LayersMax = 32;
         State->AnimationSystem.Layers = PushArray(&State->Permanent, anim_layer, State->AnimationSystem.LayersMax);
-        AddLayer(MakeStringLiteral("Base Layer"), &State->AnimationSystem, BlendMode_Overwrite);
-        AddLayer(MakeStringLiteral("Color Layer"), &State->AnimationSystem, BlendMode_Multiply);
-        AddLayer(MakeStringLiteral("Sparkles"), &State->AnimationSystem, BlendMode_Add);
+        AddLayer(MakeString("Base Layer"), &State->AnimationSystem, BlendMode_Overwrite);
+        AddLayer(MakeString("Color Layer"), &State->AnimationSystem, BlendMode_Multiply);
+        AddLayer(MakeString("Sparkles"), &State->AnimationSystem, BlendMode_Add);
     } // End Animation Playground
     
     
@@ -215,7 +186,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
 }
 
 internal void
-HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_state Mouse)
+HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse_state Mouse)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -274,7 +245,7 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
 }
 
 internal dmx_buffer_list*
-CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize, memory_arena* Arena)
+CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize, gs_memory_arena* Arena)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -322,6 +293,10 @@ CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize,
     return Result;
 }
 
+
+#define HANDMADE_MATH_IMPLEMENTATION
+#include "handmade_math.h"
+
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -333,6 +308,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(&State->Transient);
     Context->Mouse.CursorType = CursorType_Arrow;
+    
+    PushRenderClearScreen(RenderBuffer);
+    State->Camera.AspectRatio = RectAspectRatio(Context->WindowBounds);
     
     HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse);
     
@@ -355,7 +333,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         
         u32 CurrentBlocksMax = State->AnimationSystem.LayersCount;
         b8* CurrentBlocksFilled = PushArray(&State->Transient, b8, CurrentBlocksMax);
-        GSZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
+        ZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
         animation_block* CurrentBlocks = PushArray(&State->Transient, animation_block, CurrentBlocksMax);
         
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
@@ -432,9 +410,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                             u32 G = (u32)AssemblyLedBuffer->Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
                             u32 B = (u32)AssemblyLedBuffer->Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
                             
-                            AssemblyLedBuffer->Colors[LED].R = (u8)GSMin(R, (u32)255);
-                            AssemblyLedBuffer->Colors[LED].G = (u8)GSMin(G, (u32)255);
-                            AssemblyLedBuffer->Colors[LED].B = (u8)GSMin(B, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].R = (u8)Min(R, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].G = (u8)Min(G, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].B = (u8)Min(B, (u32)255);
                         }
                     }break;
                     
@@ -502,7 +480,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     
     
-    PushRenderOrthographic(RenderBuffer, 0, 0, gs_Width(State->WindowBounds), gs_Height(State->WindowBounds));
+    PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
     State->WindowBounds = Context->WindowBounds;
@@ -521,7 +499,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    Context->GeneralWorkQueue->DoQueueWorkUntilDone(Context->GeneralWorkQueue, 0);
+    Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
     Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
     
     // Checking for overflows

@@ -67,7 +67,7 @@ gsosx_CreateWindow(NSApplication* App, int Width, int Height, id Title)
 	[App setMainMenu: MenuBar];
 
 	NSMenu* AppMenu = [NSMenu alloc];
-	id QuitTitle = [@"Quit " stringByAppendingString: Title];
+	id QuitTitle = [@"Quit " gs_stringByAppendinggs_string: Title];
 	id QuitMenuItem = [[NSMenuItem alloc] initWithTitle: QuitTitle action: @selector(terminate:) keyEquivalent: @"q"];
 	[AppMenu addItem: QuitMenuItem];
 	[AppMenuItem setSubmenu: AppMenu];

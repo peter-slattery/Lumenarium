@@ -314,7 +314,7 @@ PlatformRealloc(platform_memory_handler Platform, gs_mem_u8* Head, gs_mem_u32 Ol
         Result = PlatformAlloc(Platform, NewSize);
         if (Head != 0 && OldSize != 0)
         {
-            GSMemCopy(Head, Result, OldSize);
+            CopyMemoryTo(Head, Result, OldSize);
             PlatformFree(Platform, Head, OldSize);
         }
     }
@@ -335,8 +335,6 @@ FreeMemoryArena(memory_arena* Arena)
     }
     PlatformFree(Arena->PlatformMemory, (u8*)Arena->Buffers, sizeof(memory_buffer) * Arena->BuffersCount);
 }
-
-#define IsPowerOfTwo(v) ((v != 0) && ((v & (v - 1)) == 0))
 
 inline gs_mem_u32
 GetAlignmentOffset (gs_mem_u64 Address, gs_mem_u32 Alignment, gs_mem_u32 AlignmentMask)

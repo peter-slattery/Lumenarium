@@ -17,15 +17,14 @@ PipeSearchStringToDestination (text_entry* Input)
 {
     switch (Input->Destination.Type)
     {
-        case TextTranslateTo_String:
+        case TextTranslateTo_gs_string:
         {
-            CopyStringTo(Input->Buffer, Input->Destination.StringDest);
+            PrintF(Input->Destination.StringDest, "%S", Input->Buffer);
         }break;
         
         case TextTranslateTo_R32:
         {
-            parse_result FloatParseResult = ParseFloat(StringExpand(Input->Buffer));
-            *Input->Destination.FloatDest = FloatParseResult.FloatValue;
+            *Input->Destination.FloatDest = (r32)ParseFloat(Input->Buffer.ConstString);
         }break;
         
         InvalidDefaultCase;
@@ -37,19 +36,22 @@ RemoveCharacterAtCursor (text_entry* TextEntry)
 {
     if (TextEntry->CursorPosition > 0)
     {
-        RemoveCharAt(&TextEntry->Buffer,
-                     TextEntry->CursorPosition - 1);
+        for (u32 i = TextEntry->CursorPosition - 1; i < TextEntry->Buffer.Length; i++)
+        {
+            Assert(i + 1 < TextEntry->Buffer.Size);
+            TextEntry->Buffer.Str[i] = TextEntry->Buffer.Str[i + 1];
+        }
         TextEntry->CursorPosition--;
     }
 }
 
-internal void 
-SetTextInputDestinationToString (text_entry* TextInput, string* DestinationString)
+internal void
+SetTextInputDestinationToString (text_entry* TextInput, gs_string* DestinationString)
 {
     ResetTextInput(TextInput);
-    TextInput->Destination.Type = TextTranslateTo_String;
+    TextInput->Destination.Type = TextTranslateTo_gs_string;
     TextInput->Destination.StringDest = DestinationString;
-    CopyStringTo(*DestinationString, &TextInput->Buffer);
+    PrintF(&TextInput->Buffer, "%S", *DestinationString);
 }
 
 internal void
@@ -69,14 +71,13 @@ SetTextInputDestinationToFloat (text_entry* TextInput, r32* DestinationFloat)
 internal void
 MoveCursorRight (text_entry* TextEntry)
 {
-    TextEntry->CursorPosition = GSMin(TextEntry->Buffer.Length, 
-                                      TextEntry->CursorPosition + 1);
+    TextEntry->CursorPosition = Min(TextEntry->Buffer.Length, TextEntry->CursorPosition + 1);
 }
 
 internal void
 MoveCursorLeft (text_entry* TextEntry)
 {
-    TextEntry->CursorPosition = GSMax(0, TextEntry->CursorPosition - 1);
+    TextEntry->CursorPosition = Max(0, TextEntry->CursorPosition - 1);
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(TextEntryInsertChar)
@@ -88,12 +89,21 @@ FOLDHAUS_INPUT_COMMAND_PROC(TextEntryInsertChar)
         Char += ('a' - 'A');
     }
     
-    InsertChar(&State->ActiveTextEntry.Buffer, Char, State->ActiveTextEntry.CursorPosition);
+    // Shift string forward
+    Assert(State->ActiveTextEntry.Buffer.Length < State->ActiveTextEntry.Buffer.Size);
+    for (u32 i = State->ActiveTextEntry.Buffer.Length;
+         i > (u32)State->ActiveTextEntry.CursorPosition;
+         i--)
+    {
+        State->ActiveTextEntry.Buffer.Str[i] = State->ActiveTextEntry.Buffer.Str[i - 1];
+    }
+    // Insert new Character
+    State->ActiveTextEntry.Buffer.Str[State->ActiveTextEntry.CursorPosition] = Char;
     State->ActiveTextEntry.CursorPosition++;
     PipeSearchStringToDestination(&State->ActiveTextEntry);
 }
 
-FOLDHAUS_INPUT_COMMAND_PROC(RemoveCharacterFromEntryString)
+FOLDHAUS_INPUT_COMMAND_PROC(RemoveCharacterFromEntrygs_string)
 {
     RemoveCharacterAtCursor(&State->ActiveTextEntry);
 }
@@ -109,11 +119,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(TextEntryMoveCursorLeft)
 }
 
 internal void
-InitializeTextInputCommands (input_command_registry* Commands, memory_arena* PermanentStorage)
+InitializeTextInputCommands (input_command_registry* Commands, gs_memory_arena* PermanentStorage)
 {
     if (Commands->Size > 0)
     {
-        RegisterKeyPressCommand(Commands, KeyCode_Backspace, Command_Began | Command_Held, KeyCode_Invalid, RemoveCharacterFromEntryString);
+        RegisterKeyPressCommand(Commands, KeyCode_Backspace, Command_Began | Command_Held, KeyCode_Invalid, RemoveCharacterFromEntrygs_string);
         RegisterKeyPressCommand(Commands, KeyCode_LeftArrow, Command_Began | Command_Held, KeyCode_Invalid, TextEntryMoveCursorLeft);
         RegisterKeyPressCommand(Commands, KeyCode_RightArrow, Command_Began | Command_Held, KeyCode_Invalid, TextEntryMoveCursorRight);
         
@@ -126,7 +136,7 @@ InitializeTextInputCommands (input_command_registry* Commands, memory_arena* Per
 }
 
 #define DEFAULT_TEXT_ENTRY_INPUT_COMMANDS_ARRAY_ENTRY \
-{ KeyCode_Backspace, KeyCode_Invalid, Command_Began | Command_Held, RemoveCharacterFromEntryString }, \
+{ KeyCode_Backspace, KeyCode_Invalid, Command_Began | Command_Held, RemoveCharacterFromEntrygs_string }, \
 { KeyCode_LeftArrow, KeyCode_Invalid, Command_Began | Command_Held, TextEntryMoveCursorLeft }, \
 { KeyCode_RightArrow, KeyCode_Invalid, Command_Began | Command_Held, TextEntryMoveCursorRight }, \
 { KeyCode_a, KeyCode_Invalid, Command_Began | Command_Held, TextEntryInsertChar }, \

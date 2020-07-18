@@ -25,7 +25,7 @@ struct led_buffer
 
 struct led_system
 {
-    platform_memory_handler PlatformMemory;
+    gs_allocator PlatformMemory;
     
     u32 BuffersCountMax;
     u32 BuffersCount;
@@ -62,10 +62,10 @@ struct v2_strip
 
 struct assembly
 {
-    memory_arena Arena;
+    gs_memory_arena Arena;
     
-    string Name;
-    string FilePath;
+    gs_string Name;
+    gs_string FilePath;
     
     r32 Scale;
     s32 LedCountTotal;

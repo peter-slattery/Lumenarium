@@ -64,7 +64,7 @@ Render2DQuadBatch (u8* CommandData, s32 QuadCount)
             v2 P1 = Vertecies[BATCH_2D_VERTEX_INDEX(Quad, Tri, 1)];
             v2 P2 = Vertecies[BATCH_2D_VERTEX_INDEX(Quad, Tri, 2)];
             v2 UV0 = UVs[BATCH_2D_UV_INDEX(Quad, Tri, 0)];
-            v2 UV1 = UVs[BATCH_2D_UV_INDEX(Quad, Tri, 1)]; 
+            v2 UV1 = UVs[BATCH_2D_UV_INDEX(Quad, Tri, 1)];
             v2 UV2 = UVs[BATCH_2D_UV_INDEX(Quad, Tri, 2)];
             v4 C0 = Colors[BATCH_2D_COLOR_INDEX(Quad, Tri, 0)];
             v4 C1 = Colors[BATCH_2D_COLOR_INDEX(Quad, Tri, 1)];
@@ -107,11 +107,11 @@ RenderCommandBuffer (render_command_buffer CommandBuffer)
                 
                 render_command_set_render_mode* Command = (render_command_set_render_mode*)(CommandHeader + 1);
                 
-                glViewport(Command->ViewOffsetX, Command->ViewOffsetY, 
+                glViewport(Command->ViewOffsetX, Command->ViewOffsetY,
                            Command->ViewWidth, Command->ViewHeight);
                 
-                LoadModelView(Command->ModelView.E);
-                LoadProjection(Command->Projection.E);
+                LoadModelView(Command->ModelView.Array);
+                LoadProjection(Command->Projection.Array);
                 
                 if (Command->UseDepthBuffer)
                 {

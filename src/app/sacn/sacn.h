@@ -160,11 +160,11 @@ VHD_PackLength_(u8* Buffer, u32 Length, b32 IncludeLength)
 }
 
 internal cid
-StringToCID_ (const char* String)
+gs_stringToCID_ (const char* gs_string)
 {
     cid Result = {};
     
-    const char* Src = String;
+    const char* Src = gs_string;
     u8* Dest = &Result.Bytes[0];
     b32 FirstNibble = true;
     
@@ -215,7 +215,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     Cursor = PackB2(Cursor, RLP_PREAMBLE_SIZE);
     Cursor = PackB2(Cursor, RLP_POSTAMBLE_SIZE);
     
-    GSMemCopy(ACN_IDENTIFIER, Cursor, ACN_IDENTIFIER_SIZE);
+    CopyMemoryTo(ACN_IDENTIFIER, Cursor, ACN_IDENTIFIER_SIZE);
     Cursor += ACN_IDENTIFIER_SIZE;
     
     // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
@@ -243,7 +243,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     
     // framing source name
     // :Check
-    GSMemCopy(SourceName, (char*)Cursor, SOURCE_NAME_SIZE);
+    CopyMemoryTo(SourceName, (char*)Cursor, SOURCE_NAME_SIZE);
     Cursor[SOURCE_NAME_SIZE - 1] = '\0';
     Cursor += SOURCE_NAME_SIZE;
     
@@ -298,7 +298,7 @@ InitializeSACN (context Context)
     
     s32 Multicast_TimeToLive = 20;
     SACN.SendSocket = Context.PlatformGetSocketHandle(Multicast_TimeToLive);
-    SACN.CID = StringToCID_ ("{67F9D986-544E-4abb-8986-D5F79382586C}");
+    SACN.CID = gs_stringToCID_ ("{67F9D986-544E-4abb-8986-D5F79382586C}");
     
     return SACN;
 }

@@ -59,7 +59,7 @@ struct node_specification
 struct node_specification_
 {
     node_type Type;
-    string Identifier;
+    gs_string Identifier;
     gsm_struct_type DataType;
 };
 
@@ -92,7 +92,7 @@ struct pattern_node_workspace
     // This is storage for all the structures which follow.
     // It is cleared when new nodes are added so that the
     // acceleration structures can be recalculated
-    memory_arena Storage;
+    gs_memory_arena Storage;
     s32* SparseToSortedNodeMap;
     gs_list_handle* SortedNodeHandles;
 };

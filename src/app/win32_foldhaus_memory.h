@@ -8,17 +8,21 @@
 //
 #ifndef WIN32_FOLDHAUS_MEMORY_H
 
-PLATFORM_ALLOC(Win32Alloc)
+ALLOCATOR_ALLOC(Win32Alloc)
 {
     u8* Result = (u8*)VirtualAlloc(NULL, Size,
                                    MEM_COMMIT | MEM_RESERVE,
                                    PAGE_EXECUTE_READWRITE);
+    if (ResultSize != 0)
+    {
+        *ResultSize = Size;
+    }
     return Result;
 }
 
-PLATFORM_FREE(Win32Free)
+ALLOCATOR_FREE(Win32Free)
 {
-    b32 Result = VirtualFree(Base, 0, MEM_RELEASE);
+    b32 Result = VirtualFree(Ptr, 0, MEM_RELEASE);
     if (!Result)
     {
         s32 Error = GetLastError();
@@ -26,18 +30,6 @@ PLATFORM_FREE(Win32Free)
         // to know what it could possibly be.
         InvalidCodePath;
     }
-    return Result;
-}
-
-PLATFORM_REALLOC(Win32Realloc)
-{
-    u8* NewMemory = Win32Alloc(NewSize);
-    if (Base)
-    {
-        GSMemCopy(Base, NewMemory, OldSize);
-        Win32Free(Base, OldSize);
-    }
-    return NewMemory;
 }
 
 #define WIN32_FOLDHAUS_MEMORY_H

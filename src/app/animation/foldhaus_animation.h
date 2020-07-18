@@ -31,7 +31,7 @@ enum blend_mode
 
 struct anim_layer
 {
-    string Name;
+    gs_string Name;
     blend_mode BlendMode;
 };
 
@@ -39,7 +39,7 @@ struct anim_layer
 #define ANIMATION_SYSTEM_BLOCKS_MAX 128
 struct animation_system
 {
-    memory_arena* Storage;
+    gs_memory_arena* Storage;
     
     gs_list<animation_block> Blocks;
     anim_layer* Layers;
@@ -75,7 +75,7 @@ FrameIsInRange(s32 Frame, frame_range Range)
 internal u32
 GetFrameCount(frame_range Range)
 {
-    u32 Result = (u32)GSMax(0, Range.Max - Range.Min);
+    u32 Result = (u32)Max(0, Range.Max - Range.Min);
     return Result;
 }
 
@@ -133,7 +133,7 @@ RemoveAnimationBlock(gs_list_handle AnimationBlockHandle, animation_system* Anim
 
 // Layers
 internal u32
-AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
+AddLayer (gs_string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
 {
     // NOTE(Peter): If this assert fires its time to make the layer buffer system
     // resizable.
@@ -144,7 +144,7 @@ AddLayer (string Name, animation_system* AnimationSystem, blend_mode BlendMode =
     anim_layer* NewLayer = AnimationSystem->Layers + Result;
     *NewLayer = {0};
     NewLayer->Name = MakeString(PushArray(AnimationSystem->Storage, char, Name.Length), Name.Length);
-    CopyStringTo(Name, &NewLayer->Name);
+    PrintF(&NewLayer->Name, "%S", Name);
     NewLayer->BlendMode = BlendMode;
     return Result;
 }

@@ -30,7 +30,7 @@ struct collated_scope_record
 struct scope_name
 {
     u32 Hash;
-    string Name;
+    gs_string Name;
     char Buffer[SCOPE_NAME_BUFFER_LENGTH];
 };
 
@@ -82,7 +82,7 @@ typedef u8* debug_realloc(u8* Memory, s32 OldSize, s32 NewSize);
 struct debug_histogram_entry
 {
     char ScopeName_[SCOPE_NAME_LENGTH];
-    string ScopeName;
+    gs_string ScopeName;
     
     u32 PerFrame_Cycles[HISTOGRAM_DEPTH];
     u32 PerFrame_CallCount[HISTOGRAM_DEPTH];
@@ -168,12 +168,12 @@ StartDebugFrame(debug_frame* Frame, debug_services* Services)
 }
 
 internal void
-InitDebugServices (debug_services* Services, 
-                   s64 PerformanceCountFrequency, 
-                   debug_alloc* Alloc, 
-                   debug_realloc* Realloc, 
-                   debug_timing_proc* GetWallClock, 
-                   debug_get_thread_id* GetThreadId, 
+InitDebugServices (debug_services* Services,
+                   s64 PerformanceCountFrequency,
+                   debug_alloc* Alloc,
+                   debug_realloc* Realloc,
+                   debug_timing_proc* GetWallClock,
+                   debug_get_thread_id* GetThreadId,
                    s32 ThreadCount)
 {
     Services->Alloc = Alloc;
@@ -233,7 +233,7 @@ GetIndexForNameHash(debug_frame* Frame, u32 NameHash)
     }
     
     // NOTE(Peter): Its not technically wrong to return a -1 here, just means we didn't find it.
-    // At the time of writing however, this function is only being called in contexts where we 
+    // At the time of writing however, this function is only being called in contexts where we
     // know there should be an entry in the Name table, so a -1 actually indicates a problem.
     Assert(Result >= 0);
     return Result;
@@ -359,9 +359,9 @@ BeginTrackingScopeAndGetNameHash (debug_services* Services, char* ScopeName)
     if (Entry->Hash == 0) // If its new
     {
         Entry->Hash = NameHash;
-        // TODO(Peter): need to initialize all entry name strings to point at the buffer
+        // TODO(Peter): need to initialize all entry name gs_strings to point at the buffer
         // This will break eventually. when it does, do this ^^^^ when on startup
-        CopyCharArrayToString(ScopeName, &Entry->Name);
+        PrintF(&Entry->Name, "%s", ScopeName);
     }
     
     return NameHash;
@@ -402,7 +402,7 @@ internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFre
 #define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker ((char*)__func__, GlobalDebugServices)
 #define DEBUG_TRACK_SCOPE(name) scope_tracker ScopeTracker_##name (#name, GlobalDebugServices)
 #else
-#define DEBUG_TRACK_FUNCTION 
+#define DEBUG_TRACK_FUNCTION
 #define DEBUG_TRACK_SCOPE(name)
 #endif
 struct scope_tracker

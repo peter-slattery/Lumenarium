@@ -74,7 +74,7 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_dmx_view);
 internal void
-DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+DMXView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
 #if 0
     // :NoLongerFunctionalSACNCodeButThatsOk
@@ -82,7 +82,7 @@ DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffe
     
     universe_view_operation_state* OpState = (universe_view_operation_state*)Operation.OpStateMemory;
     
-    string TitleBarString = InitializeEmptyString(PushArray(State->Transient, char, 64), 64);
+    gs_string TitleBargs_string = InitializeEmptygs_string(PushArray(State->Transient, char, 64), 64);
     
     v2 DisplayArea_Dimension = v2{600, 600};
     
@@ -120,8 +120,8 @@ DMXView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffe
             if (OpState->Zoom > .5f)
             {
                 v2 TitleDisplayStart = UniverseDisplayTopLeft + v2{0, 12};
-                PrintF(&TitleBarString, "Universe %d", Universe->Universe);
-                DrawString(RenderBuffer, TitleBarString, State->Interface.Font,
+                PrintF(&TitleBargs_string, "Universe %d", Universe->Universe);
+                DrawString(RenderBuffer, TitleBargs_string, State->Interface.Font,
                            TitleDisplayStart, WhiteV4);
             }
             

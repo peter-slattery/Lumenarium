@@ -45,7 +45,7 @@ SortNodeNeighbors(u32 ContiguousNodeIndex, gs_list_handle NodeHandle, adjacency_
         u32 ContiguousNeighborNodeIndex = SparseToContiguousNodeMap[Neighbor->NodeHandle.Index];
         if (!NodesVisited[ContiguousNeighborNodeIndex])
         {
-            SortedNodesCount = SortNodeNeighbors(ContiguousNeighborNodeIndex, Neighbor->NodeHandle, NeighborsLists, NodesVisited, SortedNodeHandles, SortedNodesCount, SparseToContiguousNodeMap); 
+            SortedNodesCount = SortNodeNeighbors(ContiguousNeighborNodeIndex, Neighbor->NodeHandle, NeighborsLists, NodesVisited, SortedNodeHandles, SortedNodesCount, SparseToContiguousNodeMap);
         }
         Neighbor = Neighbor->Next;
     }
@@ -55,7 +55,7 @@ SortNodeNeighbors(u32 ContiguousNodeIndex, gs_list_handle NodeHandle, adjacency_
 }
 
 internal s32*
-CreateSparseToContiguousMap (pattern_node_workspace Workspace, memory_arena* Scratch)
+CreateSparseToContiguousMap (pattern_node_workspace Workspace, gs_memory_arena* Scratch)
 {
     s32* Result = PushArray(Scratch, s32, Workspace.Nodes.OnePastLastUsed);
     s32 ContiguousIndex = 0;
@@ -71,7 +71,7 @@ CreateSparseToContiguousMap (pattern_node_workspace Workspace, memory_arena* Scr
 }
 
 internal void
-UpdateSortedNodes(pattern_node_workspace* Workspace, memory_arena* Scratch)
+UpdateSortedNodes(pattern_node_workspace* Workspace, gs_memory_arena* Scratch)
 {
     ClearNodeWorkspaceStorage(Workspace);
     
@@ -81,7 +81,7 @@ UpdateSortedNodes(pattern_node_workspace* Workspace, memory_arena* Scratch)
     s32* SparseToContiguousNodeMap = CreateSparseToContiguousMap(*Workspace, &Workspace->Storage);
     
     // NOTE(Peter): We need to sort this later on so I'm just storing list lengths in this format
-    // to begin with. 
+    // to begin with.
     // NeighborsListLengths[n].Radix = the number of neighbors for the node
     // NeighborsListLengths[n].ID = the sparse array index of the node
     gs_radix_entry* NeighborsListLengths = PushArray(Scratch, gs_radix_entry, NodeCount);
@@ -119,24 +119,24 @@ UpdateSortedNodes(pattern_node_workspace* Workspace, memory_arena* Scratch)
     RadixSortInPlace(NeighborsListLengths, Workspace->Nodes.Used);
     
     char* OutputCharArray = PushArray(Scratch, char, 1024);
-    string OutputString = MakeString(OutputCharArray, 0, 1024);
+    gs_string Outputgs_string = MakeString(OutputCharArray, 0, 1024);
     
-    PrintF(&OutputString, "Neighbors Lists: \n");
+    PrintF(&Outputgs_string, "Neighbors Lists: \n");
     for (u32 d = 0; d < Workspace->Nodes.Used; d++)
     {
-        PrintF(&OutputString, "    %d: Node [ %d ] : neighbors { ", d, NeighborsListLengths[d].ID);
+        PrintF(&Outputgs_string, "    %d: Node [ %d ] : neighbors { ", d, NeighborsListLengths[d].ID);
         
         adjacency_list* Neighbors = NeighborsLists[d];
         while (Neighbors)
         {
-            PrintF(&OutputString, "%d, ", Neighbors->NodeHandle.Index);
+            PrintF(&Outputgs_string, "%d, ", Neighbors->NodeHandle.Index);
             Neighbors = Neighbors->Next;
         }
-        PrintF(&OutputString, " }\n");
+        PrintF(&Outputgs_string, " }\n");
     }
-    NullTerminate(&OutputString);
+    NullTerminate(&Outputgs_string);
     
-    // This is a contiguous array. 
+    // This is a contiguous array.
     b8* NodesVisited = PushArray(Scratch, b8, NodeCount);
     GSZeroArray(NodesVisited, b8, NodeCount);
     
@@ -163,7 +163,7 @@ UpdateSortedNodes(pattern_node_workspace* Workspace, memory_arena* Scratch)
 }
 
 internal void
-PushNodeOnWorkspace(s32 NodeSpecificationIndex, pattern_node_workspace* Workspace, memory_arena* Scratch)
+PushNodeOnWorkspace(s32 NodeSpecificationIndex, pattern_node_workspace* Workspace, gs_memory_arena* Scratch)
 {
     pattern_node* NewNode = Workspace->Nodes.TakeElement();
     NewNode->SpecificationIndex = NodeSpecificationIndex;
@@ -172,13 +172,13 @@ PushNodeOnWorkspace(s32 NodeSpecificationIndex, pattern_node_workspace* Workspac
 }
 
 internal void
-PushNodeConnectionOnWorkspace(gs_list_handle UpstreamNodeHandle, u32 UpstreamPortIndex, gs_list_handle DownstreamNodeHandle, u32 DownstreamPortIndex, pattern_node_workspace* Workspace, memory_arena* Scratch)
+PushNodeConnectionOnWorkspace(gs_list_handle UpstreamNodeHandle, u32 UpstreamPortIndex, gs_list_handle DownstreamNodeHandle, u32 DownstreamPortIndex, pattern_node_workspace* Workspace, gs_memory_arena* Scratch)
 {
     pattern_node_connection Connection = {};
-    Connection.UpstreamNodeHandle = UpstreamNodeHandle; 
-    Connection.DownstreamNodeHandle = DownstreamNodeHandle; 
-    Connection.UpstreamPortIndex = UpstreamPortIndex; 
-    Connection.DownstreamPortIndex = DownstreamPortIndex; 
+    Connection.UpstreamNodeHandle = UpstreamNodeHandle;
+    Connection.DownstreamNodeHandle = DownstreamNodeHandle;
+    Connection.UpstreamPortIndex = UpstreamPortIndex;
+    Connection.DownstreamPortIndex = DownstreamPortIndex;
     
     Workspace->Connections.PushElementOnBucket(Connection);
     UpdateSortedNodes(Workspace, Scratch);

@@ -10,42 +10,42 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <gs_string.h>
 
 #include "gs/gs_language.h"
 #include "gs/gs_string.h"
 #include "../meta/gs_meta_lexer.h"
 #include "gs/gs_vector.h"
 
-#define STRING_BUFFER_SIZE 512
-struct string_buffer
+#define gs_string_BUFFER_SIZE 512
+struct gs_string_buffer
 {
     char* Memory;
     s32 Size;
-    string_buffer* Next;
+    gs_string_buffer* Next;
 };
 
-struct string_writer
+struct gs_string_writer
 {
     char* Cursor;
-    s32 UsedInString;
-    string_buffer* Buffer;
+    s32 UsedIngs_string;
+    gs_string_buffer* Buffer;
 };
 
-internal string_buffer*
-GrowStringBuffer (string_buffer* Buffer)
+internal gs_string_buffer*
+Growgs_stringBuffer (gs_string_buffer* Buffer)
 {
-    string_buffer* Result;
+    gs_string_buffer* Result;
     if (Buffer->Next)
     {
-        Result = GrowStringBuffer(Buffer->Next);
+        Result = Growgs_stringBuffer(Buffer->Next);
     }
     else
     {
-        Result = (string_buffer*)malloc(sizeof(string_buffer));
-        Result->Memory = (char*)malloc(sizeof(char) * STRING_BUFFER_SIZE);
-        memset(Result->Memory, 0, STRING_BUFFER_SIZE);
-        Result->Size = STRING_BUFFER_SIZE;
+        Result = (gs_string_buffer*)malloc(sizeof(gs_string_buffer));
+        Result->Memory = (char*)malloc(sizeof(char) * gs_string_BUFFER_SIZE);
+        memset(Result->Memory, 0, gs_string_BUFFER_SIZE);
+        Result->Size = gs_string_BUFFER_SIZE;
         Result->Next = 0;
         
         Buffer->Next = Result;
@@ -54,28 +54,28 @@ GrowStringBuffer (string_buffer* Buffer)
 }
 
 internal void
-WriteString(string_writer* Writer, char* String, s32 Length)
+Writegs_string(gs_string_writer* Writer, char* gs_string, s32 Length)
 {
-    char* Src = String;
+    char* Src = gs_string;
     char* Dst = Writer->Cursor;
     s32 LengthWritten = 0;
     
-    while (*Src && Writer->UsedInString < Writer->Buffer->Size &&LengthWritten < Length)
+    while (*Src && Writer->UsedIngs_string < Writer->Buffer->Size &&LengthWritten < Length)
     {
         LengthWritten++;
         *Dst++ = *Src++;
-        Writer->UsedInString++;
+        Writer->UsedIngs_string++;
     }
     
     Writer->Cursor = Dst;
     
-    if (*Src && Writer->UsedInString == Writer->Buffer->Size)
+    if (*Src && Writer->UsedIngs_string == Writer->Buffer->Size)
     {
         *(Dst - 1) = 0; // Null terminate the buffer
-        Writer->Buffer = GrowStringBuffer(Writer->Buffer);
+        Writer->Buffer = Growgs_stringBuffer(Writer->Buffer);
         Writer->Cursor = Writer->Buffer->Memory;
-        Writer->UsedInString = 0;
-        WriteString(Writer, (Src - 1), (Length - LengthWritten) + 1);
+        Writer->UsedIngs_string = 0;
+        Writegs_string(Writer, (Src - 1), (Length - LengthWritten) + 1);
     }
 }
 
@@ -141,15 +141,15 @@ int main(int ArgCount, char* Args[])
         control_box_pairs* StartPair = NextControlBoxPair;
         s32 PairsCount = 0;
         
-        if (StringsEqual(Tokenizer.At, "EOF"))
+        if (gs_stringsEqual(Tokenizer.At, "EOF"))
         {
             break;
         }
         
         EatToCharacterInclusive(&Tokenizer, '{');
         EatWhitespace(&Tokenizer);
-        Assert(StringsEqual(Tokenizer.At, "neighbors: ["));
-        Tokenizer.At += StringLength("neighbors: [");
+        Assert(gs_stringsEqual(Tokenizer.At, "neighbors: ["));
+        Tokenizer.At += gs_stringLength("neighbors: [");
         
         // Parse Neighbors
         while(*Tokenizer.At && *Tokenizer.At != ']')
@@ -177,8 +177,8 @@ int main(int ArgCount, char* Args[])
         EatWhitespace(&Tokenizer);
         
         //Parse IP
-        Assert(StringsEqual(Tokenizer.At, "ip: "));
-        Tokenizer.At += StringLength("ip: ");
+        Assert(gs_stringsEqual(Tokenizer.At, "ip: "));
+        Tokenizer.At += gs_stringLength("ip: ");
         NextControlBox->Address = (char*)malloc(sizeof(char) * 13);
         memcpy(NextControlBox->Address, Tokenizer.At, 13);
         Tokenizer.At += 13;
@@ -186,27 +186,27 @@ int main(int ArgCount, char* Args[])
         
         // Parse X
         EatWhitespace(&Tokenizer);
-        Assert(StringsEqual(Tokenizer.At, "x: "));
-        Tokenizer.At += StringLength("x: ");
+        Assert(gs_stringsEqual(Tokenizer.At, "x: "));
+        Tokenizer.At += gs_stringLength("x: ");
         NextControlBox->X = ParseFloat(Tokenizer.At);
         EatToCharacterInclusive(&Tokenizer, ';');
         // Parse Y
         EatWhitespace(&Tokenizer);
-        Assert(StringsEqual(Tokenizer.At, "y: "));
-        Tokenizer.At += StringLength("y: ");
+        Assert(gs_stringsEqual(Tokenizer.At, "y: "));
+        Tokenizer.At += gs_stringLength("y: ");
         NextControlBox->Y = ParseFloat(Tokenizer.At);
         EatToCharacterInclusive(&Tokenizer, ';');
         // Parse Z
         EatWhitespace(&Tokenizer);
-        Assert(StringsEqual(Tokenizer.At, "z: "));
-        Tokenizer.At += StringLength("z: ");
+        Assert(gs_stringsEqual(Tokenizer.At, "z: "));
+        Tokenizer.At += gs_stringLength("z: ");
         NextControlBox->Z = ParseFloat(Tokenizer.At);
         EatToCharacterInclusive(&Tokenizer, ';');
         
         // Parse ID
         EatWhitespace(&Tokenizer);
-        Assert(StringsEqual(Tokenizer.At, "id: "));
-        Tokenizer.At += StringLength("id: ");
+        Assert(gs_stringsEqual(Tokenizer.At, "id: "));
+        Tokenizer.At += gs_stringLength("id: ");
         NextControlBox->ID = ParseSignedInt(Tokenizer.At);
         EatToCharacterInclusive(&Tokenizer, ';');
         
@@ -278,36 +278,36 @@ int main(int ArgCount, char* Args[])
     }
     
     
-    string_buffer OutputFileBuffer = {};
-    OutputFileBuffer.Memory = (char*)malloc(sizeof(char) * STRING_BUFFER_SIZE);
-    OutputFileBuffer.Size = STRING_BUFFER_SIZE;
+    gs_string_buffer OutputFileBuffer = {};
+    OutputFileBuffer.Memory = (char*)malloc(sizeof(char) * gs_string_BUFFER_SIZE);
+    OutputFileBuffer.Size = gs_string_BUFFER_SIZE;
     OutputFileBuffer.Next = 0;
     
-    string_writer RefWriter = {};
+    gs_string_writer RefWriter = {};
     RefWriter.Cursor = OutputFileBuffer.Memory;
-    RefWriter.UsedInString = 0;
+    RefWriter.UsedIngs_string = 0;
     RefWriter.Buffer = &OutputFileBuffer;
-    string_writer* Writer = &RefWriter;
+    gs_string_writer* Writer = &RefWriter;
     
-    char StringBuffer[512];
+    char gs_stringBuffer[512];
     s32 Len = 0;
     
-    Len = sprintf_s(StringBuffer, 512, "control_box_count %d\n", ControlBoxesUsed);
-    WriteString(Writer, StringBuffer, Len);
-    Len = sprintf_s(StringBuffer, 512, "led_strip_count %d\n\n", ControlBoxPairsUsed);
-    WriteString(Writer, StringBuffer, Len);
+    Len = sprintf_s(gs_stringBuffer, 512, "control_box_count %d\n", ControlBoxesUsed);
+    Writegs_string(Writer, gs_stringBuffer, Len);
+    Len = sprintf_s(gs_stringBuffer, 512, "led_strip_count %d\n\n", ControlBoxPairsUsed);
+    Writegs_string(Writer, gs_stringBuffer, Len);
     
     for (s32 c = 0; c < ControlBoxesUsed; c++)
     {
         control_box* Box = ControlBoxes + c;
-        Len = sprintf_s(StringBuffer, 512, 
+        Len = sprintf_s(gs_stringBuffer, 512,
                         "control_box { %d, \"%s\", (%f, %f, %f) }\n",
                         Box->ID, Box->Address,
                         Box->X, Box->Y, Box->Z);
-        WriteString(Writer, StringBuffer, Len);
+        Writegs_string(Writer, gs_stringBuffer, Len);
     }
     
-    WriteString(Writer, "\n", 1);
+    Writegs_string(Writer, "\n", 1);
     
 #define UNIVERSES_PER_BOX 25
     s32 UniversesPerBox[64];
@@ -316,7 +316,7 @@ int main(int ArgCount, char* Args[])
         UniversesPerBox[u] = UNIVERSES_PER_BOX * u;
     }
     
-    char LEDStripFormatString[] = "led_strip { %d, %d, %d, INTERPOLATE_POINTS, (%f, %f, %f), (%f, %f, %f), 144 } \n";
+    char LEDStripFormatgs_string[] = "led_strip { %d, %d, %d, INTERPOLATE_POINTS, (%f, %f, %f), (%f, %f, %f), 144 } \n";
     for (s32 s = 0; s < ControlBoxPairsUsed; s++)
     {
         control_box_pairs* Pair = ControlBoxPairs + s;
@@ -332,15 +332,15 @@ int main(int ArgCount, char* Args[])
         r32 EndY = ControlBoxes[Pair->End].Y;
         r32 EndZ = ControlBoxes[Pair->End].Z;
         
-        Len = sprintf_s(StringBuffer, 512,
-                        LEDStripFormatString, 
+        Len = sprintf_s(gs_stringBuffer, 512,
+                        LEDStripFormatgs_string,
                         Pair->Start, Universe, 0,
                         StartX, StartY, StartZ,
                         EndX, EndY, EndZ);
-        WriteString(Writer, StringBuffer, Len);
+        Writegs_string(Writer, gs_stringBuffer, Len);
     }
     
-    WriteString(Writer, "\n", 1);
+    Writegs_string(Writer, "\n", 1);
     
     for (s32 sp = 0; sp < ExtraStripsUsed; sp++)
     {
@@ -349,20 +349,20 @@ int main(int ArgCount, char* Args[])
         s32 Universe = UniversesPerBox[Strip->BoxID];
         UniversesPerBox[Strip->BoxID]++;
         
-        Len = sprintf_s(StringBuffer, 512,
-                        LEDStripFormatString,
+        Len = sprintf_s(gs_stringBuffer, 512,
+                        LEDStripFormatgs_string,
                         Strip->BoxID, Universe, 0,
                         Strip->Start.x, Strip->Start.y, Strip->Start.z,
                         Strip->End.x, Strip->End.y, Strip->End.z);
-        WriteString(Writer, StringBuffer, Len);
+        Writegs_string(Writer, gs_stringBuffer, Len);
     }
     
-    WriteString(Writer, "END_OF_ASSEMBLY_FILE", StringLength("END_OF_ASSEMBLY_FILE"));
+    Writegs_string(Writer, "END_OF_ASSEMBLY_FILE", gs_stringLength("END_OF_ASSEMBLY_FILE"));
     
     *Writer->Cursor = 0;
     
     FILE* OutputFile = fopen("F:/data/radialumia.fold", "w");
-    string_buffer* BufferCursor = &OutputFileBuffer;
+    gs_string_buffer* BufferCursor = &OutputFileBuffer;
     while(BufferCursor)
     {
         fprintf(OutputFile, BufferCursor->Memory);

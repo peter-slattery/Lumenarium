@@ -12,7 +12,7 @@ internal void
 GenerateNodeMetaInfo (gsm_code_generator* NodeTypeGen, string_builder* NodeSpecificationGen, string_builder* CallNodeProcGen, gs_meta_preprocessor Meta)
 {
     // TODO(Peter): Create a FilterTypesByTag function to create a contiguous array
-    // of type_definition** 
+    // of type_definition**
     
     WriteF(NodeSpecificationGen, "static node_specification_ NodeSpecifications[] = {\n");
     
@@ -218,8 +218,8 @@ GeneratePanelMetaInfo(gs_meta_preprocessor Meta, string_builder* PanelEnumGen, s
     }
     
     WriteF(PanelEnumGen, "enum panel_type {\n");
-    WriteF(PanelCodeGen, "global_variable s32 GlobalPanelDefsCount = %d;\n", Panels.Used);
-    WriteF(PanelCodeGen, "global_variable panel_definition GlobalPanelDefs[] = {\n");
+    WriteF(PanelCodeGen, "global s32 GlobalPanelDefsCount = %d;\n", Panels.Used);
+    WriteF(PanelCodeGen, "global panel_definition GlobalPanelDefs[] = {\n");
     for (u32 i = 0; i < Panels.Used; i++)
     {
         panel_elements* Panel = Panels.GetElementAtIndex(i);

@@ -18,7 +18,7 @@ struct node_lister_operation_state
 };
 
 internal void
-RenderNodeLister(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderNodeLister(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     node_lister_operation_state* OpState = (node_lister_operation_state*)Operation.OpStateMemory;
     
@@ -30,7 +30,7 @@ RenderNodeLister(panel Panel, rect PanelBounds, render_command_buffer* RenderBuf
     FilterSearchLister(&OpState->SearchLister);
     
     // Display Search Lister
-    search_lister_result NodeListerResult = EvaluateSearchLister (&State->Interface_, TopLeft, Dimension, 
+    search_lister_result NodeListerResult = EvaluateSearchLister (&State->Interface_, TopLeft, Dimension,
                                                                   MakeStringLiteral("Nodes List"),
                                                                   OpState->SearchLister.SourceList,
                                                                   OpState->SearchLister.FilteredIndexLUT,
@@ -85,12 +85,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     
     AddNodeOperation->Render = RenderNodeLister;
     
-    node_lister_operation_state* OpState = CreateOperationState(AddNodeOperation, 
-                                                                &State->Modes, 
+    node_lister_operation_state* OpState = CreateOperationState(AddNodeOperation,
+                                                                &State->Modes,
                                                                 node_lister_operation_state);
     {
         OpState->SearchLister.SourceListCount = NodeSpecificationsCount;
-        OpState->SearchLister.SourceList = PushArray(&State->Modes.Arena, string, OpState->SearchLister.SourceListCount);
+        OpState->SearchLister.SourceList = PushArray(&State->Modes.Arena, gs_string, OpState->SearchLister.SourceListCount);
         {
             for (s32 i = 0; i < OpState->SearchLister.SourceListCount; i++)
             {
@@ -107,7 +107,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeLister)
     }
     
     OpState->ListPosition = Mouse.Pos;
-    SetTextInputDestinationToString(&State->ActiveTextEntry, &OpState->SearchLister.Filter);
+    SetTextInputDestinationTogs_string(&State->ActiveTextEntry, &OpState->SearchLister.Filter);
 }
 
 ////////////////////////////////////////
@@ -133,12 +133,12 @@ FOLDHAUS_INPUT_COMMAND_PROC(CloseColorPickerCommand)
 }
 
 internal void
-RenderColorPicker(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderColorPicker(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     color_picker_operation_state* OpState = (color_picker_operation_state*)Operation.OpStateMemory;
     
     
-    b32 ShouldClose = EvaluateColorPicker(RenderBuffer, OpState->ValueAddr, 
+    b32 ShouldClose = EvaluateColorPicker(RenderBuffer, OpState->ValueAddr,
                                           v2{200, 200}, State->Interface, Mouse);
     
     if (ShouldClose)
@@ -157,8 +157,8 @@ OpenColorPicker(app_state* State, node_connection* Connection)
     operation_mode* ColorPickerMode = ActivateOperationModeWithCommands(&State->Modes, ColorPickerCommands);
     ColorPickerMode->Render = RenderColorPicker;
     
-    color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode, 
-                                                                 &State->Modes, 
+    color_picker_operation_state* OpState = CreateOperationState(ColorPickerMode,
+                                                                 &State->Modes,
                                                                  color_picker_operation_state);
     OpState->ValueAddr = Connection->V4ValuePtr;
 }
@@ -184,7 +184,7 @@ input_command NodeFieldTextEditCommands [] = {
 internal void
 BeginNodeFieldTextEdit(app_state* State, node_connection* Connection)
 {
-    operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes, 
+    operation_mode* NodeFieldTextEditMode = ActivateOperationModeWithCommands(&State->Modes,
                                                                               NodeFieldTextEditCommands);
     
     SetTextInputDestinationToFloat(&State->ActiveTextEntry, Connection->R32ValuePtr);
@@ -202,10 +202,10 @@ struct drag_node_port_operation_state
 };
 
 internal void
-RenderDraggingNodePort(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderDraggingNodePort(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     drag_node_port_operation_state* OpState = (drag_node_port_operation_state*)Operation.OpStateMemory;
-    UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList, 
+    UpdateDraggingNodePort(Mouse.Pos, OpState->Interaction, State->NodeList,
                            State->NodeRenderSettings, RenderBuffer);
 }
 
@@ -225,12 +225,12 @@ internal void
 BeginDraggingNodePort(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodePortMode = ActivateOperationModeWithCommands(
-                                                                         &State->Modes, 
+                                                                         &State->Modes,
                                                                          DragNodePortInputCommands);
     DragNodePortMode->Render = RenderDraggingNodePort;
     
-    drag_node_port_operation_state* OpState = CreateOperationState(DragNodePortMode, 
-                                                                   &State->Modes, 
+    drag_node_port_operation_state* OpState = CreateOperationState(DragNodePortMode,
+                                                                   &State->Modes,
                                                                    drag_node_port_operation_state);
     OpState->Interaction = Interaction;
 }
@@ -242,16 +242,16 @@ BeginDraggingNodePort(app_state* State, node_interaction Interaction)
 ///////////////////////////////////////
 
 internal void
-RenderDragNodeField(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderDragNodeField(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
-    // TODO(Peter): 
+    // TODO(Peter):
     //UpdateDraggingNodeValue(Mouse.Pos, Mouse.OldPos, OpState->Interaction, State->NodeList, State->NodeRenderSettings, State);
 }
 
 internal void
 BeginInteractWithNodeField(app_state* State, node_interaction Interaction)
 {
-    // TODO(Peter): 
+    // TODO(Peter):
 }
 
 ////////////////////////////////////////
@@ -266,10 +266,10 @@ struct drag_node_operation_state
 };
 
 internal void
-RenderDraggingNode(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderDraggingNode(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     drag_node_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_node_operation_state);
-    UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList, 
+    UpdateDraggingNode(Mouse.Pos, OpState->Interaction, State->NodeList,
                        State->NodeRenderSettings);
 }
 
@@ -286,12 +286,12 @@ internal void
 BeginDraggingNode(app_state* State, node_interaction Interaction)
 {
     operation_mode* DragNodeMode = ActivateOperationModeWithCommands(
-                                                                     &State->Modes, 
+                                                                     &State->Modes,
                                                                      DragNodeInputCommands);
     DragNodeMode->Render = RenderDraggingNode;
     
-    drag_node_operation_state* OpState = CreateOperationState(DragNodeMode, 
-                                                              &State->Modes, 
+    drag_node_operation_state* OpState = CreateOperationState(DragNodeMode,
+                                                              &State->Modes,
                                                               drag_node_operation_state);
     OpState->Interaction = Interaction;
 }
@@ -314,8 +314,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
     node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.DownPos, State->NodeRenderSettings);
     if (Node)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(Node, 
-                                                                 Mouse.Pos, 
+        node_interaction NewInteraction = GetNodeInteractionType(Node,
+                                                                 Mouse.Pos,
                                                                  State->NodeRenderSettings);
         if (IsDraggingNodePort(NewInteraction))
         {
@@ -324,7 +324,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseDragInteraction)
         else if(IsDraggingNodeValue(NewInteraction))
         {
             // TODO(Peter): This probably wants to live in a mouse held action
-            // the first frame we realize we're held over a field, just transition to 
+            // the first frame we realize we're held over a field, just transition to
             // drag node field
             //BeginInteractWithNodeField(State, NewInteraction, State->NodeRenderSettings);
         }
@@ -347,8 +347,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
     node_header* Node = GetNodeUnderPoint(State->NodeList, Mouse.Pos, State->NodeRenderSettings);
     if (Node)
     {
-        node_interaction NewInteraction = GetNodeInteractionType(Node, 
-                                                                 Mouse.Pos, 
+        node_interaction NewInteraction = GetNodeInteractionType(Node,
+                                                                 Mouse.Pos,
                                                                  State->NodeRenderSettings);
         if(IsDraggingNodeValue(NewInteraction))
         {
@@ -368,7 +368,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(NodeViewBeginMouseSelectInteraction)
 }
 
 internal void
-RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
+RenderNodeView(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBufer, app_state* State, context Context, mouse_state Mouse)
 {
     node_view_operation_state* OpState = (node_view_operation_state*)Operation.OpStateMemory;
     
@@ -383,7 +383,7 @@ RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer
     {
         node_header* Node = NodeIter.At;
         
-        rect NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
+        rect2 NodeBounds = CalculateNodeBounds(Node, State->NodeRenderSettings);
         b32 DrawFields = PointIsInRect(Mouse.Pos, NodeBounds);
         
         if (Node == SelectedNode)
@@ -394,8 +394,8 @@ RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer
         PushRenderQuad2D(RenderBuffer, NodeBounds.Min, NodeBounds.Max, v4{.5f, .5f, .5f, 1.f});
         
         // TODO(Peter): This is just for debug purposes. We can remove and go back to just having
-        // Node->Name in DrawString
-        string NodeName = GetNodeName(*Node);
+        // Node->Name in Drawgs_string
+        gs_string NodeName = GetNodeName(*Node);
         PrintF(&NodeHeaderBuffer, "%.*s: %d", NodeName.Length, NodeName.Memory, Node->Handle);
         DrawString(RenderBuffer, NodeHeaderBuffer, State->NodeRenderSettings.Font,
                    v2{NodeBounds.Min.x + 5, NodeBounds.Max.y - (State->NodeRenderSettings.Font->PixelHeight + NODE_HEADER_HEIGHT + 5)},
@@ -408,12 +408,12 @@ RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer
             // Inputs
             if (ConnectionIsInput(Node, Connection))
             {
-                rect PortBounds = CalculateNodeInputPortBounds(Node, Connection, State->NodeRenderSettings);
+                rect2 PortBounds = CalculateNodeInputPortBounds(Node, Connection, State->NodeRenderSettings);
                 DrawPort(RenderBuffer, PortBounds, PortColor);
                 
                 //
                 // TODO(Peter): I don't like excluding OutputNode, feels too much like a special case
-                // but I don't want to get in to the meta programming right now. 
+                // but I don't want to get in to the meta programming right now.
                 // We should just generate a spec and struct member types for NodeType_OutputNode
                 //
                 // :ExcludingOutputNodeSpecialCase
@@ -422,21 +422,21 @@ RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer
                 {
                     node_specification Spec = NodeSpecifications[Node->Type];
                     node_struct_member Member = Spec.MemberList[Connection];
-                    DrawString(RenderBuffer, MakeString(Member.Name), 
+                    DrawString(RenderBuffer, MakeString(Member.Name),
                                State->NodeRenderSettings.Font,
                                v2{PortBounds.Min.x - 8, PortBounds.Min.y}, WhiteV4, Align_Right);
                 }
                 
-                rect ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
+                rect2 ValueBounds = CalculateNodeInputValueBounds(Node, Connection, State->NodeRenderSettings);
                 DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
                 
                 // NOTE(Peter): its way easier to draw the connection on the input port b/c its a 1:1 relationship,
                 // whereas output ports might have many connections, they really only know about the most recent one
-                // Not sure if this is a problem. We mostly do everything backwards here, starting at the 
+                // Not sure if this is a problem. We mostly do everything backwards here, starting at the
                 // most downstream node and working back up to find dependencies.
                 if (ConnectionHasUpstreamConnection(Node, Connection))
                 {
-                    rect ConnectedPortBounds = GetBoundsOfPortConnectedToInput(Node, Connection, State->NodeList, State->NodeRenderSettings);
+                    rect2 ConnectedPortBounds = GetBoundsOfPortConnectedToInput(Node, Connection, State->NodeList, State->NodeRenderSettings);
                     v2 InputCenter = CalculateRectCenter(PortBounds);
                     v2 OutputCenter = CalculateRectCenter(ConnectedPortBounds);
                     PushRenderLine2D(RenderBuffer, OutputCenter, InputCenter, 1, WhiteV4);
@@ -446,25 +446,25 @@ RenderNodeView(panel Panel, rect PanelBounds, render_command_buffer* RenderBufer
             // Outputs
             if (ConnectionIsOutput(Node, Connection))
             {
-                rect PortBounds = CalculateNodeOutputPortBounds(Node, Connection, State->NodeRenderSettings);
+                rect2 PortBounds = CalculateNodeOutputPortBounds(Node, Connection, State->NodeRenderSettings);
                 DrawPort(RenderBuffer, PortBounds, PortColor);
                 
                 if (DrawFields)
                 {
                     node_specification Spec = NodeSpecifications[Node->Type];
                     node_struct_member Member = Spec.MemberList[Connection];
-                    DrawString(RenderBuffer, MakeString(Member.Name), 
+                    DrawString(RenderBuffer, MakeString(Member.Name),
                                State->NodeRenderSettings.Font,
                                v2{PortBounds.Max.x + 8, PortBounds.Min.y}, WhiteV4);
                 }
                 
-                rect ValueBounds = CalculateNodeOutputValueBounds(Node, Connection, State->NodeRenderSettings);
+                rect2 ValueBounds = CalculateNodeOutputValueBounds(Node, Connection, State->NodeRenderSettings);
                 DrawValueDisplay(RenderBuffer, ValueBounds, Node->Connections[Connection], State->NodeRenderSettings.Font);
             }
             
             for (s32 Button = 0; Button < 3; Button++)
             {
-                rect ButtonRect = CalculateNodeDragHandleBounds(NodeBounds, Button, State->NodeRenderSettings);
+                rect2 ButtonRect = CalculateNodeDragHandleBounds(NodeBounds, Button, State->NodeRenderSettings);
                 PushRenderQuad2D(RenderBuffer, ButtonRect.Min, ButtonRect.Max, DragButtonColors[Button]);
             }
         }
@@ -501,8 +501,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(OpenNodeView)
     operation_mode* NodeViewMode = ActivateOperationModeWithCommands(&State->Modes, NodeViewCommands);
     NodeViewMode->Render = RenderNodeView;
     
-    node_view_operation_state* OpState = CreateOperationState(NodeViewMode, 
-                                                              &State->Modes, 
+    node_view_operation_state* OpState = CreateOperationState(NodeViewMode,
+                                                              &State->Modes,
                                                               node_view_operation_state);
     
     OpState->SelectedNodeHandle = 0;

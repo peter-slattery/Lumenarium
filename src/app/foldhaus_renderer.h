@@ -19,65 +19,71 @@ struct camera
 inline m44
 GetCameraModelViewMatrix (camera Camera)
 {
-#if 0
-    // Forward
-    v4 CamForward = V4(Normalize(Camera.Position - Camera.LookAt), 0);
-    // Right
-    v4 CamRight = Normalize(Cross(v4{0, 1, 0, 0}, CamForward));
-    // Up
-    v4 CamUp = Normalize(Cross(CamForward, CamRight));
-    
-    r32 X = Camera.Position.x;
-    r32 Y = Camera.Position.y;
-    r32 Z = Camera.Position.z;
-    
-    m44 RotationMatrix = M44(
-                             CamRight.x, CamUp.x, CamForward.x, 0,
-                             CamRight.y, CamUp.y, CamForward.y, 0,
-                             CamRight.z, CamUp.z, CamForward.z, 0,
-                             0,       0,    0,         1);
-    
-    m44 PositionMatrix = M44(
-                             1, 0, 0, 0,
-                             0, 1, 0, 0,
-                             0, 0, 1, 0,
-                             -X, -Y, -Z, 1
-                             );
-#else
-    m44 RotationMatrix = GetLookAtMatrix(V4(Camera.Position, 1), V4(Camera.LookAt, 1));
-    m44 PositionMatrix = GetPositionM44(V4(Camera.Position, 1));
-#endif
-    
-    m44 ModelViewMatrix = PositionMatrix * RotationMatrix;
-    
+    m44 RotationMatrix = M44LookAt(ToV4Point(Camera.Position), ToV4Point(Camera.LookAt));
+    m44 PositionMatrix = M44Translation(ToV4Point(-Camera.Position));
+    m44 ModelViewMatrix = RotationMatrix * PositionMatrix;
     return ModelViewMatrix;
 }
 
 inline m44
 GetCameraPerspectiveProjectionMatrix(camera Camera)
 {
-    r32 Top = Camera.Near * GSTan((Camera.FieldOfView / 2.0f));
-    r32 Bottom = -Top;
-    r32 Right = Top * Camera.AspectRatio;
-    r32 Left = -Right;
+    m44 Result = M44ProjectionPerspective(Camera.FieldOfView, Camera.AspectRatio, Camera.Near, Camera.Far);
+    return Result;
+}
+
+internal m44
+GetCameraMatrix(camera Camera)
+{
+    m44 ModelView = GetCameraModelViewMatrix(Camera);
+    m44 Projection = GetCameraPerspectiveProjectionMatrix(Camera);
+    m44 Result = Projection * ModelView;
+    return Result;
+}
+
+internal v2
+ProjectWorldPointToScreen(v4 WorldSpacePoint, camera Camera, rect2 WindowBounds)
+{
+    v2 WindowExtents = v2{Rect2Width(WindowBounds), Rect2Height(WindowBounds)};
+    v4 ProjectedPosition = GetCameraMatrix(Camera) * WorldSpacePoint;
+    ProjectedPosition.xyz /= ProjectedPosition.w;
+    v2 ScreenPosition = V2MultiplyPairwise(ProjectedPosition.xy, (WindowExtents / 2)) + (WindowExtents / 2);
     
-    r32 A = ((Right + Left) / (Right - Left));
-    r32 B = ((Top + Bottom) / (Top - Bottom));
-    r32 C = -((Camera.Far + Camera.Near) / (Camera.Far - Camera.Near));
-    r32 D = -((2 * Camera.Far * Camera.Near) / (Camera.Far - Camera.Near));
+    return ScreenPosition;
+}
+
+internal v4_ray
+ProjectScreenPointToWorldRay(v2 ScreenPoint, camera Camera, rect2 WindowBounds)
+{
+    v4_ray Result = {0};
     
-    r32 E = ((2 * Camera.Near) / (Right - Left));
-    r32 F = ((2 * Camera.Near) / (Top - Bottom));
+    r32 TanFOVOverTwo = TanR32(DegToRadR32(Camera.FieldOfView / 2.0f));
+    r32 Aspect = RectAspectRatio(WindowBounds);
     
-    m44 PerspectiveProjectionMatrix  =
-    {
-        E,  0,  A,  0,
-        0,  F,  B,  0,
-        0,  0,  C,  D,
-        0,  0, -1,  0
-    };
+    r32 NormalizedX = ScreenPoint.x / Rect2Width(WindowBounds);
+    r32 NormalizedY = ScreenPoint.y / Rect2Height(WindowBounds);
     
-    return PerspectiveProjectionMatrix;
+    r32 CenteredX = (2.0f * NormalizedX) - 1.0f;
+    r32 CenteredY = (2.0f * NormalizedY) - 1.0f;
+    
+    r32 ScaledX = CenteredX * Aspect;
+    r32 ScaledY = CenteredY;
+    
+    r32 CameraX = ScaledX * TanFOVOverTwo;
+    r32 CameraY = ScaledY * TanFOVOverTwo;
+    
+    r32 Near = Camera.Near;
+    r32 Far = Camera.Far;
+    v3 MousePointOnNearPlane = v3{CameraX, CameraY, -1} * Near;
+    v3 MousePointOnFarPlane = v3{CameraX, CameraY, -1} * Far;
+    
+    v4 MouseRayDirection = ToV4Vec(V3Normalize(MousePointOnFarPlane - MousePointOnNearPlane));
+    m44 CameraTransform = M44Transpose(M44LookAt(ToV4Point(Camera.Position), ToV4Point(Camera.LookAt)));
+    
+    Result.Origin = ToV4Point(Camera.Position);
+    Result.Direction = CameraTransform * MouseRayDirection;
+    
+    return Result;
 }
 
 // Render Commands
@@ -200,7 +206,7 @@ struct render_command_set_render_mode
 
 typedef u8* renderer_realloc(u8* Base, s32 CurrentSize, s32 NewSize);
 
-#define COMMAND_BUFFER_MIN_GROW_SIZE Megabytes(2)
+#define COMMAND_BUFFER_MIN_GROW_SIZE MB(2)
 
 struct render_command_buffer
 {
@@ -257,7 +263,7 @@ ResizeBufferIfNecessary(render_command_buffer* Buffer, s32 DataSize)
         // NewSize =  Buffer->CommandMemorySize + (2 * DataSize);
         s32 SpaceAvailable = Buffer->CommandMemorySize - Buffer->CommandMemoryUsed;
         s32 SpaceNeeded = DataSize - SpaceAvailable; // This is known to be positive at this point
-        s32 AdditionSize = GSMax(SpaceNeeded, COMMAND_BUFFER_MIN_GROW_SIZE);
+        s32 AdditionSize = Max(SpaceNeeded, COMMAND_BUFFER_MIN_GROW_SIZE);
         s32 NewSize = Buffer->CommandMemorySize + AdditionSize;
         Buffer->CommandMemory = Buffer->Realloc(Buffer->CommandMemory,
                                                 Buffer->CommandMemorySize,
@@ -285,7 +291,7 @@ PushQuad3DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* C
 internal s32
 PushQuad2DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* Constructor, s32 QuadCount, s32 DataSize, u8* MemStart)
 {
-    GSZeroMemory(MemStart, DataSize);
+    ZeroMemoryBlock(MemStart, DataSize);
     
     Constructor->Max = QuadCount;
     Constructor->Count = 0;
@@ -317,6 +323,15 @@ struct quad_batch_constructor_reserved_range
 };
 
 internal quad_batch_constructor_reserved_range
+ReserveRangeInQuadConstructor(render_quad_batch_constructor* Constructor, s32 TrisNeeded)
+{
+    quad_batch_constructor_reserved_range Result = {};
+    Result.OnePastLast = Constructor->Count + TrisNeeded;
+    Result.Start = Result.OnePastLast - TrisNeeded;
+    return Result;
+}
+
+internal quad_batch_constructor_reserved_range
 ThreadSafeReserveRangeInQuadConstructor(render_quad_batch_constructor* Constructor, s32 TrisNeeded)
 {
     quad_batch_constructor_reserved_range Result = {};
@@ -331,6 +346,8 @@ SetTri3DInBatch (render_quad_batch_constructor* Constructor, s32 TriIndex,
                  v2 UV0, v2 UV1, v2 UV2,
                  v4 C0, v4 C1, v4 C2)
 {
+    //Assert(P0.w != 0 && P1.w != 0 && P2.w != 0); // Passing vectors, rather than positions. Will draw wrong
+    
     // Vertecies
     Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(TriIndex, 0)] = P0;
     Constructor->Vertecies[BATCH_3D_VERTEX_INDEX(TriIndex, 1)] = P1;
@@ -355,6 +372,7 @@ PushTri3DOnBatch (render_quad_batch_constructor* Constructor,
                   v4 C0, v4 C1, v4 C2)
 {
     DEBUG_TRACK_FUNCTION;
+    // TODO(Peter): I think we avoid doing cross thread filling of a batch so do we need this?
     s32 Tri = ThreadSafeIncrementQuadConstructorCount(Constructor);
     SetTri3DInBatch(Constructor, Tri, P0, P1, P2, UV0, UV1, UV2, C0, C1, C2);
 };
@@ -362,7 +380,7 @@ PushTri3DOnBatch (render_quad_batch_constructor* Constructor,
 internal void
 PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 P2, v4 P3, v2 UVMin, v2 UVMax, v4 Color)
 {
-    Assert(Constructor->Count + 2 < Constructor->Max);
+    Assert(Constructor->Count + 2 <= Constructor->Max);
     PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, v2{UVMax.x, UVMin.y}, UVMax, Color, Color, Color);
     PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, v2{UVMin.x, UVMax.y}, Color, Color, Color);
 }
@@ -373,7 +391,7 @@ PushQuad3DOnBatch (render_quad_batch_constructor* Constructor,
                    v2 UV0, v2 UV1, v2 UV2, v2 UV3,
                    v4 C0, v4 C1, v4 C2, v4 C3)
 {
-    Assert(Constructor->Count < Constructor->Max);
+    Assert(Constructor->Count <= Constructor->Max);
     PushTri3DOnBatch(Constructor, P0, P1, P2, UV0, UV1, UV2, C0, C1, C2);
     PushTri3DOnBatch(Constructor, P0, P2, P3, UV0, UV2, UV3, C0, C2, C3);
 }
@@ -472,7 +490,7 @@ internal void
 PushLine2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, r32 Thickness, v4 Color)
 {
     r32 HalfThickness = Thickness / 2.0f;
-    v2 Perpendicular = Normalize(PerpendicularCCW(P1 - P0)) * HalfThickness;
+    v2 Perpendicular = V2Normalize(V2PerpendicularCCW(P1 - P0)) * HalfThickness;
     
     PushQuad2DOnBatch(Constructor, P0 - Perpendicular, P1 - Perpendicular, P1 + Perpendicular, P0 + Perpendicular,
                       v2{0, 0}, v2{1, 1}, Color);
@@ -501,8 +519,8 @@ PushRenderPerspective (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY, 
 {
     render_command_set_render_mode* Command = PushRenderCommand(Buffer, render_command_set_render_mode);
     
-    Command->ModelView = GetCameraModelViewMatrix(Camera);
-    Command->Projection = GetCameraPerspectiveProjectionMatrix(Camera);
+    Command->ModelView = M44Transpose(GetCameraModelViewMatrix(Camera));
+    Command->Projection = M44Transpose(GetCameraPerspectiveProjectionMatrix(Camera));
     
     Command->ViewOffsetX = (r32)OffsetX;
     Command->ViewOffsetY = (r32)OffsetY;
@@ -515,24 +533,17 @@ PushRenderPerspective (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY, 
 }
 
 internal void
+PushRenderPerspective(render_command_buffer* Buffer, rect2 Viewport, camera Camera)
+{
+    PushRenderPerspective(Buffer, Viewport.Min.x, Viewport.Min.y, Rect2Width(Viewport), Rect2Height(Viewport), Camera);
+}
+
+internal void
 PushRenderOrthographic (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY, s32 ViewWidth, s32 ViewHeight)
 {
     render_command_set_render_mode* Command = PushRenderCommand(Buffer, render_command_set_render_mode);
-    Command->ModelView = m44{
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
-    
-    r32 a = 2.0f / ViewWidth;
-    r32 b = 2.0f / ViewHeight;
-    Command->Projection = m44{
-        a,   0,  0, 0,
-        0,   b,  0, 0,
-        0,   0,  1, 0,
-        -1, -1,  0, 1
-    };
+    Command->ModelView = M44Identity();
+    Command->Projection = M44ProjectionOrtho((r32)ViewWidth, (r32)ViewHeight, 0, 100, ViewWidth, 0, ViewHeight, 0);
     
     Command->ViewOffsetX = (r32)OffsetX;
     Command->ViewOffsetY = (r32)OffsetY;
@@ -540,6 +551,12 @@ PushRenderOrthographic (render_command_buffer* Buffer, s32 OffsetX, s32 OffsetY,
     Command->ViewHeight = ViewHeight;
     
     Command->UseDepthBuffer = false;;
+}
+
+internal void
+PushRenderOrthographic(render_command_buffer* Buffer, rect2 Viewport)
+{
+    PushRenderOrthographic(Buffer, Viewport.Min.x, Viewport.Min.y, Rect2Width(Viewport), Rect2Height(Viewport));
 }
 
 internal void
@@ -569,6 +586,13 @@ PushRenderQuad2D (render_command_buffer* Buffer, v2 Min, v2 Max, v4 Color)
 {
     render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);
     PushQuad2DOnBatch(&Batch, Min, Max, Color);
+}
+
+internal void
+PushRenderQuad2D(render_command_buffer* Buffer, v2 P0, v2 P1, v2 P2, v2 P3, v4 Color)
+{
+    render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);
+    PushQuad2DOnBatch(&Batch, P0, P1, P2, P3, v2{0,0}, v2{1,1}, Color);
 }
 
 internal void

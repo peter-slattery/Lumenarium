@@ -20,12 +20,7 @@
 #include "foldhaus_assembly.h"
 #include "assembly_parser.cpp"
 
-
-#include "foldhaus_node.h"
-
 typedef struct app_state app_state;
-
-#include "test_patterns.h"
 
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
@@ -37,10 +32,6 @@ typedef struct app_state app_state;
 
 #include "animation/foldhaus_animation.h"
 
-#include "foldhaus_text_entry.h"
-
-#include "foldhaus_search_lister.h"
-
 enum network_protocol
 {
     NetworkProtocol_SACN,
@@ -51,10 +42,11 @@ enum network_protocol
 
 struct app_state
 {
-    rect WindowBounds;
+    r32 CameraTheta; // TODO(Peter): @TEMPORARY
+    rect2 WindowBounds;
     
-    memory_arena Permanent;
-    memory_arena Transient;
+    gs_memory_arena Permanent;
+    gs_memory_arena Transient;
     
     s32 NetworkProtocolHeaderSize;
     network_protocol NetworkProtocol;
@@ -69,7 +61,6 @@ struct app_state
     
     operation_mode_system Modes;
     input_command_queue CommandQueue;
-    text_entry ActiveTextEntry;
     
     ui_interface Interface;
     
@@ -80,7 +71,7 @@ struct app_state
     panel_system PanelSystem;
     panel* HotPanel;
     
-    pattern_node_workspace NodeWorkspace;
+    //pattern_node_workspace NodeWorkspace;
     
     event_log* GlobalLog;
 };
@@ -94,8 +85,8 @@ TestPatternOne(led_buffer* Assembly, r32 Time)
     for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
     {
         v4 LedPosition = Assembly->Positions[LedIndex];
-        float PercentX = GSRemap(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
-        float PercentY = GSRemap(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
+        float PercentX = RemapClampedR32(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
+        float PercentY = RemapClampedR32(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
         Assembly->Colors[LedIndex].R = (u8)(PercentX * 255);
         Assembly->Colors[LedIndex].G = (u8)(PercentY * 255);
     }
@@ -104,16 +95,16 @@ TestPatternOne(led_buffer* Assembly, r32 Time)
 internal void
 TestPatternTwo(led_buffer* Assembly, r32 Time)
 {
-    r32 PeriodicTime = (Time / PI) * 2;
+    r32 PeriodicTime = (Time / PiR32) * 2;
     
-    r32 ZeroOneSin = (GSSin(PeriodicTime) * .5f) + .5f;
-    r32 ZeroOneCos = (GSCos(PeriodicTime) * .5f) + .5f;
+    r32 ZeroOneSin = (SinR32(PeriodicTime) * .5f) + .5f;
+    r32 ZeroOneCos = (CosR32(PeriodicTime) * .5f) + .5f;
     pixel Color = { (u8)(ZeroOneSin * 255), 0, (u8)(ZeroOneCos * 255) };
     
     v4 Center = v4{0, 0, 0, 1};
     r32 ThetaZ = Time / 2;
-    v4 Normal = v4{GSCos(ThetaZ), 0, GSSin(ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
-    v4 Right = Cross(Normal, v4{0, 1, 0, 0});
+    v4 Normal = v4{CosR32(ThetaZ), 0, SinR32(ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
+    v4 Right = V4Cross(Normal, v4{0, 1, 0, 0});
     
     v4 FrontCenter = Center + (Normal * 25);
     v4 BackCenter = Center - (Normal * 25);
@@ -128,13 +119,13 @@ TestPatternTwo(led_buffer* Assembly, r32 Time)
         v4 ToFront = Position + FrontCenter;
         v4 ToBack = Position + BackCenter;
         
-        r32 ToFrontDotNormal = Dot(ToFront, Normal);
-        r32 ToBackDotNormal = Dot(ToBack, Normal);
+        r32 ToFrontDotNormal = V4Dot(ToFront, Normal);
+        r32 ToBackDotNormal = V4Dot(ToBack, Normal);
         
-        ToFrontDotNormal = GSClamp01(ToFrontDotNormal * 1000);
-        ToBackDotNormal = GSClamp01(ToBackDotNormal * 1000);
+        ToFrontDotNormal = Clamp01(ToFrontDotNormal * 1000);
+        ToBackDotNormal = Clamp01(ToBackDotNormal * 1000);
         
-        r32 SqDistToCenter = MagSqr(Position);
+        r32 SqDistToCenter = V4MagSquared(Position);
         if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
@@ -157,10 +148,10 @@ internal void
 TestPatternThree(led_buffer* Assembly, r32 Time)
 {
     v4 GreenCenter = v4{0, 0, 150, 1};
-    r32 GreenRadius = GSAbs(GSSin(Time)) * 200;
+    r32 GreenRadius = Abs(SinR32(Time)) * 200;
     
     v4 TealCenter = v4{0, 0, 150, 1};
-    r32 TealRadius = GSAbs(GSSin(Time + 1.5)) * 200;
+    r32 TealRadius = Abs(SinR32(Time + 1.5)) * 200;
     
     r32 FadeDist = 35;
     
@@ -172,12 +163,12 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
         u8 Green = 0;
         u8 Blue = 0;
         
-        r32 GreenDist = GSAbs(Mag(LedPosition - GreenCenter) - GreenRadius);
-        r32 GreenBrightness = GSClamp(0.f, FadeDist - GSAbs(GreenDist), FadeDist);
+        r32 GreenDist = Abs(V4Mag(LedPosition - GreenCenter) - GreenRadius);
+        r32 GreenBrightness = Clamp(0.f, FadeDist - Abs(GreenDist), FadeDist);
         Green = (u8)(GreenBrightness * 255);
         
-        r32 TealDist = GSAbs(Mag(LedPosition - TealCenter) - TealRadius);
-        r32 TealBrightness = GSClamp(0.f, FadeDist - GSAbs(TealDist), FadeDist);
+        r32 TealDist = Abs(V4Mag(LedPosition - TealCenter) - TealRadius);
+        r32 TealBrightness = Clamp(0.f, FadeDist - Abs(TealDist), FadeDist);
         Red = (u8)(TealBrightness * 255);
         Blue = (u8)(TealBrightness * 255);
         
@@ -191,17 +182,6 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
 
 #include "foldhaus_assembly.cpp"
 
-#include "foldhaus_text_entry.cpp"
-#include "foldhaus_search_lister.cpp"
-
-#include "foldhaus_default_nodes.h"
-
-#include "./generated/gs_meta_generated_typeinfo.h"
-#include "generated/foldhaus_nodes_generated.h"
-
-
-#include "foldhaus_node.cpp"
-
 FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
 {
     DeactivateCurrentOperationMode(&State->Modes);
@@ -213,7 +193,7 @@ typedef PANEL_INIT_PROC(panel_init_proc);
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
-#define PANEL_RENDER_PROC(name) void name(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+#define PANEL_RENDER_PROC(name) void name(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 
 // NOTE(Peter): This is used by the meta system to generate panel type info
@@ -233,7 +213,6 @@ struct panel_definition
 #include "panels/foldhaus_panel_dmx_view.h"
 #include "panels/foldhaus_panel_animation_timeline.h"
 #include "panels/foldhaus_panel_hierarchy.h"
-#include "panels/foldhaus_panel_node_graph.h"
 #include "panels/foldhaus_panel_file_view.h"
 
 #include "generated/foldhaus_panels_generated.h"

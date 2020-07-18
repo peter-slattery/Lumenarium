@@ -8,7 +8,7 @@
 #define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse)
 typedef FOLDHAUS_INPUT_COMMAND_PROC(input_command_proc);
 
-// NOTE(Peter): Helper function so I don't have to remember the parameters to this define 
+// NOTE(Peter): Helper function so I don't have to remember the parameters to this define
 #define ExecFoldhausCommand(cmd) cmd(State, Event, Mouse)
 
 enum input_command_flags
@@ -55,7 +55,7 @@ struct input_command_queue
 internal void
 InitializeInputCommandRegistry (input_command_registry* CommandRegistry,
                                 s32 Size,
-                                memory_arena* Storage)
+                                gs_memory_arena* Storage)
 {
     CommandRegistry->Commands = PushArray(Storage, input_command, Size);
     CommandRegistry->Size = Size;
@@ -115,8 +115,8 @@ internal void
 RemoveCommandFromQueue(input_command_queue* Queue, s32 Index)
 {
     s32 CommandIndex = Index;
-    if (CommandIndex < Queue->Used) 
-    { 
+    if (CommandIndex < Queue->Used)
+    {
         Queue->Used -= 1;
         
         for (; CommandIndex < Queue->Used; CommandIndex++)
@@ -132,9 +132,9 @@ RemoveCommandFromQueue(input_command_queue* Queue, input_command Command, input_
     s32 CommandIndex = GetCommandIndexInQueue(Queue, Command, Event);
     
     // NOTE(Peter): If we made it through the queue without finding an event, there wasn't one
-    // to remove. This happens when we've changed command registries as a result of an input command, 
+    // to remove. This happens when we've changed command registries as a result of an input command,
     // and the command exists in the new registry.
-    // For example: 
+    // For example:
     //   clicking a mouse button triggers a command to switch registries
     //   the new registry tracks mouse drag (persist until release)
     //   when the mouse is released, the event fires, but there is no mouse down event to remove

@@ -7,7 +7,7 @@
 
 struct file_view_state
 {
-    string WorkingDirectory;
+    gs_string WorkingDirectory;
 };
 
 input_command* FileView_Commands = 0;
@@ -36,18 +36,18 @@ FileView_Cleanup(panel* Panel, app_state* State)
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_file_view);
 internal void
-FileView_Render(panel Panel, rect PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    rect HeaderBounds = {0};
+    rect2 HeaderBounds = {0};
     HeaderBounds.Min = {PanelBounds.Min.x, PanelBounds.Max.y - 32};
     HeaderBounds.Max = PanelBounds.Max;
     
-    rect ListBounds = {0};
+    rect2 ListBounds = {0};
     ListBounds.Min = PanelBounds.Min;
-    ListBounds.Max = gs_BottomRight(HeaderBounds);
+    ListBounds.Max = RectBottomRight(HeaderBounds);
     
-    PushRenderQuad2D(RenderBuffer, gs_RectExpand(HeaderBounds), PinkV4);
-    PushRenderQuad2D(RenderBuffer, gs_RectExpand(ListBounds), RedV4);
+    PushRenderQuad2D(RenderBuffer, HeaderBounds.Min, HeaderBounds.Max, PinkV4);
+    PushRenderQuad2D(RenderBuffer, ListBounds.Min, ListBounds.Max, RedV4);
 }
 
 

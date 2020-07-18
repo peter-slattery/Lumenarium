@@ -28,7 +28,7 @@ enum assembly_field
     AssemblyField_Count,
 };
 
-global_variable char* AssemblyFieldIdentifiers[] = {
+global char* AssemblyFieldIdentifiers[] = {
     "assembly_name", // AssemblyField_AssemblyName
     "assembly_scale", // AssemblyField_AssemblyScale
     "led_strip_count", // AssemblyField_LedStripCount
@@ -52,20 +52,32 @@ global_variable char* AssemblyFieldIdentifiers[] = {
     "value", // AssemblyField_Value
 };
 
+struct assembly_error_list
+{
+    gs_string String;
+    assembly_error_list* Next;
+};
+
 struct assembly_tokenizer
 {
-    string Text;
+    gs_string Text;
     char* At;
     
+    gs_const_string FileName;
     u32 LineNumber;
     
     bool ParsingIsValid;
+    
+    gs_memory_arena* ErrorArena;
+    assembly_error_list* ErrorsRoot;
+    assembly_error_list* ErrorsTail;
 };
 
 internal bool
 AtValidPosition(assembly_tokenizer* T)
 {
-    bool Result = ((T->At - T->Text.Memory) < T->Text.Length);
+    u64 Offset = T->At - T->Text.Str;
+    bool Result = (Offset < T->Text.Length);
     return Result;
 }
 
@@ -86,6 +98,16 @@ EatWhitespace(assembly_tokenizer* T)
     {
         AdvanceChar(T);
     }
+}
+
+internal void
+EatToNewLine(assembly_tokenizer* T)
+{
+    while(AtValidPosition(T) && !IsNewline(T->At[0]))
+    {
+        AdvanceChar(T);
+    }
+    EatWhitespace(T);
 }
 
 internal bool
@@ -118,6 +140,22 @@ AdvanceIfTokenEquals(assembly_tokenizer* T, char* Value)
     return Result;
 }
 
+internal void
+TokenizerPushError(assembly_tokenizer* T, char* ErrorString)
+{
+    // NOTE(Peter): We can make this more expressive if we need to
+    assembly_error_list* Error = PushStruct(T->ErrorArena, assembly_error_list);
+    Error->String = PushString(T->ErrorArena, 512);
+    PrintF(&Error->String, "%S(%d): %s", T->FileName, T->LineNumber, ErrorString);
+    SLLPushOrInit(T->ErrorsRoot, T->ErrorsTail, Error);
+    T->ParsingIsValid = false;
+    
+    // NOTE(Peter): I'm not sure this is the best idea, but at least this way,
+    // if there's multiple errors, you'll get a number of them, rather than
+    // a bunch of erroneous errors happening on the same line
+    EatToNewLine(T);
+}
+
 internal bool
 ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
 {
@@ -130,12 +168,12 @@ ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
         }
         else
         {
-            T->ParsingIsValid = false;
+            TokenizerPushError(T, "Field identifier is missing a colon");
         }
     }
     else
     {
-        T->ParsingIsValid = false;
+        TokenizerPushError(T, "Field Identifier Invalid");
     }
     return Result;
 }
@@ -150,15 +188,15 @@ ReadFieldEnd(assembly_tokenizer* T)
     }
     else
     {
-        T->ParsingIsValid = false;
+        TokenizerPushError(T, "Missing a semicolon");
     }
     return Result;
 }
 
-internal string
+internal gs_string
 ReadString(assembly_tokenizer* T)
 {
-    string Result = {};
+    gs_string Result = {};
     if (AdvanceIfTokenEquals(T, "\""))
     {
         char* StringStart = T->At;
@@ -166,32 +204,36 @@ ReadString(assembly_tokenizer* T)
         {
             T->At++;
         }
-        Result.Memory = StringStart;
-        Result.Max = T->At - StringStart;
-        Result.Length = Result.Max;
+        Result.Str = StringStart;
+        Result.Size = T->At - StringStart;
+        Result.Length = Result.Size;
         if (AdvanceIfTokenEquals(T, "\""))
         {
             // Success
         }
         else
         {
-            // TODO(Peter): Error
+            TokenizerPushError(T, "String not closed with a \"");
         }
+    }
+    else
+    {
+        TokenizerPushError(T, "Expecting a string, but none was found");
     }
     return Result;
 }
 
-internal string
+internal gs_string
 GetNumberString(assembly_tokenizer* T)
 {
-    string Result = {};
-    Result.Memory = T->At;
+    gs_string Result = {};
+    Result.Str = T->At;
     while(AtValidPosition(T) && IsNumericExtended(T->At[0]))
     {
         AdvanceChar(T);
     }
-    Result.Length = T->At - Result.Memory;
-    Result.Max = Result.Length;
+    Result.Length = T->At - Result.Str;
+    Result.Size = Result.Length;
     return Result;
 }
 
@@ -199,9 +241,8 @@ internal r32
 ReadFloat(assembly_tokenizer* T)
 {
     r32 Result = 0;
-    string NumberString = GetNumberString(T);
-    parse_result ParsedFloat = ParseFloat(StringExpand(NumberString));
-    Result = ParsedFloat.FloatValue;
+    gs_string NumberString = GetNumberString(T);
+    Result = (r32)ParseFloat(NumberString.ConstString);
     return Result;
 }
 
@@ -209,28 +250,23 @@ internal s32
 ReadInt(assembly_tokenizer* T)
 {
     s32 Result = 0;
-    string NumberString = GetNumberString(T);
-    parse_result ParsedInt = ParseSignedInt(StringExpand(NumberString));
-    Result = ParsedInt.SignedIntValue;
+    gs_string NumberString = GetNumberString(T);
+    Result = (r32)ParseInt(NumberString.ConstString);
     return Result;
 }
 
-internal string
-ReadStringField(assembly_field Field, assembly_tokenizer* T, memory_arena* Arena)
+internal gs_string
+ReadStringField(assembly_field Field, assembly_tokenizer* T, gs_memory_arena* Arena)
 {
-    string Result = {};
+    gs_string Result = {};
     if (ReadFieldIdentifier(Field, T))
     {
-        string ExistingString = ReadString(T);
+        gs_string ExistingString = ReadString(T);
         if (ReadFieldEnd(T))
         {
             // Success
             Result = PushString(Arena, ExistingString.Length);
-            CopyStringTo(ExistingString, &Result);
-        }
-        else
-        {
-            T->ParsingIsValid = false;
+            PrintF(&Result, "%S", ExistingString);
         }
     }
     return Result;
@@ -290,22 +326,22 @@ ReadV3Field(assembly_field Field, assembly_tokenizer* T)
                     }
                     else
                     {
-                        T->ParsingIsValid = false;
+                        TokenizerPushError(T, "Vector 3 doesn't end with a ')'");
                     }
                 }
                 else
                 {
-                    T->ParsingIsValid = false;
+                    TokenizerPushError(T, "Vector 3: unable to read a field");
                 }
             }
             else
             {
-                T->ParsingIsValid = false;
+                TokenizerPushError(T, "Vector 3: unable to read a field");
             }
         }
         else
         {
-            T->ParsingIsValid = false;
+            TokenizerPushError(T, "Vector 3: unable to read a field");
         }
     }
     return Result;
@@ -333,14 +369,18 @@ ReadStructClosing(assembly_tokenizer* T)
 }
 
 internal bool
-ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
+ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileText, gs_memory_arena* Transient)
 {
     Assembly->LedCountTotal = 0;
     
+    r32 Value = ParseFloat(ConstString("-2.355"));
+    
     assembly_tokenizer Tokenizer = {};
     Tokenizer.Text = FileText;
-    Tokenizer.At = Tokenizer.Text.Memory;
+    Tokenizer.At = Tokenizer.Text.Str;
     Tokenizer.ParsingIsValid = true;
+    Tokenizer.ErrorArena = Transient;
+    Tokenizer.FileName = FileName;
     
     Assembly->Name = ReadStringField(AssemblyField_AssemblyName, &Tokenizer, &Assembly->Arena);
     Assembly->Scale = ReadFloatField(AssemblyField_AssemblyScale, &Tokenizer);
@@ -358,7 +398,7 @@ ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
             StripAt->StartChannel = ReadIntField(AssemblyField_StartChannel, &Tokenizer);
             
             // TODO(Peter): Need to store this
-            string PointPlacementType = ReadStringField(AssemblyField_PointPlacementType, &Tokenizer, &Assembly->Arena);
+            gs_string PointPlacementType = ReadStringField(AssemblyField_PointPlacementType, &Tokenizer, &Assembly->Arena);
             // TODO(Peter): Switch on value of PointPlacementType
             if (ReadStructOpening(AssemblyField_InterpolatePoints, &Tokenizer))
             {
@@ -367,6 +407,10 @@ ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
                 if (!ReadStructClosing(&Tokenizer))
                 {
                     Tokenizer.ParsingIsValid = false;
+                    // TODO(Peter): @ErrorHandling
+                    // Have this function prepend the filename and line number.
+                    // Create an error display popup window, or an error log window that takes over a panel automatically
+                    // TokenizerPushError(&Tokenizer, "Unable to read
                 }
             }
             
@@ -380,31 +424,31 @@ ParseAssemblyFile(assembly* Assembly, string FileText, memory_arena* Transient)
                 v2_tag* TagAt = StripAt->Tags + Tag;
                 if (ReadStructOpening(AssemblyField_Tag, &Tokenizer))
                 {
-                    // TODO(Peter): Need to store the string somewhere we can look it up for display in the interface
+                    // TODO(Peter): Need to store the gs_string somewhere we can look it up for display in the interface
                     // right now they are stored in temp memory and won't persist
-                    string TagName = ReadStringField(AssemblyField_Name, &Tokenizer, Transient);
-                    string TagValue = ReadStringField(AssemblyField_Value, &Tokenizer, Transient);
-                    TagAt->NameHash = HashString(TagName);
-                    TagAt->ValueHash = HashString(TagValue);
+                    gs_string TagName = ReadStringField(AssemblyField_Name, &Tokenizer, Transient);
+                    gs_string TagValue = ReadStringField(AssemblyField_Value, &Tokenizer, Transient);
+                    TagAt->NameHash = HashDJB2ToU32(StringExpand(TagName));
+                    TagAt->ValueHash = HashDJB2ToU32(StringExpand(TagValue));
                     if (!ReadStructClosing(&Tokenizer))
                     {
-                        Tokenizer.ParsingIsValid = false;
+                        TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
                     }
                 }
                 else
                 {
-                    Tokenizer.ParsingIsValid = false;
+                    TokenizerPushError(&Tokenizer, "Expected a struct opening, but none was found");
                 }
             }
             
             if (!ReadStructClosing(&Tokenizer))
             {
-                Tokenizer.ParsingIsValid = false;
+                TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
             }
         }
         else
         {
-            Tokenizer.ParsingIsValid = false;
+            TokenizerPushError(&Tokenizer, "Expected a struct opening, but none was found");
         }
     }
     

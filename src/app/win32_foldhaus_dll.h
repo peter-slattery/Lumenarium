@@ -22,15 +22,15 @@ struct win32_dll_refresh
 };
 
 internal int
-Win32DLLStringLength(char* String)
+Win32DLLgs_stringLength(char* gs_string)
 {
-    char* At = String;
+    char* At = gs_string;
     while (*At) { At++; };
-    return At - String;
+    return At - gs_string;
 }
 
 internal int
-Win32DLLConcatStrings(int ALength, char* A, int BLength, char* B, int DestLength, char* Dest)
+Win32DLLConcatgs_strings(int ALength, char* A, int BLength, char* B, int DestLength, char* Dest)
 {
     char* Dst = Dest;
     char* AAt = A;
@@ -112,14 +112,14 @@ InitializeDLLHotReloading(char* SourceDLLName,
     ExePath.Path = (char*)VirtualAlloc(NULL, ExePath.PathLength, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     GetApplicationPath(&ExePath);
     
-    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                          Win32DLLStringLength(SourceDLLName), SourceDLLName,
+    Win32DLLConcatgs_strings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLgs_stringLength(SourceDLLName), SourceDLLName,
                           MAX_PATH, Result.SourceDLLPath);
-    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                          Win32DLLStringLength(WorkingDLLFileName), WorkingDLLFileName,
+    Win32DLLConcatgs_strings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLgs_stringLength(WorkingDLLFileName), WorkingDLLFileName,
                           MAX_PATH, Result.WorkingDLLPath);
-    Win32DLLConcatStrings(ExePath.IndexOfLastSlash, ExePath.Path,
-                          Win32DLLStringLength(LockFileName), LockFileName,
+    Win32DLLConcatgs_strings(ExePath.IndexOfLastSlash, ExePath.Path,
+                          Win32DLLgs_stringLength(LockFileName), LockFileName,
                           MAX_PATH, Result.LockFilePath);
     
     Win32Free((u8*)ExePath.Path, ExePath.PathLength);

@@ -1,5 +1,6 @@
 #ifndef GS_LANGUAGE_H
 
+#if 0
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__)
 #include <intrin.h>
 
@@ -7,7 +8,7 @@
 #include <math.h>
 
 #elif defined(__APPLE__) && defined(__MAC__)
-// TODO(Peter): 
+// TODO(Peter):
 
 #else // Std lib
 #include <stdlib.h>
@@ -41,6 +42,8 @@ typedef long long int s64;
 
 typedef float  r32;
 typedef double r64;
+
+#endif
 
 #ifndef _STDINT
 
@@ -268,15 +271,15 @@ GSLerpDef(r32)
 GSLerpDef(r64)
 #undef GSLerpDef
 
-static r32 GSSqrt(r32 V) 
-{ 
+static r32 GSSqrt(r32 V)
+{
     r32 Result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(V)));
-    return Result; 
+    return Result;
 }
 #if 0
 // TODO(Peter): Need a way to split the input into two f32's to supply to _mm_sqrt_sd
-static r64 GSSqrt(r64 V) 
-{ 
+static r64 GSSqrt(r64 V)
+{
     r64 Result = _mm_cvtsd_f64(_mm_sqrt_sd(_mm_set_sd(V)));
     return Result;
 }
@@ -366,9 +369,9 @@ RoundToNearestPowerOfTwo (u8 V)
 {
     u8 Result = 0;
     
-    if (IsPowerOfTwo(V)) 
-    { 
-        Result = V; 
+    if (IsPowerOfTwo(V))
+    {
+        Result = V;
     }
     else
     {
@@ -387,9 +390,9 @@ RoundToNearestPowerOfTwo (u16 V)
 {
     u16 Result = 0;
     
-    if (IsPowerOfTwo(V)) 
-    { 
-        Result = V; 
+    if (IsPowerOfTwo(V))
+    {
+        Result = V;
     }
     else
     {
@@ -409,9 +412,9 @@ RoundToNearestPowerOfTwo (u32 V)
 {
     u32 Result = 0;
     
-    if (IsPowerOfTwo(V)) 
-    { 
-        Result = V; 
+    if (IsPowerOfTwo(V))
+    {
+        Result = V;
     }
     else
     {
@@ -432,9 +435,9 @@ RoundToNearestPowerOfTwo (u64 V)
 {
     u64 Result = 0;
     
-    if (IsPowerOfTwo(V)) 
-    { 
-        Result = V; 
+    if (IsPowerOfTwo(V))
+    {
+        Result = V;
     }
     else
     {

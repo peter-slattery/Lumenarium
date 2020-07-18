@@ -6,13 +6,13 @@
 #ifndef FOLDHAUS_ASSEMBLY_CPP
 
 internal led_system
-LedSystemInitialize(platform_memory_handler PlatformMemory, u32 BuffersMax)
+LedSystemInitialize(gs_allocator PlatformMemory, u32 BuffersMax)
 {
     led_system Result = {};
     Result.PlatformMemory = PlatformMemory;
     // TODO(Peter): Since we have access to PlatformMemory, just realloc Buffers when we fill it up
     Result.BuffersCountMax = BuffersMax;
-    Result.Buffers = PlatformAllocArray(PlatformMemory, led_buffer, Result.BuffersCountMax);
+    Result.Buffers = AllocatorAllocArray(PlatformMemory, led_buffer, Result.BuffersCountMax);
     return Result;
 }
 
@@ -43,8 +43,8 @@ LedSystemTakeFreeBuffer(led_system* System, u32 LedCount)
     
     led_buffer* Buffer = &System->Buffers[Result];
     Buffer->LedCount = LedCount;
-    Buffer->Colors = PlatformAllocArray(System->PlatformMemory, pixel, Buffer->LedCount);
-    Buffer->Positions = PlatformAllocArray(System->PlatformMemory, v4, Buffer->LedCount);
+    Buffer->Colors = AllocatorAllocArray(System->PlatformMemory, pixel, Buffer->LedCount);
+    Buffer->Positions = AllocatorAllocArray(System->PlatformMemory, v4, Buffer->LedCount);
     
     System->LedsCountTotal += LedCount;
     
@@ -56,8 +56,8 @@ LedSystemFreeBuffer(led_system* System, u32 BufferIndex)
 {
     Assert(BufferIndex < System->BuffersCountMax);
     led_buffer* Buffer = &System->Buffers[BufferIndex];
-    PlatformFreeArray(System->PlatformMemory, Buffer->Colors, pixel, Buffer->LedCount);
-    PlatformFreeArray(System->PlatformMemory, Buffer->Positions, v4, Buffer->LedCount);
+    AllocatorFreeArray(System->PlatformMemory, Buffer->Colors, pixel, Buffer->LedCount);
+    AllocatorFreeArray(System->PlatformMemory, Buffer->Positions, v4, Buffer->LedCount);
     System->LedsCountTotal -= Buffer->LedCount;
     *Buffer = {};
 }
@@ -77,7 +77,7 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 }
 
 internal void
-ConstructAssemblyFromDefinition (assembly* Assembly, string AssemblyName, v4 RootPosition, led_system* LedSystem)
+ConstructAssemblyFromDefinition (assembly* Assembly, gs_const_string AssemblyName, v4 RootPosition, led_system* LedSystem)
 {
     Assembly->LedBufferIndex = LedSystemTakeFreeBuffer(LedSystem, Assembly->LedCountTotal);
     led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly->LedBufferIndex);
@@ -90,8 +90,8 @@ ConstructAssemblyFromDefinition (assembly* Assembly, string AssemblyName, v4 Roo
         v2_strip* StripAt = &Assembly->Strips[StripIdx];
         StripAt->LedLUT = PushArray(&Assembly->Arena, u32, StripAt->LedCount);
         
-        v4 WS_StripStart = RootPosition + V4(StripAt->StartPosition * Assembly->Scale, 1);
-        v4 WS_StripEnd = RootPosition + V4(StripAt->EndPosition * Assembly->Scale, 1);
+        v4 WS_StripStart = RootPosition + ToV4Point(StripAt->StartPosition * Assembly->Scale);
+        v4 WS_StripEnd = RootPosition + ToV4Point(StripAt->EndPosition * Assembly->Scale);
         
         v4 SingleStep = (WS_StripEnd - WS_StripStart) / (r32)StripAt->LedCount;
         for (u32 Step = 0; Step < StripAt->LedCount; Step++)
@@ -111,25 +111,25 @@ static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 
 s32 TempAssemblyOffsetsCount = 3;
 
 internal void
-LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, memory_arena* Scratch, context Context, string Path, event_log* GlobalLog)
+LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena* Scratch, context Context, gs_const_string Path, event_log* GlobalLog)
 {
-    platform_memory_result AssemblyFile = ReadEntireFile(Context, Path);
-    if (AssemblyFile.Error == PlatformMemory_NoError && AssemblyFile.Data.Size > 0)
+    gs_file AssemblyFile = ReadEntireFile(Context.ThreadContext.FileHandler, Path);
+    if (FileNoError(AssemblyFile))
     {
-        string AssemblyFileText = MakeString((char*)AssemblyFile.Data.Base);
+        gs_string AssemblyFileText = MakeString((char*)AssemblyFile.Memory);
         
         Assert(Assemblies->Count < Assemblies->CountMax);
         assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
         
-        s32 IndexOfLastSlash = FastLastIndexOfCharInCharArray(Path.Memory, Path.Length, '\\');
-        string FileName = Substring(Path, IndexOfLastSlash + 1);
+        s32 IndexOfLastSlash = FindLast(Path, '\\');
+        gs_const_string FileName = Substring(Path, IndexOfLastSlash + 1, Path.Length);
         
-        NewAssembly->Arena.PlatformMemory = Context.PlatformMemory;
-        if (ParseAssemblyFile(NewAssembly, AssemblyFileText, Scratch))
+        NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
+        if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
         {
             v4 Offset = v4{0,0,0,0}; //TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
             ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, LedSystem);
-            PlatformFree(Context.PlatformMemory, AssemblyFile.Data.Base, AssemblyFile.Data.Size);
+            AllocatorFree(Context.ThreadContext.Allocator, AssemblyFile.Memory, AssemblyFile.Size);
         }
         else
         {

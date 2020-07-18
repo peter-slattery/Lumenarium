@@ -100,10 +100,10 @@ NODE_PROC(SinWave, sin_wave_data)
             Data->Accumulator -= Data->Period;
         }
         
-        r32 ActualMin = GSMin(Data->Min, Data->Max);
-        r32 ActualMax = GSMax(Data->Min, Data->Max);
-        r32 SinResult = GSSin((Data->Accumulator / Data->Period) * PI * 2);
-        Data->Result = GSRemap(SinResult, -1.f, 1.f, ActualMin, ActualMax);
+        r32 ActualMin = Min(Data->Min, Data->Max);
+        r32 ActualMax = Max(Data->Min, Data->Max);
+        r32 SinResult = SinR32((Data->Accumulator / Data->Period) * PiR32 * 2);
+        Data->Result = RemapR32(SinResult, -1.f, 1.f, ActualMin, ActualMax);
     }
     else
     {

@@ -16,7 +16,7 @@ pushd %BuildPath%
 del *.pdb > NUL 2> NUL
 
 REM Run the Preprocessor
-%MetaProgramPath%\foldhaus_meta.exe %SourceCodePath%\foldhaus_app.cpp
+REM %MetaProgramPath%\foldhaus_meta.exe %SourceCodePath%\foldhaus_app.cpp
 
 echo WAITING FOR PDB TO WRITE > lock.tmp
 
