@@ -150,7 +150,6 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
     {
         led_buffer* LedBuffer = LedSystemGetBuffer(&State->LedSystem, BufferIndex);
         u32 JobsNeeded = U32DivideRoundUp(LedBuffer->LedCount, MaxLEDsPerJob);
-        
         u32 NextLEDIndex = 0;
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
@@ -177,7 +176,6 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
     // needs to relyon the window bounds rather than the panel bounds. Ideally the panel only needs to know where
     // itself is, and nothing else.
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-    
     if (State->Assemblies.Count > 0)
     {
         assembly Assembly = State->Assemblies.Values[0];
@@ -198,7 +196,6 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         v2 BoxMax = LedOnScreenPosition + BoxHalfDim;
         PushRenderBoundingBox2D(RenderBuffer, BoxMin, BoxMax, 2.0f, TealV4);
     }
-    
     Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
 }
 
