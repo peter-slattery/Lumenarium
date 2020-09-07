@@ -1366,7 +1366,7 @@ CharArrayLength (char* CS)
 internal bool
 IsNullTerminated(gs_const_string String)
 {
-    return (String.Str[String.Length - 1] != 0);
+    return (String.Str[String.Length] == 0);
 }
 internal bool
 IsNullTerminated(gs_string String)
@@ -1455,13 +1455,21 @@ FindFirst(gs_const_string String, char C)
 {
     return FindFirst(String, 0, C);
 }
+
 internal u64
-FindLast(gs_const_string String, char C)
+FindLast(gs_const_string String, u64 StartIndex, char C)
 {
-    s64 Result = String.Length - 1;
+    s64 Result = StartIndex;
     for(; Result >= 0 && C != String.Str[Result]; Result--);
     return (u64)Result;
 }
+
+internal u64
+FindLast(gs_const_string String, char C)
+{
+    return FindLast(String, String.Length - 1, C);
+}
+
 internal u64
 FindFirstFromSet(gs_const_string String, char* SetArray)
 {
@@ -2968,14 +2976,19 @@ CreateFileHandler(file_handler_get_file_info* GetFileInfo,
 internal gs_const_string
 GetNullTerminatedPath(gs_file_handler FileHandler, gs_const_string Path)
 {
-    gs_const_string NullTermPath = Path;
-    if (!IsNullTerminated(NullTermPath))
+    gs_const_string Result = {};
+    if (!IsNullTerminated(Path))
     {
-        AssertMessage("need to allocate a new string, Path to it, and null terminate");
-        // TODO(Peter): Probably want to have some sort of temp memory,
-        // or be passing in a thread context, etc.
+        gs_string NullTermPath = PushString(FileHandler.Transient, Path.Length + 1);
+        PrintF(&NullTermPath, "%S", Path);
+        NullTerminate(&NullTermPath);
+        Result = NullTermPath.ConstString;
     }
-    return NullTermPath;
+    else
+    {
+        Result = Path;
+    }
+    return Result;
 }
 
 internal gs_file_info

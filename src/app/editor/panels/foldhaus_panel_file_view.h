@@ -15,17 +15,23 @@ struct file_view_state
 input_command* FileView_Commands = 0;
 s32 FileView_CommandsCount = 0;
 
-// TODO(pjs): 2 - On Change Dir function
-// - clears the memory arena
-// - enumerates the new directory in the memory arena
-
 internal void
 FileViewUpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state* State, context Context)
 {
     ClearArena(&State->FileNamesArena);
     
+    gs_const_string SanitizedDirectory = WorkingDirectory;
+    
+    u32 LastSlashIndex = FindLast(SanitizedDirectory, '\\');
+    gs_const_string LastDir = Substring(SanitizedDirectory, LastSlashIndex + 1, SanitizedDirectory.Length);
+    if (StringsEqual(LastDir, ConstString("..")))
+    {
+        u32 SecondLastSlashIndex = FindLast(SanitizedDirectory, LastSlashIndex - 1, '\\');
+        SanitizedDirectory = Substring(SanitizedDirectory, 0, SecondLastSlashIndex);
+    }
+    
     State->WorkingDirectory = PushString(&State->FileNamesArena, WorkingDirectory.Length + 2);
-    PrintF(&State->WorkingDirectory, "%S", WorkingDirectory);
+    PrintF(&State->WorkingDirectory, "%S", SanitizedDirectory);
     if (State->WorkingDirectory.Str[State->WorkingDirectory.Length - 1] != '\\')
     {
         AppendPrintF(&State->WorkingDirectory, "\\");
@@ -80,7 +86,18 @@ FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuf
         gs_file_info File = FileViewState->FileNames.Values[i];
         gs_string PathString = PushString(State->Transient, File.Path.Length);
         PrintF(&PathString, "%S", File.Path);
-        ui_LayoutDrawString(&State->Interface, &Layout, PathString, State->Interface.Style.TextColor);
+        if (ui_LayoutListButton(&State->Interface, &Layout, PathString, i))
+        {
+            if (File.IsDirectory)
+            {
+                FileViewUpdateWorkingDirectory(File.Path, FileViewState, Context);
+            }
+            else
+            {
+                // TODO(pjs): Select the file
+            }
+        }
+        //ui_LayoutDrawString(&State->Interface, &Layout, PathString, State->Interface.Style.TextColor);
     }
     
 }
