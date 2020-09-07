@@ -57,12 +57,7 @@ FileView_Init(panel* Panel, app_state* State, context Context)
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
     Panel->PanelStateMemory = (u8*)FileViewState;
     FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
-    
-#if 0
-    FileViewState->WorkingDirectory = MakeString(PushArray(&State->Permanent, char, 256), 256);
-    PrintF(&FileViewState->WorkingDirectory, "C:\\");
-#endif
-    FileViewUpdateWorkingDirectory(ConstString("C:\\projects\\Lumenarium\\src\\app"), FileViewState, Context);
+    FileViewUpdateWorkingDirectory(ConstString("."), FileViewState, Context);
 }
 
 GSMetaTag(panel_cleanup);
@@ -82,14 +77,17 @@ FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuf
     ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     
     // Header
-    rect2 HeaderBounds = ui_ReserveElementBounds(&Layout);
+    ui_LayoutDrawString(&State->Interface, &Layout, FileViewState->WorkingDirectory, v4{0, 1, 0, 1});
     
     // File Display
     for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
     {
         gs_file_info File = FileViewState->FileNames.Values[i];
-        gs_string PathString = PushString(State->Transient, File.Path.Length);
-        PrintF(&PathString, "%S", File.Path);
+        
+        u32 LastSlashIndex = FindLast(File.Path, '\\');
+        gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
+        gs_string PathString = PushString(State->Transient, FileName.Length);
+        PrintF(&PathString, "%S", FileName);
         if (ui_LayoutListButton(&State->Interface, &Layout, PathString, i))
         {
             if (File.IsDirectory)
@@ -101,7 +99,6 @@ FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuf
                 // TODO(pjs): Select the file
             }
         }
-        //ui_LayoutDrawString(&State->Interface, &Layout, PathString, State->Interface.Style.TextColor);
     }
     
 }
