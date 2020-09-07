@@ -359,27 +359,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
-                // TODO(Peter): Temporary
-                switch(Block.AnimationProcHandle)
-                {
-                    case 1:
-                    {
-                        TestPatternOne(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
-                    }break;
-                    
-                    case 2:
-                    {
-                        TestPatternTwo(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
-                    }break;
-                    
-                    case 3:
-                    {
-                        TestPatternThree(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
-                    }break;
-                    
-                    // NOTE(Peter): Zero is invalid
-                    InvalidDefaultCase;
-                }
+                
+                u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
+                animation_proc* AnimationProc = GlobalAnimationClips[AnimationProcIndex].Proc;
+                AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
             }
             
             // Consolidate Temp Buffers

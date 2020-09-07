@@ -29,7 +29,6 @@ STREAM #1: 3D Overhaul
     - custom sculpture update functions (for motion)
     - placing sculptures
     - editing sculpture files (change universe output)
-    - led groups & subgroups - defined in file
     - motion
 
 - Sculpture View
