@@ -131,6 +131,28 @@ DrawQuad(render_command_buffer* RenderBuffer, v4 C, r32 Rad, v4 Color)
     PushRenderQuad3D(RenderBuffer, P0, P1, P2, P3, Color);
 }
 
+internal v2
+SculptureView_WorldToScreenPosition(v4 WorldPosition, camera Camera, rect2 PanelBounds)
+{
+    v2 Result = {0};
+    
+    r32 PanelW = Rect2Width(PanelBounds);
+    r32 PanelH = Rect2Height(PanelBounds);
+    
+    m44 Matrix = GetCameraPerspectiveProjectionMatrix(Camera) * GetCameraModelViewMatrix(Camera);
+    v4 WorldPos = Matrix * WorldPosition;
+    
+    // this is the Perspective Divide
+    v2 ProjectedPos = WorldPos.xy / WorldPos.w;
+    
+    // Projection gets us in a range [-1, 1], and we want [0, width]
+    ProjectedPos.x = ((ProjectedPos.x / 2) * PanelW) + (PanelW / 2);
+    ProjectedPos.y = ((ProjectedPos.y / 2) * PanelH) + (PanelH / 2);
+    
+    Result = ProjectedPos + PanelBounds.Min;
+    return Result;
+}
+
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_sculpture_view);
 internal void
@@ -183,13 +205,12 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         
         //__debugbreak();
         v4 LedPosition = LedBuffer->Positions[FocusPixel];
-        m44 Matrix = GetCameraPerspectiveProjectionMatrix(State->Camera) * GetCameraModelViewMatrix(State->Camera);
-        v4 LedProjectedPosition = Matrix * LedPosition;
-        v2 LedOnScreenPosition = LedProjectedPosition.xy;
+        v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, State->Camera, PanelBounds);
         
         gs_string Tempgs_string = PushString(&State->Transient, 256);
         PrintF(&Tempgs_string, "%f %f", LedOnScreenPosition.x, LedOnScreenPosition.y);
         DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4);
+        
         
         v2 BoxHalfDim = v2{ 25, 25 };
         v2 BoxMin = LedOnScreenPosition - BoxHalfDim;
