@@ -77,10 +77,12 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 }
 
 internal void
-ConstructAssemblyFromDefinition (assembly* Assembly, gs_const_string AssemblyName, v4 RootPosition, led_system* LedSystem)
+ConstructAssemblyFromDefinition (assembly* Assembly, gs_const_string AssemblyName, led_system* LedSystem)
 {
     Assembly->LedBufferIndex = LedSystemTakeFreeBuffer(LedSystem, Assembly->LedCountTotal);
     led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly->LedBufferIndex);
+    
+    v4 RootPosition = ToV4Vec(Assembly->Center);
     
     // Add Leds
     u32 LedsAdded = 0;
@@ -127,8 +129,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
         if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
         {
-            v4 Offset = v4{0,0,0,0}; //TempAssemblyOffsets[Assemblies->Count % TempAssemblyOffsetsCount];
-            ConstructAssemblyFromDefinition(NewAssembly, FileName, Offset, LedSystem);
+            ConstructAssemblyFromDefinition(NewAssembly, FileName, LedSystem);
             AllocatorFree(Context.ThreadContext.Allocator, AssemblyFile.Memory, AssemblyFile.Size);
         }
         else

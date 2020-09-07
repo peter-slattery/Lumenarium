@@ -12,6 +12,8 @@ global v4 TimeSliderColor = v4{.36f, .52f, .78f, 1.f};
 struct animation_timeline_state
 {
     frame_range VisibleRange;
+    gs_list_handle SelectedAnimationBlockHandle;
+    u32 SelectedAnimationLayer;
 };
 
 inline u32
@@ -510,7 +512,6 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     if (MouseDownAndNotHandled && ListHandleIsValid(DragBlockHandle))
     {
         MouseDownAndNotHandled = false;
-        // TODO(Peter): Why are we passing state around?
         SelectAndBeginDragAnimationBlock(DragBlockHandle, AdjustedViewRange, TimelineBounds, State);
     }
     

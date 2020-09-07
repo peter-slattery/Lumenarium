@@ -24,10 +24,8 @@ STREAM #1: 3D Overhaul
     - leds always face camera
 
 - Sculptures
-    - store scale in the assembly definition file
     - cache led vertex buffers
     - custom sculpture update functions (for motion)
-    - placing sculptures
     - editing sculpture files (change universe output)
     - motion
 

@@ -9,6 +9,7 @@ enum assembly_field
 {
     AssemblyField_AssemblyName,
     AssemblyField_AssemblyScale,
+    AssemblyField_AssemblyCenter,
     AssemblyField_LedStripCount,
     
     AssemblyField_LedStrip,
@@ -31,6 +32,7 @@ enum assembly_field
 global char* AssemblyFieldIdentifiers[] = {
     "assembly_name", // AssemblyField_AssemblyName
     "assembly_scale", // AssemblyField_AssemblyScale
+    "assembly_center", // AssemblyField_AssemblyCenter
     "led_strip_count", // AssemblyField_LedStripCount
     
     "led_strip", // AssemblyField_LedStrip
@@ -384,6 +386,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     
     Assembly->Name = ReadStringField(AssemblyField_AssemblyName, &Tokenizer, &Assembly->Arena);
     Assembly->Scale = ReadFloatField(AssemblyField_AssemblyScale, &Tokenizer);
+    Assembly->Center = ReadV3Field(AssemblyField_AssemblyCenter, &Tokenizer);
     
     Assembly->StripCount = ReadIntField(AssemblyField_LedStripCount, &Tokenizer);
     Assembly->Strips = PushArray(&Assembly->Arena, v2_strip, Assembly->StripCount);

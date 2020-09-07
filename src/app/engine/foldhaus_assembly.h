@@ -75,6 +75,7 @@ struct assembly
     gs_string FilePath;
     
     r32 Scale;
+    v3 Center;
     s32 LedCountTotal;
     u32 LedBufferIndex;
     
