@@ -79,24 +79,33 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 internal void
 TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
-    led_strip_list StemStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("stem"), Transient);
+    led_strip_list BlumenStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Blumen Lumen"), Transient);
+    led_strip_list RadiaStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Radialumia"), Transient);
     
-    for (u32 i = 0; i < StemStrips.Count; i++)
+    for (u32 i = 0; i < BlumenStrips.Count; i++)
     {
-        u32 StripIndex = StemStrips.StripIndices[i];
+        u32 StripIndex = BlumenStrips.StripIndices[i];
         v2_strip StripAt = Assembly.Strips[StripIndex];
         
         for (u32 j = 0; j < StripAt.LedCount; j++)
         {
             u32 LedIndex = StripAt.LedLUT[j];
-            v4 LedPosition = Leds->Positions[LedIndex];
-            float PercentX = RemapClampedR32(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
-            float PercentY = RemapClampedR32(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
-            Leds->Colors[LedIndex].R = (u8)(PercentX * 255);
-            Leds->Colors[LedIndex].G = (u8)(PercentY * 255);
+            Leds->Colors[LedIndex] = { 255, 0, 0 };
+            
         }
     }
     
+    for (u32 i = 0; i < RadiaStrips.Count; i++)
+    {
+        u32 StripIndex = RadiaStrips.StripIndices[i];
+        v2_strip StripAt = Assembly.Strips[StripIndex];
+        
+        for (u32 j = 0; j < StripAt.LedCount; j++)
+        {
+            u32 LedIndex = StripAt.LedLUT[j];
+            Leds->Colors[LedIndex] = { 0, 255, 0 };
+        }
+    }
 #if 0
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {

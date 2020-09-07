@@ -155,6 +155,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
 #if 1
     gs_const_string SculpturePath = ConstString("data/blumen_lumen_v2.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
+    
+    SculpturePath = ConstString("data/radialumia_v2.fold");
+    LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
     State->PixelsToWorldScale = .01f;

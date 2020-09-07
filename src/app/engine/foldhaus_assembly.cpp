@@ -77,7 +77,7 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 }
 
 internal void
-ConstructAssemblyFromDefinition (assembly* Assembly, gs_const_string AssemblyName, led_system* LedSystem)
+ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
 {
     Assembly->LedBufferIndex = LedSystemTakeFreeBuffer(LedSystem, Assembly->LedCountTotal);
     led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly->LedBufferIndex);
@@ -88,7 +88,6 @@ ConstructAssemblyFromDefinition (assembly* Assembly, gs_const_string AssemblyNam
     u32 LedsAdded = 0;
     for (u32 StripIdx = 0; StripIdx < Assembly->StripCount; StripIdx++)
     {
-        //led_strip_definition StripDef = Definition.LedStrips[StripIdx];
         v2_strip* StripAt = &Assembly->Strips[StripIdx];
         StripAt->LedLUT = PushArray(&Assembly->Arena, u32, StripAt->LedCount);
         
@@ -120,16 +119,16 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
     {
         gs_string AssemblyFileText = MakeString((char*)AssemblyFile.Memory);
         
-        Assert(Assemblies->Count < Assemblies->CountMax);
-        assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
-        
         s32 IndexOfLastSlash = FindLast(Path, '\\');
         gs_const_string FileName = Substring(Path, IndexOfLastSlash + 1, Path.Length);
         
+        Assert(Assemblies->Count < Assemblies->CountMax);
+        assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
+        
         if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
         {
-            ConstructAssemblyFromDefinition(NewAssembly, FileName, LedSystem);
+            ConstructAssemblyFromDefinition(NewAssembly, LedSystem);
             AllocatorFree(Context.ThreadContext.Allocator, AssemblyFile.Memory, AssemblyFile.Size);
         }
         else

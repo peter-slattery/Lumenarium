@@ -370,6 +370,15 @@ ReadStructClosing(assembly_tokenizer* T)
     return Result;
 }
 
+internal void
+StripSetTag(v2_strip* Strip, u32 TagIndex, gs_const_string TagName, gs_const_string TagValue)
+{
+    Assert(TagIndex < Strip->TagsCount);
+    v2_tag* TagAt = &Strip->Tags[TagIndex];
+    TagAt->NameHash = HashDJB2ToU32(StringExpand(TagName));
+    TagAt->ValueHash = HashDJB2ToU32(StringExpand(TagValue));
+}
+
 internal bool
 ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileText, gs_memory_arena* Transient)
 {
@@ -420,19 +429,21 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
             StripAt->LedCount = ReadIntField(AssemblyField_LedCount, &Tokenizer);
             Assembly->LedCountTotal += StripAt->LedCount;
             
+            
             StripAt->TagsCount = ReadIntField(AssemblyField_TagsCount, &Tokenizer);
+            // NOTE(pjs): Always add one tag to the input to leave room for the assembly name
+            StripAt->TagsCount += 1;
             StripAt->Tags = PushArray(&Assembly->Arena, v2_tag, StripAt->TagsCount);
-            for (u32 Tag = 0; Tag < StripAt->TagsCount; Tag++)
+            StripSetTag(StripAt, 0, ConstString("assembly"), Assembly->Name.ConstString);
+            for (u32 Tag = 1; Tag < StripAt->TagsCount; Tag++)
             {
-                v2_tag* TagAt = StripAt->Tags + Tag;
                 if (ReadStructOpening(AssemblyField_Tag, &Tokenizer))
                 {
                     // TODO(Peter): Need to store the gs_string somewhere we can look it up for display in the interface
                     // right now they are stored in temp memory and won't persist
                     gs_string TagName = ReadStringField(AssemblyField_Name, &Tokenizer, Transient);
                     gs_string TagValue = ReadStringField(AssemblyField_Value, &Tokenizer, Transient);
-                    TagAt->NameHash = HashDJB2ToU32(StringExpand(TagName));
-                    TagAt->ValueHash = HashDJB2ToU32(StringExpand(TagValue));
+                    StripSetTag(StripAt, Tag, TagName.ConstString, TagValue.ConstString);
                     if (!ReadStructClosing(&Tokenizer))
                     {
                         TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
@@ -443,6 +454,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
                     TokenizerPushError(&Tokenizer, "Expected a struct opening, but none was found");
                 }
             }
+            
             
             if (!ReadStructClosing(&Tokenizer))
             {

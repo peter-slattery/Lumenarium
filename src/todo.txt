@@ -1,15 +1,5 @@
 TODO FOLDHAUS
 
-STREAM #0: Metaprogramming
-- Metaprogramming
-    - fix memory layout (remeber to profile before and after)
-- Make everything truly platform agnostic
-    - Application DLL
-        - math.h: present for trig functions (though this is part of the c-std lib, so it should be everywhere)
-        - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
-    - Meta Layer
-        - ???
-
 STREAM #1: 3D Overhaul
 - Rendering (Working on this elsewhere)
     - OpenGL 3
@@ -24,6 +14,7 @@ STREAM #1: 3D Overhaul
     - leds always face camera
 
 - Sculptures
+	- implicitly add a tag equal to the sculpture name to each strip of leds
     - cache led vertex buffers
     - custom sculpture update functions (for motion)
     - editing sculpture files (change universe output)
@@ -33,7 +24,6 @@ STREAM #1: 3D Overhaul
     - mouse spatial interaction - handles, and hover for info
     - debug capabilities (toggle strip/led/universe colors)
 
-STREAM #2: Memory
 - Buckets & Lists
     - On second thought, I just really don't like these. Lets get rid of them, and put custom structures in place
 
@@ -44,11 +34,11 @@ STREAM #2: Memory
     - Create a bar that displays the most recent error message
     - :ErrorLogging
 
-STREAM #3: Nodes
 - Animation System
     - blending between animation
     - layers
         - layer masks by sculpture
+		- layer masks by tag / value
     - interface for animation system
         - add/remove layers
         - select blend modes
@@ -57,17 +47,8 @@ STREAM #3: Nodes
     - clips can have parameters that drive them?
     - clips cannot overlap eachother on the same layer
 
-- Node System
-    - automatic node layout
-    - blending node layouts
-    - workspace -> animation block
-    - generating node workspace as code
-    - compiling node workspace
-    - hotload compiled pattern sets
-
 - Serialization
     - saving scenes
-    - saving node graphs
     - saving animation timelines
     - saving projects
 
@@ -157,3 +138,13 @@ Name
 - Splash screen (like blender) (thisll be fun)
 -  - Image importer (stb image? or find a png > bmp converter for the image you have)
 -  - Display on startup
+
+STREAM #0: Metaprogramming
+- Metaprogramming
+    - fix memory layout (remeber to profile before and after)
+- Make everything truly platform agnostic
+    - Application DLL
+        - math.h: present for trig functions (though this is part of the c-std lib, so it should be everywhere)
+        - windows.h: only thing left is InterlockedIncrement and InterlockedAdd
+    - Meta Layer
+        - ???
