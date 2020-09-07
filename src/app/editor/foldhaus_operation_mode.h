@@ -9,7 +9,7 @@ typedef struct operation_mode operation_mode;
 
 #define OPERATION_STATE_DEF(name) struct name
 
-#define OPERATION_RENDER_PROC(name) void name(app_state* State, render_command_buffer* RenderBuffer, operation_mode Operation,  mouse_state Mouse)
+#define OPERATION_RENDER_PROC(name) void name(app_state* State, render_command_buffer* RenderBuffer, operation_mode Operation,  mouse_state Mouse, context Context)
 typedef OPERATION_RENDER_PROC(operation_render_proc);
 
 struct operation_mode

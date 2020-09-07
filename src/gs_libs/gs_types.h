@@ -772,6 +772,7 @@ struct gs_file_info
     u64 FileSize;
     u64 CreationTime;
     u64 LastWriteTime;
+    b32 IsDirectory;
 };
 
 struct gs_file_info_array

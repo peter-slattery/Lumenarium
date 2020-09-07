@@ -11,7 +11,7 @@ s32 ProfilerView_CommandsCount = 0;
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_profiler);
 internal void
-ProfilerView_Init(panel* Panel, app_state* State)
+ProfilerView_Init(panel* Panel, app_state* State, context Context)
 {
     
 }
@@ -139,7 +139,7 @@ GSMetaTag(panel_type_profiler);
 internal void
 ProfilerView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    gs_memory_arena* Memory = &State->Transient;
+    gs_memory_arena* Memory = State->Transient;
     gs_string String = PushString(Memory, 256);
     
     v4 FrameColors[] = { GreenV4, YellowV4, RedV4, WhiteV4 };

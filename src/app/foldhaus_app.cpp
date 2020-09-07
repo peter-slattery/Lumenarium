@@ -52,12 +52,12 @@ INITIALIZE_APPLICATION(InitializeApplication)
     *State = {};
     
     State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
-    State->Transient = CreateMemoryArena(Context.ThreadContext.Allocator);
+    State->Transient = Context.ThreadContext.Transient;
     
     State->Assemblies.CountMax = 8;
     State->Assemblies.Values = PushArray(&State->Permanent, assembly, State->Assemblies.CountMax);
     
-    State->GlobalLog = PushStruct(&State->Transient, event_log);
+    State->GlobalLog = PushStruct(State->Transient, event_log);
     *State->GlobalLog = {0};
     
     s32 CommandQueueSize = 32;
@@ -154,10 +154,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
 #if 1
     gs_const_string SculpturePath = ConstString("data/blumen_lumen_v2.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
     
     SculpturePath = ConstString("data/radialumia_v2.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
     State->PixelsToWorldScale = .01f;
@@ -184,11 +184,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, PanelType_SculptureView, State);
+    SetPanelDefinition(Panel, PanelType_SculptureView, State, Context);
 }
 
 internal void
-HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse_state Mouse)
+HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse_state Mouse, context Context)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -240,7 +240,7 @@ HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse
     for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
     {
         command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
-        Entry->Command.Proc(State, Entry->Event, Mouse);
+        Entry->Command.Proc(State, Entry->Event, Mouse, Context);
     }
     
     ClearCommandQueue(&State->CommandQueue);
@@ -305,13 +305,13 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically
     // incorrect to clear the arena, and then access the memory later.
-    ClearArena(&State->Transient);
+    ClearArena(State->Transient);
     Context->Mouse.CursorType = CursorType_Arrow;
     
     PushRenderClearScreen(RenderBuffer);
     State->Camera.AspectRatio = RectAspectRatio(Context->WindowBounds);
     
-    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse);
+    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
     
     if (State->AnimationSystem.TimelineShouldAdvance) {
         // TODO(Peter): Revisit this. This implies that the framerate of the animation system
@@ -331,9 +331,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
         
         u32 CurrentBlocksMax = State->AnimationSystem.LayersCount;
-        b8* CurrentBlocksFilled = PushArray(&State->Transient, b8, CurrentBlocksMax);
+        b8* CurrentBlocksFilled = PushArray(State->Transient, b8, CurrentBlocksMax);
         ZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
-        animation_block* CurrentBlocks = PushArray(&State->Transient, animation_block, CurrentBlocksMax);
+        animation_block* CurrentBlocks = PushArray(State->Transient, animation_block, CurrentBlocksMax);
         
         for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
         {
@@ -345,7 +345,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
             CurrentBlocks[Block.Layer] = Block;
         }
         
-        led_buffer* LayerLEDBuffers = PushArray(&State->Transient, led_buffer, CurrentBlocksMax);
+        led_buffer* LayerLEDBuffers = PushArray(State->Transient, led_buffer, CurrentBlocksMax);
         for (u32 AssemblyIndex = 0; AssemblyIndex < State->Assemblies.Count; AssemblyIndex++)
         {
             assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
@@ -358,14 +358,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 // Prep Temp Buffer
                 LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
-                LayerLEDBuffers[Layer].Colors = PushArray(&State->Transient, pixel, AssemblyLedBuffer->LedCount);
+                LayerLEDBuffers[Layer].Colors = PushArray(State->Transient, pixel, AssemblyLedBuffer->LedCount);
                 
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
                 
                 u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
                 animation_proc* AnimationProc = GlobalAnimationClips[AnimationProcIndex].Proc;
-                AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
+                AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, State->Transient);
             }
             
             // Consolidate Temp Buffers
@@ -468,7 +468,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     State->Interface.RenderBuffer = RenderBuffer;
     State->Interface.Mouse = Context->Mouse;
     
-    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
+    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, State->Transient);
     DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
@@ -476,7 +476,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         operation_mode OperationMode = State->Modes.ActiveModes[m];
         if (OperationMode.Render != 0)
         {
-            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse);
+            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
         }
     }
     

@@ -55,7 +55,7 @@ global s32 SculptureView_CommandsCount = 1;
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_sculpture_view);
 internal void
-SculptureView_Init(panel* Panel, app_state* State)
+SculptureView_Init(panel* Panel, app_state* State, context Context)
 {
     
 }
@@ -175,7 +175,7 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         u32 NextLEDIndex = 0;
         for (u32 Job = 0; Job < JobsNeeded; Job++)
         {
-            gs_data Data = PushSizeToData(&State->Transient, sizeof(draw_leds_job_data));
+            gs_data Data = PushSizeToData(State->Transient, sizeof(draw_leds_job_data));
             draw_leds_job_data* JobData = (draw_leds_job_data*)Data.Memory;
             JobData->LedBuffer = *LedBuffer;
             JobData->StartIndex = NextLEDIndex;
@@ -207,7 +207,7 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         v4 LedPosition = LedBuffer->Positions[FocusPixel];
         v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, State->Camera, PanelBounds);
         
-        gs_string Tempgs_string = PushString(&State->Transient, 256);
+        gs_string Tempgs_string = PushString(State->Transient, 256);
         PrintF(&Tempgs_string, "%f %f", LedOnScreenPosition.x, LedOnScreenPosition.y);
         DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4);
         

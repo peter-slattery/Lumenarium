@@ -18,7 +18,7 @@ s32 DMXView_CommandsCount = 0;
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_dmx_view);
 internal void
-DMXView_Init(panel* Panel, app_state* State)
+DMXView_Init(panel* Panel, app_state* State, context Context)
 {
     
 }

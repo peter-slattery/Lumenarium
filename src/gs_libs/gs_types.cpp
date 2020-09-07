@@ -1861,35 +1861,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
         {
             if (FormatAt[0] == '\\')
             {
-                FormatAt++;
-                Assert(IsBase8(FormatAt[0]) || // Octal Escape Sequences - \0 is in this set
-                       FormatAt[0] == '\'' ||
-                       FormatAt[0] == '\"' ||
-                       FormatAt[0] == '\?' ||
-                       FormatAt[0] == '\\' ||
-                       FormatAt[0] == 'a' || // Audible Bell
-                       FormatAt[0] == 'b' || // Backspace
-                       FormatAt[0] == 'f' || // Form Feed - New Page
-                       FormatAt[0] == 'n' || // Line Feed - New Line
-                       FormatAt[0] == 'r' || // Carriage Return
-                       FormatAt[0] == 't' || // Tab
-                       FormatAt[0] == 'v');  // Vertical Tab
-                
-                // Not Handled (see cpp spec) \nnn \xnn \unnnn \Unnnnnnnn
-                Assert(FormatAt[0] != 'x' || FormatAt[0] != 'u' || FormatAt[0] != 'U');
-                
-                if (IsBase8(FormatAt[0]))
-                {
-                    // TODO(Peter): this should keep going until it finds a non-octal character code
-                    // but the only one we really need is \0 atm so I'm just handling that one
-                    Assert(FormatAt[0] == '0');
-                    OutChar(String, (char)0);
-                    FormatAt++;
-                }
-                else
-                {
-                    OutChar(String, *FormatAt++);
-                }
+                OutChar(String, *FormatAt++);
             }
             else
             {

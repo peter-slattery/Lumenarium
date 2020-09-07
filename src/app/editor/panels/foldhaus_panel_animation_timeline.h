@@ -152,7 +152,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     animation_block* AnimationBlock = State->AnimationSystem.Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
     if (!AnimationBlock)
     {
-        EndCurrentOperationMode(State, {}, Mouse);
+        EndCurrentOperationMode(State, {}, Mouse, Context);
         return;
     }
     
@@ -274,7 +274,7 @@ s32 AnimationTimeline_CommandsCount = 2;
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_animation_timeline);
 internal void
-AnimationTimeline_Init(panel* Panel, app_state* State)
+AnimationTimeline_Init(panel* Panel, app_state* State, context Context)
 {
     // TODO: :FreePanelMemory
     animation_timeline_state* TimelineState = PushStruct(&State->Permanent, animation_timeline_state);
@@ -293,7 +293,7 @@ AnimationTimeline_Cleanup(panel* Panel, app_state* State)
 internal void
 DrawFrameBar (animation_system* AnimationSystem, ui_interface Interface, frame_range VisibleFrames, rect2 BarBounds, app_state* State)
 {
-    gs_string TempString = PushString(&State->Transient, 256);
+    gs_string TempString = PushString(State->Transient, 256);
     
     s32 VisibleFrameCount = VisibleFrames.Max - VisibleFrames.Min;
     
@@ -455,7 +455,7 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range V
 internal gs_list_handle
 DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect2 PanelBounds, gs_list_handle SelectedBlockHandle, ui_interface* Interface, app_state* State)
 {
-    gs_string Tempgs_string = PushString(&State->Transient, 256);
+    gs_string Tempgs_string = PushString(State->Transient, 256);
     gs_list_handle Result = SelectedBlockHandle;
     
     rect2 LayerMenuBounds, TimelineBounds;

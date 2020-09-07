@@ -43,7 +43,7 @@ enum network_protocol
 struct app_state
 {
     gs_memory_arena Permanent;
-    gs_memory_arena Transient;
+    gs_memory_arena* Transient;
     
     // Engine
     //
@@ -212,7 +212,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-#define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State)
+#define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State, context Context)
 typedef PANEL_INIT_PROC(panel_init_proc);
 
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)

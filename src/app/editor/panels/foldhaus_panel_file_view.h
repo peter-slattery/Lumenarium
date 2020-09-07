@@ -8,21 +8,51 @@
 struct file_view_state
 {
     gs_string WorkingDirectory;
+    gs_memory_arena FileNamesArena;
+    gs_file_info_array FileNames;
 };
 
 input_command* FileView_Commands = 0;
 s32 FileView_CommandsCount = 0;
 
+// TODO(pjs): 2 - On Change Dir function
+// - clears the memory arena
+// - enumerates the new directory in the memory arena
+
+internal void
+FileViewUpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state* State, context Context)
+{
+    ClearArena(&State->FileNamesArena);
+    
+    State->WorkingDirectory = PushString(&State->FileNamesArena, WorkingDirectory.Length + 2);
+    PrintF(&State->WorkingDirectory, "%S", WorkingDirectory);
+    if (State->WorkingDirectory.Str[State->WorkingDirectory.Length - 1] != '\\')
+    {
+        AppendPrintF(&State->WorkingDirectory, "\\");
+    }
+    if (State->WorkingDirectory.Str[State->WorkingDirectory.Length - 1] != '*')
+    {
+        AppendPrintF(&State->WorkingDirectory, "*");
+    }
+    
+    State->FileNames = EnumerateDirectory(Context.ThreadContext.FileHandler, &State->FileNamesArena, State->WorkingDirectory.ConstString, EnumerateDirectory_IncludeDirectories);
+}
+
 GSMetaTag(panel_init);
 GSMetaTag(panel_type_file_view);
 internal void
-FileView_Init(panel* Panel, app_state* State)
+FileView_Init(panel* Panel, app_state* State, context Context)
 {
     // TODO: :FreePanelMemory
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
+    Panel->PanelStateMemory = (u8*)FileViewState;
+    FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
+    
+#if 0
     FileViewState->WorkingDirectory = MakeString(PushArray(&State->Permanent, char, 256), 256);
     PrintF(&FileViewState->WorkingDirectory, "C:\\");
-    Panel->PanelStateMemory = (u8*)FileViewState;
+#endif
+    FileViewUpdateWorkingDirectory(ConstString("C:\\projects\\Lumenarium\\src\\app"), FileViewState, Context);
 }
 
 GSMetaTag(panel_cleanup);
@@ -38,16 +68,21 @@ GSMetaTag(panel_type_file_view);
 internal void
 FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    rect2 HeaderBounds = {0};
-    HeaderBounds.Min = {PanelBounds.Min.x, PanelBounds.Max.y - 32};
-    HeaderBounds.Max = PanelBounds.Max;
+    file_view_state* FileViewState = (file_view_state*)Panel.PanelStateMemory;
+    ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     
-    rect2 ListBounds = {0};
-    ListBounds.Min = PanelBounds.Min;
-    ListBounds.Max = RectBottomRight(HeaderBounds);
+    // Header
+    rect2 HeaderBounds = ui_ReserveElementBounds(&Layout);
     
-    PushRenderQuad2D(RenderBuffer, HeaderBounds.Min, HeaderBounds.Max, PinkV4);
-    PushRenderQuad2D(RenderBuffer, ListBounds.Min, ListBounds.Max, RedV4);
+    // File Display
+    for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
+    {
+        gs_file_info File = FileViewState->FileNames.Values[i];
+        gs_string PathString = PushString(State->Transient, File.Path.Length);
+        PrintF(&PathString, "%S", File.Path);
+        ui_LayoutDrawString(&State->Interface, &Layout, PathString, State->Interface.Style.TextColor);
+    }
+    
 }
 
 

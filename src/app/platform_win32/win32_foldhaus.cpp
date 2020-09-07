@@ -252,6 +252,25 @@ struct temp_file_list
     temp_file_list_entry* Last;
 };
 
+internal void
+Win32SetFileInfoFromFindFileData(gs_file_info* Info, WIN32_FIND_DATA FindFileData, gs_const_string SearchPath, gs_memory_arena* Storage)
+{
+    u32 FileNameLength = CharArrayLength(FindFileData.cFileName);
+    
+    // NOTE(Peter): String Storage
+    // Storing the string in the final storage means we don't have to copy the string later, and all
+    // strings will be continguous in memory at the calling site, though they will be before the array
+    gs_string FileName = PushString(Storage, SearchPath.Length + FileNameLength + 1);
+    PrintF(&FileName, "%S%.*s", SearchPath, FileName.Size, FindFileData.cFileName);
+    NullTerminate(&FileName);
+    
+    Info->FileSize = Win32HighLowToU64(FindFileData.nFileSizeLow, FindFileData.nFileSizeHigh);
+    Info->CreationTime = Win32FileTimeToU64(FindFileData.ftCreationTime);
+    Info->LastWriteTime = Win32FileTimeToU64(FindFileData.ftLastWriteTime);
+    Info->Path = FileName.ConstString;
+    Info->IsDirectory = HasFlag(FindFileData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY);
+}
+
 internal u32
 Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list* TempList, gs_const_string Path, gs_memory_arena* Storage, b32 Flags)
 {
@@ -266,6 +285,8 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
     {
         do
         {
+            b32 AddFile = true;
+            
             if (HasFlag(FindFileData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY))
             {
                 if (HasFlag(Flags, EnumerateDirectory_Recurse))
@@ -280,29 +301,14 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
                     }
                 }
                 
-                if (HasFlag(Flags, EnumerateDirectory_IncludeDirectories))
-                {
-                    FilesCount += 1;
-                }
+                AddFile = HasFlag(Flags, EnumerateDirectory_IncludeDirectories);
             }
-            else
+            
+            if (AddFile)
             {
                 temp_file_list_entry* File = PushStruct(FileHandler.Transient, temp_file_list_entry);
-                File->Info.FileSize = Win32HighLowToU64(FindFileData.nFileSizeLow, FindFileData.nFileSizeHigh);
-                File->Info.CreationTime = Win32FileTimeToU64(FindFileData.ftCreationTime);
-                File->Info.LastWriteTime = Win32FileTimeToU64(FindFileData.ftLastWriteTime);
-                File->Next = 0;
-                
-                u32 FileNameLength = CharArrayLength(FindFileData.cFileName);
-                
-                // NOTE(Peter): String Storage
-                // Storing the string in the final storage means we don't have to copy the string later, and all
-                // strings will be continguous in memory at the calling site, though they will be before the array
-                gs_string FileName = PushString(Storage, SearchPath.Length + FileNameLength + 1);
-                PrintF(&FileName, "%S%.*s", SearchPath, FileName.Size, FindFileData.cFileName);
-                NullTerminate(&FileName);
-                File->Info.Path = FileName.ConstString;
-                
+                *File = {0};
+                Win32SetFileInfoFromFindFileData(&File->Info, FindFileData, SearchPath, Storage);
                 SLLPushOrInit(TempList->First, TempList->Last, File);
                 FilesCount += 1;
             }
