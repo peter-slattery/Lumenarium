@@ -154,6 +154,45 @@ UnloadAssembly (u32 AssemblyIndex, app_state* State, context Context)
     State->Assemblies.Values[AssemblyIndex] = State->Assemblies.Values[LastAssemblyIndex];
 }
 
+// Querying Assemblies
+
+internal led_strip_list
+AssemblyStripsGetWithTagValue(assembly Assembly, gs_const_string TagName, gs_const_string TagValue, gs_memory_arena* Storage)
+{
+    led_strip_list Result = {0};
+    // TODO(pjs): @Optimization
+    // We can probably come back here and do this allocation procedurally, or in buckets, or with
+    // a linked list. But for now, I just want to get this up and running
+    Result.CountMax = Assembly.StripCount;
+    Result.StripIndices = PushArray(Storage, u32, Result.CountMax);
+    
+    u64 NameHash = HashDJB2ToU32(StringExpand(TagName));
+    u64 ValueHash = 0;
+    if (TagValue.Length > 0)
+    {
+        ValueHash = HashDJB2ToU32(StringExpand(TagValue));
+    }
+    
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip StripAt = Assembly.Strips[StripIndex];
+        for (u32 j = 0; j < StripAt.TagsCount; j++)
+        {
+            v2_tag TagAt = StripAt.Tags[j];
+            if (TagAt.NameHash == NameHash)
+            {
+                // NOTE(pjs): We can pass an empty string to the Value parameter,
+                // and it will match all values of Tag
+                if (ValueHash == 0 || ValueHash == TagAt.ValueHash)
+                {
+                    Result.StripIndices[Result.Count++] = StripIndex;
+                }
+            }
+        }
+    }
+    
+    return Result;
+}
 
 #define FOLDHAUS_ASSEMBLY_CPP
 #endif // FOLDHAUS_ASSEMBLY_CPP

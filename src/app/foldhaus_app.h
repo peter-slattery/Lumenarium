@@ -73,22 +73,45 @@ struct app_state
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
+#include "engine/foldhaus_assembly.cpp"
+
 // BEGIN TEMPORARY PATTERNS
 internal void
-TestPatternOne(led_buffer* Assembly, r32 Time)
+TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
-    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
+    led_strip_list StemStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("stem"), Transient);
+    
+    for (u32 i = 0; i < StemStrips.Count; i++)
     {
-        v4 LedPosition = Assembly->Positions[LedIndex];
+        u32 StripIndex = StemStrips.StripIndices[i];
+        v2_strip StripAt = Assembly.Strips[StripIndex];
+        
+        for (u32 j = 0; j < StripAt.LedCount; j++)
+        {
+            u32 LedIndex = StripAt.LedLUT[j];
+            v4 LedPosition = Leds->Positions[LedIndex];
+            float PercentX = RemapClampedR32(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
+            float PercentY = RemapClampedR32(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
+            Leds->Colors[LedIndex].R = (u8)(PercentX * 255);
+            Leds->Colors[LedIndex].G = (u8)(PercentY * 255);
+        }
+    }
+    
+#if 0
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 LedPosition = Leds->Positions[LedIndex];
         float PercentX = RemapClampedR32(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
         float PercentY = RemapClampedR32(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
-        Assembly->Colors[LedIndex].R = (u8)(PercentX * 255);
-        Assembly->Colors[LedIndex].G = (u8)(PercentY * 255);
+        Leds->Colors[LedIndex].R = (u8)(PercentX * 255);
+        Leds->Colors[LedIndex].G = (u8)(PercentY * 255);
     }
+#endif
+    
 }
 
 internal void
-TestPatternTwo(led_buffer* Assembly, r32 Time)
+TestPatternTwo(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
     r32 PeriodicTime = (Time / PiR32) * 2;
     
@@ -107,9 +130,9 @@ TestPatternTwo(led_buffer* Assembly, r32 Time)
     r32 OuterRadiusSquared = 1000000;
     r32 InnerRadiusSquared = 0;
     
-    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
-        v4 Position = Assembly->Positions[LedIndex];
+        v4 Position = Leds->Positions[LedIndex];
         
         v4 ToFront = Position + FrontCenter;
         v4 ToBack = Position + BackCenter;
@@ -125,22 +148,22 @@ TestPatternTwo(led_buffer* Assembly, r32 Time)
         {
             if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
             {
-                Assembly->Colors[LedIndex] = Color;
+                Leds->Colors[LedIndex] = Color;
             }
             else
             {
-                //Assembly->Colors[LedIndex] = {};
+                //Leds->Colors[LedIndex] = {};
             }
         }
         else
         {
-            //Assembly->Colors[LedIndex] = {};
+            //Leds->Colors[LedIndex] = {};
         }
     }
 }
 
 internal void
-TestPatternThree(led_buffer* Assembly, r32 Time)
+TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
     v4 GreenCenter = v4{0, 0, 150, 1};
     r32 GreenRadius = Abs(SinR32(Time)) * 200;
@@ -151,9 +174,9 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
     r32 FadeDist = 35;
     
     
-    for (u32 LedIndex = 0; LedIndex < Assembly->LedCount; LedIndex++)
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
-        v4 LedPosition = Assembly->Positions[LedIndex];
+        v4 LedPosition = Leds->Positions[LedIndex];
         u8 Red = 0;
         u8 Green = 0;
         u8 Blue = 0;
@@ -167,15 +190,13 @@ TestPatternThree(led_buffer* Assembly, r32 Time)
         Red = (u8)(TealBrightness * 255);
         Blue = (u8)(TealBrightness * 255);
         
-        Assembly->Colors[LedIndex].R = Red;
-        Assembly->Colors[LedIndex].B = Green;
-        Assembly->Colors[LedIndex].G = Green;
+        Leds->Colors[LedIndex].R = Red;
+        Leds->Colors[LedIndex].B = Green;
+        Leds->Colors[LedIndex].G = Green;
     }
 }
 
 // END TEMPORARY PATTERNS
-
-#include "engine/foldhaus_assembly.cpp"
 
 FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
 {

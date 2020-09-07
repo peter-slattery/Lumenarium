@@ -153,7 +153,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     
 #if 1
-    gs_const_string SculpturePath = ConstString("data/radialumia_v2.fold");
+    gs_const_string SculpturePath = ConstString("data/blumen_lumen_v2.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
@@ -364,17 +364,17 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 {
                     case 1:
                     {
-                        TestPatternOne(&LayerLEDBuffers[Layer], SecondsIntoBlock);
+                        TestPatternOne(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
                     }break;
                     
                     case 2:
                     {
-                        TestPatternTwo(&LayerLEDBuffers[Layer], SecondsIntoBlock);
+                        TestPatternTwo(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
                     }break;
                     
                     case 3:
                     {
-                        TestPatternThree(&LayerLEDBuffers[Layer], SecondsIntoBlock);
+                        TestPatternThree(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, &State->Transient);
                     }break;
                     
                     // NOTE(Peter): Zero is invalid

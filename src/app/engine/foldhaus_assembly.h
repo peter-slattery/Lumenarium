@@ -60,6 +60,13 @@ struct v2_strip
     v2_tag* Tags;
 };
 
+struct led_strip_list
+{
+    u32 Count;
+    u32 CountMax;
+    u32* StripIndices;
+};
+
 struct assembly
 {
     gs_memory_arena Arena;

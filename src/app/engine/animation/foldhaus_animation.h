@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_ANIMATION
 
-#define ANIMATION_PROC(name) void name(led_buffer* Assembly, r32 Time)
+#define ANIMATION_PROC(name) void name(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 typedef ANIMATION_PROC(animation_proc);
 
 struct frame_range
