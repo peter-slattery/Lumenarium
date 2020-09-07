@@ -105,12 +105,6 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
     }
 }
 
-// NOTE(Peter): These are here so that if we load 2+ sculptures, they don't all
-// end up on top of one another. Purely aesthetic. Can remove once we implement
-// scene editing tools
-static v4 TempAssemblyOffsets[] = { v4{0, 0, 0, 0}, v4{250, 0, 75, 0}, v4{-250, 0, 75, 0} };
-s32 TempAssemblyOffsetsCount = 3;
-
 internal void
 LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena* Scratch, context Context, gs_const_string Path, event_log* GlobalLog)
 {
@@ -129,7 +123,6 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
         {
             ConstructAssemblyFromDefinition(NewAssembly, LedSystem);
-            AllocatorFree(Context.ThreadContext.Allocator, AssemblyFile.Memory, AssemblyFile.Size);
         }
         else
         {
