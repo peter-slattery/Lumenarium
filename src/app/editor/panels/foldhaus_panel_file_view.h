@@ -29,6 +29,10 @@ FileViewUpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state
         u32 SecondLastSlashIndex = FindLast(SanitizedDirectory, LastSlashIndex - 1, '\\');
         SanitizedDirectory = Substring(SanitizedDirectory, 0, SecondLastSlashIndex);
     }
+    else if (StringsEqual(LastDir, ConstString(".")))
+    {
+        SanitizedDirectory = Substring(SanitizedDirectory, 0, LastSlashIndex);
+    }
     
     State->WorkingDirectory = PushString(&State->FileNamesArena, WorkingDirectory.Length + 2);
     PrintF(&State->WorkingDirectory, "%S", SanitizedDirectory);
