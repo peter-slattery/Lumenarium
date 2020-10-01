@@ -343,6 +343,52 @@ SACNGetUniverseSendAddress(s32 Universe)
     return V4Address;
 }
 
+internal void
+SACN_FillBufferWithLeds(u8* BufferStart, u32 BufferSize, v2_strip Strip, led_buffer LedBuffer)
+{
+    u8* DestChannel = BufferStart;
+    for (u32 i = 0; i < Strip.LedCount; i++)
+    {
+        u32 LedIndex = Strip.LedLUT[i];
+        pixel Color = LedBuffer.Colors[LedIndex];
+        
+        DestChannel[0] = Color.R;
+        DestChannel[1] = Color.G;
+        DestChannel[2] = Color.B;
+        DestChannel += 3;
+    }
+}
+
+internal void
+SACN_BuildOutputData(streaming_acn* SACN, addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem, gs_memory_arena* OutputStorage)
+{
+    SACNUpdateSequence(SACN);
+    
+    // TODO(pjs): 512 is a magic number - make it a constant?
+    s32 BufferHeaderSize = STREAM_HEADER_SIZE;
+    s32 BufferBodySize = 512;
+    s32 BufferSize = BufferHeaderSize + BufferBodySize;
+    
+    for (u32 AssemblyIdx = 0; AssemblyIdx < Assemblies.Count; AssemblyIdx++)
+    {
+        assembly Assembly = Assemblies.Values[AssemblyIdx];
+        led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
+        
+        for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)
+        {
+            v2_strip StripAt = Assembly.Strips[StripIdx];
+            
+            u32 V4SendAddress = SACNGetUniverseSendAddress(StripAt.StartUniverse);
+            u32 SendPort = DEFAULT_STREAMING_ACN_PORT;
+            
+            addressed_data_buffer* Data = AddressedDataBufferList_Push(Output, BufferSize, OutputStorage);
+            AddressedDataBuffer_SetNetworkAddress(Data, V4SendAddress, SendPort);
+            
+            SACNPrepareBufferHeader(StripAt.StartUniverse, Data->Memory, Data->MemorySize, BufferHeaderSize, *SACN);
+            SACN_FillBufferWithLeds(Data->Memory + BufferHeaderSize, BufferBodySize, StripAt, *LedBuffer);
+        }
+    }
+}
 
 #define SACN_H
 #endif // SACN_H

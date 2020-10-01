@@ -14,11 +14,12 @@
 #include "interface.h"
 
 #include "engine/foldhaus_network_ordering.h"
-#include "engine/dmx/dmx.h"
-#include "engine/sacn/sacn.h"
 
 #include "engine/foldhaus_assembly.h"
 #include "engine/assembly_parser.cpp"
+
+#include "engine/foldhaus_addressed_data.h"
+#include "engine/sacn/sacn.h"
 
 typedef struct app_state app_state;
 
@@ -36,6 +37,7 @@ enum network_protocol
 {
     NetworkProtocol_SACN,
     NetworkProtocol_ArtNet,
+    NetworkProtocol_UART,
     
     NetworkProtocol_Count,
 };

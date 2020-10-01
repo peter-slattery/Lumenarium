@@ -8,35 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-struct send_sacn_job_data
-{
-    
-    platform_socket_handle SendSocket;
-    platform_send_to* SendTo;
-    dmx_buffer_list* DMXBuffers;
-};
-
-internal void
-SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    send_sacn_job_data* Data = (send_sacn_job_data*)JobData;
-    platform_socket_handle SendSocket = Data->SendSocket;
-    
-    dmx_buffer_list* DMXBufferAt = Data->DMXBuffers;
-    while (DMXBufferAt)
-    {
-        dmx_buffer Buffer = DMXBufferAt->Buffer;
-        
-        u32 V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
-        
-        Data->SendTo(SendSocket, V4SendAddress, DEFAULT_STREAMING_ACN_PORT, (const char*)Buffer.Base, Buffer.TotalSize, 0);
-        
-        DMXBufferAt = DMXBufferAt->Next;
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////
 
 RELOAD_STATIC_DATA(ReloadStaticData)
@@ -246,56 +217,6 @@ HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse
     ClearCommandQueue(&State->CommandQueue);
 }
 
-internal dmx_buffer_list*
-CreateDMXBuffers(assembly Assembly, led_system* LedSystem, s32 BufferHeaderSize, gs_memory_arena* Arena)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
-    
-    dmx_buffer_list* Result = 0;
-    dmx_buffer_list* Head = 0;
-    
-    s32 BufferSize = BufferHeaderSize + 512;
-    
-    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
-    {
-        v2_strip Strip = Assembly.Strips[StripIndex];
-        
-        dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-        NewBuffer->Buffer.Universe = Strip.StartUniverse;
-        
-        NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
-        NewBuffer->Buffer.TotalSize = BufferSize;
-        NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
-        NewBuffer->Next = 0;
-        
-        // Append
-        if (!Result) {
-            Result = NewBuffer;
-            Head = Result;
-        }
-        Head->Next = NewBuffer;
-        Head = NewBuffer;
-        
-        u8* DestChannel = Head->Buffer.Base + BufferHeaderSize;
-        
-        for (u32 i = 0; i < Strip.LedCount; i++)
-        {
-            u32 LedIndex = Strip.LedLUT[i];
-            pixel Color = LedBuffer->Colors[LedIndex];
-            
-            DestChannel[0] = Color.R;
-            DestChannel[1] = Color.G;
-            DestChannel[2] = Color.B;
-            DestChannel += 3;
-        }
-    }
-    
-    return Result;
-}
-
-
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -420,44 +341,35 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    // Skipped for performance at the moment
-#if 0
-    dmx_buffer_list* DMXBuffers = 0;
-    for (u32 i = 0; i < State->Assemblies.Count; i++)
+    addressed_data_buffer_list OutputData = {0};
+    switch (State->NetworkProtocol)
     {
-        assembly* Assembly = &State->Assemblies.Values[i];
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, &State->LedSystem, STREAM_HEADER_SIZE, &State->Transient);
-        DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
+        case NetworkProtocol_SACN:
+        {
+            SACN_BuildOutputData(&State->SACN, &OutputData, State->Assemblies, &State->LedSystem, State->Transient);
+        }break;
+        
+        case NetworkProtocol_UART:
+        {
+            //UART_BuildOutputData(&OutputData, State, State->Transient);
+        }break;
+        
+        case NetworkProtocol_ArtNet:
+        InvalidDefaultCase;
     }
     
-    //DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
+    if (0)
     {
-        switch (State->NetworkProtocol)
-        {
-            case NetworkProtocol_SACN:
-            {
-                SACNUpdateSequence(&State->SACN);
-                
-                dmx_buffer_list* CurrentDMXBuffer = DMXBuffers;
-                while (CurrentDMXBuffer)
-                {
-                    dmx_buffer Buffer = CurrentDMXBuffer->Buffer;
-                    SACNPrepareBufferHeader(Buffer.Universe, Buffer.Base, Buffer.TotalSize, Buffer.HeaderSize, State->SACN);
-                    CurrentDMXBuffer = CurrentDMXBuffer->Next;
-                }
-                
-                send_sacn_job_data* Job = PushStruct(&State->Transient, send_sacn_job_data);
-                Job->SendSocket = State->SACN.SendSocket;
-                Job->SendTo = Context->PlatformSendTo;
-                Job->DMXBuffers = DMXBuffers;
-                
-                Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
-            }break;
-            
-            InvalidDefaultCase;
-        }
+        // TODO(pjs): This should happen on another thread
+        AddressedDataBufferList_SendAll(OutputData, State->SACN.SendSocket, *Context);
+        
+        /*
+Saved this lien as an example of pushing onto a queue
+        Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
+*/
     }
-#endif
+    
+    // Skipped for performance at the moment
     
     
     

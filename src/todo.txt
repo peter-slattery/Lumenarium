@@ -14,7 +14,6 @@ STREAM #1: 3D Overhaul
     - leds always face camera
 
 - Sculptures
-	- implicitly add a tag equal to the sculpture name to each strip of leds
     - cache led vertex buffers
     - custom sculpture update functions (for motion)
     - editing sculpture files (change universe output)
@@ -53,8 +52,6 @@ STREAM #1: 3D Overhaul
     - saving projects
 
 STRAM #4: Completeness
-- Win32 Platform Layer
-    - Enumerate Directory Contents (you started this in win32_foldhaus_fileio.h)
 
 - Platform Layer
     - Mac Platform Layer
@@ -84,27 +81,6 @@ Assembly -> SACN interface
 
 BUGS
 - Typing a period into a float value doesn't register. Problem here is that we arent' translating key presses into characters at the win32 layer. Need to do that.
-
-Switch To Nodes
-- BUG: Connect a solid color node to output then try and pick a color. I think temporary node buffers are
--      overwriting other data when they get evaluated. Bigger solution is to create a system of working
--      led buffers that get assigned to nodes as needed.
-- gonna need to remove output node from the node lister
-- delete nodes
--  - Simplify node storage
--     - investigate if node connections can be operated on separately from the node headers
--       - UpdatedThisFrame can probably go into each connection
--  - Allow insertion/deletion within connection table
--  - Allow inerstion/deletion within header table
--  - maintain free list of connections and headers
-- separate node functionality from drawing the nodes
--   - pull node position, size, etc out into a parallel data structure. after split names: node_header, interface_node
--   - create separate files: foldhaus_node_engine, foldhaus_node_gui
--   - store interface_nodes in binary tree
--   - allow panning and zooming around the node canvas
--   - Investigate why we're giving nodes bounds :NodesDontNeedToKnowTheirBounds
-- selector node (has a list of connections that it can switch between)
-- evaluation step (one node at a time)
 
 Hardening
 - Then we want to think about separating out mode render functions from mode update functions. Not sure its necessary but having something that operates like an update funciton but is called render is weird. Might want some sort of coroutine functionality in place, where modes can add and remove optional, parallel

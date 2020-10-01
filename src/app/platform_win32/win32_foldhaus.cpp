@@ -18,6 +18,7 @@
 #include "win32_foldhaus_memory.h"
 #include "win32_foldhaus_dll.h"
 #include "win32_foldhaus_timing.h"
+#include "win32_serial.h"
 
 #include "../foldhaus_renderer.cpp"
 
@@ -951,6 +952,10 @@ v4 ToScreen(v4 P, rect2 WindowBounds)
     return Result;
 }
 
+//
+// Serial
+//
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -961,168 +966,18 @@ WinMain (
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
-    {
-        m44 Before = m44{
-            0, 1, 2, 3,
-            4, 5, 6, 7,
-            8, 9, 10, 11,
-            12, 13, 14, 15
-        };
-        m44 After = M44Transpose(Before);
-        OutputDebugStringA("Before:\n");
-        PrintMatrix(Before, ThreadContext);
-        OutputDebugStringA("\n\n");
-        OutputDebugStringA("After:\n");
-        PrintMatrix(After, ThreadContext);
-        OutputDebugStringA("\n\n");
-        
-    }
     
     {
-        v4 Before = {1, 2, 3, 4};
-        m44 Transform = {};
-        for (u32 i = 0; i < 16; i++)
-        {
-            Transform.Array[i] = i + 1;
-        }
-        v4 After = Transform * Before;
-        Assert(V4Mag(After - v4{30, 70, 110, 150}) < .00000001f);
+        gs_const_string TestString = ConstString("Hello World!\nTesting\n");
+        
+        HANDLE SerialPortHandle = Win32SerialPort_Open("COM5");
+        Win32SerialPort_SetState(SerialPortHandle, 9600, 8, 0, 1);
+        Win32SerialPort_Write(SerialPortHandle, StringToData(TestString));
+        Win32SerialPort_Close(SerialPortHandle);
     }
     
-    { // Translation
-        v4 Before = {0, 0, 0, 1};
-        m44 Translation = M44Translation(v4{5, 5, 5, 0});
-        v4 After = Translation * Before;
-        Assert((After == v4{5, 5, 5, 1}));
-    }
     
-    { // X Rotation
-        v4 Before = {0, 5, 0, 1};
-        m44 Forward = M44RotationX(HalfPiR32);
-        m44 Backward = M44RotationX(-HalfPiR32);
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{0, 0, -5, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{0, 0, 5, 1}) < .000001f);
-    }
     
-    { // Y Rotation
-        v4 Before = {5, 0, 0, 1};
-        m44 Forward = M44RotationY(HalfPiR32);
-        m44 Backward = M44RotationY(-HalfPiR32);
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{0, 0, -5, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{0, 0, 5, 1}) < .000001f);
-    }
-    
-    { // Z Rotation
-        v4 Before = {0, 5, 0, 1};
-        m44 Forward = M44RotationZ(HalfPiR32);
-        m44 Backward = M44RotationZ(-HalfPiR32);
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{-5, 0, 0, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{5, 0, 0, 1}) < .000001f);
-    }
-    
-    { // Combined X Rotation
-        v4 Before = {0, 5, 0, 1};
-        m44 Forward = M44Rotation(v3{HalfPiR32, 0, 0});
-        m44 Backward = M44Rotation(v3{-HalfPiR32, 0, 0});
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{0, 0, -5, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{0, 0, 5, 1}) < .000001f);
-    }
-    
-    { // Combined Y Rotation
-        v4 Before = {5, 0, 0, 1};
-        m44 Forward = M44Rotation(v3{0, HalfPiR32, 0});
-        m44 Backward = M44Rotation(v3{0, -HalfPiR32, 0});
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{0, 0, -5, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{0, 0, 5, 1}) < .000001f);
-    }
-    
-    { // Combined Z Rotation
-        v4 Before = {0, 5, 0, 1};
-        m44 Forward = M44Rotation(v3{0, 0, HalfPiR32});
-        m44 Backward = M44Rotation(v3{0, 0, -HalfPiR32});
-        v4 After = Forward * Before;
-        Assert(V4Mag(After - v4{-5, 0, 0, 1}) < .000001f);
-        After = Backward * Before;
-        Assert(V4Mag(After - v4{5, 0, 0, 1}) < .000001f);
-    }
-    
-    { // Translate then Rotate
-        v4 Before = v4{0, 0, 0, 1};
-        
-        m44 Translation = M44Translation(v4{5, 0, 0, 0});
-        m44 Rotation = M44Rotation(v3{0, 0, HalfPiR32});
-        m44 Composite = Rotation * Translation;
-        
-        v4 Inbetween = Translation * Before;
-        v4 After = Rotation * Inbetween;
-        Assert(V4Mag(After - v4{0, 5, 0, 1}) < .000001f);
-        
-        After = Composite * Before;
-        Assert(V4Mag(After - v4{0, 5, 0, 1}) < .000001f);
-    }
-    
-    { // Two translations
-        v4 Before = v4{0, 0, 0, 1};
-        m44 TranslationA = M44Translation(v4{5, 0, 0, 0});
-        m44 TranslationB = M44Translation(v4{0, 5, 0, 0});
-        v4 After = TranslationB * TranslationA * Before;
-        Assert(V4Mag(After - v4{5, 5, 0, 1}) < .000001f);
-    }
-    
-    { // Perspective Transform
-        rect2 WindowBounds = rect2{
-            v2{0, 0},
-            v2{1440.0f, 768.0f},
-        };
-        
-        m44 Matrix = M44Translation(v4{0, 0, -200, 0}) * M44Rotation(v3{0, DegToRadR32(45), 0});
-        m44 Projection = M44ProjectionPerspective(45, RectAspectRatio(WindowBounds), 0.1f, 500);
-        
-        r32 Rad = 25;
-        v4 P0 = Matrix * v4{-Rad, -Rad, 0, 1};
-        v4 P1 = Matrix * v4{Rad, -Rad, 0, 1};
-        v4 P2 = Matrix * v4{Rad, Rad, 0, 1};
-        v4 P3 = Matrix * v4{-Rad, Rad, 0, 1};
-        
-        v4 P0P = Projection * P0;
-        v4 P1P = Projection * P1;
-        v4 P2P = Projection * P2;
-        v4 P3P = Projection * P3;
-        
-        v4 P0PD = PerspectiveDivide(P0P);
-        v4 P1PD = PerspectiveDivide(P1P);
-        v4 P2PD = PerspectiveDivide(P2P);
-        v4 P3PD = PerspectiveDivide(P3P);
-        
-        v4 P0S = ToScreen(P0PD, WindowBounds);
-        P0S.w = 1;
-        
-        v4 P1S = ToScreen(P1PD, WindowBounds);
-        P1S.w = 1;
-        
-        v4 P2S = ToScreen(P2PD, WindowBounds);
-        P2S.w = 1;
-        
-        v4 P3S = ToScreen(P3PD, WindowBounds);
-        P3S.w = 1;
-        
-        Assert(V4Mag(P0S - v4{630.11401, 256.88202, 0.99930286, 1}) < 0.00001f);
-        Assert(V4Mag(P1S - v4{795.28662, 277.52859, 0.99948108, 1}) < 0.00001f);
-        Assert(V4Mag(P2S - v4{795.28662, 490.47144, 0.99948108, 1}) < 0.00001f);
-        Assert(V4Mag(P3S - v4{630.11401, 511.11798, 0.99930286, 1}) < 0.00001f);
-        
-        //PushRenderQuad2D(RenderBuffer, P0S.xy, P1S.xy, P2S.xy, P3S.xy, WhiteV4);
-    }
     
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);

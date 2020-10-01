@@ -292,7 +292,7 @@ CopyMemory_(u8* From, u8* To, u64 Size)
 
 #define StaticArrayLength(arr) sizeof(arr) / sizeof((arr)[0])
 #define ZeroMemoryBlock(mem,size) ZeroMemory_((u8*)(mem), (size))
-#define ZeroStruct(str) ZeroMemory_((str), sizeof(str))
+#define ZeroStruct(str) ZeroMemory_((u8*)(str), sizeof(*str))
 #define ZeroArray(arr, type, count) ZeroMemory_((u8*)(arr), sizeof(type) * (count))
 
 #define CopyArray(from, to, type, count) CopyMemory_((u8*)(from), (u8*)(to), sizeof(type) * (count))
