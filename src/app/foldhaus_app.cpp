@@ -111,7 +111,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Style.Margin = v2{5, 5};
     State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
     
-    State->SACN = InitializeSACN(Context);
+    State->SACN = SACN_Initialize(Context);
     
     State->Camera.FieldOfView = 45.0f;
     State->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
@@ -341,36 +341,38 @@ UPDATE_AND_RENDER(UpdateAndRender)
         }
     }
     
-    addressed_data_buffer_list OutputData = {0};
-    switch (State->NetworkProtocol)
     {
-        case NetworkProtocol_SACN:
+        // NOTE(pjs): Building data buffers to be sent out to the sculpture
+        
+        addressed_data_buffer_list OutputData = {0};
+        switch (State->NetworkProtocol)
         {
-            SACN_BuildOutputData(&State->SACN, &OutputData, State->Assemblies, &State->LedSystem, State->Transient);
-        }break;
+            case NetworkProtocol_SACN:
+            {
+                SACN_BuildOutputData(&State->SACN, &OutputData, State->Assemblies, &State->LedSystem, State->Transient);
+            }break;
+            
+            case NetworkProtocol_UART:
+            {
+                //UART_BuildOutputData(&OutputData, State, State->Transient);
+            }break;
+            
+            case NetworkProtocol_ArtNet:
+            InvalidDefaultCase;
+        }
         
-        case NetworkProtocol_UART:
+        // NOTE(pjs): Executing the job to actually send the data
+        if (0)
         {
-            //UART_BuildOutputData(&OutputData, State, State->Transient);
-        }break;
-        
-        case NetworkProtocol_ArtNet:
-        InvalidDefaultCase;
+            // TODO(pjs): This should happen on another thread
+            AddressedDataBufferList_SendAll(OutputData, State->SACN.SendSocket, *Context);
+            
+            /*
+    Saved this lien as an example of pushing onto a queue
+            Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
+    */
+        }
     }
-    
-    if (0)
-    {
-        // TODO(pjs): This should happen on another thread
-        AddressedDataBufferList_SendAll(OutputData, State->SACN.SendSocket, *Context);
-        
-        /*
-Saved this lien as an example of pushing onto a queue
-        Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
-*/
-    }
-    
-    // Skipped for performance at the moment
-    
     
     
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
@@ -412,7 +414,7 @@ Saved this lien as an example of pushing onto a queue
 CLEANUP_APPLICATION(CleanupApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
-    SACNCleanup(&State->SACN, Context);
+    SACN_Cleanup(&State->SACN, Context);
 }
 
 #define FOLDHAUS_APP_CPP
