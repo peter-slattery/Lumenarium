@@ -5,17 +5,33 @@
 //
 #ifndef ASSEMBLY_PARSER_CPP
 
+// TODO(pjs): This is good for meta generation
+// ie. It would be great to have
+//     //             enum ident      enum prefix
+//     BEGIN_GEN_ENUM(assembly_field, AssemblyField_)
+//         //             value name    gen string of the value name  the paired string identifier
+//         ADD_ENUM_VALUE(AssemblyName, DO_GEN_STRING,                "assembly_name")
+//         ADD_ENUM_VALUE(AssemblyScale, DO_GEN_STRING, "assembly_scale")
+//     END_GEN_ENUM(assembly_field)
+
 enum assembly_field
 {
     AssemblyField_AssemblyName,
     AssemblyField_AssemblyScale,
     AssemblyField_AssemblyCenter,
     AssemblyField_LedStripCount,
+    AssemblyField_OutputMode,
     
     AssemblyField_LedStrip,
-    AssemblyField_ControlBoxId,
-    AssemblyField_StartUniverse,
-    AssemblyField_StartChannel,
+    
+    AssemblyField_OutputSACN,
+    AssemblyField_SACN_StartUniverse,
+    AssemblyField_SACN_StartChannel,
+    
+    AssemblyField_OutputUART,
+    AssemblyField_UART_Channel,
+    AssemblyField_UART_ComPort,
+    
     AssemblyField_PointPlacementType,
     AssemblyField_InterpolatePoints,
     AssemblyField_Start,
@@ -34,12 +50,17 @@ global char* AssemblyFieldIdentifiers[] = {
     "assembly_scale", // AssemblyField_AssemblyScale
     "assembly_center", // AssemblyField_AssemblyCenter
     "led_strip_count", // AssemblyField_LedStripCount
+    "output_mode", // AssemblyField_OutputMode
     
     "led_strip", // AssemblyField_LedStrip
     
-    "control_box_id", // AssemblyField_ControlBoxId
-    "start_universe", // AssemblyField_StartUniverse
-    "start_channel", // AssemblyField_StartChannel
+    "output_sacn", // AssemblyField_OutputSACN
+    "start_universe", // AssemblyField_SACN_StartUniverse
+    "start_channel", // AssemblyField_SACN_StartChannel
+    
+    "output_uart", // AssemblyField_OutputUART
+    "channel", // AssemblyField_UART_Channel
+    "com_port", // AssemblyField_UART_ComPort
     
     "point_placement_type", // AssemblyField_PointPlacementType
     "interpolate_points", // AssemblyField_InterpolatePoints
@@ -158,8 +179,11 @@ TokenizerPushError(assembly_tokenizer* T, char* ErrorString)
     EatToNewLine(T);
 }
 
+#define PARSER_FIELD_REQUIRED true
+#define PARSER_FIELD_OPTIONAL false
+
 internal bool
-ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
+ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T, bool Required = true)
 {
     bool Result = false;
     if (AdvanceIfTokenEquals(T, AssemblyFieldIdentifiers[Field]))
@@ -170,10 +194,12 @@ ReadFieldIdentifier(assembly_field Field, assembly_tokenizer* T)
         }
         else
         {
+            // We always throw an error if we get this far because we know you were trying to
+            // open the identifier
             TokenizerPushError(T, "Field identifier is missing a colon");
         }
     }
-    else
+    else if (Required)
     {
         TokenizerPushError(T, "Field Identifier Invalid");
     }
@@ -350,10 +376,10 @@ ReadV3Field(assembly_field Field, assembly_tokenizer* T)
 }
 
 internal bool
-ReadStructOpening(assembly_field Field, assembly_tokenizer* T)
+ReadStructOpening(assembly_field Field, assembly_tokenizer* T, bool Required = true)
 {
     bool Result = false;
-    if (ReadFieldIdentifier(Field, T))
+    if (ReadFieldIdentifier(Field, T, Required))
     {
         if (AdvanceIfTokenEquals(T, "{"))
         {
@@ -400,14 +426,46 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     Assembly->StripCount = ReadIntField(AssemblyField_LedStripCount, &Tokenizer);
     Assembly->Strips = PushArray(&Assembly->Arena, v2_strip, Assembly->StripCount);
     
+    gs_string OutputModeString = ReadStringField(AssemblyField_OutputMode, &Tokenizer, Transient);
+    if (StringsEqual(OutputModeString.ConstString, ConstString("UART")))
+    {
+        Assembly->OutputMode = NetworkProtocol_UART;
+    }
+    else if (StringsEqual(OutputModeString.ConstString, ConstString("SACN")))
+    {
+        Assembly->OutputMode = NetworkProtocol_SACN;
+    }
+    else
+    {
+        TokenizerPushError(&Tokenizer, "Invalid output mode specified.");
+    }
+    
     for (u32 i = 0; i < Assembly->StripCount; i++)
     {
         v2_strip* StripAt = Assembly->Strips + i;
         if (ReadStructOpening(AssemblyField_LedStrip, &Tokenizer))
         {
-            StripAt->ControlBoxID = ReadIntField(AssemblyField_ControlBoxId, &Tokenizer);
-            StripAt->StartUniverse = ReadIntField(AssemblyField_StartUniverse, &Tokenizer);
-            StripAt->StartChannel = ReadIntField(AssemblyField_StartChannel, &Tokenizer);
+            if (ReadStructOpening(AssemblyField_OutputSACN, &Tokenizer, PARSER_FIELD_OPTIONAL))
+            {
+                StripAt->SACNAddr.StartUniverse = ReadIntField(AssemblyField_SACN_StartUniverse, &Tokenizer);
+                StripAt->SACNAddr.StartChannel = ReadIntField(AssemblyField_SACN_StartChannel, &Tokenizer);
+                
+                if (!ReadStructClosing(&Tokenizer))
+                {
+                    TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
+                }
+            }
+            
+            if (ReadStructOpening(AssemblyField_OutputUART, &Tokenizer, PARSER_FIELD_OPTIONAL))
+            {
+                StripAt->UARTAddr.Channel = (u8)ReadIntField(AssemblyField_UART_Channel, &Tokenizer);
+                StripAt->UARTAddr.ComPort = ReadStringField(AssemblyField_UART_ComPort, &Tokenizer, &Assembly->Arena).ConstString;
+                
+                if (!ReadStructClosing(&Tokenizer))
+                {
+                    TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
+                }
+            }
             
             // TODO(Peter): Need to store this
             gs_string PointPlacementType = ReadStringField(AssemblyField_PointPlacementType, &Tokenizer, &Assembly->Arena);

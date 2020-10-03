@@ -208,6 +208,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
                   cid CID
                   )
 {
+    // TODO(pjs): Replace packing with gs_memory_cursor
     
     u8* Cursor = Buffer;
     
@@ -285,6 +286,7 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
     Cursor = PackB1(Cursor, StartCode);
     
     Assert(Cursor - Buffer == STREAM_HEADER_SIZE);
+    
 }
 
 //
@@ -306,7 +308,6 @@ SACN_Initialize (context Context)
 internal void
 SACN_Cleanup(streaming_acn* SACN, context Context)
 {
-    Context.PlatformCloseSocket(SACN->SendSocket);
 }
 
 internal void
@@ -360,7 +361,7 @@ SACN_FillBufferWithLeds(u8* BufferStart, u32 BufferSize, v2_strip Strip, led_buf
 }
 
 internal void
-SACN_BuildOutputData(streaming_acn* SACN, addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem, gs_memory_arena* OutputStorage)
+SACN_BuildOutputData(streaming_acn* SACN, addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem)
 {
     SACN_UpdateSequence(SACN);
     
@@ -378,13 +379,13 @@ SACN_BuildOutputData(streaming_acn* SACN, addressed_data_buffer_list* Output, as
         {
             v2_strip StripAt = Assembly.Strips[StripIdx];
             
-            u32 V4SendAddress = SACN_GetUniverseSendAddress(StripAt.StartUniverse);
+            u32 V4SendAddress = SACN_GetUniverseSendAddress(StripAt.SACNAddr.StartUniverse);
             u32 SendPort = DEFAULT_STREAMING_ACN_PORT;
             
-            addressed_data_buffer* Data = AddressedDataBufferList_Push(Output, BufferSize, OutputStorage);
-            AddressedDataBuffer_SetNetworkAddress(Data, V4SendAddress, SendPort);
+            addressed_data_buffer* Data = AddressedDataBufferList_Push(Output, BufferSize);
+            AddressedDataBuffer_SetNetworkAddress(Data, SACN->SendSocket, V4SendAddress, SendPort);
             
-            SACN_PrepareBufferHeader(StripAt.StartUniverse, Data->Memory, Data->MemorySize, BufferHeaderSize, *SACN);
+            SACN_PrepareBufferHeader(StripAt.SACNAddr.StartUniverse, Data->Memory, Data->MemorySize, BufferHeaderSize, *SACN);
             SACN_FillBufferWithLeds(Data->Memory + BufferHeaderSize, BufferBodySize, StripAt, *LedBuffer);
         }
     }

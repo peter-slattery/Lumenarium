@@ -33,7 +33,18 @@ global debug_services* GlobalDebugServices;
 //#include "..\gs_libs\gs_vector_matrix.h"
 #include "..\gs_libs\gs_input.h"
 
+struct platform_network_address
+{
+    s32 Family;
+    u16 Port;
+    u32 Address;
+};
+
+typedef s32 platform_socket_handle;
+typedef s32 platform_network_address_handle;
+
 #include "foldhaus_renderer.h"
+#include "engine/foldhaus_addressed_data.h"
 
 typedef struct context context;
 
@@ -42,7 +53,7 @@ typedef struct context context;
 #define INITIALIZE_APPLICATION(name) void name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
-#define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer)
+#define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 #define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
@@ -102,30 +113,8 @@ struct texture_buffer
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
 typedef PLATFORM_GET_GPU_TEXTURE_HANDLE(platform_get_gpu_texture_handle);
 
-struct platform_network_address
-{
-    s32 Family;
-    u16 Port;
-    u32 Address;
-};
-
-typedef s32 platform_socket_handle;
-typedef s32 platform_network_address_handle;
-
 #define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive)
 typedef PLATFORM_GET_SOCKET_HANDLE(platform_get_socket_handle);
-
-#define PLATFORM_GET_SEND_ADDRESS_HANDLE(name) platform_network_address_handle name(s32 AddressFamily, u16 Port, u32 Address)
-typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
-
-#define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength)
-typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
-
-#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, u32 Address, u32 Port, const char* Buffer, s32 BufferLength, s32 Flags)
-typedef PLATFORM_SEND_TO(platform_send_to);
-
-#define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)
-typedef PLATFORM_CLOSE_SOCKET(platform_close_socket);
 
 // Font
 struct platform_font_info
@@ -209,9 +198,6 @@ struct context
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
     
     platform_get_socket_handle* PlatformGetSocketHandle;
-    platform_set_socket_option* PlatformSetSocketOption;
-    platform_send_to* PlatformSendTo;
-    platform_close_socket* PlatformCloseSocket;
 };
 
 

@@ -2235,6 +2235,9 @@ PushSizeOnCursor_(gs_memory_cursor* Cursor, u64 Size, char* Location)
 #define PushStructOnCursor(cursor,type) (type*)PushSizeOnCursor_((cursor), sizeof(type), FileNameAndLineNumberString).Memory
 #define PushArrayOnCursor(cursor,type,count) (type*)PushSizeOnCursor_((cursor), sizeof(type) * (count), FileNameAndLineNumberString).Memory
 
+#define MemoryCursor_WriteValue(cursor, type, value) *PushStructOnCursor(cursor, type) = value
+#define MemoryCursor_WriteBuffer(cursor, buf, len) CopyMemoryTo((u8*)(buf), PushArrayOnCursor((cursor), u8, (len)), (len))
+
 internal void
 PopSizeOnCursor(gs_memory_cursor* Cursor, u64 Size)
 {

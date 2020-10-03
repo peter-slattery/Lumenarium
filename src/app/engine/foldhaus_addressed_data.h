@@ -12,66 +12,86 @@
 enum data_buffer_address_type
 {
     AddressType_NetworkIP,
+    AddressType_ComPort,
     AddressType_Invalid,
 };
 
 struct addressed_data_buffer
 {
-    u8* Memory;
-    u32 MemorySize;
+    union
+    {
+        struct
+        {
+            u8* Memory;
+            u32 MemorySize;
+        };
+        gs_data Data;
+    };
     
     data_buffer_address_type AddressType;
     
     // IP Address
+    platform_socket_handle SendSocket;
     u32 V4SendAddress;
     u32 SendPort;
+    
+    // COM
+    gs_const_string ComPort;
     
     addressed_data_buffer* Next;
 };
 
 struct addressed_data_buffer_list
 {
+    gs_memory_arena* Arena;
     addressed_data_buffer* Root;
     addressed_data_buffer* Head;
 };
 
-internal addressed_data_buffer*
-AddressedDataBufferList_Push(addressed_data_buffer_list* List, u32 BufferSize, gs_memory_arena* Storage)
+internal void
+AddressedDataBufferList_Clear(addressed_data_buffer_list* List)
 {
-    addressed_data_buffer* Result = PushStruct(Storage, addressed_data_buffer);
+    List->Root = 0;
+    List->Head = 0;
+    ClearArena(List->Arena);
+}
+
+internal addressed_data_buffer*
+AddressedDataBufferList_PushEmpty(addressed_data_buffer_list* List)
+{
+    addressed_data_buffer* Result = PushStruct(List->Arena, addressed_data_buffer);
     *Result = {0};
-    Result->MemorySize = BufferSize;
-    Result->Memory = PushArray(Storage, u8, Result->MemorySize);
+    Result->MemorySize = 0;
+    Result->Memory = 0;
     
     SLLPushOrInit(List->Root, List->Head, Result);
     
     return Result;
 }
 
+internal addressed_data_buffer*
+AddressedDataBufferList_Push(addressed_data_buffer_list* List, u32 BufferSize)
+{
+    addressed_data_buffer* Result = AddressedDataBufferList_PushEmpty(List);
+    Result->MemorySize = BufferSize;
+    Result->Memory = PushArray(List->Arena, u8, Result->MemorySize);
+    return Result;
+}
+
 internal void
-AddressedDataBuffer_SetNetworkAddress(addressed_data_buffer* Buffer, u32 V4SendAddress, u32 SendPort)
+AddressedDataBuffer_SetNetworkAddress(addressed_data_buffer* Buffer, platform_socket_handle SendSocket, u32 V4SendAddress, u32 SendPort)
 {
     Buffer->AddressType = AddressType_NetworkIP;
+    Buffer->SendSocket = SendSocket;
     Buffer->V4SendAddress = V4SendAddress;
     Buffer->SendPort = SendPort;
 }
 
 internal void
-AddressedDataBuffer_Send(addressed_data_buffer Buffer, platform_socket_handle SendSocket, context Context)
+AddressedDataBuffer_SetCOMPort(addressed_data_buffer* Buffer, gs_const_string ComPort)
 {
-    u32 V4SendAddress = Buffer.V4SendAddress;
-    Context.PlatformSendTo(SendSocket, Buffer.V4SendAddress, Buffer.SendPort, (const char*)Buffer.Memory, Buffer.MemorySize, 0);
-}
-
-internal void
-AddressedDataBufferList_SendAll(addressed_data_buffer_list OutputData, platform_socket_handle SendSocket, context Context)
-{
-    for (addressed_data_buffer* BufferAt = OutputData.Root;
-         BufferAt != 0;
-         BufferAt = BufferAt->Next)
-    {
-        AddressedDataBuffer_Send(*BufferAt, SendSocket, Context);
-    }
+    Buffer->AddressType = AddressType_ComPort;
+    Buffer->ComPort = ComPort;
 }
 
 #define FOLDHAUS_ADDRESSED_DATA_H

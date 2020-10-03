@@ -18,8 +18,8 @@
 #include "engine/foldhaus_assembly.h"
 #include "engine/assembly_parser.cpp"
 
-#include "engine/foldhaus_addressed_data.h"
-#include "engine/sacn/sacn.h"
+#include "engine/sacn/foldhaus_sacn.h"
+#include "engine/uart/foldhaus_uart.h"
 
 typedef struct app_state app_state;
 
@@ -32,15 +32,6 @@ typedef struct app_state app_state;
 #include "editor/foldhaus_operation_mode.h"
 
 #include "engine/animation/foldhaus_animation.h"
-
-enum network_protocol
-{
-    NetworkProtocol_SACN,
-    NetworkProtocol_ArtNet,
-    NetworkProtocol_UART,
-    
-    NetworkProtocol_Count,
-};
 
 struct app_state
 {

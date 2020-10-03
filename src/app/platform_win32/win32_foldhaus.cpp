@@ -22,6 +22,7 @@
 #include "win32_foldhaus_timing.h"
 #include "win32_foldhaus_work_queue.h"
 #include "win32_foldhaus_serial.h"
+#include "win32_foldhaus_socket.h"
 
 #include "../foldhaus_renderer.cpp"
 
@@ -38,105 +39,6 @@ PLATFORM_GET_GPU_TEXTURE_HANDLE(Win32GetGPUTextureHandle)
 {
     s32 Handle = SubmitTexture(Memory, Width, Height);
     return Handle;
-}
-
-struct win32_socket
-{
-    SOCKET Socket;
-};
-
-#define SOCKET_DICTIONARY_GROW_SIZE 32
-s32 Win32SocketHandleMax;
-s32 Win32SocketHandleCount;
-win32_socket* SocketValues;
-
-PLATFORM_SET_SOCKET_OPTION(Win32SetSocketOption)
-{
-    s32 SocketIndex = (s32)SocketHandle;
-    Assert(SocketIndex < Win32SocketHandleCount);
-    int Error = setsockopt(SocketValues[SocketIndex].Socket, Level, Option, OptionValue, OptionLength);
-    if (Error == SOCKET_ERROR)
-    {
-        Error = WSAGetLastError();
-        // TODO(Peter): :ErrorLogging
-    }
-    
-    return Error;
-}
-
-PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)
-{
-    // NOTE(Peter): These used to be passed in as paramters, but we only use this function
-    // with AF_INET, SOCK_DGRAM, and Protocol = 0. These are also platform specific values
-    // so I was having to include windows.h in the platform agnostic code to accomodate that
-    // function signature.
-    s32 AddressFamily = AF_INET;
-    s32 Type = SOCK_DGRAM;
-    s32 Protocol = 0;
-    
-    if (Win32SocketHandleCount >= Win32SocketHandleMax)
-    {
-        s32 NewDictionaryMax = Win32SocketHandleMax + SOCKET_DICTIONARY_GROW_SIZE;
-        s32 NewDictionaryDataSize = NewDictionaryMax *  sizeof(win32_socket);
-        u8* DictionaryMemory = (u8*)Win32Alloc(NewDictionaryDataSize, 0);
-        Assert(DictionaryMemory);
-        
-        win32_socket* NewValues = (win32_socket*)(DictionaryMemory);
-        if (SocketValues)
-        {
-            CopyMemoryTo(SocketValues, NewValues, sizeof(win32_socket) * NewDictionaryMax);
-            Win32Free((u8*)SocketValues, sizeof(win32_socket) * Win32SocketHandleCount);
-        }
-        SocketValues = NewValues;
-        
-        Win32SocketHandleMax = NewDictionaryMax;
-    }
-    
-    Assert(Win32SocketHandleCount < Win32SocketHandleMax);
-    s32 NewSocketIndex = Win32SocketHandleCount++;
-    
-    SocketValues[NewSocketIndex].Socket = socket(AddressFamily, Type, Protocol);
-    
-    int Error = Win32SetSocketOption(NewSocketIndex, IPPROTO_IP, IP_MULTICAST_TTL,
-                                     (const char*)(&Multicast_TimeToLive), sizeof(Multicast_TimeToLive));
-    
-    return (platform_socket_handle)NewSocketIndex;
-}
-
-PLATFORM_SEND_TO(Win32SendTo)
-{
-    s32 SocketIndex = (s32)SocketHandle;
-    Assert(SocketIndex < Win32SocketHandleCount);
-    
-    sockaddr_in SockAddress = {};
-    SockAddress.sin_family = AF_INET;
-    SockAddress.sin_port = HostToNetU16(Port);
-    SockAddress.sin_addr.s_addr = HostToNetU32(Address);
-    
-    s32 LengthSent = sendto(SocketValues[SocketIndex].Socket, Buffer, BufferLength, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
-    
-    if (LengthSent == SOCKET_ERROR)
-    {
-        s32 Error = WSAGetLastError();
-        if (Error == 10051)
-        {
-        }
-        else
-        {
-            // TODO(Peter): :ErrorLogging
-            InvalidCodePath;
-        }
-    }
-    
-    return LengthSent;
-}
-
-PLATFORM_CLOSE_SOCKET(Win32CloseSocket)
-{
-    s32 SocketIndex = (s32)SocketHandle;
-    Assert(SocketIndex < Win32SocketHandleCount);
-    
-    closesocket(SocketValues[SocketIndex].Socket);
 }
 
 HDC FontDrawingDC;
@@ -462,40 +364,6 @@ Win32LoadSystemCursor(char* CursorIdentifier)
     return Result;
 }
 
-internal void
-PrintMatrix(m44 M, gs_thread_context Context)
-{
-    gs_string PrintString = AllocatorAllocString(Context.Allocator, 256);
-    PrintF(&PrintString, "[\n    %f %f %f %f\n    %f %f %f %f\n    %f %f %f %f\n    %f %f %f %f\n]\n",
-           M.Array[0], M.Array[1], M.Array[2], M.Array[3],
-           M.Array[4], M.Array[5], M.Array[6], M.Array[7],
-           M.Array[8], M.Array[9], M.Array[10], M.Array[11],
-           M.Array[12], M.Array[13], M.Array[14], M.Array[15]);
-    NullTerminate(&PrintString);
-    OutputDebugStringA(PrintString.Str);
-}
-
-v4 PerspectiveDivide(v4 A)
-{
-    v4 Result = {0, 0, 0, 1};
-    Result.x = A.x / A.w;
-    Result.y = A.y / A.w;
-    Result.z = A.z / A.w;
-    Result.w = A.w;
-    return Result;
-}
-v4 ToScreen(v4 P, rect2 WindowBounds)
-{
-    v4 Result = P;
-    Result.x = RemapR32(P.x, -1, 1, WindowBounds.Min.x, WindowBounds.Max.x);
-    Result.y = RemapR32(P.y, -1, 1, WindowBounds.Min.y, WindowBounds.Max.y);
-    return Result;
-}
-
-//
-// Serial
-//
-
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -506,19 +374,6 @@ WinMain (
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
-    
-    {
-        gs_const_string TestString = ConstString("Hello World!\nTesting\n");
-        
-        HANDLE SerialPortHandle = Win32SerialPort_Open("COM5");
-        Win32SerialPort_SetState(SerialPortHandle, 9600, 8, 0, 1);
-        Win32SerialPort_Write(SerialPortHandle, StringToData(TestString));
-        Win32SerialPort_Close(SerialPortHandle);
-    }
-    
-    
-    
-    
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
     
@@ -528,12 +383,23 @@ WinMain (
     OpenGLWindowInfo.DepthBits = 0;
     CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
     
+    s32 InitialMemorySize = MB(64);
+    u8* InitialMemory = (u8*)Win32Alloc(InitialMemorySize, 0);
+    context Context = {};
+    Context.ThreadContext = ThreadContext;
+    Context.MemorySize = InitialMemorySize;
+    Context.MemoryBase = InitialMemory;
+    Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
+    Context.Mouse = {0};
+    
+    gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    
     s64 PerformanceCountFrequency = GetPerformanceFrequency();
     s64 LastFrameEnd = GetWallClock();
     r32 TargetSecondsPerFrame = 1 / 60.0f;
     r32 LastFrameSecondsElapsed = 0.0f;
     
-    GlobalDebugServices = (debug_services*)malloc(sizeof(debug_services));
+    GlobalDebugServices = PushStruct(&PlatformPermanent, debug_services);
     s32 DebugThreadCount = PLATFORM_THREAD_COUNT + 1;
     InitDebugServices(GlobalDebugServices,
                       PerformanceCountFrequency,
@@ -556,7 +422,7 @@ WinMain (
     worker_thread_info* WorkerThreads = 0;
     if (PLATFORM_THREAD_COUNT > 0)
     {
-        WorkerThreads = (worker_thread_info*)malloc(sizeof(worker_thread_info) * PLATFORM_THREAD_COUNT);
+        WorkerThreads = PushArray(&PlatformPermanent, worker_thread_info, PLATFORM_THREAD_COUNT);
     }
     
     HANDLE WorkQueueSemaphoreHandle = CreateSemaphoreEx(0, 0, PLATFORM_THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
@@ -564,7 +430,7 @@ WinMain (
     gs_work_queue WorkQueue = {};
     WorkQueue.SemaphoreHandle = &WorkQueueSemaphoreHandle;
     WorkQueue.JobsMax = 512;
-    WorkQueue.Jobs = (gs_threaded_job*)Win32Alloc(sizeof(gs_threaded_job) * WorkQueue.JobsMax, 0);
+    WorkQueue.Jobs = PushArray(&PlatformPermanent, gs_threaded_job, WorkQueue.JobsMax);
     WorkQueue.NextJobIndex = 0;
     WorkQueue.PushWorkOnQueue = Win32PushWorkOnQueue;
     WorkQueue.CompleteQueueWork = Win32DoQueueWorkUntilDone;
@@ -576,15 +442,6 @@ WinMain (
         WorkerThreads[i].Queue = &WorkQueue;
         WorkerThreads[i].Handle = CreateThread(0, 0, &WorkerThreadProc, (void*)&WorkerThreads[i], 0, 0);
     }
-    
-    s32 InitialMemorySize = MB(64);
-    u8* InitialMemory = (u8*)Win32Alloc(InitialMemorySize, 0);
-    context Context = {};
-    Context.ThreadContext = ThreadContext;
-    Context.MemorySize = InitialMemorySize;
-    Context.MemoryBase = InitialMemory;
-    Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
-    Context.Mouse = {0};
     
     // Cursors
     HCURSOR CursorArrow = Win32LoadSystemCursor(IDC_ARROW);
@@ -599,9 +456,6 @@ WinMain (
     Context.GeneralWorkQueue = &WorkQueue;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
-    Context.PlatformSetSocketOption = Win32SetSocketOption;
-    Context.PlatformSendTo = Win32SendTo;
-    Context.PlatformCloseSocket = Win32CloseSocket;
     Context.PlatformGetFontInfo = Win32GetFontInfo;
     Context.PlatformDrawFontCodepoint = Win32DrawFontCodepoint;
     
@@ -619,10 +473,17 @@ WinMain (
     
     WSADATA WSAData;
     WSAStartup(MAKEWORD(2, 2), &WSAData);
+    Win32Sockets = Win32SocketArray_Create(16, &PlatformPermanent);
+    
+    Win32SerialArray_Create(ThreadContext);
     
     s32 RenderMemorySize = MB(12);
-    u8* RenderMemory = (u8*)Win32Alloc(RenderMemorySize, 0);
+    u8* RenderMemory = PushSize(&PlatformPermanent, RenderMemorySize);
     render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory, RenderMemorySize, Win32Realloc);
+    
+    addressed_data_buffer_list OutputData = {};
+    OutputData.Arena = AllocatorAllocStruct(Context.ThreadContext.Allocator, gs_memory_arena);
+    *OutputData.Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
     
     Context.InitializeApplication(Context);
     
@@ -666,10 +527,47 @@ WinMain (
         RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
         
-        Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer);
+        Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
         RenderCommandBuffer(RenderBuffer);
         ClearRenderBuffer(&RenderBuffer);
+        
+        if (true)
+        {
+            // NOTE(pjs): Send the network data
+            
+            // TODO(pjs): This should happen on another thread
+            /*
+    Saved this lien as an example of pushing onto a queue
+            Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
+    */
+            
+            for (addressed_data_buffer* BufferAt = OutputData.Root;
+                 BufferAt != 0;
+                 BufferAt = BufferAt->Next)
+            {
+                switch(BufferAt->AddressType)
+                {
+                    case AddressType_NetworkIP:
+                    {
+                        Win32Socket_SendTo(BufferAt->SendSocket,
+                                           BufferAt->V4SendAddress,
+                                           BufferAt->SendPort,
+                                           (const char*)BufferAt->Memory,
+                                           BufferAt->MemorySize,
+                                           0);
+                    }break;
+                    
+                    case AddressType_ComPort:
+                    {
+                        HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 9600, 8, 0, 1);
+                        Win32SerialPort_Write(SerialPort, BufferAt->Data);
+                    }break;
+                    
+                    InvalidDefaultCase;
+                }
+            }
+        }
         
         Context.Mouse.LeftButtonState = GetMouseButtonStateAdvanced(Context.Mouse.LeftButtonState);
         Context.Mouse.MiddleButtonState = GetMouseButtonStateAdvanced(Context.Mouse.MiddleButtonState);
@@ -728,6 +626,11 @@ WinMain (
     }
     
     Context.CleanupApplication(Context);
+    
+    for (s32 SocketIdx = 0; SocketIdx < Win32Sockets.Count; SocketIdx++)
+    {
+        Win32Socket_Close(Win32Sockets.Values + SocketIdx);
+    }
     
     s32 CleanupResult = 0;
     do {

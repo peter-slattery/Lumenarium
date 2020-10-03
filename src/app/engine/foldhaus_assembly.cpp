@@ -5,6 +5,72 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_CPP
 
+///////////////////////////
+//
+//  Assembly Array
+//
+///////////////////////////
+
+internal assembly_array
+AssemblyArray_Create(u32 CountMax, gs_memory_arena* Storage)
+{
+    assembly_array Result = {0};
+    Result.CountMax = CountMax;
+    Result.Values = PushArray(Storage, assembly, Result.CountMax);
+    return Result;
+}
+
+internal u32
+AssemblyArray_Push(assembly_array* Array, assembly Assembly)
+{
+    Assert(Array->Count < Array->CountMax);
+    u32 Index = Array->Count++;
+    Array->Values[Index] = Assembly;
+    return Index;
+}
+
+internal assembly*
+AssemblyArray_Take(assembly_array* Array)
+{
+    u32 Index = AssemblyArray_Push(Array, {});
+    assembly* Result = Array->Values + Index;
+    return Result;
+}
+
+internal void
+AssemblyArray_RemoveAt(assembly_array* Array, u32 Index)
+{
+    u32 LastAssemblyIndex = --Array->Count;
+    Array->Values[Index] = Array->Values[LastAssemblyIndex];
+}
+
+typedef bool assembly_array_filter_proc(assembly A);
+bool AssemblyFilter_OutputsViaSACN(assembly A) { return A.OutputMode == NetworkProtocol_SACN; }
+bool AssemblyFilter_OutputsViaUART(assembly A) { return A.OutputMode == NetworkProtocol_UART; }
+
+internal assembly_array
+AssemblyArray_Filter(assembly_array Array, assembly_array_filter_proc* Filter, gs_memory_arena* Storage)
+{
+    assembly_array Result = AssemblyArray_Create(Array.Count, Storage);
+    
+    for (u32 i = 0; i < Array.Count; i++)
+    {
+        assembly At = Array.Values[i];
+        if (Filter(At))
+        {
+            AssemblyArray_Push(&Result, At);
+        }
+    }
+    
+    return Result;
+}
+
+///////////////////////////
+//
+//  LedSystem
+//
+///////////////////////////
+
 internal led_system
 LedSystemInitialize(gs_allocator PlatformMemory, u32 BuffersMax)
 {
@@ -116,8 +182,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         s32 IndexOfLastSlash = FindLast(Path, '\\');
         gs_const_string FileName = Substring(Path, IndexOfLastSlash + 1, Path.Length);
         
-        Assert(Assemblies->Count < Assemblies->CountMax);
-        assembly* NewAssembly = &Assemblies->Values[Assemblies->Count++];
+        assembly* NewAssembly = AssemblyArray_Take(Assemblies);
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
         
         if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
@@ -143,8 +208,7 @@ UnloadAssembly (u32 AssemblyIndex, app_state* State, context Context)
     assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
     LedSystemFreeBuffer(&State->LedSystem, Assembly->LedBufferIndex);
     FreeMemoryArena(&Assembly->Arena);
-    u32 LastAssemblyIndex = --State->Assemblies.Count;
-    State->Assemblies.Values[AssemblyIndex] = State->Assemblies.Values[LastAssemblyIndex];
+    AssemblyArray_RemoveAt(&State->Assemblies, AssemblyIndex);
 }
 
 // Querying Assemblies

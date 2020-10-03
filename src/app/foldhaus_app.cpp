@@ -25,8 +25,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
     State->Transient = Context.ThreadContext.Transient;
     
-    State->Assemblies.CountMax = 8;
-    State->Assemblies.Values = PushArray(&State->Permanent, assembly, State->Assemblies.CountMax);
+    State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
     
     State->GlobalLog = PushStruct(State->Transient, event_log);
     *State->GlobalLog = {0};
@@ -125,9 +124,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
 #if 1
     gs_const_string SculpturePath = ConstString("data/blumen_lumen_v2.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
-    
-    SculpturePath = ConstString("data/radialumia_v2.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
@@ -343,37 +339,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     {
         // NOTE(pjs): Building data buffers to be sent out to the sculpture
-        
-        addressed_data_buffer_list OutputData = {0};
-        switch (State->NetworkProtocol)
-        {
-            case NetworkProtocol_SACN:
-            {
-                SACN_BuildOutputData(&State->SACN, &OutputData, State->Assemblies, &State->LedSystem, State->Transient);
-            }break;
-            
-            case NetworkProtocol_UART:
-            {
-                //UART_BuildOutputData(&OutputData, State, State->Transient);
-            }break;
-            
-            case NetworkProtocol_ArtNet:
-            InvalidDefaultCase;
-        }
-        
-        // NOTE(pjs): Executing the job to actually send the data
-        if (0)
-        {
-            // TODO(pjs): This should happen on another thread
-            AddressedDataBufferList_SendAll(OutputData, State->SACN.SendSocket, *Context);
-            
-            /*
-    Saved this lien as an example of pushing onto a queue
-            Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
-    */
-        }
+        // This array is used on the platform side to actually send the information
+        assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
+        assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
+        SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
+        UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem);
     }
-    
     
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);

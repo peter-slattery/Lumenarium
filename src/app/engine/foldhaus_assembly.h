@@ -5,6 +5,15 @@
 //
 #ifndef FOLDHAUS_ASSEMBLY_H
 
+enum network_protocol
+{
+    NetworkProtocol_SACN,
+    NetworkProtocol_ArtNet,
+    NetworkProtocol_UART,
+    
+    NetworkProtocol_Count,
+};
+
 union pixel
 {
     struct
@@ -40,13 +49,24 @@ struct v2_tag
     u64 ValueHash;
 };
 
+struct strip_sacn_addr
+{
+    s32 StartUniverse;
+    s32 StartChannel;
+};
+
+struct strip_uart_addr
+{
+    u8 Channel;
+    gs_const_string ComPort;
+};
+
 struct v2_strip
 {
     s32 ControlBoxID; // TODO(Peter): I don't think we need this anymore
     
-    // TODO(Peter): Add in info for Serial, ArtNet, etc.
-    s32 StartUniverse;
-    s32 StartChannel;
+    strip_sacn_addr SACNAddr;
+    strip_uart_addr UARTAddr;
     
     // TODO(Peter): When we create more ways to calculate points, this needs to become
     // a type enum and a union
@@ -81,6 +101,8 @@ struct assembly
     
     u32 StripCount;
     v2_strip* Strips;
+    
+    network_protocol OutputMode;
 };
 
 struct assembly_array
