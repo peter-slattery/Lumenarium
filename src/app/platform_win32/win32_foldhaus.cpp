@@ -364,6 +364,58 @@ Win32LoadSystemCursor(char* CursorIdentifier)
     return Result;
 }
 
+internal void
+Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_list OutputData)
+{
+    DEBUG_TRACK_FUNCTION;
+    
+    u32 BuffersSent = 0;
+    
+    for (addressed_data_buffer* BufferAt = OutputData.Root;
+         BufferAt != 0;
+         BufferAt = BufferAt->Next)
+    {
+        switch(BufferAt->AddressType)
+        {
+            case AddressType_NetworkIP:
+            {
+                Win32Socket_SendTo(BufferAt->SendSocket,
+                                   BufferAt->V4SendAddress,
+                                   BufferAt->SendPort,
+                                   (const char*)BufferAt->Memory,
+                                   BufferAt->MemorySize,
+                                   0);
+            }break;
+            
+            case AddressType_ComPort:
+            {
+                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
+                if (SerialPort != INVALID_HANDLE_VALUE)
+                {
+                    if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
+                    {
+                        BuffersSent += 1;
+                    }
+                }
+            }break;
+            
+            InvalidDefaultCase;
+        }
+    }
+    
+    gs_string OutputStr = AllocatorAllocString(Context.Allocator, 256);
+    PrintF(&OutputStr, "Buffers Sent: %d\n", BuffersSent);
+    NullTerminate(&OutputStr);
+    OutputDebugStringA(OutputStr.Str);
+}
+
+internal void
+Win32_SendAddressedDataBuffers_Job(gs_thread_context Context, gs_data Arg)
+{
+    addressed_data_buffer_list* OutputData = (addressed_data_buffer_list*)Arg.Memory;
+    Win32_SendAddressedDataBuffers(Context, *OutputData);
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -504,6 +556,8 @@ WinMain (
             Context.ReloadStaticData(Context, GlobalDebugServices);
         }
         
+        AddressedDataBufferList_Clear(&OutputData);
+        
         { // Mouse Position
             POINT MousePos;
             GetCursorPos (&MousePos);
@@ -534,39 +588,10 @@ WinMain (
         
         if (true)
         {
-            // NOTE(pjs): Send the network data
-            
-            // TODO(pjs): This should happen on another thread
-            /*
-    Saved this lien as an example of pushing onto a queue
-            Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
-    */
-            
-            for (addressed_data_buffer* BufferAt = OutputData.Root;
-                 BufferAt != 0;
-                 BufferAt = BufferAt->Next)
-            {
-                switch(BufferAt->AddressType)
-                {
-                    case AddressType_NetworkIP:
-                    {
-                        Win32Socket_SendTo(BufferAt->SendSocket,
-                                           BufferAt->V4SendAddress,
-                                           BufferAt->SendPort,
-                                           (const char*)BufferAt->Memory,
-                                           BufferAt->MemorySize,
-                                           0);
-                    }break;
-                    
-                    case AddressType_ComPort:
-                    {
-                        HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 9600, 8, 0, 1);
-                        Win32SerialPort_Write(SerialPort, BufferAt->Data);
-                    }break;
-                    
-                    InvalidDefaultCase;
-                }
-            }
+            gs_data ProcArg = {};
+            ProcArg.Memory = (u8*)&OutputData;
+            ProcArg.Size = sizeof(OutputData);
+            Win32PushWorkOnQueue(&WorkQueue, Win32_SendAddressedDataBuffers_Job, ProcArg, ConstString("Send UART Data"));
         }
         
         Context.Mouse.LeftButtonState = GetMouseButtonStateAdvanced(Context.Mouse.LeftButtonState);
@@ -609,6 +634,8 @@ WinMain (
         HDC DeviceContext = GetDC(MainWindow.Handle);
         SwapBuffers(DeviceContext);
         ReleaseDC(MainWindow.Handle, DeviceContext);
+        
+        //Win32DoQueueWorkUntilDone(&WorkQueue, Context.ThreadContext);
         
         s64 FinishedWorkTime = GetWallClock();
         r32 SecondsElapsed = GetSecondsElapsed(LastFrameEnd, FinishedWorkTime, PerformanceCountFrequency);

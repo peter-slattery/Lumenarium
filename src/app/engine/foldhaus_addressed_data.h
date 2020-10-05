@@ -61,6 +61,7 @@ AddressedDataBufferList_PushEmpty(addressed_data_buffer_list* List)
 {
     addressed_data_buffer* Result = PushStruct(List->Arena, addressed_data_buffer);
     *Result = {0};
+    Result->Next = 0;
     Result->MemorySize = 0;
     Result->Memory = 0;
     

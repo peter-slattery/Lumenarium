@@ -58,7 +58,6 @@ struct strip_sacn_addr
 struct strip_uart_addr
 {
     u8 Channel;
-    gs_const_string ComPort;
 };
 
 struct v2_strip
@@ -103,6 +102,7 @@ struct assembly
     v2_strip* Strips;
     
     network_protocol OutputMode;
+    gs_const_string UARTComPort;
 };
 
 struct assembly_array

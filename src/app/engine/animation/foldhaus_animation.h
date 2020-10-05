@@ -35,6 +35,17 @@ struct anim_layer
     blend_mode BlendMode;
 };
 
+struct animation
+{
+    anim_layer* Layers;
+    u32 LayersCount;
+    u32 LayersMax;
+    
+    gs_list<animation_block> Blocks;
+    
+    frame_range PlayableRange;
+};
+
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
 #define ANIMATION_SYSTEM_BLOCKS_MAX 128
 struct animation_system

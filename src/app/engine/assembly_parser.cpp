@@ -284,7 +284,7 @@ ReadInt(assembly_tokenizer* T)
 }
 
 internal gs_string
-ReadStringField(assembly_field Field, assembly_tokenizer* T, gs_memory_arena* Arena)
+ReadStringField(assembly_field Field, assembly_tokenizer* T, gs_memory_arena* Arena, bool ShouldNullTerminate = false)
 {
     gs_string Result = {};
     if (ReadFieldIdentifier(Field, T))
@@ -293,8 +293,13 @@ ReadStringField(assembly_field Field, assembly_tokenizer* T, gs_memory_arena* Ar
         if (ReadFieldEnd(T))
         {
             // Success
-            Result = PushString(Arena, ExistingString.Length);
+            u64 Length = ExistingString.Length + (ShouldNullTerminate ? 1 : 0);
+            Result = PushString(Arena, Length);
             PrintF(&Result, "%S", ExistingString);
+            if (ShouldNullTerminate)
+            {
+                NullTerminate(&Result);
+            }
         }
     }
     return Result;
@@ -430,6 +435,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     if (StringsEqual(OutputModeString.ConstString, ConstString("UART")))
     {
         Assembly->OutputMode = NetworkProtocol_UART;
+        Assembly->UARTComPort = ReadStringField(AssemblyField_UART_ComPort, &Tokenizer, &Assembly->Arena, true).ConstString;
     }
     else if (StringsEqual(OutputModeString.ConstString, ConstString("SACN")))
     {
@@ -459,7 +465,6 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
             if (ReadStructOpening(AssemblyField_OutputUART, &Tokenizer, PARSER_FIELD_OPTIONAL))
             {
                 StripAt->UARTAddr.Channel = (u8)ReadIntField(AssemblyField_UART_Channel, &Tokenizer);
-                StripAt->UARTAddr.ComPort = ReadStringField(AssemblyField_UART_ComPort, &Tokenizer, &Assembly->Arena).ConstString;
                 
                 if (!ReadStructClosing(&Tokenizer))
                 {
