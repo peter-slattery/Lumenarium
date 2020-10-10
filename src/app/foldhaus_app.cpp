@@ -136,16 +136,25 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     { // Animation PLAYGROUND
+        
         State->AnimationSystem = {};
         State->AnimationSystem.Storage = &State->Permanent;
+        State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
+        
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        State->AnimationSystem.PlayableRange.Min = 0;
-        State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
-        State->AnimationSystem.LayersMax = 32;
-        State->AnimationSystem.Layers = PushArray(&State->Permanent, anim_layer, State->AnimationSystem.LayersMax);
-        AddLayer(MakeString("Base Layer"), &State->AnimationSystem, BlendMode_Overwrite);
-        AddLayer(MakeString("Color Layer"), &State->AnimationSystem, BlendMode_Multiply);
-        AddLayer(MakeString("Sparkles"), &State->AnimationSystem, BlendMode_Add);
+        
+        animation Anim = {0};
+        Anim.Layers.CountMax = 8;
+        Anim.Layers.Values = PushArray(State->AnimationSystem.Storage, anim_layer, Anim.Layers.CountMax);
+        Anim.PlayableRange.Min = 0;
+        Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
+        
+        AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
+        
+        
     } // End Animation Playground
     
     
@@ -230,14 +239,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
     
-    if (State->AnimationSystem.TimelineShouldAdvance) {
-        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-        State->AnimationSystem.CurrentFrame += 1;
-        // Loop back to the beginning
-        if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.PlayableRange.Max)
-        {
-            State->AnimationSystem.CurrentFrame = 0;
+    {
+        animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+        if (State->AnimationSystem.TimelineShouldAdvance) {
+            // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+            // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+            State->AnimationSystem.CurrentFrame += 1;
+            
+            // Loop back to the beginning
+            if (State->AnimationSystem.CurrentFrame > ActiveAnim->PlayableRange.Max)
+            {
+                State->AnimationSystem.CurrentFrame = 0;
+            }
         }
     }
     
@@ -247,31 +260,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
         
-        u32 CurrentBlocksMax = State->AnimationSystem.LayersCount;
-        b8* CurrentBlocksFilled = PushArray(State->Transient, b8, CurrentBlocksMax);
-        ZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
-        animation_block* CurrentBlocks = PushArray(State->Transient, animation_block, CurrentBlocksMax);
+        animation_frame CurrFrame = AnimationSystem_CalculateAnimationFrame(&State->AnimationSystem, State->Transient);
         
-        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
-        {
-            gs_list_entry<animation_block>* BlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
-            if (EntryIsFree(BlockEntry)) { continue; }
-            animation_block Block = BlockEntry->Value;
-            if (CurrentFrame < Block.Range.Min || CurrentFrame > Block.Range.Max) { continue; }
-            CurrentBlocksFilled[Block.Layer] = true;
-            CurrentBlocks[Block.Layer] = Block;
-        }
-        
-        led_buffer* LayerLEDBuffers = PushArray(State->Transient, led_buffer, CurrentBlocksMax);
+        led_buffer* LayerLEDBuffers = PushArray(State->Transient, led_buffer, CurrFrame.BlocksCountMax);
         for (u32 AssemblyIndex = 0; AssemblyIndex < State->Assemblies.Count; AssemblyIndex++)
         {
             assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
             led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly->LedBufferIndex);
             
-            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
             {
-                if (!CurrentBlocksFilled[Layer]) { continue; }
-                animation_block Block = CurrentBlocks[Layer];
+                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
+                animation_block Block = CurrFrame.Blocks[Layer];
                 
                 // Prep Temp Buffer
                 LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
@@ -287,11 +287,12 @@ UPDATE_AND_RENDER(UpdateAndRender)
             
             // Consolidate Temp Buffers
             // We do this in reverse order so that they go from top to bottom
-            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
             {
-                if (!CurrentBlocksFilled[Layer]) { continue; }
+                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
                 
-                switch (State->AnimationSystem.Layers[Layer].BlendMode)
+                switch (ActiveAnim->Layers.Values[Layer].BlendMode)
                 {
                     case BlendMode_Overwrite:
                     {

@@ -35,15 +35,36 @@ struct anim_layer
     blend_mode BlendMode;
 };
 
+struct anim_layer_array
+{
+    anim_layer* Values;
+    u32 Count;
+    u32 CountMax;
+};
+
 struct animation
 {
-    anim_layer* Layers;
-    u32 LayersCount;
-    u32 LayersMax;
-    
+    anim_layer_array Layers;
     gs_list<animation_block> Blocks;
     
     frame_range PlayableRange;
+};
+
+struct animation_array
+{
+    animation* Values;
+    u32 Count;
+    u32 CountMax;
+};
+
+struct animation_frame
+{
+    // NOTE(pjs): These are all parallel arrays of equal length
+    animation_block* Blocks;
+    b8*              BlocksFilled;
+    
+    u32 BlocksCountMax;
+    u32 BlocksCount;
 };
 
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
@@ -51,11 +72,10 @@ struct animation
 struct animation_system
 {
     gs_memory_arena* Storage;
+    animation_array Animations;
     
-    gs_list<animation_block> Blocks;
-    anim_layer* Layers;
-    u32 LayersCount;
-    u32 LayersMax;
+    frame_range PlayableRange_;
+    gs_list<animation_block> Blocks_;
     
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
@@ -65,9 +85,106 @@ struct animation_system
     r32 SecondsPerFrame;
     b32 TimelineShouldAdvance;
     
-    // Timeline
-    frame_range PlayableRange;
 };
+
+//////////////////////////
+//
+// Anim Layers Array
+
+internal anim_layer_array
+AnimLayerArray_Create(gs_memory_arena* Storage, u32 CountMax)
+{
+    anim_layer_array Result = {0};
+    Result.CountMax = CountMax;
+    Result.Values = PushArray(Storage, anim_layer, Result.CountMax);
+    return Result;
+}
+
+internal u32
+AnimLayerArray_Push(anim_layer_array* Array, anim_layer Value)
+{
+    Assert(Array->Count < Array->CountMax);
+    u32 Index = Array->Count++;
+    Array->Values[Index] = Value;
+    return Index;
+}
+
+internal u32
+AnimLayerArray_Remove(anim_layer_array* Array, u32 Index)
+{
+    Assert(Index < Array->Count);
+    for (u32 i = Index; i < Array->Count - 1; i++)
+    {
+        Array->Values[i] = Array->Values[i + 1];
+    }
+}
+
+//////////////////////////
+//
+// Animation Array
+
+internal animation_array
+AnimationArray_Create(gs_memory_arena* Storage, u32 CountMax)
+{
+    animation_array Result = {0};
+    Result.CountMax = CountMax;
+    Result.Values = PushArray(Storage, animation, Result.CountMax);
+    return Result;
+}
+
+internal u32
+AnimationArray_Push(animation_array* Array, animation Value)
+{
+    Assert(Array->Count < Array->CountMax);
+    u32 Index = Array->Count++;
+    Array->Values[Index] = Value;
+    return Index;
+}
+
+//////////////////////////
+//
+// Animation
+
+internal u32
+Animation_AddLayer(animation* Animation, anim_layer Layer)
+{
+    return AnimLayerArray_Push(&Animation->Layers, Layer);
+}
+
+internal u32
+Animation_AddLayer (animation* Animation, gs_string Name, blend_mode BlendMode, animation_system* System)
+{
+    anim_layer NewLayer = {0};
+    NewLayer.Name = PushStringF(System->Storage, 256, "%S", Name);
+    NewLayer.BlendMode = BlendMode;
+    
+    return Animation_AddLayer(Animation, NewLayer);
+}
+
+internal void
+Animation_RemoveLayer (animation* Animation, u32 LayerIndex)
+{
+    AnimLayerArray_Remove(&Animation->Layers, LayerIndex);
+    for (u32 i = Animation->Blocks.Used -= 1; i >= 0; i--)
+    {
+        gs_list_entry<animation_block>* Entry = Animation->Blocks.GetEntryAtIndex(i);
+        if (EntryIsFree(Entry)) { continue; }
+        
+        animation_block* Block = &Entry->Value;
+        if (Block->Layer > LayerIndex)
+        {
+            Block->Layer -= 1;
+        }
+        else if (Block->Layer == LayerIndex)
+        {
+            Animation->Blocks.FreeElementAtIndex(i);
+        }
+    }
+}
+
+//////////////////////////
+//
+//
 
 internal u32
 SecondsToFrames(r32 Seconds, animation_system System)
@@ -77,7 +194,7 @@ SecondsToFrames(r32 Seconds, animation_system System)
 }
 
 inline b32
-FrameIsInRange(s32 Frame, frame_range Range)
+FrameIsInRange(frame_range Range, s32 Frame)
 {
     b32 Result = (Frame >= Range.Min) && (Frame <= Range.Max);
     return Result;
@@ -123,67 +240,64 @@ ClampFrameToRange(s32 Frame, frame_range Range)
 // Blocks
 
 internal gs_list_handle
-AddAnimationBlock(u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 Layer, animation_system* AnimationSystem)
+Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 LayerIndex)
 {
-    gs_list_handle Result = {0};
+    Assert(LayerIndex < Animation->Layers.Count);
+    
     animation_block NewBlock = {0};
     NewBlock.Range.Min = StartFrame;
     NewBlock.Range.Max = EndFrame;
     NewBlock.AnimationProcHandle = AnimationProcHandle;
-    NewBlock.Layer = Layer;
-    Result = AnimationSystem->Blocks.PushElementOnList(NewBlock);
+    NewBlock.Layer = LayerIndex;
+    
+    gs_list_handle Result = Animation->Blocks.PushElementOnList(NewBlock);
     return Result;
 }
 
 internal void
-RemoveAnimationBlock(gs_list_handle AnimationBlockHandle, animation_system* AnimationSystem)
+Animation_RemoveBlock(animation* Animation, gs_list_handle AnimationBlockHandle)
 {
     Assert(ListHandleIsValid(AnimationBlockHandle));
-    AnimationSystem->Blocks.FreeElementWithHandle(AnimationBlockHandle);
+    Animation->Blocks.FreeElementWithHandle(AnimationBlockHandle);
 }
 
 // Layers
-internal u32
-AddLayer (gs_string Name, animation_system* AnimationSystem, blend_mode BlendMode = BlendMode_Overwrite)
+
+// System
+
+internal animation*
+AnimationSystem_GetActiveAnimation(animation_system* System)
 {
-    // NOTE(Peter): If this assert fires its time to make the layer buffer system
-    // resizable.
-    Assert(AnimationSystem->LayersCount < AnimationSystem->LayersMax);
+    // TODO(pjs): need a way to specify the active animation
+    return System->Animations.Values + 0;
+}
+
+internal animation_frame
+AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_arena* Arena)
+{
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
     
-    u32 Result = 0;
-    Result = AnimationSystem->LayersCount++;
-    anim_layer* NewLayer = AnimationSystem->Layers + Result;
-    *NewLayer = {0};
-    NewLayer->Name = MakeString(PushArray(AnimationSystem->Storage, char, Name.Length), Name.Length);
-    PrintF(&NewLayer->Name, "%S", Name);
-    NewLayer->BlendMode = BlendMode;
+    animation_frame Result = {0};
+    Result.BlocksCountMax = ActiveAnim->Layers.Count;
+    Result.Blocks = PushArray(Arena, animation_block, Result.BlocksCountMax);
+    Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
+    
+    for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
+    {
+        gs_list_entry<animation_block>* BlockEntry = ActiveAnim->Blocks.GetEntryAtIndex(i);
+        if (EntryIsFree(BlockEntry)) { continue; }
+        
+        animation_block Block = BlockEntry->Value;
+        
+        if (FrameIsInRange(Block.Range, System->CurrentFrame)){ continue; }
+        
+        Result.BlocksFilled[Block.Layer] = true;
+        Result.Blocks[Block.Layer] = Block;
+        Result.BlocksCount++;
+    }
+    
     return Result;
 }
 
-internal void
-RemoveLayer (u32 LayerIndex, animation_system* AnimationSystem)
-{
-    Assert(LayerIndex < AnimationSystem->LayersMax);
-    Assert(LayerIndex < AnimationSystem->LayersCount);
-    for (u32 i = LayerIndex; i < AnimationSystem->LayersCount - 1; i++)
-    {
-        AnimationSystem->Layers[i] = AnimationSystem->Layers[i + 1];
-    }
-    for (u32 i = AnimationSystem->Blocks.Used -= 1; i >= 0; i--)
-    {
-        gs_list_entry<animation_block>* Entry = AnimationSystem->Blocks.GetEntryAtIndex(i);
-        if (EntryIsFree(Entry)) { continue; }
-        animation_block* Block = &Entry->Value;
-        if (Block->Layer > LayerIndex)
-        {
-            Block->Layer -= 1;
-        }
-        else if (Block->Layer == LayerIndex)
-        {
-            AnimationSystem->Blocks.FreeElementAtIndex(i);
-        }
-    }
-    AnimationSystem->LayersCount -= 1;
-}
 #define FOLDHAUS_ANIMATION
 #endif // FOLDHAUS_ANIMATION

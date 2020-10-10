@@ -743,6 +743,15 @@ internal rect2 MakeRect2MinDim(v2 Min, v2 Dim)
     return Result;
 }
 
+internal rect2 MakeRect2CenterDim(v2 Center, v2 Dim)
+{
+    v2 HalfDim = Dim / 2;
+    rect2 Result = {0};
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
+    return Result;
+}
+
 internal b32 ValueInRangeR32(r32 Min, r32 Max, r32 V)
 {
     return ((V >= Min) && (V <= Max));
@@ -2441,6 +2450,19 @@ FreeMemoryArena(gs_memory_arena* Arena)
 #define PushStruct(arena, type) (type*)(PushSize_((arena), sizeof(type), FileNameAndLineNumberString).Memory)
 #define PushArray(arena, type, count) (type*)(PushSize_((arena), sizeof(type) * (count), FileNameAndLineNumberString).Memory)
 #define PushString(arena, length) MakeString(PushArray((arena), char, (length)), 0, (length));
+
+internal gs_string
+PushStringF(gs_memory_arena* Arena, u32 MaxLength, char* Format, ...)
+{
+    gs_string Result = PushString(Arena, MaxLength);
+    
+    va_list Args;
+    va_start(Args, Format);
+    PrintFArgsList(&Result, Format, Args);
+    va_end(Args);
+    
+    return Result;
+}
 
 internal void
 ClearArena(gs_memory_arena* Arena)
