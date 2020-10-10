@@ -16,7 +16,7 @@ enum uart_record_type
 
 struct uart_header
 {
-    u8 MagicNumber[4];
+    s8 MagicNumber[4];
     u8 Channel;
     u8 RecordType;
 };
@@ -24,12 +24,7 @@ struct uart_header
 struct uart_channel
 {
     u8 ElementsCount;
-    
-    u8 RedIndex;
-    u8 GreenIndex;
-    u8 BlueIndex;
-    u8 WhiteIndex;
-    
+    u8 ColorPackingOrder;
     u16 PixelsCount;
 };
 
@@ -57,113 +52,34 @@ UART_FillHeader(uart_header* Header, u8 Channel, u8 RecordType)
     Header->RecordType = RecordType;
 }
 
-internal void
-UART_FillFooter(uart_footer* Footer, u8* BufferStart)
+internal u32
+UART_CalculateCRC(u8* BufferStart, u8* BufferEnd)
 {
     // Calculate the CRC
     u32 CRC = 0xFFFFFFFF;
-    u32 BytesCount = (u8*)Footer - BufferStart;
+    u32 BytesCount = (u8*)BufferEnd - BufferStart;
     for (u32 i = 0; i < BytesCount; i++)
     {
         u8 At = BufferStart[i];
-        
+#if 0
         // Cameron's Version
         CRC = UART_CRCTable[(CRC ^ At) & 0x0F]        ^ (CRC >> 4);
         CRC = UART_CRCTable[(CRC ^ (At >> 4)) & 0x0F] ^ (CRC >> 4);
-        
-#if 0
-        // The Libraries Version
-        CRC = (UART_CRCTable[(CRC ^ At) & 0xFF] ^ (CRC >> 8)) & 0xFFFFFFFF;
+#else
+        // https://github.com/simap/pixelblaze_output_expander/blob/master/firmware/Core/Src/uart.c
+        u32 TableIndex = (CRC ^ At) & 0xFF;
+        CRC = (UART_CRCTable[TableIndex] ^ (CRC >> 8)) & 0xFFFFFFFF;
 #endif
     }
     
-    Footer->CRC = CRC;
+    CRC = CRC ^ 0xFFFFFFFF;
+    return CRC;
 }
 
 internal void
-UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel ChannelSettings, v2_strip Strip, led_buffer LedBuffer)
+UART_FillFooter(uart_footer* Footer, u8* BufferStart)
 {
-    // NOTE(pjs): This is just here because the information is duplicated and I want to be sure
-    // to catch the error where they are different
-    Assert(ChannelSettings.PixelsCount == Strip.LedCount);
-    
-    uart_header* Header = PushStructOnCursor(WriteCursor, uart_header);
-    UART_FillHeader(Header, Strip.UARTAddr.Channel, UART_SET_CHANNEL_WS2812);
-    
-    uart_channel* Channel = PushStructOnCursor(WriteCursor, uart_channel);
-    *Channel = ChannelSettings;
-    
-    for (u32 i = 0; i < Channel->PixelsCount; i++)
-    {
-        u32 LedIndex = Strip.LedLUT[i];
-        pixel Color = LedBuffer.Colors[LedIndex];
-        
-        u8* OutputPixel = PushArrayOnCursor(WriteCursor, u8, 3);
-        
-        OutputPixel[Channel->RedIndex] = Color.R;
-        OutputPixel[Channel->GreenIndex] = Color.G;
-        OutputPixel[Channel->BlueIndex] = Color.B;
-        
-        if (OutputPixel[Channel->ElementsCount == 4])
-        {
-            // TODO(pjs): Calculate white from the RGB components?
-            //            Generally we just need a good way to handle the white channel,
-            //            both in the renderer and in output
-            
-            //OutputPixel[Channel->WhiteIndex] = Color.W;
-        }
-    }
-    
-    uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
-    UART_FillFooter(Footer, (u8*)Header);
-}
-
-internal void
-UART_DrawAll_Create(gs_memory_cursor* WriteCursor)
-{
-    uart_header* Header = PushStructOnCursor(WriteCursor, uart_header);
-    UART_FillHeader(Header, 1, UART_DRAW_ALL);
-    
-    uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
-    UART_FillFooter(Footer, (u8*)Header);
-}
-
-internal void
-UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem)
-{
-    uart_channel ChannelSettings = {0};
-    ChannelSettings.ElementsCount = 3;
-    ChannelSettings.RedIndex = 1;
-    ChannelSettings.GreenIndex = 2;
-    ChannelSettings.BlueIndex = 3;
-    ChannelSettings.WhiteIndex = 0;
-    
-    // NOTE(pjs): This is the minimum size of every UART message. SetChannelBuffer messages will
-    // be bigger than this, but their size is based on the number of pixels in each channel
-    u32 MessageBaseSize = sizeof(uart_header) + sizeof(uart_channel) + sizeof(uart_footer);
-    
-    for (u32 AssemblyIdx = 0; AssemblyIdx < Assemblies.Count; AssemblyIdx++)
-    {
-        assembly Assembly = Assemblies.Values[AssemblyIdx];
-        led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
-        
-        u32 TotalBufferSize = MessageBaseSize * Assembly.StripCount; // SetChannelBuffer messages
-        TotalBufferSize += MessageBaseSize; // DrawAll message
-        TotalBufferSize += ChannelSettings.ElementsCount * Assembly.LedCountTotal; // pixels * channels per pixel
-        
-        addressed_data_buffer* Buffer = AddressedDataBufferList_Push(Output, TotalBufferSize);
-        AddressedDataBuffer_SetCOMPort(Buffer, Assembly.UARTComPort);
-        gs_memory_cursor WriteCursor = CreateMemoryCursor(Buffer->Data);
-        
-        for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)
-        {
-            v2_strip StripAt = Assembly.Strips[StripIdx];
-            ChannelSettings.PixelsCount = StripAt.LedCount;
-            UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
-        }
-        
-        UART_DrawAll_Create(&WriteCursor);
-    }
+    Footer->CRC = UART_CalculateCRC(BufferStart, (u8*)Footer);
 }
 
 #define FOLDHAUS_UART_H

@@ -27,6 +27,8 @@ del lock.tmp
 
 cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
 
+cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial_monitor.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
+
 popd
 
 call %MyPath%\_postbuild_win32.bat

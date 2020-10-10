@@ -111,7 +111,7 @@ OPERATION_STATE_DEF(connect_nodes_operation_state)
 
 OPERATION_RENDER_PROC(UpdateConnectNodeOperation)
 {
-    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    panel_with_layout NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
     node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
     
     GraphState->Layout.InProgressConnectionEnd = Mouse.Pos;
@@ -121,7 +121,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndConnectNodesOperation)
 {
     connect_nodes_operation_state* OpState = GetCurrentOperationState(State->Modes, connect_nodes_operation_state);
     
-    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    panel_with_layout NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
     node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
     GraphState->Layout.ConnectionIsInProgress = false;
     
@@ -157,7 +157,7 @@ BeginConnectNodesOperation(visual_port VisualPort, u32 VisualPortIndex, mouse_st
     OpState->VisualPort = VisualPort;
     OpState->VisualPortIndex = VisualPortIndex;
     
-    panel_and_bounds NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
+    panel_with_layout NodeGraphPanel = GetPanelContainingPoint(Mouse.DownPos, &State->PanelSystem, State->WindowBounds);
     node_graph_state* GraphState = (node_graph_state*)NodeGraphPanel.Panel->PanelStateMemory;
     
     GraphState->Layout.ConnectionIsInProgress = true;

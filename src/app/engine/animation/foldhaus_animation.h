@@ -83,9 +83,6 @@ struct animation_system
     gs_memory_arena* Storage;
     animation_array Animations;
     
-    frame_range PlayableRange_;
-    gs_list<animation_block> Blocks_;
-    
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
     // panel

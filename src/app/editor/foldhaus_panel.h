@@ -24,6 +24,8 @@ typedef struct panel_entry panel_entry;
 
 struct panel
 {
+    // TODO(pjs): We want this to be a list, so that you can push sub panels on
+    // and let them return to you, to perform certain tasks, like loading a file
     s32 PanelDefinitionIndex;
     
     panel_split_direction SplitDirection;
@@ -154,11 +156,11 @@ FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
 }
 
 internal void
-SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem)
+SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, panel_system* PanelSystem)
 {
     if (Percent >= 0.0f && Percent <= 1.0f)
     {
-        Parent->SplitDirection = PanelSplit_Vertical;
+        Parent->SplitDirection = SplitDirection;
         Parent->SplitPercent = Percent;
         
         Parent->Left = TakeNewPanelEntry(PanelSystem);
@@ -170,19 +172,15 @@ SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem)
 }
 
 internal void
+SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem)
+{
+    SplitPanel(Parent, Percent, PanelSplit_Vertical, PanelSystem);
+}
+
+internal void
 SplitPanelHorizontally(panel* Parent, r32 Percent, panel_system* PanelSystem)
 {
-    if (Percent >= 0.0f && Percent <= 1.0f)
-    {
-        Parent->SplitDirection = PanelSplit_Horizontal;
-        Parent->SplitPercent = Percent;
-        
-        Parent->Bottom = TakeNewPanelEntry(PanelSystem);
-        Parent->Bottom->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
-        
-        Parent->Top = TakeNewPanelEntry(PanelSystem);
-        Parent->Top->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
-    }
+    SplitPanel(Parent, Percent, PanelSplit_Horizontal, PanelSystem);
 }
 
 internal void
@@ -290,16 +288,10 @@ GetPanelLayout(panel_system* System, rect2 WindowBounds, gs_memory_arena* Storag
     return Result;
 }
 
-struct panel_and_bounds
-{
-    panel* Panel;
-    rect2 Bounds;
-};
-
-internal panel_and_bounds
+internal panel_with_layout
 GetPanelContainingPoint(v2 Point, panel* Panel, rect2 PanelBounds)
 {
-    panel_and_bounds Result = {0};
+    panel_with_layout Result = {0};
     
     if (Panel->SplitDirection == PanelSplit_NoSplit)
     {
@@ -338,10 +330,10 @@ GetPanelContainingPoint(v2 Point, panel* Panel, rect2 PanelBounds)
     return Result;
 }
 
-internal panel_and_bounds
+internal panel_with_layout
 GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect2 WindowBounds)
 {
-    panel_and_bounds Result = {0};
+    panel_with_layout Result = {0};
     if (PanelSystem->PanelsUsed > 0)
     {
         Result = GetPanelContainingPoint(Point, &PanelSystem->Panels[0].Panel, WindowBounds);

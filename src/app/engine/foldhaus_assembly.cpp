@@ -128,13 +128,6 @@ LedSystemFreeBuffer(led_system* System, u32 BufferIndex)
     *Buffer = {};
 }
 
-internal led_buffer*
-LedSystemGetBuffer(led_system* System, u32 Index)
-{
-    led_buffer* Result = &System->Buffers[Index];
-    return Result;
-}
-
 internal void
 LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 {

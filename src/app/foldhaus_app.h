@@ -22,6 +22,7 @@
 
 #include "engine/sacn/foldhaus_sacn.h"
 #include "engine/uart/foldhaus_uart.h"
+#include "engine/uart/foldhaus_uart.cpp"
 
 typedef struct app_state app_state;
 

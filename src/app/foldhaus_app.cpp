@@ -153,9 +153,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim, 22, 123, 2, 1);
+        Animation_AddBlock(&Anim, 22, 123, 2, 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
+        
     } // End Animation Playground
     
     
@@ -179,7 +180,7 @@ HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse
         }
         else
         {
-            panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
+            panel_with_layout PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
             if (!PanelWithMouseOverIt.Panel) { return; }
             State->HotPanel = PanelWithMouseOverIt.Panel;
             

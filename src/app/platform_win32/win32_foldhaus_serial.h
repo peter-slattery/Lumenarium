@@ -143,6 +143,37 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
     return Success;
 }
 
+bool
+Win32SerialPort_SetRead(HANDLE PortHandle)
+{
+    bool Status = SetCommMask(PortHandle, EV_RXCHAR);
+    return Status;
+}
+
+u32
+Win32SerialPort_ReadMessageWhenReady(HANDLE PortHandle, gs_data Data)
+{
+    u32 ReadSize = 0;
+    
+    DWORD EventMask = 0;
+    bool Status = WaitCommEvent(PortHandle, &EventMask, NULL);
+    if (Status)
+    {
+        DWORD NoBytesRead = 0;
+        do
+        {
+            u8 Byte = 0;
+            Status = ReadFile(PortHandle, &Byte, sizeof(char), &NoBytesRead, NULL);
+            Data.Memory[ReadSize] = Byte;
+            ReadSize++;
+        }
+        while (NoBytesRead > 0 && ReadSize < Data.Size);
+    }
+    //Read data and store in a buffer
+    
+    return ReadSize;
+}
+
 /////////////////////////
 // Win32SerialArray
 

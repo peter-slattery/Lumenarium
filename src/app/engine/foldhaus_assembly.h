@@ -112,7 +112,14 @@ struct assembly_array
     assembly* Values;
 };
 
-internal led_buffer* LedSystemGetBuffer(led_system* System, u32 Index);
+
+internal led_buffer*
+LedSystemGetBuffer(led_system* System, u32 Index)
+{
+    led_buffer* Result = &System->Buffers[Index];
+    return Result;
+}
+
 
 #define FOLDHAUS_ASSEMBLY_H
 #endif // FOLDHAUS_ASSEMBLY_H

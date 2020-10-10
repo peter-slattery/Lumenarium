@@ -265,7 +265,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     
-    panel_and_bounds ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
+    panel_with_layout ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
     frame_range Range = ActiveAnim->PlayableRange;
     u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, Range);
     
