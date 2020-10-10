@@ -577,20 +577,6 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     return Result;
 }
 
-struct animation_clip
-{
-    char* Name;
-    s32 NameLength;
-    animation_proc* Proc;
-};
-
-s32 GlobalAnimationClipsCount = 3;
-animation_clip GlobalAnimationClips[] = {
-    { "Test Pattern One", 16, TestPatternOne  },
-    { "Test Pattern Two", 16, TestPatternTwo },
-    { "Test Pattern Three", 18, TestPatternThree },
-};
-
 internal void
 DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {

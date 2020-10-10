@@ -29,6 +29,13 @@ enum blend_mode
     BlendMode_Count,
 };
 
+global gs_const_string BlendModeStrings[] = {
+    ConstString("Overwrite"),
+    ConstString("Add"),
+    ConstString("Multiply"),
+    ConstString("Count"),
+};
+
 struct anim_layer
 {
     gs_string Name;
@@ -44,6 +51,8 @@ struct anim_layer_array
 
 struct animation
 {
+    gs_string Name;
+    
     anim_layer_array Layers;
     gs_list<animation_block> Blocks;
     
@@ -85,6 +94,67 @@ struct animation_system
     r32 SecondsPerFrame;
     b32 TimelineShouldAdvance;
     
+};
+
+// TODO(pjs): Better name - something like animation_prototype
+struct animation_clip
+{
+    char* Name;
+    s32 NameLength;
+    animation_proc* Proc;
+};
+
+// Serialization
+
+enum animation_field
+{
+    AnimField_FileIdent,
+    AnimField_AnimName,
+    AnimField_LayersCount,
+    AnimField_BlocksCount,
+    
+    AnimField_PlayableRange,
+    AnimField_PlayableRangeMin,
+    AnimField_PlayableRangeMax,
+    
+    AnimField_LayersArray,
+    AnimField_Layer,
+    AnimField_LayerName,
+    AnimField_LayerBlendMode,
+    
+    AnimField_BlocksArray,
+    AnimField_Block,
+    AnimField_BlockFrameRange,
+    AnimField_BlockFrameRangeMin,
+    AnimField_BlockFrameRangeMax,
+    AnimField_BlockLayerIndex,
+    AnimField_BlockAnimName,
+    
+    AnimField_Count,
+};
+
+global gs_const_string AnimationFieldStrings[] = {
+    ConstString("lumenarium_animation_file"), // AnimField_FileIdent
+    ConstString("animation_name"),// AnimField_AnimName
+    ConstString("layers_count"),// AnimField_LayersCount
+    ConstString("blocks_count"),// AnimField_BlocksCount
+    
+    ConstString("playable_range"),// AnimField_PlayableRange
+    ConstString("min"),// AnimField_PlayableRangeMin
+    ConstString("max"),// AnimField_PlayableRangeMax
+    
+    ConstString("layers"),// AnimField_LayersArray
+    ConstString("layer"),// AnimField_Layer
+    ConstString("name"),// AnimField_LayerName
+    ConstString("blend"),// AnimField_LayerBlendMode
+    
+    ConstString("blocks"),// AnimField_BlocksArray
+    ConstString("block"),// AnimField_Block
+    ConstString("frame_range"),// AnimField_BlockFrameRange
+    ConstString("min"),// AnimField_BlockFrameRangeMin
+    ConstString("max"),// AnimField_BlockFrameRangeMax
+    ConstString("layer_index"),// AnimField_BlockLayerIndex
+    ConstString("animation_name"),// AnimField_BlockAnimName
 };
 
 //////////////////////////

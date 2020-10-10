@@ -8,6 +8,8 @@
 #include "../meta/gs_meta_include.h"
 #include "../meta/gs_meta_lexer.h"
 
+#include "engine/foldhaus_serializer.h"
+
 #include "../gs_libs/gs_font.h"
 #include "foldhaus_log.h"
 
@@ -32,6 +34,7 @@ typedef struct app_state app_state;
 #include "editor/foldhaus_operation_mode.h"
 
 #include "engine/animation/foldhaus_animation.h"
+#include "engine/animation/foldhaus_animation_serializer.cpp"
 
 struct app_state
 {
@@ -224,6 +227,13 @@ struct panel_definition
     panel_render_proc* Render;
     input_command* InputCommands;
     s32 InputCommandsCount;
+};
+
+s32 GlobalAnimationClipsCount = 3;
+animation_clip GlobalAnimationClips[] = {
+    { "Test Pattern One", 16, TestPatternOne  },
+    { "Test Pattern Two", 16, TestPatternTwo },
+    { "Test Pattern Three", 18, TestPatternThree },
 };
 
 #include "editor/panels/foldhaus_panel_sculpture_view.h"

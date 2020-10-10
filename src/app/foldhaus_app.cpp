@@ -144,6 +144,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
         
         animation Anim = {0};
+        Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
         Anim.Layers.CountMax = 8;
         Anim.Layers.Values = PushArray(State->AnimationSystem.Storage, anim_layer, Anim.Layers.CountMax);
         Anim.PlayableRange.Min = 0;
@@ -152,9 +153,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
         
+        Animation_AddBlock(&Anim, 22, 123, 2, 1);
+        
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
-        
-        
     } // End Animation Playground
     
     
@@ -280,6 +281,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
                 
+                // :AnimProcHandle
                 u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
                 animation_proc* AnimationProc = GlobalAnimationClips[AnimationProcIndex].Proc;
                 AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, State->Transient);
