@@ -131,6 +131,12 @@ Serializer_WriteV3Value(serializer* Serializer, u32 IdentIndex, v3 Value)
 
 // Parsing
 
+struct parser_error
+{
+    gs_string Message;
+    parser_error* Next;
+};
+
 struct parser
 {
     gs_string String;
@@ -144,7 +150,25 @@ struct parser
     char* At;
     
     gs_memory_arena* Arena;
+    gs_memory_arena* Transient;
+    
+    parser_error* ErrorsRoot;
+    parser_error* ErrorsHead;
 };
+
+internal void
+Parser_PushErrorF(parser* Parser, char* Format, ...)
+{
+    parser_error* Error = PushStruct(Parser->Transient, parser_error);
+    Error->Message = PushString(Parser->Transient, 1024);
+    
+    va_list Args;
+    va_start(Args, Format);
+    PrintFArgsList(&Error->Message, Format, Args);
+    va_end(Args);
+    
+    SLLPushOrInit(Parser->ErrorsRoot, Parser->ErrorsHead, Error);
+}
 
 internal gs_const_string
 Parser_GetIdent(parser Parser, u32 Index)
@@ -278,8 +302,12 @@ Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminat
         }
         else
         {
-            // TODO(pjs): Error
+            Parser_PushErrorF(P, "String doesn't have a closing quote, or line doesn't end with a semicolon");
         }
+    }
+    else
+    {
+        Parser_PushErrorF(P, "String doesn't begin correctly");
     }
     
     return Result;
@@ -346,8 +374,12 @@ Parser_ReadU32Value(parser* P, gs_const_string Ident)
         }
         else
         {
-            // TODO(pjs): Error
+            Parser_PushErrorF(P, "U32 Value doesn't end with semicolon");
         }
+    }
+    else
+    {
+        Parser_PushErrorF(P, "U32 value doesn't begin properly");
     }
     
     return Result;
@@ -384,10 +416,14 @@ Parser_ReadR32Value(parser* P, gs_const_string Ident)
         }
         else
         {
-            // TODO(pjs): Error
+            Parser_PushErrorF(P, "R32 Value doesn't end with semicolon");
         }
-        
     }
+    else
+    {
+        Parser_PushErrorF(P, "R32 value doesn't begin properly");
+    }
+    
     return Result;
 }
 
@@ -407,10 +443,16 @@ Parser_ReadV3Value(parser* P, gs_const_string Ident)
         Parser_AdvanceIfTokenEquals(P, ConstString("(")))
     {
         r32 X = Parser_ReadR32(P);
-        Parser_AdvanceIfTokenEquals(P, ConstString(","));
+        if (!Parser_AdvanceIfTokenEquals(P, ConstString(",")))
+        {
+            Parser_PushErrorF(P, "V3 Value doesn't have comma separated values");
+        }
         
         r32 Y = Parser_ReadR32(P);
-        Parser_AdvanceIfTokenEquals(P, ConstString(","));
+        if (!Parser_AdvanceIfTokenEquals(P, ConstString(",")))
+        {
+            Parser_PushErrorF(P, "V3 Value doesn't have comma separated values");
+        }
         
         r32 Z = Parser_ReadR32(P);
         if (Parser_AdvanceIfTokenEquals(P, ConstString(")")) &&
@@ -422,8 +464,12 @@ Parser_ReadV3Value(parser* P, gs_const_string Ident)
         }
         else
         {
-            // TODO(pjs): error
+            Parser_PushErrorF(P, "V3 Value doesn't end correctly");
         }
+    }
+    else
+    {
+        Parser_PushErrorF(P, "V3 Value doesn't begin correctly");
     }
     return Result;
 }
