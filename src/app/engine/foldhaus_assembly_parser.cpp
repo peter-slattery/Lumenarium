@@ -1,9 +1,9 @@
 //
-// File: assembly_parser.cpp
+// File: foldhaus_assembly_parser.cpp
 // Author: Peter Slattery
 // Creation Date: 2020-01-01
 //
-#ifndef ASSEMBLY_PARSER_CPP
+#ifndef FOLDHAUS_ASSEMBLY_PARSER_CPP
 
 // TODO(pjs): This is good for meta generation
 // ie. It would be great to have
@@ -204,5 +204,5 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     return true; //Tokenizer.ParsingIsValid;
 }
 
-#define ASSEMBLY_PARSER_CPP
-#endif // ASSEMBLY_PARSER_CPP
+#define FOLDHAUS_ASSEMBLY_PARSER_CPP
+#endif // FOLDHAUS_ASSEMBLY_PARSER_CPP

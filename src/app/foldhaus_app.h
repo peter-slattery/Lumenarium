@@ -18,7 +18,7 @@
 #include "engine/foldhaus_network_ordering.h"
 
 #include "engine/foldhaus_assembly.h"
-#include "engine/assembly_parser.cpp"
+#include "engine/foldhaus_assembly_parser.cpp"
 
 #include "engine/sacn/foldhaus_sacn.h"
 #include "engine/uart/foldhaus_uart.h"
