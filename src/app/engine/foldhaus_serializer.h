@@ -245,7 +245,7 @@ Parser_ReadString(parser* P, u32 IdentIndex)
 }
 
 internal gs_string
-Parser_ReadStringValue(parser* P, gs_const_string Ident)
+Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminate = false)
 {
     // ident: "value";
     gs_string Result = {};
@@ -265,7 +265,16 @@ Parser_ReadStringValue(parser* P, gs_const_string Ident)
         if (Parser_AdvanceIfTokenEquals(P, ConstString("\"")) &&
             Parser_AdvanceIfLineEnd(P))
         {
-            Result = PushStringF(P->Arena, FileString.Length, "%S", FileString);
+            u32 StringLength = FileString.Length;
+            if (ShouldNullTerminate)
+            {
+                StringLength += 1;
+            }
+            Result = PushStringF(P->Arena, StringLength, "%S", FileString);
+            if (ShouldNullTerminate)
+            {
+                NullTerminate(&Result);
+            }
         }
         else
         {
@@ -277,10 +286,10 @@ Parser_ReadStringValue(parser* P, gs_const_string Ident)
 }
 
 internal gs_string
-Parser_ReadStringValue(parser* P, u32 IdentIndex)
+Parser_ReadStringValue(parser* P, u32 IdentIndex, bool ShouldNullTerminate = false)
 {
     gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
-    return Parser_ReadStringValue(P, Ident);
+    return Parser_ReadStringValue(P, Ident, ShouldNullTerminate);
 }
 
 internal bool
@@ -352,6 +361,15 @@ Parser_ReadU32Value(parser* P, u32 IdentIndex)
 }
 
 internal r32
+Parser_ReadR32(parser* P)
+{
+    r32 Result = 0;
+    gs_const_string NumStr = Parser_ReadNumberString(P);
+    Result = (r32)ParseFloat(NumStr);
+    return Result;
+}
+
+internal r32
 Parser_ReadR32Value(parser* P, gs_const_string Ident)
 {
     // ident: value;
@@ -359,15 +377,16 @@ Parser_ReadR32Value(parser* P, gs_const_string Ident)
     if (Parser_AdvanceIfTokenEquals(P, Ident) &&
         Parser_AdvanceIfTokenEquals(P, ConstString(":")))
     {
-        gs_const_string NumStr = Parser_ReadNumberString(P);
+        r32 Value = Parser_ReadR32(P);
         if (Parser_AdvanceIfLineEnd(P))
         {
-            Result = (r32)ParseFloat(NumStr);
+            Result = Value;
         }
         else
         {
             // TODO(pjs): Error
         }
+        
     }
     return Result;
 }
@@ -377,6 +396,43 @@ Parser_ReadR32Value(parser* P, u32 IdentIndex)
 {
     gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
     return Parser_ReadR32Value(P, Ident);
+}
+
+internal v3
+Parser_ReadV3Value(parser* P, gs_const_string Ident)
+{
+    v3 Result = {0};
+    if (Parser_AdvanceIfTokenEquals(P, Ident) &&
+        Parser_AdvanceIfTokenEquals(P, ConstString(":")) &&
+        Parser_AdvanceIfTokenEquals(P, ConstString("(")))
+    {
+        r32 X = Parser_ReadR32(P);
+        Parser_AdvanceIfTokenEquals(P, ConstString(","));
+        
+        r32 Y = Parser_ReadR32(P);
+        Parser_AdvanceIfTokenEquals(P, ConstString(","));
+        
+        r32 Z = Parser_ReadR32(P);
+        if (Parser_AdvanceIfTokenEquals(P, ConstString(")")) &&
+            Parser_AdvanceIfLineEnd(P))
+        {
+            Result.x = X;
+            Result.y = Y;
+            Result.z = Z;
+        }
+        else
+        {
+            // TODO(pjs): error
+        }
+    }
+    return Result;
+}
+
+internal v3
+Parser_ReadV3Value(parser* P, u32 IdentIndex)
+{
+    gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
+    return Parser_ReadV3Value(P, Ident);
 }
 
 
