@@ -33,10 +33,16 @@ enum assembly_field
     AssemblyField_UART_ComPort,
     
     AssemblyField_PointPlacementType,
+    
     AssemblyField_InterpolatePoints,
     AssemblyField_Start,
     AssemblyField_End,
     AssemblyField_LedCount,
+    
+    AssemblyField_SegmentSequence,
+    AssemblyField_SegmentSequenceLength,
+    AssemblyField_Segment,
+    
     AssemblyField_TagsCount,
     AssemblyField_Tag,
     AssemblyField_Name,
@@ -63,11 +69,15 @@ global gs_const_string AssemblyFieldIdentifiers[] = {
     ConstString("com_port"), // AssemblyField_UART_ComPort
     
     ConstString("point_placement_type"), // AssemblyField_PointPlacementType
+    
     ConstString("interpolate_points"), // AssemblyField_InterpolatePoints
     ConstString("start"), // AssemblyField_Start
     ConstString("end"), // AssemblyField_End
-    
     ConstString("led_count"), // AssemblyField_LedCount
+    
+    ConstString("segment_sequence"), // AssemblyField_SegmentSequence
+    ConstString("segment_count"), // AssemblyField_SegmentSequenceLength
+    ConstString("segment"), // AssemblyField_Segment
     
     ConstString("tags_count"), // AssemblyField_TagCount
     ConstString("tag"), // AssemblyField_Tag
@@ -84,6 +94,170 @@ StripSetTag(v2_strip* Strip, u32 TagIndex, gs_const_string TagName, gs_const_str
     TagAt->ValueHash = HashDJB2ToU32(StringExpand(TagValue));
 }
 
+internal strip_sacn_addr
+AssemblyParser_ReadSACNAddr(parser* Parser, assembly Assembly)
+{
+    strip_sacn_addr Result = {0};
+    
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_OutputSACN))
+    {
+        Result.StartUniverse = Parser_ReadU32Value(Parser, AssemblyField_SACN_StartUniverse);
+        Result.StartChannel = Parser_ReadU32Value(Parser, AssemblyField_SACN_StartChannel);
+        
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            //TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
+        }
+    }
+    
+    return Result;
+}
+
+internal strip_uart_addr
+AssemblyParser_ReadUARTAddr(parser* Parser, assembly Assembly)
+{
+    strip_uart_addr Result = {0};
+    
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_OutputUART))
+    {
+        Result.Channel = (u8)Parser_ReadU32Value(Parser, AssemblyField_UART_Channel);
+        
+        bool HasNetPort = Parser_ReadStringValue(Parser, AssemblyField_UART_ComPort, &Result.ComPort, true);
+        if (Assembly.NetPortMode == NetworkPortMode_PortPerStrip && !HasNetPort)
+        {
+            Parser_PushErrorF(Parser, "NetPortMode for assembly is PortPerStrip, but this strip doesn't have an output port.");
+        }
+        
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            Parser_PushErrorF(Parser, "Struct doesn't close where expected");
+        }
+    }
+    
+    return Result;
+}
+
+internal void
+AssemblyParser_ReadTag(parser* Parser, v2_strip* StripAt, u32 TagIndex)
+{
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_Tag))
+    {
+        // TODO(Peter): Need to store the gs_string somewhere we can look it up for display in the interface
+        // right now they are stored in temp memory and won't persist
+        gs_string TagName = Parser_ReadStringValue(Parser, AssemblyField_Name);
+        gs_string TagValue = Parser_ReadStringValue(Parser, AssemblyField_Value);
+        StripSetTag(StripAt, TagIndex, TagName.ConstString, TagValue.ConstString);
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            Parser_PushErrorF(Parser, "Tag struct doesn't close where expected");
+        }
+    }
+    else
+    {
+        Parser_PushErrorF(Parser, "Expected a tag struct, but none was found.");
+    }
+}
+
+
+internal void
+AssemblyParser_ReadTagList(parser* Parser, v2_strip* StripAt, assembly* Assembly)
+{
+    StripAt->TagsCount = Parser_ReadU32Value(Parser, AssemblyField_TagsCount);
+    // NOTE(pjs): Always add one tag to the input to leave room for the assembly name
+    StripAt->TagsCount += 1;
+    StripAt->Tags = PushArray(&Assembly->Arena, v2_tag, StripAt->TagsCount);
+    
+    StripSetTag(StripAt, 0, ConstString("assembly"), Assembly->Name.ConstString);
+    
+    for (u32 Tag = 1; Tag < StripAt->TagsCount; Tag++)
+    {
+        AssemblyParser_ReadTag(Parser, StripAt, Tag);
+    }
+}
+
+internal strip_gen_data AssemblyParser_ReadStripGenData(parser* Parser, assembly* Assembly);
+
+internal strip_gen_interpolate_points
+AssemblyParser_ReadInterpolatePoints(parser* Parser)
+{
+    strip_gen_interpolate_points Result = {0};
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_InterpolatePoints))
+    {
+        Result.StartPosition = Parser_ReadV3Value(Parser, AssemblyField_Start);
+        Result.EndPosition = Parser_ReadV3Value(Parser, AssemblyField_End);
+        Result.LedCount = Parser_ReadU32Value(Parser, AssemblyField_LedCount);
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            // TODO(pjs):
+        }
+    }
+    else
+    {
+        // TODO(pjs):
+    }
+    return Result;
+}
+
+internal strip_gen_sequence
+AssemblyParser_ReadSequence(parser* Parser, assembly* Assembly)
+{
+    strip_gen_sequence Result = {0};
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_SegmentSequence))
+    {
+        Result.ElementsCount = Parser_ReadU32Value(Parser, AssemblyField_SegmentSequenceLength);
+        Result.Elements = PushArray(&Assembly->Arena, strip_gen_data, Result.ElementsCount);
+        for (u32 i = 0; i < Result.ElementsCount; i++)
+        {
+            Result.Elements[i] = AssemblyParser_ReadStripGenData(Parser, Assembly);
+        }
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            // TODO(pjs):
+        }
+    }
+    else
+    {
+        // TODO(pjs):
+    }
+    return Result;
+}
+
+internal strip_gen_data
+AssemblyParser_ReadStripGenData(parser* Parser, assembly* Assembly)
+{
+    strip_gen_data Result = {0};
+    
+    if (Parser_ReadOpenStruct(Parser, AssemblyField_Segment))
+    {
+        gs_string PointPlacementType = Parser_ReadStringValue(Parser, AssemblyField_PointPlacementType);
+        
+        // TODO(pjs): We want to store enum strings in some unified way
+        // :EnumStringsGen
+        if (StringsEqual(PointPlacementType.ConstString, ConstString("InterpolatePoints")))
+        {
+            Result.Method = StripGeneration_InterpolatePoints;
+            Result.InterpolatePoints = AssemblyParser_ReadInterpolatePoints(Parser);
+        }
+        else if (StringsEqual(PointPlacementType.ConstString,
+                              ConstString("SegmentSequence")))
+        {
+            Result.Method = StripGeneration_Sequence;
+            Result.Sequence = AssemblyParser_ReadSequence(Parser, Assembly);
+        }
+        else
+        {
+            Parser_PushErrorF(Parser, "Incorrect Point Placement Type found for segment");
+        }
+        
+        if (!Parser_ReadCloseStruct(Parser))
+        {
+            Parser_PushErrorF(Parser, "Strip Gen Data did not close the struct where expected");
+        }
+    }
+    
+    return Result;
+}
+
 internal bool
 ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileText, gs_memory_arena* Transient)
 {
@@ -96,19 +270,26 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     Parser.At = Parser.String.Str;
     Parser.LineStart = Parser.At;
     Parser.Arena = &Assembly->Arena;
+    Parser.Transient = Transient;
     
     Assembly->Name = Parser_ReadStringValue(&Parser, AssemblyField_AssemblyName);
     Assembly->Scale = Parser_ReadR32Value(&Parser, AssemblyField_AssemblyScale);
     Assembly->Center = Parser_ReadV3Value(&Parser, AssemblyField_AssemblyCenter);
     Assembly->StripCount = Parser_ReadU32Value(&Parser, AssemblyField_LedStripCount);
-    
     Assembly->Strips = PushArray(&Assembly->Arena, v2_strip, Assembly->StripCount);
     
     gs_string OutputModeString = Parser_ReadStringValue(&Parser, AssemblyField_OutputMode);
     if (StringsEqual(OutputModeString.ConstString, ConstString("UART")))
     {
         Assembly->OutputMode = NetworkProtocol_UART;
-        Assembly->UARTComPort = Parser_ReadStringValue(&Parser, AssemblyField_UART_ComPort, true).ConstString;
+        if (Parser_ReadStringValue(&Parser, AssemblyField_UART_ComPort, &Assembly->UARTComPort, true))
+        {
+            Assembly->NetPortMode = NetworkPortMode_GlobalPort;
+        }
+        else
+        {
+            Assembly->NetPortMode = NetworkPortMode_PortPerStrip;
+        }
     }
     else if (StringsEqual(OutputModeString.ConstString, ConstString("SACN")))
     {
@@ -116,7 +297,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     }
     else
     {
-        //TokenizerPushError(&Tokenizer, "Invalid output mode specified.");
+        Parser_PushErrorF(&Parser, "Invalid output mode specified for assembly.");
     }
     
     for (u32 i = 0; i < Assembly->StripCount; i++)
@@ -124,83 +305,26 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
         v2_strip* StripAt = Assembly->Strips + i;
         if (Parser_ReadOpenStruct(&Parser, AssemblyField_LedStrip))
         {
-            if (Parser_ReadOpenStruct(&Parser, AssemblyField_OutputSACN))
-            {
-                StripAt->SACNAddr.StartUniverse = Parser_ReadU32Value(&Parser, AssemblyField_SACN_StartUniverse);
-                StripAt->SACNAddr.StartChannel = Parser_ReadU32Value(&Parser, AssemblyField_SACN_StartChannel);
-                
-                if (!Parser_ReadCloseStruct(&Parser))
-                {
-                    //TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
-                }
-            }
+            StripAt->SACNAddr = AssemblyParser_ReadSACNAddr(&Parser, *Assembly);
+            StripAt->UARTAddr = AssemblyParser_ReadUARTAddr(&Parser, *Assembly);
+            StripAt->GenerationData = AssemblyParser_ReadStripGenData(&Parser, Assembly);
+            StripAt->LedCount = StripGenData_CountLeds(StripAt->GenerationData);
+            AssemblyParser_ReadTagList(&Parser, StripAt, Assembly);
             
-            if (Parser_ReadOpenStruct(&Parser, AssemblyField_OutputUART))
-            {
-                StripAt->UARTAddr.Channel = (u8)Parser_ReadU32Value(&Parser, AssemblyField_UART_Channel);
-                
-                if (!Parser_ReadCloseStruct(&Parser))
-                {
-                    //TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
-                }
-            }
-            
-            // TODO(Peter): Need to store this
-            gs_string PointPlacementType = Parser_ReadStringValue(&Parser, AssemblyField_PointPlacementType);
-            // TODO(Peter): Switch on value of PointPlacementType
-            if (Parser_ReadOpenStruct(&Parser, AssemblyField_InterpolatePoints))
-            {
-                StripAt->StartPosition = Parser_ReadV3Value(&Parser, AssemblyField_Start);
-                StripAt->EndPosition = Parser_ReadV3Value(&Parser, AssemblyField_End);
-                if (!Parser_ReadCloseStruct(&Parser))
-                {
-                    // TODO(Peter): @ErrorHandling
-                    // Have this function prepend the filename and line number.
-                    // Create an error display popup window, or an error log window that takes over a panel automatically
-                    // TokenizerPushError(&Tokenizer, "Unable to read
-                }
-            }
-            
-            StripAt->LedCount = Parser_ReadU32Value(&Parser, AssemblyField_LedCount);
             Assembly->LedCountTotal += StripAt->LedCount;
-            
-            StripAt->TagsCount = Parser_ReadU32Value(&Parser, AssemblyField_TagsCount);
-            // NOTE(pjs): Always add one tag to the input to leave room for the assembly name
-            StripAt->TagsCount += 1;
-            StripAt->Tags = PushArray(&Assembly->Arena, v2_tag, StripAt->TagsCount);
-            StripSetTag(StripAt, 0, ConstString("assembly"), Assembly->Name.ConstString);
-            for (u32 Tag = 1; Tag < StripAt->TagsCount; Tag++)
-            {
-                if (Parser_ReadOpenStruct(&Parser, AssemblyField_Tag))
-                {
-                    // TODO(Peter): Need to store the gs_string somewhere we can look it up for display in the interface
-                    // right now they are stored in temp memory and won't persist
-                    gs_string TagName = Parser_ReadStringValue(&Parser, AssemblyField_Name);
-                    gs_string TagValue = Parser_ReadStringValue(&Parser, AssemblyField_Value);
-                    StripSetTag(StripAt, Tag, TagName.ConstString, TagValue.ConstString);
-                    if (!Parser_ReadCloseStruct(&Parser))
-                    {
-                        //TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
-                    }
-                }
-                else
-                {
-                    //TokenizerPushError(&Tokenizer, "Expected a struct opening, but none was found");
-                }
-            }
-            
             
             if (!Parser_ReadCloseStruct(&Parser))
             {
-                //TokenizerPushError(&Tokenizer, "Struct doesn't close where expected");
+                Parser_PushErrorF(&Parser, "Strip struct doesn't close where expected");
             }
         }
         else
         {
-            //TokenizerPushError(&Tokenizer, "Expected a struct opening, but none was found");
+            Parser_PushErrorF(&Parser, "Expected a strip struct but none was found");
         }
     }
     
+    // TODO(pjs): invalidate the file if its incorrect
     return true; //Tokenizer.ParsingIsValid;
 }
 

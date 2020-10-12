@@ -389,13 +389,20 @@ Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_
             
             case AddressType_ComPort:
             {
-                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
-                if (SerialPort != INVALID_HANDLE_VALUE)
+                if (BufferAt->ComPort.Length > 0)
                 {
-                    if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
+                    HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
+                    if (SerialPort != INVALID_HANDLE_VALUE)
                     {
-                        BuffersSent += 1;
+                        if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
+                        {
+                            BuffersSent += 1;
+                        }
                     }
+                }
+                else
+                {
+                    OutputDebugStringA("Skipping data buffer because its COM Port isn't set");
                 }
             }break;
             

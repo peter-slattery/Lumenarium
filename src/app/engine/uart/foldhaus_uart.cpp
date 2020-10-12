@@ -76,7 +76,7 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
         TotalBufferSize += ChannelSettings.ElementsCount * Assembly.LedCountTotal; // pixels * channels per pixel
         
         addressed_data_buffer* Buffer = AddressedDataBufferList_Push(Output, TotalBufferSize);
-        AddressedDataBuffer_SetCOMPort(Buffer, Assembly.UARTComPort);
+        AddressedDataBuffer_SetCOMPort(Buffer, Assembly.UARTComPort.ConstString);
         gs_memory_cursor WriteCursor = CreateMemoryCursor(Buffer->Data);
         
         for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)

@@ -58,6 +58,41 @@ struct strip_sacn_addr
 struct strip_uart_addr
 {
     u8 Channel;
+    
+    gs_string ComPort;
+    // This may not be used based on the value of the parent
+    // assembly's NetworkPortMode field
+};
+
+enum strip_gen_method
+{
+    StripGeneration_InterpolatePoints,
+    StripGeneration_Sequence,
+    
+    StripGeneration_Count,
+};
+
+typedef struct strip_gen_data strip_gen_data;
+
+struct strip_gen_interpolate_points
+{
+    v3 StartPosition;
+    v3 EndPosition;
+    u32 LedCount;
+};
+
+struct strip_gen_sequence
+{
+    strip_gen_data* Elements;
+    u32 ElementsCount;
+};
+
+struct strip_gen_data
+{
+    strip_gen_method Method;
+    
+    strip_gen_interpolate_points InterpolatePoints;
+    strip_gen_sequence Sequence;
 };
 
 struct v2_strip
@@ -67,10 +102,7 @@ struct v2_strip
     strip_sacn_addr SACNAddr;
     strip_uart_addr UARTAddr;
     
-    // TODO(Peter): When we create more ways to calculate points, this needs to become
-    // a type enum and a union
-    v3 StartPosition;
-    v3 EndPosition;
+    strip_gen_data GenerationData;
     
     u32 LedCount;
     u32* LedLUT;
@@ -84,6 +116,21 @@ struct led_strip_list
     u32 Count;
     u32 CountMax;
     u32* StripIndices;
+};
+
+enum network_port_mode
+{
+    // This enum defines the scope which contains what network
+    // port each address should be sent over.
+    
+    NetworkPortMode_GlobalPort,
+    // GlobalPort means that the port is defined in the assembly structure
+    
+    NetworkPortMode_PortPerStrip,
+    // PortPerStrip means that the address stored in the strip structure
+    // should be used, and each strip might have a different port
+    
+    NetworkPortMode_Count,
 };
 
 struct assembly
@@ -102,7 +149,8 @@ struct assembly
     v2_strip* Strips;
     
     network_protocol OutputMode;
-    gs_const_string UARTComPort;
+    network_port_mode NetPortMode;
+    gs_string UARTComPort;
 };
 
 struct assembly_array
@@ -120,6 +168,31 @@ LedSystemGetBuffer(led_system* System, u32 Index)
     return Result;
 }
 
+internal u32
+StripGenData_CountLeds(strip_gen_data Data)
+{
+    u32 Result = 0;
+    
+    switch (Data.Method)
+    {
+        case StripGeneration_InterpolatePoints:
+        {
+            Result += Data.InterpolatePoints.LedCount;
+        }break;
+        
+        case StripGeneration_Sequence:
+        {
+            for (u32 i = 0; i < Data.Sequence.ElementsCount; i++)
+            {
+                Result += StripGenData_CountLeds(Data.Sequence.Elements[i]);
+            }
+        }break;
+        
+        InvalidDefaultCase;
+    }
+    
+    return Result;
+}
 
 #define FOLDHAUS_ASSEMBLY_H
 #endif // FOLDHAUS_ASSEMBLY_H

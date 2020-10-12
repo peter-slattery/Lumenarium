@@ -123,7 +123,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     
 #if 1
-    gs_const_string SculpturePath = ConstString("data/blumen_lumen_v2.fold");
+    gs_const_string SculpturePath = ConstString("data/blumen_lumen_silver_spring.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     

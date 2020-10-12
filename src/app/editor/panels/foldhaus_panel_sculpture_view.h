@@ -166,7 +166,7 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
     u32 MaxLEDsPerJob = 2048;
     render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->LedSystem.LedsCountTotal);
     
-    u32 FocusPixel = 256;
+    u32 FocusPixel = 100;
     
     for (u32 BufferIndex = 0; BufferIndex < State->LedSystem.BuffersCount; BufferIndex++)
     {

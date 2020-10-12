@@ -134,11 +134,17 @@ Serializer_WriteV3Value(serializer* Serializer, u32 IdentIndex, v3 Value)
 struct parser_error
 {
     gs_string Message;
+    
+    gs_string FileName;
+    u32 LineNumber;
+    
     parser_error* Next;
 };
 
 struct parser
 {
+    gs_string FileName;
+    
     gs_string String;
     
     gs_const_string* Identifiers;
@@ -160,7 +166,11 @@ internal void
 Parser_PushErrorF(parser* Parser, char* Format, ...)
 {
     parser_error* Error = PushStruct(Parser->Transient, parser_error);
+    Error->FileName = Parser->FileName;
+    Error->LineNumber = Parser->Line;
+    
     Error->Message = PushString(Parser->Transient, 1024);
+    PrintF(&Error->Message, "File: %S Line: %d - ", Error->FileName, Error->LineNumber);
     
     va_list Args;
     va_start(Args, Format);
@@ -268,11 +278,13 @@ Parser_ReadString(parser* P, u32 IdentIndex)
     return Parser_ReadString(P, Ident);
 }
 
-internal gs_string
-Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminate = false)
+internal bool
+Parser_ReadStringValue(parser* P, gs_const_string Ident, gs_string* Output, bool ShouldNullTerminate = false)
 {
+    Assert(Output != 0);
+    
     // ident: "value";
-    gs_string Result = {};
+    bool Result = false;
     if (Parser_AdvanceIfTokenEquals(P, Ident) &&
         Parser_AdvanceIfTokenEquals(P, ConstString(":")) &&
         Parser_AdvanceIfTokenEquals(P, ConstString("\"")))
@@ -294,10 +306,12 @@ Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminat
             {
                 StringLength += 1;
             }
-            Result = PushStringF(P->Arena, StringLength, "%S", FileString);
+            
+            Result = true;
+            *Output = PushStringF(P->Arena, StringLength, "%S", FileString);
             if (ShouldNullTerminate)
             {
-                NullTerminate(&Result);
+                NullTerminate(Output);
             }
         }
         else
@@ -305,11 +319,22 @@ Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminat
             Parser_PushErrorF(P, "String doesn't have a closing quote, or line doesn't end with a semicolon");
         }
     }
-    else
-    {
-        Parser_PushErrorF(P, "String doesn't begin correctly");
-    }
     
+    return Result;
+}
+
+internal bool
+Parser_ReadStringValue(parser* P, u32 IdentIndex, gs_string* Result, bool ShouldNullTerminate = false)
+{
+    gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
+    return Parser_ReadStringValue(P, Ident, Result, ShouldNullTerminate);
+}
+
+internal gs_string
+Parser_ReadStringValue(parser* P, gs_const_string Ident, bool ShouldNullTerminate = false)
+{
+    gs_string Result = {0};
+    Parser_ReadStringValue(P, Ident, &Result, ShouldNullTerminate);
     return Result;
 }
 
@@ -346,42 +371,66 @@ Parser_ReadCloseStruct(parser* P)
     return Result;
 }
 
+internal bool
+Parser_ReadNumberString(parser* P, gs_const_string* Output)
+{
+    Assert(Output != 0);
+    
+    bool Success = false;
+    
+    if (IsNumericExtended(P->At[0]))
+    {
+        char* NumStart = P->At;
+        while(Parser_AtValidPosition(*P) && IsNumericExtended(P->At[0]))
+        {
+            Parser_AdvanceChar(P);
+        }
+        
+        Output->Str = NumStart;
+        Output->Length = P->At - NumStart;
+        Success = true;
+    }
+    
+    return Success;
+}
+
 internal gs_const_string
 Parser_ReadNumberString(parser* P)
 {
-    gs_const_string Result = {};
-    Result.Str = P->At;
-    while(Parser_AtValidPosition(*P) && IsNumericExtended(P->At[0]))
-    {
-        Parser_AdvanceChar(P);
-    }
-    Result.Length = P->At - Result.Str;
+    gs_const_string Result = {0};
+    Parser_ReadNumberString(P, &Result);
     return Result;
 }
 
-internal u32
-Parser_ReadU32Value(parser* P, gs_const_string Ident)
+internal bool
+Parser_ReadU32Value(parser* P, gs_const_string Ident, u32* Result)
 {
     // ident: value;
-    u32 Result = 0;
+    bool Success = false;
+    
     if (Parser_AdvanceIfTokenEquals(P, Ident) &&
         Parser_AdvanceIfTokenEquals(P, ConstString(":")))
     {
         gs_const_string NumStr = Parser_ReadNumberString(P);
         if (Parser_AdvanceIfLineEnd(P))
         {
-            Result = (u32)ParseInt(NumStr);
+            *Result = (u32)ParseInt(NumStr);
+            Success = true;
         }
         else
         {
             Parser_PushErrorF(P, "U32 Value doesn't end with semicolon");
         }
     }
-    else
-    {
-        Parser_PushErrorF(P, "U32 value doesn't begin properly");
-    }
     
+    return Success;
+}
+
+internal u32
+Parser_ReadU32Value(parser* P, gs_const_string Ident)
+{
+    u32 Result = 0;
+    Parser_ReadU32Value(P, Ident, &Result);
     return Result;
 }
 
@@ -392,52 +441,72 @@ Parser_ReadU32Value(parser* P, u32 IdentIndex)
     return Parser_ReadU32Value(P, Ident);
 }
 
+internal bool
+Parser_ReadR32(parser* P, r32* Result)
+{
+    bool Success = false;
+    gs_const_string NumStr = {0};
+    if (Parser_ReadNumberString(P, &NumStr))
+    {
+        *Result = (r32)ParseFloat(NumStr);
+        Success = true;
+    }
+    return Success;
+}
+
 internal r32
 Parser_ReadR32(parser* P)
 {
     r32 Result = 0;
-    gs_const_string NumStr = Parser_ReadNumberString(P);
-    Result = (r32)ParseFloat(NumStr);
+    Parser_ReadR32(P, &Result);
     return Result;
 }
 
-internal r32
-Parser_ReadR32Value(parser* P, gs_const_string Ident)
+internal bool
+Parser_ReadR32Value(parser* P, gs_const_string Ident, r32* Result)
 {
     // ident: value;
-    r32 Result = 0;
+    bool Success = false;
     if (Parser_AdvanceIfTokenEquals(P, Ident) &&
         Parser_AdvanceIfTokenEquals(P, ConstString(":")))
     {
         r32 Value = Parser_ReadR32(P);
         if (Parser_AdvanceIfLineEnd(P))
         {
-            Result = Value;
+            *Result = Value;
+            Success = true;
         }
         else
         {
             Parser_PushErrorF(P, "R32 Value doesn't end with semicolon");
         }
     }
-    else
-    {
-        Parser_PushErrorF(P, "R32 value doesn't begin properly");
-    }
     
+    return Success;
+}
+
+internal r32
+Parser_ReadR32Value(parser* P, gs_const_string Ident)
+{
+    r32 Result = 0;
+    Parser_ReadR32Value(P, Ident, &Result);
     return Result;
 }
 
-internal u32
+internal r32
 Parser_ReadR32Value(parser* P, u32 IdentIndex)
 {
+    r32 Result = 0;
     gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
-    return Parser_ReadR32Value(P, Ident);
+    Parser_ReadR32Value(P, Ident, &Result);
+    return Result;
 }
 
-internal v3
-Parser_ReadV3Value(parser* P, gs_const_string Ident)
+internal bool
+Parser_ReadV3Value(parser* P, gs_const_string Ident, v3* Result)
 {
-    v3 Result = {0};
+    Assert(Result != 0);
+    bool Success = false;
     if (Parser_AdvanceIfTokenEquals(P, Ident) &&
         Parser_AdvanceIfTokenEquals(P, ConstString(":")) &&
         Parser_AdvanceIfTokenEquals(P, ConstString("(")))
@@ -458,27 +527,35 @@ Parser_ReadV3Value(parser* P, gs_const_string Ident)
         if (Parser_AdvanceIfTokenEquals(P, ConstString(")")) &&
             Parser_AdvanceIfLineEnd(P))
         {
-            Result.x = X;
-            Result.y = Y;
-            Result.z = Z;
+            Result->x = X;
+            Result->y = Y;
+            Result->z = Z;
+            Success = true;
         }
         else
         {
             Parser_PushErrorF(P, "V3 Value doesn't end correctly");
         }
     }
-    else
-    {
-        Parser_PushErrorF(P, "V3 Value doesn't begin correctly");
-    }
+    
+    return Success;
+}
+
+internal v3
+Parser_ReadV3Value(parser* P, gs_const_string Ident)
+{
+    v3 Result = {0};
+    Parser_ReadV3Value(P, Ident, &Result);
     return Result;
 }
 
 internal v3
 Parser_ReadV3Value(parser* P, u32 IdentIndex)
 {
+    v3 Result = {0};
     gs_const_string Ident = Parser_GetIdent(*P, IdentIndex);
-    return Parser_ReadV3Value(P, Ident);
+    Parser_ReadV3Value(P, Ident, &Result);
+    return Result;
 }
 
 

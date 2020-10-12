@@ -135,6 +135,46 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
     Buffer->Positions[Led] = Position;
 }
 
+internal u32
+Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* StripAt, strip_gen_data GenData, v4 RootPosition, u32 LedStartIndex)
+{
+    u32 LedsAdded = 0;
+    
+    switch (GenData.Method)
+    {
+        case StripGeneration_InterpolatePoints:
+        {
+            strip_gen_interpolate_points InterpPoints = GenData.InterpolatePoints;
+            v4 WS_StripStart = RootPosition + ToV4Point(InterpPoints.StartPosition * Assembly->Scale);
+            v4 WS_StripEnd = RootPosition + ToV4Point(InterpPoints.EndPosition * Assembly->Scale);
+            
+            v4 SingleStep = (WS_StripEnd - WS_StripStart) / (r32)InterpPoints.LedCount;
+            for (u32 Step = 0; Step < InterpPoints.LedCount; Step++)
+            {
+                s32 LedIndex = LedStartIndex + LedsAdded++;
+                v4 LedPosition = WS_StripStart + (SingleStep * Step);
+                LedBufferSetLed(LedBuffer, LedIndex, LedPosition);
+                StripAt->LedLUT[Step] = LedIndex;
+            }
+        }break;
+        
+        case StripGeneration_Sequence:
+        {
+            strip_gen_sequence Sequence = GenData.Sequence;
+            for (u32 i = 0; i < Sequence.ElementsCount; i++)
+            {
+                __debugbreak();
+                strip_gen_data SegmentGenData = Sequence.Elements[i];
+                LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded);
+            }
+        }break;
+        
+        InvalidDefaultCase;
+    }
+    
+    return LedsAdded;
+}
+
 internal void
 ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
 {
@@ -150,17 +190,8 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
         v2_strip* StripAt = &Assembly->Strips[StripIdx];
         StripAt->LedLUT = PushArray(&Assembly->Arena, u32, StripAt->LedCount);
         
-        v4 WS_StripStart = RootPosition + ToV4Point(StripAt->StartPosition * Assembly->Scale);
-        v4 WS_StripEnd = RootPosition + ToV4Point(StripAt->EndPosition * Assembly->Scale);
-        
-        v4 SingleStep = (WS_StripEnd - WS_StripStart) / (r32)StripAt->LedCount;
-        for (u32 Step = 0; Step < StripAt->LedCount; Step++)
-        {
-            s32 LedIndex = LedsAdded++;
-            v4 LedPosition = WS_StripStart + (SingleStep * Step);
-            LedBufferSetLed(LedBuffer, LedIndex, LedPosition);
-            StripAt->LedLUT[Step] = LedIndex;
-        }
+        strip_gen_data GenData = StripAt->GenerationData;
+        LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, GenData, RootPosition, LedsAdded);
     }
 }
 
