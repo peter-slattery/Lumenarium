@@ -260,10 +260,10 @@ SecondsToFrames(r32 Seconds, animation_system System)
     return Result;
 }
 
-inline b32
+inline bool
 FrameIsInRange(frame_range Range, s32 Frame)
 {
-    b32 Result = (Frame >= Range.Min) && (Frame <= Range.Max);
+    bool Result = (Frame >= Range.Min) && (Frame <= Range.Max);
     return Result;
 }
 
@@ -348,6 +348,7 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
     Result.BlocksCountMax = ActiveAnim->Layers.Count;
     Result.Blocks = PushArray(Arena, animation_block, Result.BlocksCountMax);
     Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
+    ZeroArray(Result.BlocksFilled, b8, Result.BlocksCountMax);
     
     for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
     {
@@ -356,11 +357,12 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
         
         animation_block Block = BlockEntry->Value;
         
-        if (FrameIsInRange(Block.Range, System->CurrentFrame)){ continue; }
-        
-        Result.BlocksFilled[Block.Layer] = true;
-        Result.Blocks[Block.Layer] = Block;
-        Result.BlocksCount++;
+        if (FrameIsInRange(Block.Range, System->CurrentFrame))
+        {
+            Result.BlocksFilled[Block.Layer] = true;
+            Result.Blocks[Block.Layer] = Block;
+            Result.BlocksCount++;
+        }
     }
     
     return Result;

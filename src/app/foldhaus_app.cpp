@@ -258,7 +258,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     s32 CurrentFrame = State->AnimationSystem.CurrentFrame;
-    if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
+    if (true || CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
     {
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;

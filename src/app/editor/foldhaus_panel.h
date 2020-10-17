@@ -182,6 +182,18 @@ Panel_GetCurrentTypeIndex(panel* Panel)
     return Result;
 }
 
+#define Panel_GetCurrentTypeStateMemory(p, type) (type*)Panel_GetCurrentTypeStateMemory_(p).Memory
+internal gs_data
+Panel_GetCurrentTypeStateMemory_(panel* Panel)
+{
+    gs_data Result = {0};
+    if (Panel->TypeIndicesCount != 0)
+    {
+        Result = Panel->TypeStateMemory[Panel->TypeIndicesCount - 1];
+    }
+    return Result;
+}
+
 internal void
 Panel_SetCurrentTypeStateMemory(panel* Panel, gs_data StateMemory)
 {
@@ -195,18 +207,6 @@ Panel_SetCurrentTypeStateMemory(panel* Panel, gs_data StateMemory)
         CurrentTypeIndex = Panel->TypeIndicesCount++;
     }
     Panel->TypeStateMemory[CurrentTypeIndex] = StateMemory;
-}
-
-#define Panel_GetCurrentTypeStateMemory(p, type) (type*)Panel_GetCurrentTypeStateMemory_(p).Memory
-internal gs_data
-Panel_GetCurrentTypeStateMemory_(panel* Panel)
-{
-    gs_data Result = {0};
-    if (Panel->TypeIndicesCount != 0)
-    {
-        Result = Panel->TypeStateMemory[Panel->TypeIndicesCount - 1];
-    }
-    return Result;
 }
 
 internal void
