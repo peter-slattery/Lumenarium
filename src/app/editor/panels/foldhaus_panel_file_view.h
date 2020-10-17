@@ -55,7 +55,7 @@ FileView_Init(panel* Panel, app_state* State, context Context)
 {
     // TODO: :FreePanelMemory
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
-    Panel->PanelStateMemory = (u8*)FileViewState;
+    Panel_SetCurrentTypeStateMemory(Panel, StructToData(FileViewState, file_view_state));
     FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
     FileViewUpdateWorkingDirectory(ConstString("."), FileViewState, Context);
 }
@@ -71,9 +71,9 @@ FileView_Cleanup(panel* Panel, app_state* State)
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_file_view);
 internal void
-FileView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    file_view_state* FileViewState = (file_view_state*)Panel.PanelStateMemory;
+    file_view_state* FileViewState = Panel_GetCurrentTypeStateMemory(Panel, file_view_state);
     ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     
     // Header

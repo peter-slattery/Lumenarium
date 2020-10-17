@@ -162,7 +162,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     InitializePanelSystem(&State->PanelSystem);
     panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, PanelType_SculptureView, State, Context);
+    SetAndInitPanelType(Panel, PanelType_SculptureView, State, Context);
 }
 
 internal void
@@ -184,7 +184,8 @@ HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse
             if (!PanelWithMouseOverIt.Panel) { return; }
             State->HotPanel = PanelWithMouseOverIt.Panel;
             
-            panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
+            s32 PanelTypeIndex = Panel_GetCurrentTypeIndex(PanelWithMouseOverIt.Panel);
+            panel_definition PanelDefinition = GlobalPanelDefs[PanelTypeIndex];
             if (!PanelDefinition.InputCommands) { return; }
             
             ActiveCommands.Commands = PanelDefinition.InputCommands;

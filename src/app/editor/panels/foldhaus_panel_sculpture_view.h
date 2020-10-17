@@ -156,7 +156,7 @@ SculptureView_WorldToScreenPosition(v4 WorldPosition, camera Camera, rect2 Panel
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_sculpture_view);
 internal void
-SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
     State->Camera.AspectRatio = RectAspectRatio(PanelBounds);
@@ -203,7 +203,6 @@ SculptureView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* Rend
         assembly Assembly = State->Assemblies.Values[0];
         led_buffer* LedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly.LedBufferIndex);
         
-        //__debugbreak();
         v4 LedPosition = LedBuffer->Positions[FocusPixel];
         v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, State->Camera, PanelBounds);
         

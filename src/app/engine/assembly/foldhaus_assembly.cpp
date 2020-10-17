@@ -163,7 +163,6 @@ Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* Str
             strip_gen_sequence Sequence = GenData.Sequence;
             for (u32 i = 0; i < Sequence.ElementsCount; i++)
             {
-                __debugbreak();
                 strip_gen_data SegmentGenData = Sequence.Elements[i];
                 LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded);
             }

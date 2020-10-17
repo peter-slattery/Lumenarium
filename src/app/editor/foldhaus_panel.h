@@ -9,8 +9,6 @@
 //
 #ifndef FOLDHAUS_PANEL_H
 
-typedef struct panel panel;
-
 enum panel_split_direction
 {
     PanelSplit_NoSplit,
@@ -24,9 +22,15 @@ typedef struct panel_entry panel_entry;
 
 struct panel
 {
+    
     // TODO(pjs): We want this to be a list, so that you can push sub panels on
     // and let them return to you, to perform certain tasks, like loading a file
-    s32 PanelDefinitionIndex;
+    //s32 PanelDefinitionIndex;
+#define PANEL_TYPE_INDICES_COUNT_MAX 4
+    s32 TypeIndicesCount;
+    s32 TypeIndices[PANEL_TYPE_INDICES_COUNT_MAX];
+    gs_data ReturnDestMemory[PANEL_TYPE_INDICES_COUNT_MAX];
+    gs_data TypeStateMemory[PANEL_TYPE_INDICES_COUNT_MAX];
     
     panel_split_direction SplitDirection;
     r32 SplitPercent;
@@ -34,9 +38,6 @@ struct panel
     // TODO(Peter): This REALLY doesn't want to live here
     // Probably belongs in a more generalized PanelInterfaceState or something
     b32 PanelSelectionMenuOpen;
-    
-    u8* PanelStateMemory;
-    u32 PanelStateMemorySize;
     
     union{
         panel_entry* Left;
@@ -119,10 +120,7 @@ TakeNewPanel(panel_system* PanelSystem)
     panel* Result = 0;
     panel_entry* FreeEntry = TakeNewPanelEntry(PanelSystem);
     Result = &FreeEntry->Panel;
-    
     *Result = {0};
-    Result->PanelDefinitionIndex = -1;
-    
     return Result;
 }
 
@@ -156,6 +154,70 @@ FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
 }
 
 internal void
+Panel_SetCurrentTypeIndex(panel* Panel, s32 NewPanelType, gs_data TypeStateMemory, gs_data ReturnDestMemory = {0})
+{
+    u32 CurrentTypeIndex = 0;
+    if (Panel->TypeIndicesCount != 0)
+    {
+        CurrentTypeIndex = Panel->TypeIndicesCount - 1;
+    }
+    else
+    {
+        CurrentTypeIndex = Panel->TypeIndicesCount++;
+    }
+    
+    Panel->TypeIndices[CurrentTypeIndex] = NewPanelType;
+    Panel->TypeStateMemory[CurrentTypeIndex] = TypeStateMemory;
+    Panel->ReturnDestMemory[CurrentTypeIndex] = ReturnDestMemory;
+}
+
+internal s32
+Panel_GetCurrentTypeIndex(panel* Panel)
+{
+    s32 Result = -1;
+    if (Panel->TypeIndicesCount != 0)
+    {
+        Result = Panel->TypeIndices[Panel->TypeIndicesCount - 1];
+    }
+    return Result;
+}
+
+internal void
+Panel_SetCurrentTypeStateMemory(panel* Panel, gs_data StateMemory)
+{
+    u32 CurrentTypeIndex = 0;
+    if (Panel->TypeIndicesCount != 0)
+    {
+        CurrentTypeIndex = Panel->TypeIndicesCount - 1;
+    }
+    else
+    {
+        CurrentTypeIndex = Panel->TypeIndicesCount++;
+    }
+    Panel->TypeStateMemory[CurrentTypeIndex] = StateMemory;
+}
+
+#define Panel_GetCurrentTypeStateMemory(p, type) (type*)Panel_GetCurrentTypeStateMemory_(p).Memory
+internal gs_data
+Panel_GetCurrentTypeStateMemory_(panel* Panel)
+{
+    gs_data Result = {0};
+    if (Panel->TypeIndicesCount != 0)
+    {
+        Result = Panel->TypeStateMemory[Panel->TypeIndicesCount - 1];
+    }
+    return Result;
+}
+
+internal void
+Panel_PushTypeWithReturn(panel* Panel, s32 NewPanelType, gs_data ReturnDestMemory)
+{
+    Assert(Panel->TypeIndicesCount < PANEL_TYPE_INDICES_COUNT_MAX);
+    u32 NewTypeIndex = Panel->TypeIndicesCount++;
+    Panel_SetCurrentTypeIndex(Panel, NewPanelType, ReturnDestMemory);
+}
+
+internal void
 SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, panel_system* PanelSystem)
 {
     if (Percent >= 0.0f && Percent <= 1.0f)
@@ -163,11 +225,13 @@ SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, pan
         Parent->SplitDirection = SplitDirection;
         Parent->SplitPercent = Percent;
         
+        s32 ParentTypeIndex = Panel_GetCurrentTypeIndex(Parent);
+        gs_data ParentStateMemory = Panel_GetCurrentTypeStateMemory_(Parent);
         Parent->Left = TakeNewPanelEntry(PanelSystem);
-        Parent->Left->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
+        Panel_SetCurrentTypeIndex(&Parent->Left->Panel, ParentTypeIndex, ParentStateMemory);
         
         Parent->Right = TakeNewPanelEntry(PanelSystem);
-        Parent->Right->Panel.PanelDefinitionIndex = Parent->PanelDefinitionIndex;
+        Panel_SetCurrentTypeIndex(&Parent->Right->Panel, ParentTypeIndex, ParentStateMemory);
     }
 }
 

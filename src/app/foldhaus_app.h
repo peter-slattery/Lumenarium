@@ -17,8 +17,8 @@
 
 #include "engine/foldhaus_network_ordering.h"
 
-#include "engine/foldhaus_assembly.h"
-#include "engine/foldhaus_assembly_parser.cpp"
+#include "engine/assembly/foldhaus_assembly.h"
+#include "engine/assembly/foldhaus_assembly_parser.cpp"
 
 #include "engine/sacn/foldhaus_sacn.h"
 #include "engine/uart/foldhaus_uart.h"
@@ -70,7 +70,7 @@ struct app_state
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
-#include "engine/foldhaus_assembly.cpp"
+#include "engine/assembly/foldhaus_assembly.cpp"
 
 // BEGIN TEMPORARY PATTERNS
 internal void
@@ -215,7 +215,7 @@ typedef PANEL_INIT_PROC(panel_init_proc);
 #define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
 typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
 
-#define PANEL_RENDER_PROC(name) void name(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+#define PANEL_RENDER_PROC(name) void name(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 typedef PANEL_RENDER_PROC(panel_render_proc);
 
 // NOTE(Peter): This is used by the meta system to generate panel type info
@@ -237,6 +237,8 @@ animation_clip GlobalAnimationClips[] = {
     { "Test Pattern Three", 18, TestPatternThree },
 };
 
+#include "editor/panels/foldhaus_panel_types.h"
+
 #include "editor/panels/foldhaus_panel_sculpture_view.h"
 #include "editor/panels/foldhaus_panel_profiler.h"
 #include "editor/panels/foldhaus_panel_dmx_view.h"
@@ -244,7 +246,8 @@ animation_clip GlobalAnimationClips[] = {
 #include "editor/panels/foldhaus_panel_hierarchy.h"
 #include "editor/panels/foldhaus_panel_file_view.h"
 
-#include "generated/foldhaus_panels_generated.h"
+#include "editor/panels/foldhaus_panel_types.cpp"
+//#include "generated/foldhaus_panels_generated.h"
 
 #include "editor/foldhaus_interface.cpp"
 

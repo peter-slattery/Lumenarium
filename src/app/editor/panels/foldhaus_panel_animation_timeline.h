@@ -6,7 +6,7 @@
 #ifndef FOLDHAUS_PANEL_ANIMATION_TIMELINE_H
 
 // Colors
-global v4 TimeSliderColor = v4{.36f, .52f, .78f, 1.f};
+global v4 TimeSliderColor = GreenV4; //v4{.36f, .52f, .78f, 1.f};
 
 //
 struct animation_timeline_state
@@ -288,7 +288,8 @@ AnimationTimeline_Init(panel* Panel, app_state* State, context Context)
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     animation_timeline_state* TimelineState = PushStruct(&State->Permanent, animation_timeline_state);
     TimelineState->VisibleRange = ActiveAnim->PlayableRange;
-    Panel->PanelStateMemory = (u8*)TimelineState;
+    
+    Panel_SetCurrentTypeStateMemory(Panel, StructToData(TimelineState, animation_timeline_state));
 }
 
 GSMetaTag(panel_cleanup);
@@ -595,9 +596,9 @@ DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedA
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_animation_timeline);
 internal void
-AnimationTimeline_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    animation_timeline_state* TimelineState = (animation_timeline_state*)Panel.PanelStateMemory;
+    animation_timeline_state* TimelineState = Panel_GetCurrentTypeStateMemory(Panel, animation_timeline_state);
     // TODO(pjs): SelectedAnimationBlockHandle should be a property of animation_timeline_state
     // unless its used elsewhere. Audit later
     gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
@@ -611,7 +612,7 @@ AnimationTimeline_Render(panel Panel, rect2 PanelBounds, render_command_buffer* 
     
     ui_FillRect(Interface, TitleBarBounds, Interface->Style.PanelBGColors[0]);
     ui_layout TitleBarLayout = ui_CreateLayout(*Interface, TitleBarBounds);
-    ui_StartRow(&TitleBarLayout, 3);
+    ui_StartRow(&TitleBarLayout, 4);
     {
         if (ui_LayoutButton(Interface, &TitleBarLayout, MakeString("Pause")))
         {
@@ -627,6 +628,18 @@ AnimationTimeline_Render(panel Panel, rect2 PanelBounds, render_command_buffer* 
         {
             State->AnimationSystem.TimelineShouldAdvance = false;
             State->AnimationSystem.CurrentFrame = 0;
+        }
+        
+        if (ui_LayoutButton(Interface, &TitleBarLayout, MakeString("Load")))
+        {
+            // TODO(pjs): You were working on #6 on your todo list.
+            // below is a "write the interface first" example of how you'd like to be able to
+            // activate a file panel from within another panel.
+            gs_data ReturnDestination = {};
+            Panel_PushTypeWithReturn(Panel, PanelType_FileView, ReturnDestination);
+            // TODO(pjs): I think we want to be able to specify a return command that gets called when the
+            // pushed panel state returns to this one
+            // something like: AnimPanel_HandleLoadedAnimationFile
         }
     }
     ui_EndRow(&TitleBarLayout);

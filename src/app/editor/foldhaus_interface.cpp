@@ -20,16 +20,23 @@ enum panel_edit_mode
 };
 
 internal void
-SetPanelDefinition(panel* Panel, s32 NewPanelDefinitionIndex, app_state* State, context Context)
+SetPanelType_(panel* Panel, s32 NewPanelTypeIndex, app_state* State, context Context)
 {
-    s32 OldPanelDefinitionIndex = Panel->PanelDefinitionIndex;
-    Panel->PanelDefinitionIndex = NewPanelDefinitionIndex;
+    
+    s32 OldPanelDefinitionIndex = Panel_GetCurrentTypeIndex(Panel);
+    Panel_SetCurrentTypeIndex(Panel, NewPanelTypeIndex, {0});
     
     if(OldPanelDefinitionIndex >= 0)
     {
         GlobalPanelDefs[OldPanelDefinitionIndex].Cleanup(Panel, State);
     }
-    GlobalPanelDefs[NewPanelDefinitionIndex].Init(Panel, State, Context);
+}
+
+internal void
+SetAndInitPanelType(panel* Panel, s32 NewPanelTypeIndex, app_state* State, context Context)
+{
+    SetPanelType_(Panel, NewPanelTypeIndex, State, Context);
+    GlobalPanelDefs[NewPanelTypeIndex].Init(Panel, State, Context);
 }
 
 //
@@ -250,11 +257,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
         SplitPanelHorizontally(Panel, YPercent, &State->PanelSystem);
     }
     
-    Panel->Left->Panel.PanelDefinitionIndex = Panel->PanelDefinitionIndex;
-    Panel->Left->Panel.PanelStateMemory = Panel->PanelStateMemory;
-    Panel->Left->Panel.PanelStateMemorySize = Panel->PanelStateMemorySize;
+    s32 PanelTypeIndex = Panel_GetCurrentTypeIndex(Panel);
+    gs_data PanelStateMemory = Panel_GetCurrentTypeStateMemory_(Panel);
+    Panel_SetCurrentTypeIndex(&Panel->Left->Panel, PanelTypeIndex, PanelStateMemory);
     
-    SetPanelDefinition(&Panel->Right->Panel, Panel->PanelDefinitionIndex, State, Context);
+    SetAndInitPanelType(&Panel->Right->Panel, PanelTypeIndex, State, Context);
     
     DeactivateCurrentOperationMode(&State->Modes);
 }
@@ -431,7 +438,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
             gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
             if (ui_Button(&State->Interface, DefName, ButtonBounds))
             {
-                SetPanelDefinition(Panel, i, State, Context);
+                SetAndInitPanelType(Panel, i, State, Context);
                 Panel->PanelSelectionMenuOpen = false;
             }
             
@@ -449,7 +456,8 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
 internal void
 RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    Assert(Panel->PanelDefinitionIndex >= 0);
+    s32 PanelType = Panel_GetCurrentTypeIndex(Panel);
+    Assert(PanelType >= 0);
     
     rect2 FooterBounds = rect2{
         PanelBounds.Min,
@@ -460,8 +468,8 @@ RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_
         PanelBounds.Max,
     };
     
-    panel_definition Definition = GlobalPanelDefs[Panel->PanelDefinitionIndex];
-    Definition.Render(*Panel, PanelViewBounds, RenderBuffer, State, Context);
+    panel_definition Definition = GlobalPanelDefs[PanelType];
+    Definition.Render(Panel, PanelViewBounds, RenderBuffer, State, Context);
     
     PushRenderOrthographic(RenderBuffer, WindowBounds);
     DrawPanelFooter(Panel, RenderBuffer, FooterBounds, Mouse, State, Context);

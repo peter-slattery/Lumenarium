@@ -74,7 +74,7 @@ DrawSACNUniversePixels (render_command_buffer* RenderBuffer, sacn_universe* ToDr
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_dmx_view);
 internal void
-DMXView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+DMXView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
 #if 0
     // :NoLongerFunctionalSACNCodeButThatsOk

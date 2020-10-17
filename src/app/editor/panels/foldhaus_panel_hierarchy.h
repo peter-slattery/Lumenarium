@@ -27,7 +27,7 @@ HierarchyView_Cleanup(panel* Panel, app_state* State)
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_hierarchy);
 internal void
-HierarchyView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     gs_string TempString = PushString(State->Transient, 256);

@@ -5,6 +5,16 @@
 //
 #ifndef GS_TYPES_CPP
 
+#define StructToData(ptr, type) StructToData_((u8*)(ptr), sizeof(type))
+internal gs_data
+StructToData_(u8* Memory, u64 Size)
+{
+    gs_data Result = {0};
+    Result.Memory = Memory;
+    Result.Size = Size;
+    return Result;
+}
+
 internal u32
 U32DivideRoundUp (u32 A, u32 B)
 {

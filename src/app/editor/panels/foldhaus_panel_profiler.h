@@ -137,7 +137,7 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debu
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_profiler);
 internal void
-ProfilerView_Render(panel Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     gs_memory_arena* Memory = State->Transient;
     gs_string String = PushString(Memory, 256);
