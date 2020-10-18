@@ -26,13 +26,13 @@
 
 typedef struct app_state app_state;
 
+#include "editor/foldhaus_command_dispatch.h"
+#include "editor/foldhaus_operation_mode.h"
+
 // TODO(Peter): something we can do later is to remove all reliance on app_state and context
 // from foldhaus_pane.h. It should just emit lists of things that the app can iterate over and
 // perform operations on, like panel_draw_requests = { bounds, panel* } etc.
 #include "editor/foldhaus_panel.h"
-
-#include "editor/foldhaus_command_dispatch.h"
-#include "editor/foldhaus_operation_mode.h"
 
 #include "engine/animation/foldhaus_animation.h"
 #include "engine/animation/foldhaus_animation_serializer.cpp"
@@ -209,27 +209,6 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-#define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State, context Context)
-typedef PANEL_INIT_PROC(panel_init_proc);
-
-#define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
-typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
-
-#define PANEL_RENDER_PROC(name) void name(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
-typedef PANEL_RENDER_PROC(panel_render_proc);
-
-// NOTE(Peter): This is used by the meta system to generate panel type info
-struct panel_definition
-{
-    char* PanelName;
-    s32 PanelNameLength;
-    panel_init_proc* Init;
-    panel_cleanup_proc* Cleanup;
-    panel_render_proc* Render;
-    input_command* InputCommands;
-    s32 InputCommandsCount;
-};
-
 s32 GlobalAnimationClipsCount = 3;
 animation_clip GlobalAnimationClips[] = {
     { "Test Pattern One", 16, TestPatternOne  },
@@ -239,12 +218,13 @@ animation_clip GlobalAnimationClips[] = {
 
 #include "editor/panels/foldhaus_panel_types.h"
 
+#include "editor/panels/foldhaus_panel_file_view.h"
 #include "editor/panels/foldhaus_panel_sculpture_view.h"
 #include "editor/panels/foldhaus_panel_profiler.h"
 #include "editor/panels/foldhaus_panel_dmx_view.h"
 #include "editor/panels/foldhaus_panel_animation_timeline.h"
 #include "editor/panels/foldhaus_panel_hierarchy.h"
-#include "editor/panels/foldhaus_panel_file_view.h"
+
 
 #include "editor/panels/foldhaus_panel_types.cpp"
 //#include "generated/foldhaus_panels_generated.h"

@@ -136,7 +136,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     { // Animation PLAYGROUND
-        
         State->AnimationSystem = {};
         State->AnimationSystem.Storage = &State->Permanent;
         State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
@@ -160,9 +159,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     } // End Animation Playground
     
     
-    InitializePanelSystem(&State->PanelSystem);
-    panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetAndInitPanelType(Panel, PanelType_SculptureView, State, Context);
+    InitializePanelSystem(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount);
+    PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
 }
 
 internal void
@@ -184,7 +182,7 @@ HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse
             if (!PanelWithMouseOverIt.Panel) { return; }
             State->HotPanel = PanelWithMouseOverIt.Panel;
             
-            s32 PanelTypeIndex = Panel_GetCurrentTypeIndex(PanelWithMouseOverIt.Panel);
+            s32 PanelTypeIndex = PanelWithMouseOverIt.Panel->TypeIndex;
             panel_definition PanelDefinition = GlobalPanelDefs[PanelTypeIndex];
             if (!PanelDefinition.InputCommands) { return; }
             

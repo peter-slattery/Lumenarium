@@ -24,6 +24,15 @@ HierarchyView_Cleanup(panel* Panel, app_state* State)
     
 }
 
+PANEL_MODAL_OVERRIDE_CALLBACK(LoadAssemblyCallback)
+{
+    Assert(ReturningFrom->TypeIndex == PanelType_FileView);
+    file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
+    gs_file_info FileInfo = FileViewState->SelectedFile;
+    
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, FileInfo.Path, State->GlobalLog);
+}
+
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_hierarchy);
 internal void
@@ -66,19 +75,8 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         PrintF(&TempString, "+ Add Assembly");
         if (ui_ListButton(&State->Interface, TempString, LineBounds[AssembliesToDraw], AssembliesToDraw))
         {
-            gs_string FilePath = PushString(State->Transient, 256);
-            
-            // TODO(Peter): Took out file opening temporarily while I get things back up and running.
-            // Ideally we can just write our own file lister using the new filehandler so that
-            // execution doesn't suspend while we try and open a file
-            InvalidCodePath;
-#if 0
-            b32 Success = GetFilePath(Context, &FilePath, "Foldhaus Files\0*.fold\0\0");
-            if (Success)
-            {
-                LoadAssembly(&State->Assemblies, &State->LedSystem, &State->Transient, Context, FilePath.ConstString, State->GlobalLog);
-            }
-#endif
+            panel_entry* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
     }
 }

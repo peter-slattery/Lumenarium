@@ -16,7 +16,7 @@ AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_
     Serializer_WriteF(&Serializer, "%S;\n", AnimationFieldStrings[AnimField_FileIdent]);
     Serializer_WriteStringValue(&Serializer, AnimField_AnimName, Anim.Name.ConstString);
     Serializer_WriteValue(&Serializer, AnimField_LayersCount, Anim.Layers.Count);
-    Serializer_WriteValue(&Serializer, AnimField_BlocksCount, Anim.Blocks.Used);
+    Serializer_WriteValue(&Serializer, AnimField_BlocksCount, Anim.Blocks_.Count);
     
     Serializer_OpenStruct(&Serializer, AnimField_PlayableRange);
     {
@@ -40,12 +40,10 @@ AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_
     
     
     Serializer_OpenStruct(&Serializer, AnimField_BlocksArray);
-    for (u32 i = 0; i < Anim.Blocks.Used; i++)
+    for (u32 i = 0; i < Anim.Blocks_.Count; i++)
     {
-        gs_list_entry<animation_block>* AnimationBlockEntry = Anim.Blocks.GetEntryAtIndex(i);
-        if (EntryIsFree(AnimationBlockEntry)) { continue; }
-        gs_list_handle CurrentBlockHandle = AnimationBlockEntry->Handle;
-        animation_block AnimationBlockAt = AnimationBlockEntry->Value;
+        // TODO(pjs): Handle free'd animation blocks
+        animation_block AnimationBlockAt = Anim.Blocks_.Values[i];
         
         // TODO(pjs): Systematize the AnimationProcHandle
         // :AnimProcHandle
@@ -171,7 +169,7 @@ AnimParser_Parse(gs_string File, animation_clip* GlobalClips, gs_memory_arena* A
                     
                     if (Parser_ReadCloseStruct(&Parser))
                     {
-                        Result.Blocks.PushElementOnList(Block);
+                        AnimBlockArray_Push(&Result.Blocks_, Block);
                     }
                     else
                     {

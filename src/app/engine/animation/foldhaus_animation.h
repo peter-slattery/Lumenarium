@@ -62,7 +62,6 @@ struct animation
     gs_string Name;
     
     anim_layer_array Layers;
-    gs_list<animation_block> Blocks;
     animation_block_array Blocks_;
     
     frame_range PlayableRange;
@@ -199,6 +198,17 @@ AnimBlockArray_Remove(animation_block_array* Array, handle Handle)
     Array->Generations[Handle.Index]++;
 }
 
+internal void
+AnimBlockArray_RemoveAt(animation_block_array* Array, u32 Index)
+{
+    Assert(Index < Array->Count);
+    
+    handle Handle = {};
+    Handle.Index = Index;
+    Handle.Generation = Array->Generations[Index];
+    AnimBlockArray_Remove(Array, Handle);
+}
+
 //////////////////////////
 //
 // Anim Layers Array
@@ -257,43 +267,6 @@ AnimationArray_Push(animation_array* Array, animation Value)
 //
 // Animation
 
-internal u32
-Animation_AddLayer(animation* Animation, anim_layer Layer)
-{
-    return AnimLayerArray_Push(&Animation->Layers, Layer);
-}
-
-internal u32
-Animation_AddLayer (animation* Animation, gs_string Name, blend_mode BlendMode, animation_system* System)
-{
-    anim_layer NewLayer = {0};
-    NewLayer.Name = PushStringF(System->Storage, 256, "%S", Name);
-    NewLayer.BlendMode = BlendMode;
-    
-    return Animation_AddLayer(Animation, NewLayer);
-}
-
-internal void
-Animation_RemoveLayer (animation* Animation, u32 LayerIndex)
-{
-    AnimLayerArray_Remove(&Animation->Layers, LayerIndex);
-    for (u32 i = Animation->Blocks.Used -= 1; i >= 0; i--)
-    {
-        gs_list_entry<animation_block>* Entry = Animation->Blocks.GetEntryAtIndex(i);
-        if (EntryIsFree(Entry)) { continue; }
-        
-        animation_block* Block = &Entry->Value;
-        if (Block->Layer > LayerIndex)
-        {
-            Block->Layer -= 1;
-        }
-        else if (Block->Layer == LayerIndex)
-        {
-            Animation->Blocks.FreeElementAtIndex(i);
-        }
-    }
-}
-
 internal handle
 Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 LayerIndex)
 {
@@ -327,6 +300,40 @@ Animation_GetBlockFromHandle(animation* Animation, handle AnimHandle)
     }
     
     return Result;
+}
+
+internal u32
+Animation_AddLayer(animation* Animation, anim_layer Layer)
+{
+    return AnimLayerArray_Push(&Animation->Layers, Layer);
+}
+
+internal u32
+Animation_AddLayer (animation* Animation, gs_string Name, blend_mode BlendMode, animation_system* System)
+{
+    anim_layer NewLayer = {0};
+    NewLayer.Name = PushStringF(System->Storage, 256, "%S", Name);
+    NewLayer.BlendMode = BlendMode;
+    
+    return Animation_AddLayer(Animation, NewLayer);
+}
+
+internal void
+Animation_RemoveLayer (animation* Animation, u32 LayerIndex)
+{
+    AnimLayerArray_Remove(&Animation->Layers, LayerIndex);
+    for (u32 i = Animation->Blocks_.Count - 1; i >= 0; i--)
+    {
+        animation_block* Block = Animation->Blocks_.Values + i;
+        if (Block->Layer > LayerIndex)
+        {
+            Block->Layer -= 1;
+        }
+        else if (Block->Layer == LayerIndex)
+        {
+            AnimBlockArray_RemoveAt(&Animation->Blocks_, i);
+        }
+    }
 }
 
 //////////////////////////
@@ -408,12 +415,9 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
     Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
     ZeroArray(Result.BlocksFilled, b8, Result.BlocksCountMax);
     
-    for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
+    for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
     {
-        gs_list_entry<animation_block>* BlockEntry = ActiveAnim->Blocks.GetEntryAtIndex(i);
-        if (EntryIsFree(BlockEntry)) { continue; }
-        
-        animation_block Block = BlockEntry->Value;
+        animation_block Block = ActiveAnim->Blocks_.Values[i];
         
         if (FrameIsInRange(Block.Range, System->CurrentFrame))
         {

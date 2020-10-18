@@ -19,18 +19,19 @@ enum panel_split_direction
 };
 
 typedef struct panel_entry panel_entry;
+typedef struct panel panel;
+
+#define PANEL_MODAL_OVERRIDE_CALLBACK(name) void name(panel* ReturningFrom, app_state* State, context Context)
+typedef PANEL_MODAL_OVERRIDE_CALLBACK(panel_modal_override_callback);
 
 struct panel
 {
+    s32 TypeIndex;
+    gs_data StateMemory;
     
-    // TODO(pjs): We want this to be a list, so that you can push sub panels on
-    // and let them return to you, to perform certain tasks, like loading a file
-    //s32 PanelDefinitionIndex;
-#define PANEL_TYPE_INDICES_COUNT_MAX 4
-    s32 TypeIndicesCount;
-    s32 TypeIndices[PANEL_TYPE_INDICES_COUNT_MAX];
-    gs_data ReturnDestMemory[PANEL_TYPE_INDICES_COUNT_MAX];
-    gs_data TypeStateMemory[PANEL_TYPE_INDICES_COUNT_MAX];
+    panel_entry* ModalOverride;
+    panel* IsModalOverrideFor; // TODO(pjs): I don't like that this is panel* but ModalOverride is panel_entry*
+    panel_modal_override_callback* ModalOverrideCB;
     
     panel_split_direction SplitDirection;
     r32 SplitPercent;
@@ -60,9 +61,33 @@ struct panel_entry
     free_panel Free;
 };
 
+#define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State, context Context)
+typedef PANEL_INIT_PROC(panel_init_proc);
+
+#define PANEL_CLEANUP_PROC(name) void name(panel* Panel, app_state* State)
+typedef PANEL_CLEANUP_PROC(panel_cleanup_proc);
+
+#define PANEL_RENDER_PROC(name) void name(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+typedef PANEL_RENDER_PROC(panel_render_proc);
+
+// NOTE(Peter): This is used by the meta system to generate panel type info
+struct panel_definition
+{
+    char* PanelName;
+    s32 PanelNameLength;
+    panel_init_proc* Init;
+    panel_cleanup_proc* Cleanup;
+    panel_render_proc* Render;
+    input_command* InputCommands;
+    s32 InputCommandsCount;
+};
+
 #define PANELS_MAX 16
 struct panel_system
 {
+    panel_definition* PanelDefs;
+    u32 PanelDefsCount;
+    
     panel_entry Panels[PANELS_MAX];
     u32 PanelsUsed;
     
@@ -92,9 +117,11 @@ struct panel_layout
 /////////////////////////////////
 
 internal void
-InitializePanelSystem(panel_system* PanelSystem)
+InitializePanelSystem(panel_system* PanelSystem, panel_definition* PanelDefs, u32 PanelDefsCount)
 {
     PanelSystem->FreeList.Free.Next = &PanelSystem->FreeList;
+    PanelSystem->PanelDefs = PanelDefs;
+    PanelSystem->PanelDefsCount = PanelDefsCount;
 }
 
 internal panel_entry*
@@ -112,16 +139,6 @@ TakeNewPanelEntry(panel_system* PanelSystem)
         FreeEntry = PanelSystem->Panels + PanelSystem->PanelsUsed++;
     }
     return FreeEntry;
-}
-
-internal panel*
-TakeNewPanel(panel_system* PanelSystem)
-{
-    panel* Result = 0;
-    panel_entry* FreeEntry = TakeNewPanelEntry(PanelSystem);
-    Result = &FreeEntry->Panel;
-    *Result = {0};
-    return Result;
 }
 
 internal void
@@ -153,98 +170,111 @@ FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
     PanelSystem->FreeList.Free.Next = EntryToFree;
 }
 
-internal void
-Panel_SetCurrentTypeIndex(panel* Panel, s32 NewPanelType, gs_data TypeStateMemory, gs_data ReturnDestMemory = {0})
+internal panel_entry*
+Panel_GetModalOverride(panel_entry* PanelEntry)
 {
-    u32 CurrentTypeIndex = 0;
-    if (Panel->TypeIndicesCount != 0)
+    panel_entry* Result = PanelEntry;
+    if (PanelEntry->Panel.ModalOverride != 0)
     {
-        CurrentTypeIndex = Panel->TypeIndicesCount - 1;
+        Result = Panel_GetModalOverride(PanelEntry->Panel.ModalOverride);
     }
-    else
+    return Result;
+}
+
+internal panel*
+Panel_GetModalOverride(panel* Panel)
+{
+    panel* Result = Panel;
+    if (Panel->ModalOverride != 0)
     {
-        CurrentTypeIndex = Panel->TypeIndicesCount++;
+        Result = &Panel_GetModalOverride(Panel->ModalOverride)->Panel;
     }
+    return Result;
+}
+
+internal void
+Panel_PushModalOverride(panel* Root, panel_entry* Override, panel_modal_override_callback* Callback)
+{
+    Root->ModalOverride = Override;
+    Root->ModalOverrideCB = Callback;
+    Override->Panel.IsModalOverrideFor = Root;
+}
+
+internal void
+Panel_PopModalOverride(panel* Parent, panel_system* System)
+{
+    // TODO(pjs): Free the overrided panel
+    FreePanelEntry(Parent->ModalOverride, System);
+    Parent->ModalOverride = 0;
+}
+
+internal void
+Panel_SetCurrentType(panel* Panel, panel_system* System, s32 NewPanelType, gs_data TypeStateMemory, app_state* State, context Context)
+{
+    s32 OldTypeIndex = Panel->TypeIndex;
     
-    Panel->TypeIndices[CurrentTypeIndex] = NewPanelType;
-    Panel->TypeStateMemory[CurrentTypeIndex] = TypeStateMemory;
-    Panel->ReturnDestMemory[CurrentTypeIndex] = ReturnDestMemory;
-}
-
-internal s32
-Panel_GetCurrentTypeIndex(panel* Panel)
-{
-    s32 Result = -1;
-    if (Panel->TypeIndicesCount != 0)
+    Panel->TypeIndex = NewPanelType;
+    Panel->StateMemory = TypeStateMemory;
+    
+    if(OldTypeIndex >= 0)
     {
-        Result = Panel->TypeIndices[Panel->TypeIndicesCount - 1];
+        System->PanelDefs[OldTypeIndex].Cleanup(Panel, State);
     }
-    return Result;
 }
 
-#define Panel_GetCurrentTypeStateMemory(p, type) (type*)Panel_GetCurrentTypeStateMemory_(p).Memory
+internal void
+SetAndInitPanelType(panel* Panel, panel_system* System, s32 NewPanelTypeIndex, app_state* State, context Context)
+{
+    gs_data EmptyStateData = {0};
+    Panel_SetCurrentType(Panel, System, NewPanelTypeIndex, EmptyStateData, State, Context);
+    System->PanelDefs[NewPanelTypeIndex].Init(Panel, State, Context);
+}
+
+#define Panel_GetStateStruct(p, type) (type*)Panel_GetStateMemory((p), sizeof(type)).Memory
 internal gs_data
-Panel_GetCurrentTypeStateMemory_(panel* Panel)
+Panel_GetStateMemory(panel* Panel, u64 Size)
 {
-    gs_data Result = {0};
-    if (Panel->TypeIndicesCount != 0)
-    {
-        Result = Panel->TypeStateMemory[Panel->TypeIndicesCount - 1];
-    }
+    Assert(Panel->StateMemory.Size == Size);
+    gs_data Result = Panel->StateMemory;
     return Result;
 }
 
-internal void
-Panel_SetCurrentTypeStateMemory(panel* Panel, gs_data StateMemory)
+internal panel_entry*
+PanelSystem_PushPanel(panel_system* PanelSystem, s32 PanelTypeIndex, app_state* State, context Context)
 {
-    u32 CurrentTypeIndex = 0;
-    if (Panel->TypeIndicesCount != 0)
-    {
-        CurrentTypeIndex = Panel->TypeIndicesCount - 1;
-    }
-    else
-    {
-        CurrentTypeIndex = Panel->TypeIndicesCount++;
-    }
-    Panel->TypeStateMemory[CurrentTypeIndex] = StateMemory;
+    panel_entry* PanelEntry = TakeNewPanelEntry(PanelSystem);
+    SetAndInitPanelType(&PanelEntry->Panel, PanelSystem, PanelTypeIndex, State, Context);
+    return PanelEntry;
 }
 
 internal void
-Panel_PushTypeWithReturn(panel* Panel, s32 NewPanelType, gs_data ReturnDestMemory)
-{
-    Assert(Panel->TypeIndicesCount < PANEL_TYPE_INDICES_COUNT_MAX);
-    u32 NewTypeIndex = Panel->TypeIndicesCount++;
-    Panel_SetCurrentTypeIndex(Panel, NewPanelType, ReturnDestMemory);
-}
-
-internal void
-SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, panel_system* PanelSystem)
+SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, panel_system* PanelSystem, app_state* State, context Context)
 {
     if (Percent >= 0.0f && Percent <= 1.0f)
     {
         Parent->SplitDirection = SplitDirection;
         Parent->SplitPercent = Percent;
         
-        s32 ParentTypeIndex = Panel_GetCurrentTypeIndex(Parent);
-        gs_data ParentStateMemory = Panel_GetCurrentTypeStateMemory_(Parent);
+        s32 ParentTypeIndex = Parent->TypeIndex;
+        gs_data ParentStateMemory = Parent->StateMemory;
         Parent->Left = TakeNewPanelEntry(PanelSystem);
-        Panel_SetCurrentTypeIndex(&Parent->Left->Panel, ParentTypeIndex, ParentStateMemory);
+        Panel_SetCurrentType(&Parent->Left->Panel, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
         
         Parent->Right = TakeNewPanelEntry(PanelSystem);
-        Panel_SetCurrentTypeIndex(&Parent->Right->Panel, ParentTypeIndex, ParentStateMemory);
+        Panel_SetCurrentType(&Parent->Right->Panel, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
     }
 }
 
 internal void
-SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem)
+SplitPanelVertically(panel* Parent, r32 Percent, panel_system* PanelSystem, app_state* State, context Context)
 {
-    SplitPanel(Parent, Percent, PanelSplit_Vertical, PanelSystem);
+    SplitPanel(Parent, Percent, PanelSplit_Vertical, PanelSystem, State, Context);
 }
 
 internal void
-SplitPanelHorizontally(panel* Parent, r32 Percent, panel_system* PanelSystem)
+SplitPanelHorizontally(panel* Parent, r32 Percent, panel_system* PanelSystem, app_state* State, context Context)
 {
-    SplitPanel(Parent, Percent, PanelSplit_Horizontal, PanelSystem);
+    SplitPanel(Parent, Percent, PanelSplit_Horizontal, PanelSystem, State, Context);
 }
 
 internal void
@@ -321,13 +351,17 @@ LayoutPanel(panel* Panel, rect2 PanelBounds, panel_layout* Layout)
     if (Panel->SplitDirection == PanelSplit_NoSplit)
     {
         panel_with_layout* WithLayout = Layout->Panels + Layout->PanelsCount++;
-        WithLayout->Panel = Panel;
+        WithLayout->Panel = Panel_GetModalOverride(Panel);
         WithLayout->Bounds = PanelBounds;
     }
     else if (Panel->SplitDirection == PanelSplit_Horizontal)
     {
         rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
         rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+        
+        panel* TopPanel = Panel_GetModalOverride(&Panel->Top->Panel);
+        panel* BottomPanel = Panel_GetModalOverride(&Panel->Bottom->Panel);
+        
         LayoutPanel(&Panel->Top->Panel, TopPanelBounds, Layout);
         LayoutPanel(&Panel->Bottom->Panel, BottomPanelBounds, Layout);
     }
@@ -335,6 +369,10 @@ LayoutPanel(panel* Panel, rect2 PanelBounds, panel_layout* Layout)
     {
         rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
         rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
+        
+        panel* LeftPanel = Panel_GetModalOverride(&Panel->Top->Panel);
+        panel* RightPanel = Panel_GetModalOverride(&Panel->Bottom->Panel);
+        
         LayoutPanel(&Panel->Left->Panel, LeftPanelBounds, Layout);
         LayoutPanel(&Panel->Right->Panel, RightPanelBounds, Layout);
     }

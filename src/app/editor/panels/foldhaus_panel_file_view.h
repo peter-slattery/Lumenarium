@@ -10,6 +10,8 @@ struct file_view_state
     gs_string WorkingDirectory;
     gs_memory_arena FileNamesArena;
     gs_file_info_array FileNames;
+    
+    gs_file_info SelectedFile;
 };
 
 input_command* FileView_Commands = 0;
@@ -55,7 +57,7 @@ FileView_Init(panel* Panel, app_state* State, context Context)
 {
     // TODO: :FreePanelMemory
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
-    Panel_SetCurrentTypeStateMemory(Panel, StructToData(FileViewState, file_view_state));
+    Panel->StateMemory = StructToData(FileViewState, file_view_state);
     FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
     FileViewUpdateWorkingDirectory(ConstString("."), FileViewState, Context);
 }
@@ -73,7 +75,7 @@ GSMetaTag(panel_type_file_view);
 internal void
 FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    file_view_state* FileViewState = Panel_GetCurrentTypeStateMemory(Panel, file_view_state);
+    file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
     ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     
     // Header
@@ -96,7 +98,15 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
             }
             else
             {
-                // TODO(pjs): Select the file
+                FileViewState->SelectedFile = File;
+                
+                Assert(Panel->IsModalOverrideFor != 0);
+                panel* ReturnTo = Panel->IsModalOverrideFor;
+                if (ReturnTo->ModalOverrideCB)
+                {
+                    ReturnTo->ModalOverrideCB(Panel, State, Context);
+                }
+                Panel_PopModalOverride(ReturnTo, &State->PanelSystem);
             }
         }
     }

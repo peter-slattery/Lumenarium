@@ -170,11 +170,9 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
         s32 NewStartFrame = OpState->ClipRange.Min + FrameOffset;
         if (FrameOffset < 0)
         {
-            for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
+            for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
             {
-                gs_list_entry<animation_block>* OtherBlockEntry = ActiveAnim->Blocks.GetEntryAtIndex(i);
-                if (EntryIsFree(OtherBlockEntry)) { continue; }
-                animation_block OtherBlock = OtherBlockEntry->Value;
+                animation_block OtherBlock = ActiveAnim->Blocks_.Values[i];
                 NewStartFrame = AttemptToSnapPosition(NewStartFrame, OtherBlock.Range.Max);
             }
         }
@@ -192,11 +190,9 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
         r32 NewEndFrame = OpState->ClipRange.Max + FrameOffset;
         if (FrameOffset > 0)
         {
-            for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
+            for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
             {
-                gs_list_entry<animation_block>* OtherBlockEntry = ActiveAnim->Blocks.GetEntryAtIndex(i);
-                if (EntryIsFree(OtherBlockEntry)) { continue; }
-                animation_block OtherBlock = OtherBlockEntry->Value;
+                animation_block OtherBlock = ActiveAnim->Blocks_.Values[i];
                 NewEndFrame = AttemptToSnapPosition(NewEndFrame, OtherBlock.Range.Min);
             }
         }
@@ -213,11 +209,9 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     {
         u32 NewStartFrame = OpState->ClipRange.Min + FrameOffset;
         u32 NewEndFrame = OpState->ClipRange.Max + FrameOffset;
-        for (u32 i = 0; i < ActiveAnim->Blocks.Used; i++)
+        for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
         {
-            gs_list_entry<animation_block>* OtherBlockEntry = ActiveAnim->Blocks.GetEntryAtIndex(i);
-            if (EntryIsFree(OtherBlockEntry)) { continue; }
-            animation_block OtherBlock = OtherBlockEntry->Value;
+            animation_block OtherBlock = ActiveAnim->Blocks_.Values[i];;
             
             u32 SnapFramesAmount = 0;
             if (FrameOffset > 0)
@@ -294,7 +288,7 @@ AnimationTimeline_Init(panel* Panel, app_state* State, context Context)
     animation_timeline_state* TimelineState = PushStruct(&State->Permanent, animation_timeline_state);
     TimelineState->VisibleRange = ActiveAnim->PlayableRange;
     
-    Panel_SetCurrentTypeStateMemory(Panel, StructToData(TimelineState, animation_timeline_state));
+    Panel->StateMemory = StructToData(TimelineState, animation_timeline_state);
 }
 
 GSMetaTag(panel_cleanup);
@@ -580,6 +574,13 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     return Result;
 }
 
+PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
+{
+    Assert(ReturningFrom->TypeIndex == PanelType_FileView);
+    file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
+    gs_file_info FileInfo = FileViewState->SelectedFile;
+}
+
 internal void
 DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {
@@ -600,7 +601,7 @@ GSMetaTag(panel_type_animation_timeline);
 internal void
 AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    animation_timeline_state* TimelineState = Panel_GetCurrentTypeStateMemory(Panel, animation_timeline_state);
+    animation_timeline_state* TimelineState = Panel_GetStateStruct(Panel, animation_timeline_state);
     // TODO(pjs): SelectedAnimationBlockHandle should be a property of animation_timeline_state
     // unless its used elsewhere. Audit later
     handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
@@ -634,11 +635,8 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
         
         if (ui_LayoutButton(Interface, &TitleBarLayout, MakeString("Load")))
         {
-            // TODO(pjs): You were working on #6 on your todo list.
-            // below is a "write the interface first" example of how you'd like to be able to
-            // activate a file panel from within another panel.
-            gs_data ReturnDestination = {};
-            Panel_PushTypeWithReturn(Panel, PanelType_FileView, ReturnDestination);
+            panel_entry* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
             // TODO(pjs): I think we want to be able to specify a return command that gets called when the
             // pushed panel state returns to this one
             // something like: AnimPanel_HandleLoadedAnimationFile

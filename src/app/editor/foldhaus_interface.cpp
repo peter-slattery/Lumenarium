@@ -19,26 +19,6 @@ enum panel_edit_mode
     PanelEdit_Count,
 };
 
-internal void
-SetPanelType_(panel* Panel, s32 NewPanelTypeIndex, app_state* State, context Context)
-{
-    
-    s32 OldPanelDefinitionIndex = Panel_GetCurrentTypeIndex(Panel);
-    Panel_SetCurrentTypeIndex(Panel, NewPanelTypeIndex, {0});
-    
-    if(OldPanelDefinitionIndex >= 0)
-    {
-        GlobalPanelDefs[OldPanelDefinitionIndex].Cleanup(Panel, State);
-    }
-}
-
-internal void
-SetAndInitPanelType(panel* Panel, s32 NewPanelTypeIndex, app_state* State, context Context)
-{
-    SetPanelType_(Panel, NewPanelTypeIndex, State, Context);
-    GlobalPanelDefs[NewPanelTypeIndex].Init(Panel, State, Context);
-}
-
 //
 // Drag Panel Border Operation Mode
 
@@ -249,19 +229,19 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
     if (XDistance > YDistance)
     {
         r32 XPercent = (Mouse.Pos.x - PanelBounds.Min.x) / Rect2Width(PanelBounds);
-        SplitPanelVertically(Panel, XPercent, &State->PanelSystem);
+        SplitPanelVertically(Panel, XPercent, &State->PanelSystem, State, Context);
     }
     else
     {
         r32 YPercent = (Mouse.Pos.y - PanelBounds.Min.y) / Rect2Height(PanelBounds);
-        SplitPanelHorizontally(Panel, YPercent, &State->PanelSystem);
+        SplitPanelHorizontally(Panel, YPercent, &State->PanelSystem, State, Context);
     }
     
-    s32 PanelTypeIndex = Panel_GetCurrentTypeIndex(Panel);
-    gs_data PanelStateMemory = Panel_GetCurrentTypeStateMemory_(Panel);
-    Panel_SetCurrentTypeIndex(&Panel->Left->Panel, PanelTypeIndex, PanelStateMemory);
+    s32 PanelTypeIndex = Panel->TypeIndex;
+    gs_data PanelStateMemory = Panel->StateMemory;
+    Panel_SetCurrentType(&Panel->Left->Panel, &State->PanelSystem, PanelTypeIndex, PanelStateMemory, State, Context);
     
-    SetAndInitPanelType(&Panel->Right->Panel, PanelTypeIndex, State, Context);
+    SetAndInitPanelType(&Panel->Right->Panel, &State->PanelSystem, PanelTypeIndex, State, Context);
     
     DeactivateCurrentOperationMode(&State->Modes);
 }
@@ -438,7 +418,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
             gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
             if (ui_Button(&State->Interface, DefName, ButtonBounds))
             {
-                SetAndInitPanelType(Panel, i, State, Context);
+                SetAndInitPanelType(Panel, &State->PanelSystem, i, State, Context);
                 Panel->PanelSelectionMenuOpen = false;
             }
             
@@ -456,7 +436,7 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
 internal void
 RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    s32 PanelType = Panel_GetCurrentTypeIndex(Panel);
+    s32 PanelType = Panel->TypeIndex;
     Assert(PanelType >= 0);
     
     rect2 FooterBounds = rect2{
