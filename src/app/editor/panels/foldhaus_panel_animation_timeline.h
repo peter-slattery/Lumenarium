@@ -33,18 +33,18 @@ GetXPositionFromFrameInAnimationPanel (u32 Frame, rect2 PanelBounds, frame_range
     return XPositionAtFrame;
 }
 
-internal gs_list_handle
+internal handle
 AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, u32 LayerHandle, animation_system* System)
 {
     u32 NewBlockStart = System->CurrentFrame;
     u32 NewBlockEnd = NewBlockStart + SecondsToFrames(3, *System);
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
-    gs_list_handle Result = Animation_AddBlock(ActiveAnim, NewBlockStart, NewBlockEnd, AnimationProcHandle, LayerHandle);
-    return Result;
+    handle AnimHandle = Animation_AddBlock(ActiveAnim, NewBlockStart, NewBlockEnd, AnimationProcHandle, LayerHandle);
+    return AnimHandle;
 }
 
 internal void
-SelectAnimationBlock(gs_list_handle BlockHandle, app_state* State)
+SelectAnimationBlock(handle BlockHandle, app_state* State)
 {
     State->SelectedAnimationBlockHandle = BlockHandle;
 }
@@ -57,11 +57,16 @@ DeselectCurrentAnimationBlock(app_state* State)
 
 FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 {
-    if(ListHandleIsValid(State->SelectedAnimationBlockHandle))
+    handle SelectedAnimHandle = State->SelectedAnimationBlockHandle;
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+    if(SelectedAnimHandle.Index < ActiveAnim->Blocks_.Count &&
+       ActiveAnim->Blocks_.Generations[SelectedAnimHandle.Index] == SelectedAnimHandle.Generation)
     {
-        animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
         Animation_RemoveBlock(ActiveAnim, State->SelectedAnimationBlockHandle);
         State->SelectedAnimationBlockHandle = {0};
+        // TODO(pjs): Introduce an animation_block_selection in this file
+        // it should have a handle to the animation, block, and a HasSelection flag
+        // as it is now, you kind of always have the first block selected
     }
 }
 
@@ -153,7 +158,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     u32 FrameAtMouseX = GetFrameFromPointInAnimationPanel(Mouse.Pos, OpState->TimelineBounds, OpState->VisibleRange);
     s32 FrameOffset = (s32)FrameAtMouseX - (s32)FrameAtMouseDownX;
     
-    animation_block* AnimationBlock = ActiveAnim->Blocks.GetElementWithHandle(State->SelectedAnimationBlockHandle);
+    animation_block* AnimationBlock = Animation_GetBlockFromHandle(ActiveAnim, State->SelectedAnimationBlockHandle);
     if (!AnimationBlock)
     {
         EndCurrentOperationMode(State, {}, Mouse, Context);
@@ -243,7 +248,7 @@ input_command DragAnimationClipCommands [] = {
 };
 
 internal void
-SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, frame_range VisibleRange, rect2 TimelineBounds, app_state* State)
+SelectAndBeginDragAnimationBlock(handle BlockHandle, frame_range VisibleRange, rect2 TimelineBounds, app_state* State)
 {
     SelectAnimationBlock(BlockHandle, State);
     
@@ -256,7 +261,7 @@ SelectAndBeginDragAnimationBlock(gs_list_handle BlockHandle, frame_range Visible
     OpState->TimelineBounds = TimelineBounds;
     OpState->VisibleRange = VisibleRange;
     
-    animation_block* SelectedBlock = ActiveAnim->Blocks.GetElementWithHandle(BlockHandle);
+    animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, BlockHandle);
     OpState->ClipRange = SelectedBlock->Range;
 }
 // -------------------
@@ -269,7 +274,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
     frame_range Range = ActiveAnim->PlayableRange;
     u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, Range);
     
-    gs_list_handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, State->SelectedAnimationLayer);
+    handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, State->SelectedAnimationLayer);
     SelectAnimationBlock(NewBlockHandle, State);
 }
 
@@ -488,11 +493,11 @@ DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range V
     return BlockBounds;
 }
 
-internal gs_list_handle
-DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect2 PanelBounds, gs_list_handle SelectedBlockHandle, ui_interface* Interface, app_state* State)
+internal handle
+DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_state* TimelineState, rect2 PanelBounds, handle SelectedBlockHandle, ui_interface* Interface, app_state* State)
 {
     gs_string Tempgs_string = PushString(State->Transient, 256);
-    gs_list_handle Result = SelectedBlockHandle;
+    handle Result = SelectedBlockHandle;
     
     // TODO(pjs): Animation Selection
     animation CurrAnimation = AnimationSystem->Animations.Values[0];
@@ -517,38 +522,35 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     
     // Animation Blocks
     b32 MouseDownAndNotHandled = MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState);
-    gs_list_handle DragBlockHandle = {0};
-    for (u32 i = 0; i < CurrAnimation.Blocks.Used; i++)
+    handle DragBlockHandle = {0};
+    for (u32 i = 0; i < CurrAnimation.Blocks_.Count; i++)
     {
-        gs_list_entry<animation_block>* AnimationBlockEntry = CurrAnimation.Blocks.GetEntryAtIndex(i);
-        if (EntryIsFree(AnimationBlockEntry)) { continue; }
-        
-        gs_list_handle CurrentBlockHandle = AnimationBlockEntry->Handle;
-        animation_block AnimationBlockAt = AnimationBlockEntry->Value;
+        animation_block* AnimationBlockAt = CurrAnimation.Blocks_.Values + i;
         
         // If either end is in the range, we should draw it
-        b32 RangeIsVisible = (FrameIsInRange(AdjustedViewRange, AnimationBlockAt.Range.Min) ||
-                              FrameIsInRange(AdjustedViewRange, AnimationBlockAt.Range.Max));
+        b32 RangeIsVisible = (FrameIsInRange(AdjustedViewRange, AnimationBlockAt->Range.Min) ||
+                              FrameIsInRange(AdjustedViewRange, AnimationBlockAt->Range.Max));
         // If neither end is in the range, but the ends surround the visible range,
         // we should still draw it.
-        RangeIsVisible |= (AnimationBlockAt.Range.Min <= AdjustedViewRange.Min &&
-                           AnimationBlockAt.Range.Max>= AdjustedViewRange.Max);
+        RangeIsVisible |= (AnimationBlockAt->Range.Min <= AdjustedViewRange.Min &&
+                           AnimationBlockAt->Range.Max>= AdjustedViewRange.Max);
         if (RangeIsVisible)
         {
             v4 BlockColor = BlackV4;
-            if (GSListHandlesAreEqual(SelectedBlockHandle, CurrentBlockHandle))
+            if (SelectedBlockHandle.Index == i && SelectedBlockHandle.Generation == CurrAnimation.Blocks_.Generations[i])
             {
                 BlockColor = PinkV4;
             }
-            rect2 BlockBounds = DrawAnimationBlock(AnimationBlockAt, BlockColor, AdjustedViewRange, TimelineBounds, Interface->RenderBuffer);
+            rect2 BlockBounds = DrawAnimationBlock(*AnimationBlockAt, BlockColor, AdjustedViewRange, TimelineBounds, Interface->RenderBuffer);
             if (PointIsInRect(BlockBounds, Interface->Mouse.Pos))
             {
-                DragBlockHandle = CurrentBlockHandle;
+                DragBlockHandle.Index = i;
+                DragBlockHandle.Generation = CurrAnimation.Blocks_.Generations[i];
             }
         }
     }
     
-    if (MouseDownAndNotHandled && ListHandleIsValid(DragBlockHandle))
+    if (MouseDownAndNotHandled && Handle_IsValid(DragBlockHandle))
     {
         MouseDownAndNotHandled = false;
         SelectAndBeginDragAnimationBlock(DragBlockHandle, AdjustedViewRange, TimelineBounds, State);
@@ -601,7 +603,7 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     animation_timeline_state* TimelineState = Panel_GetCurrentTypeStateMemory(Panel, animation_timeline_state);
     // TODO(pjs): SelectedAnimationBlockHandle should be a property of animation_timeline_state
     // unless its used elsewhere. Audit later
-    gs_list_handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
+    handle SelectedBlockHandle = State->SelectedAnimationBlockHandle;
     ui_interface* Interface = &State->Interface;
     animation_system* AnimationSystem = &State->AnimationSystem;
     

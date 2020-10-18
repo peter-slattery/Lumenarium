@@ -21,6 +21,14 @@ struct animation_block
     u32 Layer;
 };
 
+struct animation_block_array
+{
+    u32* Generations;
+    animation_block* Values;
+    u32 Count;
+    u32 CountMax;
+};
+
 enum blend_mode
 {
     BlendMode_Overwrite,
@@ -55,6 +63,7 @@ struct animation
     
     anim_layer_array Layers;
     gs_list<animation_block> Blocks;
+    animation_block_array Blocks_;
     
     frame_range PlayableRange;
 };
@@ -156,6 +165,42 @@ global gs_const_string AnimationFieldStrings[] = {
 
 //////////////////////////
 //
+// Anim Block Array
+
+internal animation_block_array
+AnimBlockArray_Create(gs_memory_arena* Storage, u32 CountMax)
+{
+    animation_block_array Result = {0};
+    Result.CountMax = CountMax;
+    Result.Values = PushArray(Storage, animation_block, Result.CountMax);
+    Result.Generations = PushArray(Storage, u32, Result.CountMax);
+    return Result;
+}
+
+internal handle
+AnimBlockArray_Push(animation_block_array* Array, animation_block Value)
+{
+    Assert(Array->Count < Array->CountMax);
+    handle Result = {0};
+    Result.Index = Array->Count++;
+    // NOTE(pjs): pre-increment so that generation 0 is always invalid
+    Result.Generation = ++Array->Generations[Result.Index];
+    
+    Array->Values[Result.Index] = Value;
+    
+    return Result;
+}
+
+internal void
+AnimBlockArray_Remove(animation_block_array* Array, handle Handle)
+{
+    Assert(Handle.Index < Array->Count);
+    Assert(Handle_IsValid(Handle));
+    Array->Generations[Handle.Index]++;
+}
+
+//////////////////////////
+//
 // Anim Layers Array
 
 internal anim_layer_array
@@ -176,7 +221,7 @@ AnimLayerArray_Push(anim_layer_array* Array, anim_layer Value)
     return Index;
 }
 
-internal u32
+internal void
 AnimLayerArray_Remove(anim_layer_array* Array, u32 Index)
 {
     Assert(Index < Array->Count);
@@ -249,6 +294,41 @@ Animation_RemoveLayer (animation* Animation, u32 LayerIndex)
     }
 }
 
+internal handle
+Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 LayerIndex)
+{
+    Assert(LayerIndex < Animation->Layers.Count);
+    
+    animation_block NewBlock = {0};
+    NewBlock.Range.Min = StartFrame;
+    NewBlock.Range.Max = EndFrame;
+    NewBlock.AnimationProcHandle = AnimationProcHandle;
+    NewBlock.Layer = LayerIndex;
+    
+    handle Handle = AnimBlockArray_Push(&Animation->Blocks_, NewBlock);
+    return Handle;
+}
+
+internal void
+Animation_RemoveBlock(animation* Animation, handle AnimHandle)
+{
+    AnimBlockArray_Remove(&Animation->Blocks_, AnimHandle);
+}
+
+internal animation_block*
+Animation_GetBlockFromHandle(animation* Animation, handle AnimHandle)
+{
+    animation_block* Result = 0;
+    
+    if (AnimHandle.Generation != 0 &&
+        Animation->Blocks_.Generations[AnimHandle.Index] == AnimHandle.Generation)
+    {
+        Result = Animation->Blocks_.Values + AnimHandle.Index;
+    }
+    
+    return Result;
+}
+
 //////////////////////////
 //
 //
@@ -305,28 +385,6 @@ ClampFrameToRange(s32 Frame, frame_range Range)
 }
 
 // Blocks
-
-internal gs_list_handle
-Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 LayerIndex)
-{
-    Assert(LayerIndex < Animation->Layers.Count);
-    
-    animation_block NewBlock = {0};
-    NewBlock.Range.Min = StartFrame;
-    NewBlock.Range.Max = EndFrame;
-    NewBlock.AnimationProcHandle = AnimationProcHandle;
-    NewBlock.Layer = LayerIndex;
-    
-    gs_list_handle Result = Animation->Blocks.PushElementOnList(NewBlock);
-    return Result;
-}
-
-internal void
-Animation_RemoveBlock(animation* Animation, gs_list_handle AnimationBlockHandle)
-{
-    Assert(ListHandleIsValid(AnimationBlockHandle));
-    Animation->Blocks.FreeElementWithHandle(AnimationBlockHandle);
-}
 
 // Layers
 

@@ -64,7 +64,7 @@ struct app_state
     
     camera Camera; // TODO(Peter): move into the sculpture view
     r32 PixelsToWorldScale;
-    gs_list_handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
+    handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
     u32 SelectedAnimationLayer; // TODO(Peter): move into animation panel
 };
 

@@ -12,20 +12,23 @@
 #include "..\gs_libs\gs_types.h"
 #include "..\gs_libs\gs_types.cpp"
 
-//#define GS_LANGUAGE_NO_PROFILER_DEFINES
-//#include "..\gs_libs\gs_language.h"
+struct handle
+{
+    u32 Generation;
+    u32 Index;
+};
 
+inline bool
+Handle_IsValid(handle Handle)
+{
+    bool Result = (Handle.Generation != 0);
+    return Result;
+}
 
-//#include "..\gs_libs\gs_radix_sort.h"
 #include "..\gs_libs\gs_list.h"
 #include "..\gs_libs\gs_bucket.h"
 
-//#define GS_MEMORY_TRACK_ALLOCATIONS
-//#include "..\gs_libs\gs_memory_arena.h"
-
 #include "..\gs_libs\gs_string.h"
-
-
 
 #include "foldhaus_debug.h"
 global debug_services* GlobalDebugServices;

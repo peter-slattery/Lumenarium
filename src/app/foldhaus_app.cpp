@@ -145,8 +145,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
         
         animation Anim = {0};
         Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim.Layers.CountMax = 8;
-        Anim.Layers.Values = PushArray(State->AnimationSystem.Storage, anim_layer, Anim.Layers.CountMax);
+        Anim.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
+        Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
         Anim.PlayableRange.Min = 0;
         Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
@@ -258,7 +258,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     s32 CurrentFrame = State->AnimationSystem.CurrentFrame;
-    if (true || CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
+    if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
     {
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
