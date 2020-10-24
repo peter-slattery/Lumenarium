@@ -155,7 +155,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Animation_AddBlock(&Anim, 22, 123, 2, 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
-        
     } // End Animation Playground
     
     

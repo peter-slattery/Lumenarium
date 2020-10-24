@@ -14,7 +14,19 @@ struct file_view_state
     gs_file_info SelectedFile;
 };
 
-input_command* FileView_Commands = 0;
+internal void
+FileView_Exit_(panel* FileViewPanel, app_state* State, context Context)
+{
+    Assert(FileViewPanel->IsModalOverrideFor != 0);
+    panel* ReturnTo = FileViewPanel->IsModalOverrideFor;
+    if (ReturnTo->ModalOverrideCB)
+    {
+        ReturnTo->ModalOverrideCB(FileViewPanel, State, Context);
+    }
+    Panel_PopModalOverride(ReturnTo, &State->PanelSystem);
+}
+
+global input_command* FileView_Commands = 0;
 s32 FileView_CommandsCount = 0;
 
 internal void
@@ -78,6 +90,11 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
     ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
     
+    if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Exit")))
+    {
+        FileView_Exit_(Panel, State, Context);
+    }
+    
     // Header
     ui_LayoutDrawString(&State->Interface, &Layout, FileViewState->WorkingDirectory, v4{0, 1, 0, 1});
     
@@ -99,14 +116,7 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
             else
             {
                 FileViewState->SelectedFile = File;
-                
-                Assert(Panel->IsModalOverrideFor != 0);
-                panel* ReturnTo = Panel->IsModalOverrideFor;
-                if (ReturnTo->ModalOverrideCB)
-                {
-                    ReturnTo->ModalOverrideCB(Panel, State, Context);
-                }
-                Panel_PopModalOverride(ReturnTo, &State->PanelSystem);
+                FileView_Exit_(Panel, State, Context);
             }
         }
     }

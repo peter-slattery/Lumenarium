@@ -94,6 +94,7 @@ struct animation_system
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
     // panel
+    u32 ActiveAnimationIndex;
     s32 CurrentFrame;
     s32 LastUpdatedFrame;
     r32 SecondsPerFrame;
@@ -401,7 +402,7 @@ internal animation*
 AnimationSystem_GetActiveAnimation(animation_system* System)
 {
     // TODO(pjs): need a way to specify the active animation
-    return System->Animations.Values + 0;
+    return System->Animations.Values + System->ActiveAnimationIndex;
 }
 
 internal animation_frame

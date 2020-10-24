@@ -494,7 +494,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     handle Result = SelectedBlockHandle;
     
     // TODO(pjs): Animation Selection
-    animation CurrAnimation = AnimationSystem->Animations.Values[0];
+    animation CurrAnimation = *AnimationSystem_GetActiveAnimation(AnimationSystem);
     
     rect2 LayerMenuBounds, TimelineBounds;
     RectVSplitAtDistanceFromLeft(PanelBounds, 256, &LayerMenuBounds, &TimelineBounds);
@@ -579,6 +579,13 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
     Assert(ReturningFrom->TypeIndex == PanelType_FileView);
     file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
     gs_file_info FileInfo = FileViewState->SelectedFile;
+    
+    gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FileInfo.Path);
+    gs_string AnimFileString = MakeString((char*)AnimFile.Data.Memory, AnimFile.Data.Size);
+    animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, GlobalAnimationClipsCount, GlobalAnimationClips);
+    
+    u32 NewAnimIndex = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
+    State->AnimationSystem.ActiveAnimationIndex = NewAnimIndex;
 }
 
 internal void
@@ -637,9 +644,6 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
         {
             panel_entry* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
-            // TODO(pjs): I think we want to be able to specify a return command that gets called when the
-            // pushed panel state returns to this one
-            // something like: AnimPanel_HandleLoadedAnimationFile
         }
     }
     ui_EndRow(&TitleBarLayout);

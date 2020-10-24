@@ -70,7 +70,7 @@ AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_
 }
 
 internal animation
-AnimParser_Parse(gs_string File, animation_clip* GlobalClips, gs_memory_arena* Arena, u32 AnimClipsCount, animation_clip* AnimClips)
+AnimParser_Parse(gs_string File, gs_memory_arena* Arena, u32 AnimClipsCount, animation_clip* AnimClips)
 {
     animation Result = {0};
     
@@ -88,14 +88,19 @@ AnimParser_Parse(gs_string File, animation_clip* GlobalClips, gs_memory_arena* A
         Result.Layers.CountMax = Parser_ReadU32Value(&Parser, AnimField_LayersCount);
         Result.Layers.Values = PushArray(Arena, anim_layer, Result.Layers.CountMax);
         
-        // TODO(pjs): We're not using this now because Blocks are built on gs_list or something,
-        // but I want to replace that eventually, so this is here to preallocate the blocks we need
-        u32 BlocksCount = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
+        Result.Blocks_.CountMax = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
+        Result.Blocks_.Generations = PushArray(Arena, u32, Result.Blocks_.CountMax);
+        Result.Blocks_.Values = PushArray(Arena, animation_block, Result.Blocks_.CountMax);
         
         if (Parser_ReadOpenStruct(&Parser, AnimField_PlayableRange))
         {
             Result.PlayableRange.Min = Parser_ReadU32Value(&Parser, AnimField_PlayableRangeMin);
             Result.PlayableRange.Max = Parser_ReadU32Value(&Parser, AnimField_PlayableRangeMax);
+            
+            if (Parser_ReadCloseStruct(&Parser))
+            {
+                // TODO(pjs): Error
+            }
         }
         else
         {
