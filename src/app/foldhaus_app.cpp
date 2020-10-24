@@ -8,56 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-internal v4
-MouseToWorldRay(r32 MouseX, r32 MouseY, camera* Camera, rect WindowBounds)
-{
-    DEBUG_TRACK_SCOPE(MouseToWorldRay);
-    r32 X = ((2.0f * MouseX) / gs_Width(WindowBounds)) - 1;
-    r32 Y = ((2.0f * MouseY) / gs_Height(WindowBounds)) - 1;
-    
-    v4 ScreenPos = v4{X, Y, -1, 1};
-    
-    m44 InverseProjection = {};
-    Inverse(GetCameraPerspectiveProjectionMatrix(*Camera), &InverseProjection);
-    
-    m44 InverseModelView = {};
-    Inverse(GetCameraModelViewMatrix(*Camera), &InverseModelView);
-    InverseModelView = Transpose(InverseModelView);
-    
-    v4 ClipSpacePos = InverseProjection * ScreenPos;
-    v4 WorldPosition = InverseModelView * ClipSpacePos;
-    return WorldPosition;
-}
-
-struct send_sacn_job_data
-{
-    
-    platform_socket_handle SendSocket;
-    platform_send_to* SendTo;
-    dmx_buffer_list* DMXBuffers;
-};
-
-internal void
-SACNSendDMXBufferListJob (s32 ThreadID, void* JobData)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    send_sacn_job_data* Data = (send_sacn_job_data*)JobData;
-    platform_socket_handle SendSocket = Data->SendSocket;
-    
-    dmx_buffer_list* DMXBufferAt = Data->DMXBuffers;
-    while (DMXBufferAt)
-    {
-        dmx_buffer Buffer = DMXBufferAt->Buffer;
-        
-        u32 V4SendAddress = SACNGetUniverseSendAddress(Buffer.Universe);
-        
-        Data->SendTo(SendSocket, V4SendAddress, DEFAULT_STREAMING_ACN_PORT, (const char*)Buffer.Base, Buffer.TotalSize, 0);
-        
-        DMXBufferAt = DMXBufferAt->Next;
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////
 
 RELOAD_STATIC_DATA(ReloadStaticData)
@@ -70,15 +20,14 @@ RELOAD_STATIC_DATA(ReloadStaticData)
 INITIALIZE_APPLICATION(InitializeApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
-    State->Permanent = {};
-    State->Permanent.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Permanent.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
-    State->Transient = {};
-    State->Transient.FindAddressRule = FindAddress_InLastBufferOnly;
-    State->Transient.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Transient.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
+    *State = {};
     
-    State->GlobalLog = PushStruct(&State->Transient, event_log);
+    State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    State->Transient = Context.ThreadContext.Transient;
+    
+    State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
+    
+    State->GlobalLog = PushStruct(State->Transient, event_log);
     *State->GlobalLog = {0};
     
     s32 CommandQueueSize = 32;
@@ -87,13 +36,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
                                                         CommandQueueSize);
     State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
     
-    State->ActiveTextEntry.Buffer = MakeString(PushArray(&State->Permanent, char, 256), 0, 256);
-    
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
     {
-        platform_memory_result FontFile = Context.PlatformReadEntireFile("Anonymous Pro.ttf");
-        if (!FontFile.Error)
+        gs_file FontFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/Anonymous Pro.ttf"));
+        if (FileNoError(FontFile))
         {
             bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
             
@@ -102,7 +49,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
             Font->BitmapBytesPerPixel = 4;
             Font->BitmapMemory = PushArray(&State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
             Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
-            GSMemSet(Font->BitmapMemory, 0, Font->BitmapStride * Font->BitmapHeight);
+            ZeroMemoryBlock(Font->BitmapMemory, Font->BitmapStride * Font->BitmapHeight);
             
             platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize, FontWeight_Normal, false, false, false);
             Font->PixelHeight = FontInfo.PixelHeight;
@@ -136,7 +83,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
                 AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
             }
             
-            State->Interface.Font = Font;
+            State->Interface.Style.Font = Font;
             
             Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory,
                                                                             Font->BitmapWidth, Font->BitmapHeight);
@@ -147,37 +94,37 @@ INITIALIZE_APPLICATION(InitializeApplication)
         }
     }
     
-    State->Interface.FontSize = FontSize;
-    State->Interface.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
-    State->Interface.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
-    State->Interface.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
-    State->Interface.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
-    State->Interface.ButtonColor_Inactive = BlackV4;
-    State->Interface.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
-    State->Interface.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
-    State->Interface.TextColor = WhiteV4;
-    State->Interface.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
-    State->Interface.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
-    State->Interface.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
-    State->Interface.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
-    State->Interface.Margin = v2{5, 5};
-    State->Interface.RowHeight = State->Interface.Font->PixelHeight + 2 * State->Interface.Margin.y;
+    State->Interface.Style.FontSize = FontSize;
+    State->Interface.Style.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
+    State->Interface.Style.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
+    State->Interface.Style.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
+    State->Interface.Style.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
+    State->Interface.Style.ButtonColor_Inactive = BlackV4;
+    State->Interface.Style.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
+    State->Interface.Style.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
+    State->Interface.Style.TextColor = WhiteV4;
+    State->Interface.Style.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
+    State->Interface.Style.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
+    State->Interface.Style.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
+    State->Interface.Style.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
+    State->Interface.Style.Margin = v2{5, 5};
+    State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
     
-    State->Interface_.Style = State->Interface;
+    State->SACN = SACN_Initialize(Context);
     
-    State->SACN = InitializeSACN(Context);
-    State->NetworkProtocolHeaderSize = STREAM_HEADER_SIZE;
+    State->Camera.FieldOfView = 45.0f;
+    State->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
+    State->Camera.Near = .1f;
+    State->Camera.Far = 800.0f;
+    State->Camera.Position = v3{0, 0, 400};
+    State->Camera.LookAt = v3{0, 0, 0
+    };
     
-    State->Camera.FieldOfView = DegreesToRadians(45.0f);
-    State->Camera.AspectRatio = gs_AspectRatio(State->WindowBounds);
-    State->Camera.Near = 1.0f;
-    State->Camera.Far = 100.0f;
-    State->Camera.Position = v3{0, 0, -250};
-    State->Camera.LookAt = v3{0, 0, 0};
+    State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     
 #if 1
-    char Path[] = "blumen_lumen.fold";
-    LoadAssembly(State, Context, Path);
+    gs_const_string SculpturePath = ConstString("data/blumen_lumen_silver_spring.fold");
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
     State->PixelsToWorldScale = .01f;
@@ -186,33 +133,37 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     ReloadStaticData(Context, GlobalDebugServices);
     
-    // Setup Operation Modes
-    State->Modes.ActiveModesCount = 0;
-    State->Modes.Arena = {};
-    State->Modes.Arena.Alloc = (gs_memory_alloc*)Context.PlatformAlloc;
-    State->Modes.Arena.Realloc = (gs_memory_realloc*)Context.PlatformRealloc;
-    State->Modes.Arena.FindAddressRule = FindAddress_InLastBufferOnly;
+    State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     { // Animation PLAYGROUND
         State->AnimationSystem = {};
+        State->AnimationSystem.Storage = &State->Permanent;
+        State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
+        
         State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        State->AnimationSystem.PlayableRange.Min = 0;
-        State->AnimationSystem.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
-        State->AnimationSystem.LayersMax = 32;
-        State->AnimationSystem.Layers = PushArray(&State->Permanent, anim_layer, State->AnimationSystem.LayersMax);
-        AddLayer(MakeStringLiteral("Base Layer"), &State->AnimationSystem, BlendMode_Overwrite);
-        AddLayer(MakeStringLiteral("Color Layer"), &State->AnimationSystem, BlendMode_Multiply);
-        AddLayer(MakeStringLiteral("Sparkles"), &State->AnimationSystem, BlendMode_Add);
+        
+        animation Anim = {0};
+        Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
+        Anim.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
+        Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
+        Anim.PlayableRange.Min = 0;
+        Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
+        Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
+        
+        Animation_AddBlock(&Anim, 22, 123, 2, 0);
+        
+        AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
     } // End Animation Playground
     
     
-    InitializePanelSystem(&State->PanelSystem);
-    panel* Panel = TakeNewPanel(&State->PanelSystem);
-    SetPanelDefinition(Panel, PanelType_SculptureView, State);
+    InitializePanelSystem(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount);
+    PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
 }
 
 internal void
-HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_state Mouse)
+HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse_state Mouse, context Context)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -226,11 +177,12 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
         }
         else
         {
-            panel_and_bounds PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
+            panel_with_layout PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
             if (!PanelWithMouseOverIt.Panel) { return; }
             State->HotPanel = PanelWithMouseOverIt.Panel;
             
-            panel_definition PanelDefinition = GlobalPanelDefs[PanelWithMouseOverIt.Panel->PanelDefinitionIndex];
+            s32 PanelTypeIndex = PanelWithMouseOverIt.Panel->TypeIndex;
+            panel_definition PanelDefinition = GlobalPanelDefs[PanelTypeIndex];
             if (!PanelDefinition.InputCommands) { return; }
             
             ActiveCommands.Commands = PanelDefinition.InputCommands;
@@ -264,58 +216,10 @@ HandleInput (app_state* State, rect WindowBounds, input_queue InputQueue, mouse_
     for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
     {
         command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
-        Entry->Command.Proc(State, Entry->Event, Mouse);
+        Entry->Command.Proc(State, Entry->Event, Mouse, Context);
     }
     
     ClearCommandQueue(&State->CommandQueue);
-}
-
-internal dmx_buffer_list*
-CreateDMXBuffers(assembly Assembly, s32 BufferHeaderSize, memory_arena* Arena)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    dmx_buffer_list* Result = 0;
-    dmx_buffer_list* Head = 0;
-    
-    s32 BufferSize = BufferHeaderSize + 512;
-    
-    for (u32 Range = 0; Range < Assembly.LEDUniverseMapCount; Range++)
-    {
-        leds_in_universe_range LEDUniverseRange = Assembly.LEDUniverseMap[Range];
-        
-        dmx_buffer_list* NewBuffer = PushStruct(Arena, dmx_buffer_list);
-        NewBuffer->Buffer.Universe = LEDUniverseRange.Universe;
-        NewBuffer->Buffer.Base = PushArray(Arena, u8, BufferSize);
-        NewBuffer->Buffer.TotalSize = BufferSize;
-        NewBuffer->Buffer.HeaderSize = BufferHeaderSize;
-        NewBuffer->Next = 0;
-        
-        // Append
-        if (!Result) {
-            Result = NewBuffer;
-            Head = Result;
-        }
-        Head->Next = NewBuffer;
-        Head = NewBuffer;
-        
-        u8* DestChannel = Head->Buffer.Base + BufferHeaderSize;
-        for (s32 LEDIdx = LEDUniverseRange.RangeStart;
-             LEDIdx < LEDUniverseRange.RangeOnePastLast;
-             LEDIdx++)
-        {
-            led LED = Assembly.LEDBuffer.LEDs[LEDIdx];
-            pixel Color = Assembly.LEDBuffer.Colors[LED.Index];
-            
-            
-            DestChannel[0] = Color.R;
-            DestChannel[1] = Color.G;
-            DestChannel[2] = Color.B;
-            DestChannel += 3;
-        }
-    }
-    
-    return Result;
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -327,19 +231,26 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically
     // incorrect to clear the arena, and then access the memory later.
-    ClearArena(&State->Transient);
+    ClearArena(State->Transient);
     Context->Mouse.CursorType = CursorType_Arrow;
     
-    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse);
+    PushRenderClearScreen(RenderBuffer);
+    State->Camera.AspectRatio = RectAspectRatio(Context->WindowBounds);
     
-    if (State->AnimationSystem.TimelineShouldAdvance) {
-        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-        State->AnimationSystem.CurrentFrame += 1;
-        // Loop back to the beginning
-        if (State->AnimationSystem.CurrentFrame > State->AnimationSystem.PlayableRange.Max)
-        {
-            State->AnimationSystem.CurrentFrame = 0;
+    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
+    
+    {
+        animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+        if (State->AnimationSystem.TimelineShouldAdvance) {
+            // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+            // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+            State->AnimationSystem.CurrentFrame += 1;
+            
+            // Loop back to the beginning
+            if (State->AnimationSystem.CurrentFrame > ActiveAnim->PlayableRange.Max)
+            {
+                State->AnimationSystem.CurrentFrame = 0;
+            }
         }
     }
     
@@ -349,163 +260,102 @@ UPDATE_AND_RENDER(UpdateAndRender)
         State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
         r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
         
-        u32 CurrentBlocksMax = State->AnimationSystem.LayersCount;
-        b8* CurrentBlocksFilled = PushArray(&State->Transient, b8, CurrentBlocksMax);
-        GSZeroArray(CurrentBlocksFilled, b8, CurrentBlocksMax);
-        animation_block* CurrentBlocks = PushArray(&State->Transient, animation_block, CurrentBlocksMax);
+        animation_frame CurrFrame = AnimationSystem_CalculateAnimationFrame(&State->AnimationSystem, State->Transient);
         
-        for (u32 i = 0; i < State->AnimationSystem.Blocks.Used; i++)
+        led_buffer* LayerLEDBuffers = PushArray(State->Transient, led_buffer, CurrFrame.BlocksCountMax);
+        for (u32 AssemblyIndex = 0; AssemblyIndex < State->Assemblies.Count; AssemblyIndex++)
         {
-            gs_list_entry<animation_block>* BlockEntry = State->AnimationSystem.Blocks.GetEntryAtIndex(i);
-            if (EntryIsFree(BlockEntry)) { continue; }
-            animation_block Block = BlockEntry->Value;
-            if (CurrentFrame < Block.Range.Min || CurrentFrame > Block.Range.Max) { continue; }
-            CurrentBlocksFilled[Block.Layer] = true;
-            CurrentBlocks[Block.Layer] = Block;
-        }
-        
-        assembly_led_buffer* LayerLEDBuffers = PushArray(&State->Transient, assembly_led_buffer, CurrentBlocksMax);
-        for (u32 AssemblyIndex = 0; AssemblyIndex < State->ActiveAssemblyIndecies.Used; AssemblyIndex++)
-        {
-            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(AssemblyIndex);
-            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+            assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
+            led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly->LedBufferIndex);
             
-            arena_snapshot ResetAssemblyMemorySnapshot = TakeSnapshotOfArena(&State->Transient);
-            
-            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
             {
-                if (!CurrentBlocksFilled[Layer]) { continue; }
-                animation_block Block = CurrentBlocks[Layer];
+                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
+                animation_block Block = CurrFrame.Blocks[Layer];
                 
                 // Prep Temp Buffer
-                LayerLEDBuffers[Layer] = Assembly->LEDBuffer;
-                LayerLEDBuffers[Layer].Colors = PushArray(&State->Transient, pixel, Assembly->LEDBuffer.LEDCount);
+                LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
+                LayerLEDBuffers[Layer].Colors = PushArray(State->Transient, pixel, AssemblyLedBuffer->LedCount);
                 
                 u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
                 r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
-                // TODO(Peter): Temporary
-                switch(Block.AnimationProcHandle)
-                {
-                    case 1:
-                    {
-                        TestPatternOne(&LayerLEDBuffers[Layer], SecondsIntoBlock);
-                    }break;
-                    
-                    case 2:
-                    {
-                        TestPatternTwo(&LayerLEDBuffers[Layer], SecondsIntoBlock);
-                    }break;
-                    
-                    case 3:
-                    {
-                        TestPatternThree(&LayerLEDBuffers[Layer], SecondsIntoBlock);
-                    }break;
-                    
-                    // NOTE(Peter): Zero is invalid
-                    InvalidDefaultCase;
-                }
+                
+                // :AnimProcHandle
+                u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
+                animation_proc* AnimationProc = GlobalAnimationClips[AnimationProcIndex].Proc;
+                AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, State->Transient);
             }
             
             // Consolidate Temp Buffers
             // We do this in reverse order so that they go from top to bottom
-            for (u32 Layer = 0; Layer < CurrentBlocksMax; Layer++)
+            animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
             {
-                if (!CurrentBlocksFilled[Layer]) { continue; }
+                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
                 
-                switch (State->AnimationSystem.Layers[Layer].BlendMode)
+                switch (ActiveAnim->Layers.Values[Layer].BlendMode)
                 {
                     case BlendMode_Overwrite:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            Assembly->LEDBuffer.Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
+                            AssemblyLedBuffer->Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
                         }
                     }break;
                     
                     case BlendMode_Add:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            u32 R = (u32)Assembly->LEDBuffer.Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
-                            u32 G = (u32)Assembly->LEDBuffer.Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
-                            u32 B = (u32)Assembly->LEDBuffer.Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
+                            u32 R = (u32)AssemblyLedBuffer->Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
+                            u32 G = (u32)AssemblyLedBuffer->Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
+                            u32 B = (u32)AssemblyLedBuffer->Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
                             
-                            Assembly->LEDBuffer.Colors[LED].R = (u8)GSMin(R, (u32)255);
-                            Assembly->LEDBuffer.Colors[LED].G = (u8)GSMin(G, (u32)255);
-                            Assembly->LEDBuffer.Colors[LED].B = (u8)GSMin(B, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].R = (u8)Min(R, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].G = (u8)Min(G, (u32)255);
+                            AssemblyLedBuffer->Colors[LED].B = (u8)Min(B, (u32)255);
                         }
                     }break;
                     
                     case BlendMode_Multiply:
                     {
-                        for (u32 LED = 0; LED < Assembly->LEDBuffer.LEDCount; LED++)
+                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
                         {
-                            r32 DR = (r32)Assembly->LEDBuffer.Colors[LED].R / 255.f;
-                            r32 DG = (r32)Assembly->LEDBuffer.Colors[LED].G / 255.f;
-                            r32 DB = (r32)Assembly->LEDBuffer.Colors[LED].B / 255.f;
+                            r32 DR = (r32)AssemblyLedBuffer->Colors[LED].R / 255.f;
+                            r32 DG = (r32)AssemblyLedBuffer->Colors[LED].G / 255.f;
+                            r32 DB = (r32)AssemblyLedBuffer->Colors[LED].B / 255.f;
                             
                             r32 SR = (r32)LayerLEDBuffers[Layer].Colors[LED].R / 255.f;
                             r32 SG = (r32)LayerLEDBuffers[Layer].Colors[LED].G / 255.f;
                             r32 SB = (r32)LayerLEDBuffers[Layer].Colors[LED].B / 255.f;
                             
-                            Assembly->LEDBuffer.Colors[LED].R = (u8)((DR * SR) * 255.f);
-                            Assembly->LEDBuffer.Colors[LED].G = (u8)((DG * SG) * 255.f);
-                            Assembly->LEDBuffer.Colors[LED].B = (u8)((DB * SB) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].R = (u8)((DR * SR) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].G = (u8)((DG * SG) * 255.f);
+                            AssemblyLedBuffer->Colors[LED].B = (u8)((DB * SB) * 255.f);
                         }
                     }break;
                 }
             }
-            
-            ClearArenaToSnapshot(&State->Transient, ResetAssemblyMemorySnapshot);
         }
     }
     
-    s32 HeaderSize = State->NetworkProtocolHeaderSize;
-    dmx_buffer_list* DMXBuffers = 0;
-    for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
     {
-        gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-        assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
-        dmx_buffer_list* NewDMXBuffers = CreateDMXBuffers(*Assembly, HeaderSize, &State->Transient);
-        DMXBuffers = DMXBufferListAppend(DMXBuffers, NewDMXBuffers);
+        // NOTE(pjs): Building data buffers to be sent out to the sculpture
+        // This array is used on the platform side to actually send the information
+        assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
+        assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
+        SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
+        UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem);
     }
     
-    //DEBUG_IF(GlobalDebugServices->Interface.SendSACNData)
-    {
-        switch (State->NetworkProtocol)
-        {
-            case NetworkProtocol_SACN:
-            {
-                SACNUpdateSequence(&State->SACN);
-                
-                dmx_buffer_list* CurrentDMXBuffer = DMXBuffers;
-                while (CurrentDMXBuffer)
-                {
-                    dmx_buffer Buffer = CurrentDMXBuffer->Buffer;
-                    SACNPrepareBufferHeader(Buffer.Universe, Buffer.Base, Buffer.TotalSize, Buffer.HeaderSize, State->SACN);
-                    CurrentDMXBuffer = CurrentDMXBuffer->Next;
-                }
-                
-                send_sacn_job_data* Job = PushStruct(&State->Transient, send_sacn_job_data);
-                Job->SendSocket = State->SACN.SendSocket;
-                Job->SendTo = Context->PlatformSendTo;
-                Job->DMXBuffers = DMXBuffers;
-                
-                Context->GeneralWorkQueue->PushWorkOnQueue(Context->GeneralWorkQueue, SACNSendDMXBufferListJob, Job, "SACN Send Data Job");
-            }break;
-            
-            InvalidDefaultCase;
-        }
-    }
-    
-    PushRenderOrthographic(RenderBuffer, 0, 0, gs_Width(State->WindowBounds), gs_Height(State->WindowBounds));
+    PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
     State->WindowBounds = Context->WindowBounds;
-    State->Interface_.RenderBuffer = RenderBuffer;
-    State->Interface_.Mouse = Context->Mouse;
+    State->Interface.RenderBuffer = RenderBuffer;
+    State->Interface.Mouse = Context->Mouse;
     
-    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, &State->Transient);
+    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, State->Transient);
     DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
@@ -513,30 +363,31 @@ UPDATE_AND_RENDER(UpdateAndRender)
         operation_mode OperationMode = State->Modes.ActiveModes[m];
         if (OperationMode.Render != 0)
         {
-            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse);
+            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
         }
     }
     
-    Context->GeneralWorkQueue->DoQueueWorkUntilDone(Context->GeneralWorkQueue, 0);
+    Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
     Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
     
     // Checking for overflows
+#if 0
     {
         DEBUG_TRACK_SCOPE(OverflowChecks);
         AssertAllocationsNoOverflow(State->Permanent);
-        for (u32 i = 0; i < State->ActiveAssemblyIndecies.Used; i++)
+        for (u32 i = 0; i < State->Assemblies.Count; i++)
         {
-            gs_list_handle AssemblyHandle = *State->ActiveAssemblyIndecies.GetElementAtIndex(i);
-            assembly* Assembly = State->AssemblyList.GetElementWithHandle(AssemblyHandle);
+            assembly* Assembly = &State->Assemblies.Values[i];
             AssertAllocationsNoOverflow(Assembly->Arena);
         }
     }
+#endif
 }
 
 CLEANUP_APPLICATION(CleanupApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
-    SACNCleanup(&State->SACN, Context);
+    SACN_Cleanup(&State->SACN, Context);
 }
 
 #define FOLDHAUS_APP_CPP

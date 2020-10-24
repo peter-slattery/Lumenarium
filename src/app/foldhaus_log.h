@@ -13,7 +13,7 @@ enum log_entry_type
 
 struct log_entry
 {
-    string Message;
+    gs_string Message;
     log_entry_type Type;
 };
 
@@ -25,11 +25,11 @@ struct event_log
     u32 NextEntry;
 };
 
-#define LogMessage(_Log, _Message) PushLogEntry(_Log, MakeStringLiteral(_Message), LogEntry_Message)
-#define LogError(_Log, _Message) PushLogEntry(_Log, MakeStringLiteral(_Message), LogEntry_Error)
+#define LogMessage(_Log, _Message) PushLogEntry(_Log, MakeString(_Message), LogEntry_Message)
+#define LogError(_Log, _Message) PushLogEntry(_Log, MakeString(_Message), LogEntry_Error)
 
 internal void
-PushLogEntry(event_log* Log, string Message, log_entry_type Type)
+PushLogEntry(event_log* Log, gs_string Message, log_entry_type Type)
 {
     u32 NewLogIndex = Log->NextEntry++;
     if (Log->NextEntry >= LOG_ENTRIES_MAX)
@@ -41,6 +41,7 @@ PushLogEntry(event_log* Log, string Message, log_entry_type Type)
     NewEntry->Message = Message;
     NewEntry->Type = Type;
 }
+
 
 
 

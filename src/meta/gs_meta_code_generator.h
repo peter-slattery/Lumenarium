@@ -37,12 +37,12 @@ struct gsm_code_generator
 // ---------------
 
 internal gsm_code_generator
-BeginEnumGeneration(memory_arena* Storage, string EnumIdentifier, string ValuePrefix, b32 StartsWithInvalid, b32 EndsWithCount)
+BeginEnumGeneration(string EnumIdentifier, string ValuePrefix, b32 StartsWithInvalid, b32 EndsWithCount)
 {
     gsm_code_generator Gen = {};
     
     // TODO(Peter): TEMP!!
-    Gen.Builder = PushStruct(Storage, string_builder);
+    Gen.Builder = (string_builder*)malloc(sizeof(string_builder));
     *Gen.Builder = {};
     
     Gen.Type = gsm_CodeGen_Enum;
@@ -60,9 +60,9 @@ BeginEnumGeneration(memory_arena* Storage, string EnumIdentifier, string ValuePr
 }
 
 internal gsm_code_generator
-BeginEnumGeneration(memory_arena* Storage, char* EnumIdentifier, char* ValuePrefix, b32 StartsWithInvalid, b32 EndsWithCount)
+BeginEnumGeneration(char* EnumIdentifier, char* ValuePrefix, b32 StartsWithInvalid, b32 EndsWithCount)
 {
-    return BeginEnumGeneration(Storage, MakeStringLiteral(EnumIdentifier),
+    return BeginEnumGeneration(MakeStringLiteral(EnumIdentifier),
                                MakeStringLiteral(ValuePrefix),
                                StartsWithInvalid,
                                EndsWithCount);

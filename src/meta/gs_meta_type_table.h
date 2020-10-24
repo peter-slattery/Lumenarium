@@ -44,7 +44,6 @@ struct type_table_handle
 // #define TypeHandleIsValid(handle) (!((handle).BucketIndex == 0) && ((handle).IndexInBucket == 0))
 inline b32 TypeHandleIsValid(type_table_handle A)
 {
-    DEBUG_TRACK_FUNCTION;
     b32 FirstBucket = (A.BucketIndex == 0);
     b32 FirstIndex = (A.IndexInBucket == 0);
     b32 Both = FirstBucket && FirstIndex;
@@ -142,8 +141,6 @@ struct meta_tag_hash_bucket
 
 struct type_table
 {
-    memory_arena Arena;
-    
     type_table_hash_bucket* Types;
     u32 TypeBucketsCount;
     
@@ -154,7 +151,6 @@ struct type_table
 internal b32
 HandlesAreEqual(type_table_handle A, type_table_handle B)
 {
-    DEBUG_TRACK_FUNCTION;
     b32 Result = ((A.BucketIndex == B.BucketIndex) && (A.IndexInBucket == B.IndexInBucket));
     return Result;
 }
@@ -162,7 +158,6 @@ HandlesAreEqual(type_table_handle A, type_table_handle B)
 internal u32
 HashIdentifier(string Identifier)
 {
-    DEBUG_TRACK_FUNCTION;
     u32 IdentHash = HashString(Identifier);
     if (IdentHash == 0)
     {
@@ -177,7 +172,6 @@ HashIdentifier(string Identifier)
 internal type_table_handle
 GetTypeHandle (string Identifier, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     
     u32 IdentHash = HashIdentifier(Identifier);
@@ -200,7 +194,6 @@ GetTypeHandle (string Identifier, type_table TypeTable)
 internal type_table_handle
 GetMetaTagHandle(string Identifier, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     
     u32 IdentHash = HashIdentifier(Identifier);
@@ -223,7 +216,6 @@ GetMetaTagHandle(string Identifier, type_table TypeTable)
 internal type_table_handle
 GetMetaTagHandleWithIdentifier(string Identifier, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     
     u32 IdentHash = HashIdentifier(Identifier);
@@ -245,7 +237,6 @@ GetMetaTagHandleWithIdentifier(string Identifier, type_table TypeTable)
 internal b32
 HasTag(string Needle, gs_bucket<type_table_handle> Tags, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     type_table_handle NeedleTagHandle = GetMetaTagHandleWithIdentifier(Needle, TypeTable);
     
@@ -268,7 +259,6 @@ HasTag(string Needle, gs_bucket<type_table_handle> Tags, type_table TypeTable)
 internal void
 CopyMetaTagsAndClear(gs_bucket<type_table_handle>* Source, gs_bucket<type_table_handle>* Dest)
 {
-    DEBUG_TRACK_FUNCTION;
     for (u32 i = 0; i < Source->Used; i++)
     {
         type_table_handle* TagToken = Source->GetElementAtIndex(i);
@@ -280,7 +270,6 @@ CopyMetaTagsAndClear(gs_bucket<type_table_handle>* Source, gs_bucket<type_table_
 internal type_table_handle
 FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
     
@@ -303,8 +292,8 @@ FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
         TypeTable->Types = (type_table_hash_bucket*)realloc(TypeTable->Types, NewTypesSize);
         
         type_table_hash_bucket* NewBucket = TypeTable->Types + NewTypeBucketIndex;
-        NewBucket->Keys = PushArray(&TypeTable->Arena, u32, TYPE_TABLE_BUCKET_MAX);
-        NewBucket->Values = PushArray(&TypeTable->Arena, type_definition, TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Keys = (u32*)malloc(sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Values = (type_definition*)malloc(sizeof(type_definition) * TYPE_TABLE_BUCKET_MAX);
         GSZeroMemory((u8*)NewBucket->Keys, sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
         GSZeroMemory((u8*)NewBucket->Values, sizeof(type_definition) * TYPE_TABLE_BUCKET_MAX);
         
@@ -321,7 +310,6 @@ FindSlotForTypeIdentifier(u32 IdentHash, type_table* TypeTable)
 internal type_table_handle
 FindSlotForMetaTag(u32 IdentHash, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
     
@@ -343,8 +331,8 @@ FindSlotForMetaTag(u32 IdentHash, type_table* TypeTable)
         TypeTable->MetaTags = (meta_tag_hash_bucket*)realloc(TypeTable->MetaTags, NewMetaBucketListSize);
         
         meta_tag_hash_bucket* NewBucket = TypeTable->MetaTags + NewMetaBucketIndex;
-        NewBucket->Keys = PushArray(&TypeTable->Arena, u32, TYPE_TABLE_BUCKET_MAX);
-        NewBucket->Values = PushArray(&TypeTable->Arena, meta_tag, TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Keys = (u32*)malloc(sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
+        NewBucket->Values = (meta_tag*)malloc(sizeof(meta_tag) * TYPE_TABLE_BUCKET_MAX);
         GSZeroMemory((u8*)NewBucket->Keys, sizeof(u32) * TYPE_TABLE_BUCKET_MAX);
         GSZeroMemory((u8*)NewBucket->Values, sizeof(meta_tag) * TYPE_TABLE_BUCKET_MAX);
         
@@ -358,7 +346,6 @@ FindSlotForMetaTag(u32 IdentHash, type_table* TypeTable)
 internal type_table_handle
 PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     u32 IdentHash = HashIdentifier(TypeDef.Identifier);
     type_table_handle Result = FindSlotForTypeIdentifier(IdentHash, TypeTable);
     
@@ -378,7 +365,6 @@ PushTypeOnHashTable(type_definition TypeDef, type_table* TypeTable)
 internal type_table_handle
 PushUndeclaredType (string Identifier, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_definition UndeclaredTypeDef = {};
     UndeclaredTypeDef.Identifier = Identifier;
     UndeclaredTypeDef.Type = TypeDef_Unknown;
@@ -389,7 +375,6 @@ PushUndeclaredType (string Identifier, type_table* TypeTable)
 internal type_table_handle
 PushMetaTagOnTable(meta_tag Tag, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     u32 TagIdentifierHash = HashIdentifier(Tag.Identifier);
     type_table_handle Result = FindSlotForMetaTag(TagIdentifierHash, TypeTable);
     
@@ -409,7 +394,6 @@ PushMetaTagOnTable(meta_tag Tag, type_table* TypeTable)
 internal type_definition*
 GetTypeDefinition(type_table_handle Handle, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     Assert(TypeHandleIsValid(Handle));
     type_definition* Result = 0;
     if (TypeTable.Types[Handle.BucketIndex].Keys != 0)
@@ -423,7 +407,6 @@ GetTypeDefinition(type_table_handle Handle, type_table TypeTable)
 internal type_definition*
 GetTypeDefinitionUnsafe(type_table_handle Handle, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_definition* Result = 0;
     if (TypeTable.Types[Handle.BucketIndex].Keys != 0)
     {
@@ -435,7 +418,6 @@ GetTypeDefinitionUnsafe(type_table_handle Handle, type_table TypeTable)
 internal meta_tag*
 GetMetaTag(type_table_handle Handle, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     meta_tag* Result = 0;
     if (TypeTable.MetaTags[Handle.BucketIndex].Keys != 0)
     {
@@ -447,7 +429,6 @@ GetMetaTag(type_table_handle Handle, type_table TypeTable)
 internal type_definition*
 GetTypeDefinition(string Identifier, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_definition* Result = 0;
     u32 IdentHash = HashIdentifier(Identifier);
     u32 Index = IdentHash % TYPE_TABLE_BUCKET_MAX;
@@ -466,7 +447,6 @@ GetTypeDefinition(string Identifier, type_table TypeTable)
 internal type_table_handle
 PushTypeDefOnTypeTable(type_definition TypeDef, type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     // NOTE(Peter): We don't accept type definitions with empty identifiers.
     // If a struct or union is anonymous, it should be assigned a name of the form
     // parent_struct_name_# where # is the member index
@@ -496,7 +476,6 @@ PushTypeDefOnTypeTable(type_definition TypeDef, type_table* TypeTable)
 internal s32
 GetSizeOfType (type_table_handle TypeHandle, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     type_definition* TypeDef = GetTypeDefinition(TypeHandle, TypeTable);
     if (TypeDef)
@@ -509,7 +488,6 @@ GetSizeOfType (type_table_handle TypeHandle, type_table TypeTable)
 internal s32
 GetSizeOfType (string Identifier, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     s32 Result = -1;
     type_definition* TypeDef = GetTypeDefinition(Identifier, TypeTable);
     if (TypeDef)
@@ -522,7 +500,6 @@ GetSizeOfType (string Identifier, type_table TypeTable)
 internal b32
 VariableDeclsEqual (variable_decl A, variable_decl B)
 {
-    DEBUG_TRACK_FUNCTION;
     b32 Result = false;
     if (TypeHandlesEqual(A.TypeHandle, B.TypeHandle) &&
         A.ArrayCount == B.ArrayCount &&
@@ -536,7 +513,6 @@ VariableDeclsEqual (variable_decl A, variable_decl B)
 internal b32
 StructOrUnionsEqual (type_definition A, type_definition B)
 {
-    DEBUG_TRACK_FUNCTION;
     // NOTE(Peter): Fairly certain the only places this is used are when we
     // already know the identifiers match
     Assert(StringsEqual(A.Identifier, B.Identifier));
@@ -565,7 +541,6 @@ StructOrUnionsEqual (type_definition A, type_definition B)
 internal type_table_handle
 FindHandleOfMatchingType (type_definition Match, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     type_table_handle Result = InvalidTypeTableHandle;
     type_table_handle Handle = GetTypeHandle(Match.Identifier, TypeTable);
     if (TypeHandleIsValid(Handle))
@@ -581,7 +556,6 @@ internal void FixUpUnionSize (type_table_handle TypeHandle, type_table TypeTable
 internal void
 FixupMemberType (variable_decl* Member, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     if (!TypeHandleIsValid(Member->TypeHandle))
     {
         Member->TypeHandle = GetTypeHandle(Member->Identifier, TypeTable);
@@ -592,7 +566,6 @@ FixupMemberType (variable_decl* Member, type_table TypeTable)
 internal s32
 CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 {
-    DEBUG_TRACK_FUNCTION;
     Assert(TypeHandleIsValid(Member.TypeHandle));
     // NOTE(Peter): At one point we were Asserting on struct sizes of zero, but
     // that's actually incorrect. It is valid to have an empty struct.
@@ -614,7 +587,6 @@ CalculateStructMemberSize (variable_decl Member, type_definition MemberType)
 internal void
 FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_table TypeTable, errors* Errors)
 {
-    DEBUG_TRACK_FUNCTION;
     // NOTE(Peter): There are a lot of cases where struct members which are pointers
     // to other structs cause interesting behavior here.
     // For example:
@@ -669,7 +641,6 @@ FixupStructMember (variable_decl* Member, type_definition* MemberTypeDef, type_t
 internal void
 FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors)
 {
-    DEBUG_TRACK_FUNCTION;
     type_definition* Struct = GetTypeDefinition(TypeHandle, TypeTable);
     Assert(Struct->Type == TypeDef_Struct);
     
@@ -715,7 +686,6 @@ FixUpStructSize (type_table_handle TypeHandle, type_table TypeTable, errors* Err
 internal void
 FixUpUnionSize (type_table_handle TypeHandle, type_table TypeTable, errors* Errors)
 {
-    DEBUG_TRACK_FUNCTION;
     type_definition* Union = GetTypeDefinition(TypeHandle, TypeTable);
     Assert(Union->Type == TypeDef_Union);
     
@@ -773,7 +743,6 @@ type_definition CPPBasicTypes[] = {
 internal void
 PopulateTableWithDefaultCPPTypes(type_table* TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     for (u32 i = 0; i < GSArrayLength(CPPBasicTypes); i++)
     {
         PushTypeDefOnTypeTable(CPPBasicTypes[i], TypeTable);
@@ -783,7 +752,6 @@ PopulateTableWithDefaultCPPTypes(type_table* TypeTable)
 internal void
 PrintTypeDefinition(type_definition TypeDef, type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     printf("Type: %.*s\n", StringExpand(TypeDef.Identifier));
     printf("    Size: %d\n", TypeDef.Size);
     
@@ -849,7 +817,6 @@ PrintTypeDefinition(type_definition TypeDef, type_table TypeTable)
 internal void
 PrintTypeTable(type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     for (u32 b = 0; b < TypeTable.TypeBucketsCount; b++)
     {
         type_table_hash_bucket Bucket = TypeTable.Types[b];
@@ -866,7 +833,6 @@ PrintTypeTable(type_table TypeTable)
 internal void
 DEBUGPrintTypeTableMembership(type_table TypeTable)
 {
-    DEBUG_TRACK_FUNCTION;
     printf("\n--- Type Table Membership --\n");
     u32 SlotsAvailable = 0;
     u32 SlotsFilled = 0;

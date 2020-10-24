@@ -37,7 +37,7 @@ GrowStringBuilder(string_builder* StringBuilder)
     {
         StringBuilder->Buffers = NewBuffer;
         StringBuilder->Head = NewBuffer;
-    } 
+    }
     else
     {
         StringBuilder->Head->Next = NewBuffer;
@@ -60,7 +60,7 @@ Write(string Text, string_builder* StringBuilder)
         // Copy what there is room for
         s32 SpaceAvailable  = StringBuilder->Head->String.Max - StringBuilder->Head->String.Length;
         
-        ConcatString(TextLeft, GSMin(SpaceAvailable, TextLeft.Length), &StringBuilder->Head->String);
+        ConcatString(TextLeft, Min(SpaceAvailable, TextLeft.Length), &StringBuilder->Head->String);
         TextLeft.Memory += SpaceAvailable;
         TextLeft.Length -= SpaceAvailable;
         
@@ -93,7 +93,7 @@ WriteStringBuilderToFile(string_builder StringBuilder, FILE* WriteFile)
     while (BufferAt)
     {
         string String = BufferAt->String;
-        fwrite(String.Memory, 1, String.Length, WriteFile);
+        fwrite(String.Str, 1, String.Length, WriteFile);
         BufferAt = BufferAt->Next;
     }
 }

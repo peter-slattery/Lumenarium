@@ -1,5 +1,6 @@
 #ifndef GS_LANGUAGE_H
 
+#if 0
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__)
 #include <intrin.h>
 
@@ -41,6 +42,8 @@ typedef long long int s64;
 
 typedef float  r32;
 typedef double r64;
+
+#endif
 
 #ifndef _STDINT
 
@@ -124,7 +127,7 @@ Test(b32 Result, char* Description, s32* Count)
 #define DEBUG_TRACK_SCOPE(a)
 #endif // DEBUG_TRACK_SCOPE
 #ifndef DEBUG_TRACK_FUNCTION
-// #define DEBUG_TRACK_FUNCTION
+#define DEBUG_TRACK_FUNCTION
 #endif // DEBUG_TRACK_FUNCTION
 #endif // GS_LANGUAGE_NO_PROFILER_DEFINES
 

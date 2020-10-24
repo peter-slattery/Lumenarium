@@ -167,21 +167,6 @@ if((expression)) { \
 #define GSMem_Assert(expression)
 #endif
 
-struct data
-{
-    u8* Memory;
-    u64 Size;
-};
-
-typedef data allocator_alloc(u64 Size);
-typedef void allocator_free(u8* Base, u64 Size);
-
-struct base_allocator
-{
-    allocator_alloc* Alloc;
-    allocator_free* Free;
-};
-
 enum gs_memory_expansion_rule
 {
     MemoryExpansion_Allowed, // Zero is initialization lets the memory grow on its own
@@ -207,9 +192,21 @@ enum gs_memory_find_address_rule
     FindAddress_Count,
 };
 
-typedef void* gs_memory_alloc(gs_mem_u32 Size);
-typedef void* gs_memory_realloc(void* Address, gs_mem_u32 OldSize, gs_mem_u32 NewSize);
-typedef void gs_memory_free(void* Address, gs_mem_u32 Size);
+#define PLATFORM_ALLOC(name) u8* name(s32 Size)
+typedef PLATFORM_ALLOC(platform_alloc);
+
+#define PLATFORM_FREE(name) b32 name(u8* Base, s32 Size)
+typedef PLATFORM_FREE(platform_free);
+
+#define PLATFORM_REALLOC(name) u8* name(u8* Base, u32 OldSize, u32 NewSize)
+typedef PLATFORM_REALLOC(platform_realloc);
+
+struct platform_memory_handler
+{
+    platform_alloc* Alloc;
+    platform_free* Free;
+    platform_realloc* Realloc;
+};
 
 #ifndef GS_MEMORY_BUFFER_SIZE
 #define GS_MEMORY_BUFFER_SIZE 1024
@@ -244,8 +241,6 @@ struct memory_buffer
 
 struct memory_arena
 {
-    base_allocator Allocator;
-    
     memory_buffer* Buffers;
     gs_mem_u32 BuffersCount;
     
@@ -254,8 +249,8 @@ struct memory_arena
     
     gs_memory_find_address_rule FindAddressRule;
     gs_memory_expansion_rule ExpansionRule;
-    gs_memory_alloc* Alloc;
-    gs_memory_realloc* Realloc;
+    
+    platform_memory_handler PlatformMemory;
     
 #ifdef GS_MEMORY_TRACK_ALLOCATIONS
     tracked_allocation_buffer** AllocationBuffers;
@@ -283,58 +278,63 @@ struct arena_snapshot
 #endif
 };
 
-#define AllocatorAllocArray(alloc,type,count) (type*)(AllocatorAlloc((alloc), sizeof(type) * (count)).Memory)
-#define AllocatorAllocStruct(alloc,type) (type*)(AllocatorAlloc((alloc), sizeof(type)).Memory)
-static data
-AllocatorAlloc(base_allocator Allocator, gs_mem_u64 Size)
-{
-    return Allocator.Alloc(Size);
-}
-
+#define PlatformFreeArray(platform, base, type, count) PlatformFree((platform), (gs_mem_u8*)(base), sizeof(type) * (count))
+#define ArenaFree(arena, base, size) PlatformFree((arena).PlatformMemory, (gs_mem_u8*)(base), (gs_mem_u32)(size))
 static void
-AllocatorFree(base_allocator Allocator, gs_mem_u8* Base, gs_mem_u64 Size)
+PlatformFree(platform_memory_handler Platform, gs_mem_u8* Base, gs_mem_u32 Size)
 {
-    Allocator.Free(Base, Size);
+    Assert(Platform.Free != 0);
+    Platform.Free(Base, Size);
 }
 
-static memory_arena
-CreateMemoryArena(base_allocator Allocator)
+#define PlatformAllocArray(platform, type, size) (type*)PlatformAlloc((platform), sizeof(type) * (size))
+#define ArenaAlloc(arena, size) PlatformAlloc((arena).PlatformMemory, (gs_mem_u32)(size))
+#define ArenaAllocStruct(arena, type) (type*)PlatformAlloc((arena).PlatformMemory, sizeof(type))
+#define ArenaAllocArray(arena, type, size) (type*)PlatformAlloc((arena).PlatformMemory, sizeof(type) * (size))
+static gs_mem_u8*
+PlatformAlloc(platform_memory_handler Platform, gs_mem_u32 Size)
 {
-    memory_arena Result = {0};
-    Result.Allocator = Allocator;
-    Result.ExpansionRule = MemoryExpansion_Allowed;
-    Result.FindAddressRule = FindAddress_InLastBufferOnly;
+    Assert(Platform.Alloc != 0);
+    gs_mem_u8* Result = Platform.Alloc(Size);
+    return Result;
+}
+
+#define ArenaRealloc(arena, base, oldSize, newSize) PlatformRealloc((arena).PlatformMemory, (gs_mem_u8*)(base), (gs_mem_u32)(oldSize), (gs_mem_u32)(newSize))
+#define ArenaReallocArray(arena, base, type, oldCount, newCount) (type*)PlatformRealloc((arena).PlatformMemory, (gs_mem_u8*)(base), sizeof(type) * oldCount, sizeof(type) * newCount)
+static gs_mem_u8*
+PlatformRealloc(platform_memory_handler Platform, gs_mem_u8* Head, gs_mem_u32 OldSize, gs_mem_u32 NewSize)
+{
+    gs_mem_u8* Result = 0;
+    if (Platform.Realloc != 0)
+    {
+        Result = Platform.Realloc(Head, OldSize, NewSize);
+    }
+    else if (Platform.Alloc != 0 && Platform.Free != 0)
+    {
+        Result = PlatformAlloc(Platform, NewSize);
+        if (Head != 0 && OldSize != 0)
+        {
+            CopyMemoryTo(Head, Result, OldSize);
+            PlatformFree(Platform, Head, OldSize);
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
     return Result;
 }
 
 static void
-FreeMemoryArena(memory_arena* Arena, gs_memory_free* Free = 0)
+FreeMemoryArena(memory_arena* Arena)
 {
-    if (Free)
+    for (gs_mem_u32 i = 0; i < Arena->BuffersCount; i++)
     {
-        for (gs_mem_u32 i = 0; i < Arena->BuffersCount; i++)
-        {
-            memory_buffer* Buffer = Arena->Buffers + i;
-            Free(Buffer->Buffer, Buffer->Size);
-        }
-        Free(Arena->Buffers, sizeof(memory_buffer) * Arena->BuffersCount);
+        memory_buffer* Buffer = Arena->Buffers + i;
+        PlatformFree(Arena->PlatformMemory, Buffer->Buffer, Buffer->Size);
     }
-    else
-    {
-#ifdef GS_MEMORY_NO_STD_LIBS
-        GSMem_Assert(0);
-#else
-        for (gs_mem_u32 i = 0; i < Arena->BuffersCount; i++)
-        {
-            memory_buffer* Buffer = Arena->Buffers + i;
-            free(Buffer->Buffer);
-        }
-        free(Arena->Buffers);
-#endif
-    }
+    PlatformFree(Arena->PlatformMemory, (u8*)Arena->Buffers, sizeof(memory_buffer) * Arena->BuffersCount);
 }
-
-#define IsPowerOfTwo(v) ((v != 0) && ((v & (v - 1)) == 0))
 
 inline gs_mem_u32
 GetAlignmentOffset (gs_mem_u64 Address, gs_mem_u32 Alignment, gs_mem_u32 AlignmentMask)
@@ -385,51 +385,17 @@ FindAlignedAddressInBufferWithRoom(memory_arena* Arena, gs_mem_u32 Size, gs_mem_
     return Result;
 }
 
-static gs_mem_u8*
-ArenaAlloc(memory_arena* Arena, gs_mem_u32 Size)
-{
-    gs_mem_u8* Result = 0;
-    data Data = AllocatorAlloc(Arena->Allocator, Size);
-    Result = Data.Memory;
-    return Result;
-}
-
-static gs_mem_u8*
-ArenaRealloc(memory_arena* Arena, gs_mem_u8* Head, gs_mem_u32 OldSize, gs_mem_u32 NewSize)
-{
-    gs_mem_u8* Result = 0;
-    
-    GSMem_Assert(Arena->Allocator.Alloc);
-    GSMem_Assert(Arena->Allocator.Free);
-    
-    data Data = AllocatorAlloc(Arena->Allocator, NewSize);
-    for (gs_mem_u64 i = 0; i < (gs_mem_u64)OldSize; i++)
-    {
-        Data.Memory[i] = Head[i];
-    }
-    
-    if (Head != 0)
-    {
-        AllocatorFree(Arena->Allocator, Head, OldSize);
-    }
-    
-    Result = Data.Memory;
-    return Result;
-}
-
 static memory_buffer*
 GrowArena(memory_arena* Arena, gs_mem_u32 SizeNeeded)
 {
     GSMem_Assert(Arena->ExpansionRule != MemoryExpansion_Disallowed);
-    if (Arena->ExpansionRule == MemoryExpansion_OnlyIfFunctionsProvided)
-    {
-        GSMem_Assert((Arena->Allocator.Alloc != 0) && (Arena->Allocator.Free != 0));
-    }
     
     gs_mem_u32 NewBuffersCount = (Arena->BuffersCount + 1);
+#if 0
     gs_mem_u32 OldBuffersSize = sizeof(memory_buffer) * Arena->BuffersCount;
     gs_mem_u32 NewBuffersSize = sizeof(memory_buffer) * NewBuffersCount;
-    Arena->Buffers = (memory_buffer*)ArenaRealloc(Arena, (gs_mem_u8*)Arena->Buffers, OldBuffersSize, NewBuffersSize);
+#endif
+    Arena->Buffers = ArenaReallocArray(*Arena, Arena->Buffers, memory_buffer, Arena->BuffersCount, NewBuffersCount);
     Arena->BuffersCount = NewBuffersCount;
     
     memory_buffer* NewBuffer = Arena->Buffers + (Arena->BuffersCount - 1);
@@ -439,7 +405,7 @@ GrowArena(memory_arena* Arena, gs_mem_u32 SizeNeeded)
         NewBuffer->Size = SizeNeeded;
     }
     
-    NewBuffer->Buffer = ArenaAlloc(Arena, sizeof(gs_mem_u8) * NewBuffer->Size);
+    NewBuffer->Buffer = ArenaAllocArray(*Arena, gs_mem_u8, NewBuffer->Size);
     NewBuffer->Used = 0;
     
     Arena->TotalSize += NewBuffer->Size;
@@ -460,14 +426,20 @@ TrackAllocation(memory_arena* Arena, gs_mem_u8* Head, gs_mem_u32 Size, char* Fil
     if (Arena->AllocationsUsed >= AllocationsMax)
     {
         gs_mem_u32 NewAllocationBuffersCount = Arena->AllocationBuffersCount + 1;
-        Arena->AllocationBuffers = (tracked_allocation_buffer**)ArenaRealloc(Arena,
-                                                                             (gs_mem_u8*)Arena->AllocationBuffers,
-                                                                             Arena->AllocationBuffersCount * sizeof(void*),
-                                                                             NewAllocationBuffersCount * sizeof(void*));
+#if 0
+        gs_mem_u32 OldSize = Arena->AllocationBuffersCount * sizeof(void*);
+        gs_mem_u32 NewSize = NewAllocationBuffersCount * sizeof(void*);
+        Arena->AllocationBuffers = (tracked_allocation_buffer**)PlatformRealloc(Arena->PlatformMemory,
+                                                                                (gs_mem_u8*)Arena->AllocationBuffers,
+                                                                                OldSize, NewSize);
+#else
+        Arena->AllocationBuffers = ArenaReallocArray(*Arena, Arena->AllocationBuffers, tracked_allocation_buffer*, Arena->AllocationBuffersCount, NewAllocationBuffersCount);
+#endif
+        
         Arena->AllocationBuffersCount = NewAllocationBuffersCount;
         
         gs_mem_u32 NewBufferIndex = Arena->AllocationBuffersCount - 1;
-        Arena->AllocationBuffers[NewBufferIndex] = (tracked_allocation_buffer*)ArenaAlloc(Arena, sizeof(tracked_allocation_buffer));
+        Arena->AllocationBuffers[NewBufferIndex] = ArenaAllocStruct(*Arena, tracked_allocation_buffer);
     }
     
     gs_mem_u32 AllocationIndex = Arena->AllocationsUsed++;

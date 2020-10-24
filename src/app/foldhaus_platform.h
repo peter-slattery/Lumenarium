@@ -7,25 +7,44 @@
 
 #include <windows.h>
 
-#define GS_LANGUAGE_NO_PROFILER_DEFINES
-#include "..\gs_libs\gs_language.h"
+#include <math.h> // TODO Remove
 
-#include "..\gs_libs\gs_radix_sort.h"
-#include "..\gs_libs\gs_list.h"
-#include "..\gs_libs\gs_bucket.h"
+#include "..\gs_libs\gs_types.h"
+#include "..\gs_libs\gs_types.cpp"
 
-#define GS_MEMORY_TRACK_ALLOCATIONS
-#include "..\gs_libs\gs_memory_arena.h"
+struct handle
+{
+    u32 Generation;
+    u32 Index;
+};
+
+inline bool
+Handle_IsValid(handle Handle)
+{
+    bool Result = (Handle.Generation != 0);
+    return Result;
+}
 
 #include "..\gs_libs\gs_string.h"
 
 #include "foldhaus_debug.h"
-global_variable debug_services* GlobalDebugServices;
+global debug_services* GlobalDebugServices;
 
-#include "..\gs_libs\gs_vector_matrix.h"
+//#include "..\gs_libs\gs_vector_matrix.h"
 #include "..\gs_libs\gs_input.h"
 
+struct platform_network_address
+{
+    s32 Family;
+    u16 Port;
+    u32 Address;
+};
+
+typedef s32 platform_socket_handle;
+typedef s32 platform_network_address_handle;
+
 #include "foldhaus_renderer.h"
+#include "engine/foldhaus_addressed_data.h"
 
 typedef struct context context;
 
@@ -34,7 +53,7 @@ typedef struct context context;
 #define INITIALIZE_APPLICATION(name) void name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
-#define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer)
+#define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
 typedef UPDATE_AND_RENDER(update_and_render);
 
 #define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
@@ -63,11 +82,23 @@ enum platform_memory_error
     PlatformMemory_UnknownError, // You should implement handling this when you see it
 };
 
-struct platform_memory_result
+struct data
 {
     u8* Base;
-    s32 Size;
+    u64 Size;
+};
+
+struct platform_memory_result
+{
+    data Data;
     platform_memory_error Error;
+};
+
+struct system_path
+{
+    char* Path;
+    s32 PathLength;
+    s32 IndexOfLastSlash;
 };
 
 struct texture_buffer
@@ -79,67 +110,11 @@ struct texture_buffer
     s32 BytesPerPixel;
 };
 
-struct system_path
-{
-    char* Path;
-    s32 PathLength;
-    s32 IndexOfLastSlash;
-};
-
-#define PLATFORM_ALLOC(name) u8* name(s32 Size)
-typedef PLATFORM_ALLOC(platform_alloc);
-
-#define PLATFORM_FREE(name) b32 name(u8* Base, s32 Size)
-typedef PLATFORM_FREE(platform_free);
-
-#define PLATFORM_REALLOC(name) u8* name(u8* Base, u32 OldSize, u32 NewSize)
-typedef PLATFORM_REALLOC(platform_realloc);
-
-#define PLATFORM_READ_ENTIRE_FILE(name) platform_memory_result name(char* Path)
-typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
-
-#define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(char* Path, u8* Contents, s32 Size)
-typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
-
-#define PLATFORM_GET_FILE_PATH(name) b32 name(char* PathBuffer, s32 BufferLength, const char* FilterStrings)
-typedef PLATFORM_GET_FILE_PATH(platform_get_file_path);
-
 #define PLATFORM_GET_GPU_TEXTURE_HANDLE(name) s32 name(u8* Memory, s32 Width, s32 Height)
 typedef PLATFORM_GET_GPU_TEXTURE_HANDLE(platform_get_gpu_texture_handle);
 
-struct platform_network_address
-{
-    s32 Family;
-    u16 Port;
-    u32 Address;
-};
-
-typedef s32 platform_socket_handle;
-typedef s32 platform_network_address_handle;
-
-#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive) 
+#define PLATFORM_GET_SOCKET_HANDLE(name) platform_socket_handle name(s32 Multicast_TimeToLive)
 typedef PLATFORM_GET_SOCKET_HANDLE(platform_get_socket_handle);
-
-#define PLATFORM_GET_SEND_ADDRESS_HANDLE(name) platform_network_address_handle name(s32 AddressFamily, u16 Port, u32 Address)
-typedef PLATFORM_GET_SEND_ADDRESS_HANDLE(platform_get_send_address);
-
-#define PLATFORM_SET_SOCKET_OPTION(name) s32 name(platform_socket_handle SocketHandle, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength) 
-typedef PLATFORM_SET_SOCKET_OPTION(platform_set_socket_option);
-
-#define PLATFORM_SEND_TO(name) s32 name(platform_socket_handle SocketHandle, u32 Address, u32 Port, const char* Buffer, s32 BufferLength, s32 Flags)
-typedef PLATFORM_SEND_TO(platform_send_to);
-
-#define PLATFORM_CLOSE_SOCKET(name) void name(platform_socket_handle SocketHandle)
-typedef PLATFORM_CLOSE_SOCKET(platform_close_socket);
-
-// File IO
-
-// TODO(Peter): 
-struct directory_listing
-{
-    string Path;
-    directory_listing* Next;
-};
 
 // Font
 struct platform_font_info
@@ -175,50 +150,11 @@ typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
 
 #define PLATFORM_THREAD_COUNT 4
 
-#define THREADED_WORK_PROC(name) void name(s32 ThreadID, void* Data)
-typedef THREADED_WORK_PROC(threaded_work_proc);
-
-typedef struct work_queue work_queue;
-
-#define PUSH_WORK_ON_QUEUE(name) void name(work_queue* Queue, threaded_work_proc* WorkProc, void* Data, char* JobName)
-typedef PUSH_WORK_ON_QUEUE(push_work_on_queue);
-
-#define DO_QUEUE_WORK_UNTIL_DONE(name) void name(work_queue* Queue, s32 ThreadID)
-typedef DO_QUEUE_WORK_UNTIL_DONE(do_queue_work_until_done);
-
-#define RESET_WORK_QUEUE(name) void name(work_queue* Queue)
-typedef RESET_WORK_QUEUE(reset_work_queue);
-
-struct worker_thread_job
-{
-    void* Data;
-    threaded_work_proc* WorkProc;
-#ifdef DEBUG
-    char* JobName;
-#endif
-};
-
-struct work_queue
-{
-    void* SemaphoreHandle;
-    
-    u32 JobsMax;
-    u32 volatile JobsCount;
-    u32 volatile NextJobIndex;
-    u32 volatile JobsCompleted;
-    worker_thread_job* Jobs;
-    
-    // Work Queue
-    push_work_on_queue* PushWorkOnQueue;
-    do_queue_work_until_done* DoQueueWorkUntilDone;
-    reset_work_queue* ResetWorkQueue;
-};
-
 RESET_WORK_QUEUE(ResetWorkQueue)
 {
     for (u32 i = 0; i < Queue->JobsMax; i++)
     {
-        Queue->Jobs[i].Data = 0;
+        Queue->Jobs[i].Data = {0};
         Queue->Jobs[i].WorkProc = 0;
     }
     
@@ -238,11 +174,13 @@ GetSecondsElapsed (s64 Start, s64 End, s64 PerformanceCountFrequency)
 
 struct context
 {
+    gs_thread_context ThreadContext;
+    
     u8* MemoryBase;
     u32 MemorySize;
     
     b32 WindowIsVisible;
-    rect WindowBounds;
+    rect2 WindowBounds;
     r32 DeltaTime;
     mouse_state Mouse;
     
@@ -253,21 +191,13 @@ struct context
     cleanup_application* CleanupApplication;
     
     // Platform Services
-    work_queue* GeneralWorkQueue;
+    gs_work_queue* GeneralWorkQueue;
     
-    platform_alloc* PlatformAlloc;
-    platform_free* PlatformFree;
-    platform_realloc* PlatformRealloc;
-    platform_read_entire_file* PlatformReadEntireFile;
-    platform_write_entire_file* PlatformWriteEntireFile;
-    platform_get_file_path* PlatformGetFilePath;
     platform_get_gpu_texture_handle* PlatformGetGPUTextureHandle;
     platform_get_font_info* PlatformGetFontInfo;
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
+    
     platform_get_socket_handle* PlatformGetSocketHandle;
-    platform_set_socket_option* PlatformSetSocketOption;
-    platform_send_to* PlatformSendTo;
-    platform_close_socket* PlatformCloseSocket;
 };
 
 

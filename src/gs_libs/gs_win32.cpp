@@ -27,7 +27,7 @@ struct window
     char* ClassName;
     s32 Width;
     s32 Height;
-    WNDPROC WindowEventHandler; 
+    WNDPROC WindowEventHandler;
     
     WNDCLASS Class;
     HWND Handle;
@@ -45,7 +45,7 @@ struct handle_window_msg_result
 #endif
 };
 
-global_variable win32_state GlobalWin32State;
+global win32_state GlobalWin32State;
 
 // Utility
 internal s32 Win32StringLength(char* String);
@@ -66,15 +66,14 @@ internal void          Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer
 
 // Memory
 
-internal PLATFORM_ALLOC(Win32Alloc);
-internal PLATFORM_FREE(Win32Free);
-internal PLATFORM_REALLOC(Win32Realloc);
+internal ALLOCATOR_ALLOC(Win32Alloc);
+internal ALLOCATOR_FREE(Win32Free);
 
 ///
 // Utils
 ///
 
-internal s32 
+internal s32
 Win32StringLength(char* String)
 {
     char* At = String;
@@ -82,7 +81,7 @@ Win32StringLength(char* String)
     return At - String;
 }
 
-internal s32 
+internal s32
 Win32ConcatStrings(s32 ALength, char* A, s32 BLength, char* B, s32 DestLength, char* Dest)
 {
     char* Dst = Dest;
@@ -110,7 +109,7 @@ Win32ConcatStrings(s32 ALength, char* A, s32 BLength, char* B, s32 DestLength, c
 ///
 
 internal window
-Win32CreateWindow (HINSTANCE HInstance, char* WindowName, s32 Width, s32 Height, 
+Win32CreateWindow (HINSTANCE HInstance, char* WindowName, s32 Width, s32 Height,
                    WNDPROC WindowEventHandler)
 {
     window Result = {};
@@ -131,14 +130,14 @@ Win32CreateWindow (HINSTANCE HInstance, char* WindowName, s32 Width, s32 Height,
         Result.Handle = CreateWindowEx(
                                        0,
                                        Result.Class.lpszClassName,
-                                       WindowName, 
+                                       WindowName,
                                        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                        CW_USEDEFAULT,
                                        CW_USEDEFAULT,
                                        Width,
                                        Height,
                                        0,
-                                       0, 
+                                       0,
                                        HInstance,
                                        0);
         Result.DeviceContext = GetDC(Result.Handle);
@@ -276,9 +275,9 @@ Win32HandleWindowsEvents (
                           )
 {
     handle_window_event_result EventResult = HandleWindowEventUnlessWouldUseDefault(
-                                                                                    WindowHandle, 
-                                                                                    Msg, 
-                                                                                    wParam, 
+                                                                                    WindowHandle,
+                                                                                    Msg,
+                                                                                    wParam,
                                                                                     lParam);
     
     if (!EventResult.Handled)
@@ -298,92 +297,92 @@ Win32GetKeyCode (int Win32VirtualKey, bool NumpadValid, bool TranslateToChar)
     
     if (!TranslateToChar)
     {
-        if      (Win32VirtualKey == VK_SPACE)       { Result = KeyCode_Space; } 
+        if      (Win32VirtualKey == VK_SPACE)       { Result = KeyCode_Space; }
         
     }
     
     if (Win32VirtualKey == VK_CAPITAL)     { Result = KeyCode_CapsLock; }
     else if (Win32VirtualKey == VK_TAB)         { Result = KeyCode_Tab; }
-    else if (Win32VirtualKey == VK_LSHIFT)      { Result = KeyCode_LeftShift; } 
+    else if (Win32VirtualKey == VK_LSHIFT)      { Result = KeyCode_LeftShift; }
     else if (Win32VirtualKey == VK_RSHIFT)      { Result = KeyCode_RightShift; }
-    else if (Win32VirtualKey == VK_LCONTROL)    { Result = KeyCode_LeftCtrl; } 
+    else if (Win32VirtualKey == VK_LCONTROL)    { Result = KeyCode_LeftCtrl; }
     else if (Win32VirtualKey == VK_RCONTROL)    { Result = KeyCode_RightCtrl; }
     
     // TODO(Peter): support the function key?
-    //else if (Win32VirtualKey == VK_) { Result = KeyCode_Fn; } 
+    //else if (Win32VirtualKey == VK_) { Result = KeyCode_Fn; }
     
-    else if (Win32VirtualKey == VK_MENU)        { Result = KeyCode_Alt; } 
-    else if (Win32VirtualKey == VK_PRIOR)       { Result = KeyCode_PageUp; } 
+    else if (Win32VirtualKey == VK_MENU)        { Result = KeyCode_Alt; }
+    else if (Win32VirtualKey == VK_PRIOR)       { Result = KeyCode_PageUp; }
     else if (Win32VirtualKey == VK_NEXT)        { Result = KeyCode_PageDown; }
-    else if (Win32VirtualKey == VK_BACK)        { Result = KeyCode_Backspace; } 
+    else if (Win32VirtualKey == VK_BACK)        { Result = KeyCode_Backspace; }
     else if (Win32VirtualKey == VK_DELETE)      { Result = KeyCode_Delete; }
     else if (Win32VirtualKey == VK_RETURN)      { Result = KeyCode_Enter; }
     
-    else if (Win32VirtualKey == VK_F1)  { Result = KeyCode_F1; } 
-    else if (Win32VirtualKey == VK_F2)  { Result = KeyCode_F2; } 
-    else if (Win32VirtualKey == VK_F3)  { Result = KeyCode_F3; } 
-    else if (Win32VirtualKey == VK_F4)  { Result = KeyCode_F4; } 
-    else if (Win32VirtualKey == VK_F5)  { Result = KeyCode_F5; } 
-    else if (Win32VirtualKey == VK_F6)  { Result = KeyCode_F6; } 
+    else if (Win32VirtualKey == VK_F1)  { Result = KeyCode_F1; }
+    else if (Win32VirtualKey == VK_F2)  { Result = KeyCode_F2; }
+    else if (Win32VirtualKey == VK_F3)  { Result = KeyCode_F3; }
+    else if (Win32VirtualKey == VK_F4)  { Result = KeyCode_F4; }
+    else if (Win32VirtualKey == VK_F5)  { Result = KeyCode_F5; }
+    else if (Win32VirtualKey == VK_F6)  { Result = KeyCode_F6; }
     else if (Win32VirtualKey == VK_F7)  { Result = KeyCode_F7; }
-    else if (Win32VirtualKey == VK_F8)  { Result = KeyCode_F8; } 
-    else if (Win32VirtualKey == VK_F9)  { Result = KeyCode_F9; } 
-    else if (Win32VirtualKey == VK_F10) { Result = KeyCode_F10; } 
-    else if (Win32VirtualKey == VK_F11) { Result = KeyCode_F11; } 
-    else if (Win32VirtualKey == VK_F12) { Result = KeyCode_F12; } 
+    else if (Win32VirtualKey == VK_F8)  { Result = KeyCode_F8; }
+    else if (Win32VirtualKey == VK_F9)  { Result = KeyCode_F9; }
+    else if (Win32VirtualKey == VK_F10) { Result = KeyCode_F10; }
+    else if (Win32VirtualKey == VK_F11) { Result = KeyCode_F11; }
+    else if (Win32VirtualKey == VK_F12) { Result = KeyCode_F12; }
     
     if (!TranslateToChar)
     {
-        if      (Win32VirtualKey == 0x30) { Result = KeyCode_0; } 
-        else if (Win32VirtualKey == 0x31) { Result = KeyCode_1; } 
-        else if (Win32VirtualKey == 0x32) { Result = KeyCode_2; } 
-        else if (Win32VirtualKey == 0x33) { Result = KeyCode_3; } 
-        else if (Win32VirtualKey == 0x34) { Result = KeyCode_4; } 
-        else if (Win32VirtualKey == 0x35) { Result = KeyCode_5; } 
-        else if (Win32VirtualKey == 0x36) { Result = KeyCode_6; } 
+        if      (Win32VirtualKey == 0x30) { Result = KeyCode_0; }
+        else if (Win32VirtualKey == 0x31) { Result = KeyCode_1; }
+        else if (Win32VirtualKey == 0x32) { Result = KeyCode_2; }
+        else if (Win32VirtualKey == 0x33) { Result = KeyCode_3; }
+        else if (Win32VirtualKey == 0x34) { Result = KeyCode_4; }
+        else if (Win32VirtualKey == 0x35) { Result = KeyCode_5; }
+        else if (Win32VirtualKey == 0x36) { Result = KeyCode_6; }
         else if (Win32VirtualKey == 0x37) { Result = KeyCode_7; }
-        else if (Win32VirtualKey == 0x38) { Result = KeyCode_8; } 
+        else if (Win32VirtualKey == 0x38) { Result = KeyCode_8; }
         else if (Win32VirtualKey == 0x39) { Result = KeyCode_9; }
         
-        else if (Win32VirtualKey == 0x41) { Result = KeyCode_A; } 
-        else if (Win32VirtualKey == 0x42) { Result = KeyCode_B; } 
-        else if (Win32VirtualKey == 0x43) { Result = KeyCode_C; } 
-        else if (Win32VirtualKey == 0x44) { Result = KeyCode_D; } 
-        else if (Win32VirtualKey == 0x45) { Result = KeyCode_E; } 
-        else if (Win32VirtualKey == 0x46) { Result = KeyCode_F; } 
-        else if (Win32VirtualKey == 0x47) { Result = KeyCode_G; } 
+        else if (Win32VirtualKey == 0x41) { Result = KeyCode_A; }
+        else if (Win32VirtualKey == 0x42) { Result = KeyCode_B; }
+        else if (Win32VirtualKey == 0x43) { Result = KeyCode_C; }
+        else if (Win32VirtualKey == 0x44) { Result = KeyCode_D; }
+        else if (Win32VirtualKey == 0x45) { Result = KeyCode_E; }
+        else if (Win32VirtualKey == 0x46) { Result = KeyCode_F; }
+        else if (Win32VirtualKey == 0x47) { Result = KeyCode_G; }
         else if (Win32VirtualKey == 0x48) { Result = KeyCode_H; }
-        else if (Win32VirtualKey == 0x49) { Result = KeyCode_I; } 
-        else if (Win32VirtualKey == 0x4A) { Result = KeyCode_J; } 
-        else if (Win32VirtualKey == 0x4B) { Result = KeyCode_K; } 
-        else if (Win32VirtualKey == 0x4C) { Result = KeyCode_L; } 
-        else if (Win32VirtualKey == 0x4D) { Result = KeyCode_M; } 
-        else if (Win32VirtualKey == 0x4E) { Result = KeyCode_N; } 
-        else if (Win32VirtualKey == 0x4F) { Result = KeyCode_O; } 
-        else if (Win32VirtualKey == 0x50) { Result = KeyCode_P; } 
-        else if (Win32VirtualKey == 0x51) { Result = KeyCode_Q; } 
-        else if (Win32VirtualKey == 0x52) { Result = KeyCode_R; } 
-        else if (Win32VirtualKey == 0x53) { Result = KeyCode_S; } 
-        else if (Win32VirtualKey == 0x54) { Result = KeyCode_T; } 
-        else if (Win32VirtualKey == 0x55) { Result = KeyCode_U; } 
-        else if (Win32VirtualKey == 0x56) { Result = KeyCode_V; } 
-        else if (Win32VirtualKey == 0x57) { Result = KeyCode_W; } 
-        else if (Win32VirtualKey == 0x58) { Result = KeyCode_X; } 
-        else if (Win32VirtualKey == 0x59) { Result = KeyCode_Y; } 
+        else if (Win32VirtualKey == 0x49) { Result = KeyCode_I; }
+        else if (Win32VirtualKey == 0x4A) { Result = KeyCode_J; }
+        else if (Win32VirtualKey == 0x4B) { Result = KeyCode_K; }
+        else if (Win32VirtualKey == 0x4C) { Result = KeyCode_L; }
+        else if (Win32VirtualKey == 0x4D) { Result = KeyCode_M; }
+        else if (Win32VirtualKey == 0x4E) { Result = KeyCode_N; }
+        else if (Win32VirtualKey == 0x4F) { Result = KeyCode_O; }
+        else if (Win32VirtualKey == 0x50) { Result = KeyCode_P; }
+        else if (Win32VirtualKey == 0x51) { Result = KeyCode_Q; }
+        else if (Win32VirtualKey == 0x52) { Result = KeyCode_R; }
+        else if (Win32VirtualKey == 0x53) { Result = KeyCode_S; }
+        else if (Win32VirtualKey == 0x54) { Result = KeyCode_T; }
+        else if (Win32VirtualKey == 0x55) { Result = KeyCode_U; }
+        else if (Win32VirtualKey == 0x56) { Result = KeyCode_V; }
+        else if (Win32VirtualKey == 0x57) { Result = KeyCode_W; }
+        else if (Win32VirtualKey == 0x58) { Result = KeyCode_X; }
+        else if (Win32VirtualKey == 0x59) { Result = KeyCode_Y; }
         else if (Win32VirtualKey == 0x5A) { Result = KeyCode_Z; }
     }
     
     if (NumpadValid)
     {
-        if      (Win32VirtualKey == VK_NUMPAD0) { Result = KeyCode_Num0; } 
-        else if (Win32VirtualKey == VK_NUMPAD1) { Result = KeyCode_Num1; } 
-        else if (Win32VirtualKey == VK_NUMPAD2) { Result = KeyCode_Num2; } 
-        else if (Win32VirtualKey == VK_NUMPAD3) { Result = KeyCode_Num3; } 
-        else if (Win32VirtualKey == VK_NUMPAD4) { Result = KeyCode_Num4; } 
-        else if (Win32VirtualKey == VK_NUMPAD5) { Result = KeyCode_Num5; } 
-        else if (Win32VirtualKey == VK_NUMPAD6) { Result = KeyCode_Num6; } 
-        else if (Win32VirtualKey == VK_NUMPAD7) { Result = KeyCode_Num7; } 
-        else if (Win32VirtualKey == VK_NUMPAD8) { Result = KeyCode_Num8; } 
+        if      (Win32VirtualKey == VK_NUMPAD0) { Result = KeyCode_Num0; }
+        else if (Win32VirtualKey == VK_NUMPAD1) { Result = KeyCode_Num1; }
+        else if (Win32VirtualKey == VK_NUMPAD2) { Result = KeyCode_Num2; }
+        else if (Win32VirtualKey == VK_NUMPAD3) { Result = KeyCode_Num3; }
+        else if (Win32VirtualKey == VK_NUMPAD4) { Result = KeyCode_Num4; }
+        else if (Win32VirtualKey == VK_NUMPAD5) { Result = KeyCode_Num5; }
+        else if (Win32VirtualKey == VK_NUMPAD6) { Result = KeyCode_Num6; }
+        else if (Win32VirtualKey == VK_NUMPAD7) { Result = KeyCode_Num7; }
+        else if (Win32VirtualKey == VK_NUMPAD8) { Result = KeyCode_Num8; }
         else if (Win32VirtualKey == VK_NUMPAD9) { Result = KeyCode_Num9; }
     }
     
@@ -501,14 +500,14 @@ HandleWindowsMessage (
                 // NOTE(Peter): Always setting this to true becuase windows is stupid and doesn't
                 // pass the press/release bit through correctly. So now the KEYDOWN/KEYUP Messages above
                 // only translate the message to a WM_CHAR message if its a key down. Since we clear all
-                // keystates to false at the beginning of an input frame, this will make transitions 
+                // keystates to false at the beginning of an input frame, this will make transitions
                 // get registered correctly.
                 Input.New->KeyStates[KeyIndex] = true;
                 Result.NeedsUpdate = true;
             }
             else
             {
-                printf("Translated Char Not Recognized: %c\n", TranslatedChar); 
+                printf("Translated Char Not Recognized: %c\n", TranslatedChar);
             }
             */
         }break;
@@ -570,14 +569,14 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer* Win32Buffer, window Window)
 }
 
 /////////////////////////////////////////
-// 
+//
 //            Open GL
 //
 /////////////////////////////////////////
 
 
-internal void 
-OpenGLRenderTriBuffer (u8* Vertecies, s32 VertexElements, 
+internal void
+OpenGLRenderTriBuffer (u8* Vertecies, s32 VertexElements,
                        u8* UVs, s32 UVElements,
                        u8* Colors, s32 ColorsElements,
                        s32 TriCount)
@@ -599,7 +598,7 @@ OpenGLRenderTriBuffer (u8* Vertecies, s32 VertexElements,
 }
 
 internal void
-OpenGLDraw3DTri (v4 P0, v4 P1, v4 P2, 
+OpenGLDraw3DTri (v4 P0, v4 P1, v4 P2,
                  v2 UV0, v2 UV1, v2 UV2,
                  v4 C0, v4 C1, v4 C2)
 {
@@ -621,7 +620,7 @@ OpenGLDraw3DTri (v4 P0, v4 P1, v4 P2,
 }
 
 internal void
-OpenGLDraw2DTri (v2 P0, v2 P1, v2 P2, 
+OpenGLDraw2DTri (v2 P0, v2 P1, v2 P2,
                  v2 UV0, v2 UV1, v2 UV2,
                  v4 C0, v4 C1, v4 C2)
 {
@@ -668,14 +667,14 @@ SubmitTexture (u8* Memory, s32 Width, s32 Height)
 {
     s32 TextureHandle = NextTextureHandle++;
     glBindTexture(GL_TEXTURE_2D, TextureHandle);
-    glTexImage2D(GL_TEXTURE_2D, 
+    glTexImage2D(GL_TEXTURE_2D,
                  0, // mip map level
-                 GL_RGBA8, 
-                 Width, 
-                 Height, 
+                 GL_RGBA8,
+                 Width,
+                 Height,
                  0, // border
-                 GL_RGBA, 
-                 GL_UNSIGNED_BYTE, 
+                 GL_RGBA,
+                 GL_UNSIGNED_BYTE,
                  Memory);
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

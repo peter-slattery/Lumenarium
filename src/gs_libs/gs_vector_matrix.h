@@ -75,6 +75,18 @@ union v4
         float a;
     };
     
+    struct
+    {
+        v2 xy;
+        v2 yz;
+    };
+    
+    struct
+    {
+        v3 xyz;
+        float z;
+    };
+    
     float E[4];
 };
 
@@ -93,25 +105,12 @@ union v4
 
 union m33
 {
-    struct
-    {
-        float a; float b; float c;
-        float d; float e; float f;
-        float g; float h; float i;
-    };
-    float E[9];
+    float E[3][3];
 };
 
 union m44
 {
-    struct
-    {
-        float a; float b; float c; float d;
-        float e; float f; float g; float h;
-        float i; float j; float k; float l;
-        float m; float n; float o; float p;
-    };
-    float E[16];
+    float E[4][4];
 };
 
 //////////////////////////////////////
@@ -636,10 +635,10 @@ PointIsInRange (v2 _P, v2 _Min, v2 _Max)
 static bool
 PointIsInRangeSafe (v2 _P, v2 _Min, v2 _Max)
 {
-    s32 MinX = GSMin(_Min.x, _Max.x);
-    s32 MinY = GSMin(_Min.y, _Max.y);
-    s32 MaxX = GSMax(_Min.x, _Max.x);
-    s32 MaxY = GSMax(_Min.y, _Max.y);
+    s32 MinX = Min(_Min.x, _Max.x);
+    s32 MinY = Min(_Min.y, _Max.y);
+    s32 MaxX = Max(_Min.x, _Max.x);
+    s32 MaxY = Max(_Min.y, _Max.y);
     
     return (_P.x >= MinX && _P.x <= MaxX &&
             _P.y >= MinY && _P.y <= MaxY);
@@ -1271,11 +1270,10 @@ GetLookAtMatrix (v4 Position, v4 Target)
     v4 Up = Normalize(Cross(Forward, Right));
     
     m44 RotationMatrix = M44(
-                             Right.x, Up.x, Forward.x, 0,
-                             Right.y, Up.y, Forward.y, 0,
-                             Right.z, Up.z, Forward.z, 0,
+                             Right.x, Right.y, Right.z, 0,
+                             Up.x, Up.y, Up.z, 0,
+                             Forward.x, Forward.y, Forward.z, 0,
                              0,       0,    0,         1);
-    
     return RotationMatrix;
 }
 
@@ -1427,11 +1425,11 @@ void TestVectorMatrixMultiplication ()
     
     // Utility Functions
     TestClean((GSSqrt(4.f) == 2.f), "Vector Square Root");
-    TestClean((GSLerp(0.f, 1.f, .5f) == .5f), "Vector Lerp");
-    TestClean((GSMin(-.25f, 5.f) == -.25f), "Vector Min");
-    TestClean((GSMax(-.25f, 5.f) == 5.f), "Vector Max");
-    TestClean((GSClamp(-2.f, -3.f, 5.f) == -2.f), "Vector Clamp, Lower Than Range");
-    TestClean((GSClamp(-2.f, 6.f, 5.f) == 5.f), "Vector Clamp, Higher Than Range");
+    TestClean((Lerp(0.f, 1.f, .5f) == .5f), "Vector Lerp");
+    TestClean((Min(-.25f, 5.f) == -.25f), "Vector Min");
+    TestClean((Max(-.25f, 5.f) == 5.f), "Vector Max");
+    TestClean((Clamp(-2.f, -3.f, 5.f) == -2.f), "Vector Clamp, Lower Than Range");
+    TestClean((Clamp(-2.f, 6.f, 5.f) == 5.f), "Vector Clamp, Higher Than Range");
     
     //////////////////////////////
     // Vector Functions

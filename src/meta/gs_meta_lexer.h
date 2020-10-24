@@ -1,7 +1,7 @@
 struct token_selection_spec
 {
     b32 MatchText;
-    string Text;
+    gs_string Text;
 };
 
 internal s32
@@ -160,69 +160,69 @@ GetNextToken (tokenizer* Tokenizer)
         {
             Result.Type = Token_PoundDefine;
             EatPreprocessor(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "undef"))
         {
             Result.Type = Token_PoundUndef;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "include"))
         {
             Result.Type = Token_PoundInclude;
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "ifdef"))
         {
             Result.Type = Token_PoundIfDef;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "ifndef"))
         {
             Result.Type = Token_PoundIfNDef;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "if"))
         {
             Result.Type = Token_PoundIf;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "elif"))
         {
             Result.Type = Token_PoundElif;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "else"))
         {
             Result.Type = Token_PoundElse;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "endif"))
         {
             Result.Type = Token_PoundEndif;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "error"))
         {
             Result.Type = Token_PoundError;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
         else if (TokenAtEquals(Tokenizer, "pragma"))
         {
             Result.Type = Token_PoundPragma;
             EatToNewLine(Tokenizer);
-            Result.Text.Length = Tokenizer->At - Result.Text.Memory;
+            Result.Text.Length = Tokenizer->At - Result.Text.Str;
         }
     }
-    else if (IsNumeric(C))
+    else if (IsNumericExtended(C))
     {
         Result.Type = Token_Number;
         
@@ -233,7 +233,7 @@ GetNextToken (tokenizer* Tokenizer)
     else if (C == '\'')
     {
         Result.Type = Token_Char;
-        Result.Text.Memory = Tokenizer->At;
+        Result.Text.Str = Tokenizer->At;
         if (Tokenizer->At[0] && Tokenizer->At[0] == '\\')
         {
             ++Tokenizer->At;
@@ -245,7 +245,7 @@ GetNextToken (tokenizer* Tokenizer)
     {
         Result.Type = Token_String;
         // replace the length added by the quote
-        Result.Text.Memory = Tokenizer->At;
+        Result.Text.Str = Tokenizer->At;
         Result.Text.Length = EatString(Tokenizer);
     }
     // NOTE(Peter): This is after comment parsing so that the division operator
@@ -257,6 +257,5 @@ GetNextToken (tokenizer* Tokenizer)
         Result.Text.Length += EatIdentifier(Tokenizer);
     }
     
-    Result.TextHash = HashDJB2ToU64(Result.Text.Memory);
     return Result;
 }

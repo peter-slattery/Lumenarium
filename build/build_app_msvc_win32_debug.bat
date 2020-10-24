@@ -15,7 +15,7 @@ pushd %BuildPath%
 del *.pdb > NUL 2> NUL
 
 REM Run the Preprocessor
-%MetaProgramPath%\foldhaus_meta.exe %SourceCodePath%\foldhaus_app.cpp
+REM %MetaProgramPath%\foldhaus_meta.exe %SourceCodePath%\foldhaus_app.cpp
 
 echo WAITING FOR PDB TO WRITE > lock.tmp
 
@@ -24,7 +24,9 @@ set LastError=%ERRORLEVEL%
 
 del lock.tmp
 
-cl %CommonCompilerFlags% %SourceCodePath%\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
+cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
+
+cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial_monitor.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
 
 popd
 
