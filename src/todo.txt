@@ -23,9 +23,6 @@ STREAM #1: 3D Overhaul
     - mouse spatial interaction - handles, and hover for info
     - debug capabilities (toggle strip/led/universe colors)
 
-- Buckets & Lists
-    - On second thought, I just really don't like these. Lets get rid of them, and put custom structures in place
-
 - Internal Log File
     NOTE: This should not be a part of the debug system
     - Save output log to a file continuously
@@ -48,7 +45,6 @@ STREAM #1: 3D Overhaul
 
 - Serialization
     - saving scenes
-    - saving animation timelines
     - saving projects
 
 STRAM #4: Completeness

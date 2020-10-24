@@ -12,7 +12,7 @@ global v4 TimeSliderColor = GreenV4; //v4{.36f, .52f, .78f, 1.f};
 struct animation_timeline_state
 {
     frame_range VisibleRange;
-    gs_list_handle SelectedAnimationBlockHandle;
+    handle SelectedAnimationBlockHandle;
     u32 SelectedAnimationLayer;
 };
 
@@ -493,7 +493,6 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     gs_string Tempgs_string = PushString(State->Transient, 256);
     handle Result = SelectedBlockHandle;
     
-    // TODO(pjs): Animation Selection
     animation CurrAnimation = *AnimationSystem_GetActiveAnimation(AnimationSystem);
     
     rect2 LayerMenuBounds, TimelineBounds;

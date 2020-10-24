@@ -25,9 +25,6 @@ Handle_IsValid(handle Handle)
     return Result;
 }
 
-#include "..\gs_libs\gs_list.h"
-#include "..\gs_libs\gs_bucket.h"
-
 #include "..\gs_libs\gs_string.h"
 
 #include "foldhaus_debug.h"
