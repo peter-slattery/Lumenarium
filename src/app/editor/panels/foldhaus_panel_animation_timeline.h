@@ -264,9 +264,9 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     
-    panel_with_layout ActivePanel = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, State->WindowBounds);
+    panel* ActivePanel = GetPanelContainingPoint(Mouse.Pos, State->PanelSystem.Panels + 0);
     frame_range Range = ActiveAnim->PlayableRange;
-    u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel.Bounds, Range);
+    u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel->Bounds, Range);
     
     handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, State->SelectedAnimationLayer);
     SelectAnimationBlock(NewBlockHandle, State);
@@ -641,7 +641,7 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
         
         if (ui_LayoutButton(Interface, &TitleBarLayout, MakeString("Load")))
         {
-            panel_entry* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
         }
     }

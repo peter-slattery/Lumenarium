@@ -18,7 +18,6 @@ enum panel_split_direction
     PanelSplit_Count,
 };
 
-typedef struct panel_entry panel_entry;
 typedef struct panel panel;
 
 #define PANEL_MODAL_OVERRIDE_CALLBACK(name) void name(panel* ReturningFrom, app_state* State, context Context)
@@ -29,10 +28,11 @@ struct panel
     s32 TypeIndex;
     gs_data StateMemory;
     
-    panel_entry* ModalOverride;
-    panel* IsModalOverrideFor; // TODO(pjs): I don't like that this is panel* but ModalOverride is panel_entry*
+    panel* ModalOverride;
+    panel* IsModalOverrideFor;
     panel_modal_override_callback* ModalOverrideCB;
     
+    rect2 Bounds;
     panel_split_direction SplitDirection;
     r32 SplitPercent;
     
@@ -40,25 +40,21 @@ struct panel
     // Probably belongs in a more generalized PanelInterfaceState or something
     b32 PanelSelectionMenuOpen;
     
+    panel* Parent;
+    
     union{
-        panel_entry* Left;
-        panel_entry* Top;
+        panel* Left;
+        panel* Top;
     };
     union{
-        panel_entry* Right;
-        panel_entry* Bottom;
+        panel* Right;
+        panel* Bottom;
     };
 };
 
 struct free_panel
 {
-    panel_entry* Next;
-};
-
-struct panel_entry
-{
-    panel Panel;
-    free_panel Free;
+    free_panel* Next;
 };
 
 #define PANEL_INIT_PROC(name) void name(panel* Panel, app_state* State, context Context)
@@ -88,26 +84,10 @@ struct panel_system
     panel_definition* PanelDefs;
     u32 PanelDefsCount;
     
-    panel_entry Panels[PANELS_MAX];
+    panel Panels[PANELS_MAX];
     u32 PanelsUsed;
     
-    panel_entry FreeList;
-};
-
-// NOTE(Peter): This representation is used to let external code render and interact
-// with panels. It shouldn't be stored across frame boundaries  as the pointers to
-// Panel's are liable to change.
-struct panel_with_layout
-{
-    panel* Panel;
-    rect2 Bounds;
-};
-
-struct panel_layout
-{
-    panel_with_layout* Panels;
-    u32 PanelsCount;
-    u32 PanelsMax;
+    free_panel* FreeList;
 };
 
 /////////////////////////////////
@@ -119,19 +99,20 @@ struct panel_layout
 internal void
 InitializePanelSystem(panel_system* PanelSystem, panel_definition* PanelDefs, u32 PanelDefsCount)
 {
-    PanelSystem->FreeList.Free.Next = &PanelSystem->FreeList;
+    PanelSystem->FreeList = 0;
     PanelSystem->PanelDefs = PanelDefs;
     PanelSystem->PanelDefsCount = PanelDefsCount;
 }
 
-internal panel_entry*
+internal panel*
 TakeNewPanelEntry(panel_system* PanelSystem)
 {
-    panel_entry* FreeEntry = 0;
-    if (PanelSystem->FreeList.Free.Next != &PanelSystem->FreeList)
+    panel* FreeEntry = 0;
+    if (PanelSystem->FreeList != 0)
     {
-        FreeEntry = PanelSystem->FreeList.Free.Next;
-        PanelSystem->FreeList.Free.Next = FreeEntry->Free.Next;
+        free_panel* FreePanel = PanelSystem->FreeList;
+        PanelSystem->FreeList = FreePanel->Next;
+        FreeEntry = (panel*)PanelSystem->FreeList;
     }
     else
     {
@@ -142,43 +123,24 @@ TakeNewPanelEntry(panel_system* PanelSystem)
 }
 
 internal void
-FreePanelEntry(panel_entry* Entry, panel_system* PanelSystem)
+FreePanelEntry(panel* Panel, panel_system* PanelSystem)
 {
-    Assert(Entry >= PanelSystem->Panels && Entry <= PanelSystem->Panels + PANELS_MAX);
-    Entry->Panel = {0};
-    Entry->Free.Next = PanelSystem->FreeList.Free.Next;
-    PanelSystem->FreeList.Free.Next = Entry;
+    Assert(Panel >= PanelSystem->Panels && Panel <= PanelSystem->Panels + PANELS_MAX);
+    
+    free_panel* FreeEntry = (free_panel*)Panel;
+    FreeEntry->Next = PanelSystem->FreeList;
+    PanelSystem->FreeList = FreeEntry;
 }
 
 internal void
-FreePanelEntryRecursive(panel_entry* Entry, panel_system* PanelSystem)
+FreePanelEntryRecursive(panel* Panel, panel_system* PanelSystem)
 {
-    if (Entry->Panel.SplitDirection != PanelSplit_NoSplit)
+    if (Panel->SplitDirection != PanelSplit_NoSplit)
     {
-        FreePanelEntryRecursive(Entry->Panel.Left, PanelSystem);
-        FreePanelEntryRecursive(Entry->Panel.Right, PanelSystem);
+        FreePanelEntryRecursive(Panel->Left, PanelSystem);
+        FreePanelEntryRecursive(Panel->Right, PanelSystem);
     }
-    FreePanelEntry(Entry, PanelSystem);
-}
-
-internal void
-FreePanelAtIndex(s32 Index, panel_system* PanelSystem)
-{
-    Assert(Index > 0 && Index < (s32)PanelSystem->PanelsUsed);
-    panel_entry* EntryToFree = PanelSystem->Panels + Index;
-    EntryToFree->Free.Next = PanelSystem->FreeList.Free.Next;
-    PanelSystem->FreeList.Free.Next = EntryToFree;
-}
-
-internal panel_entry*
-Panel_GetModalOverride(panel_entry* PanelEntry)
-{
-    panel_entry* Result = PanelEntry;
-    if (PanelEntry->Panel.ModalOverride != 0)
-    {
-        Result = Panel_GetModalOverride(PanelEntry->Panel.ModalOverride);
-    }
-    return Result;
+    FreePanelEntry(Panel, PanelSystem);
 }
 
 internal panel*
@@ -187,17 +149,17 @@ Panel_GetModalOverride(panel* Panel)
     panel* Result = Panel;
     if (Panel->ModalOverride != 0)
     {
-        Result = &Panel_GetModalOverride(Panel->ModalOverride)->Panel;
+        Result = Panel_GetModalOverride(Panel->ModalOverride);
     }
     return Result;
 }
 
 internal void
-Panel_PushModalOverride(panel* Root, panel_entry* Override, panel_modal_override_callback* Callback)
+Panel_PushModalOverride(panel* Root, panel* Override, panel_modal_override_callback* Callback)
 {
     Root->ModalOverride = Override;
     Root->ModalOverrideCB = Callback;
-    Override->Panel.IsModalOverrideFor = Root;
+    Override->IsModalOverrideFor = Root;
 }
 
 internal void
@@ -239,12 +201,12 @@ Panel_GetStateMemory(panel* Panel, u64 Size)
     return Result;
 }
 
-internal panel_entry*
+internal panel*
 PanelSystem_PushPanel(panel_system* PanelSystem, s32 PanelTypeIndex, app_state* State, context Context)
 {
-    panel_entry* PanelEntry = TakeNewPanelEntry(PanelSystem);
-    SetAndInitPanelType(&PanelEntry->Panel, PanelSystem, PanelTypeIndex, State, Context);
-    return PanelEntry;
+    panel* Panel = TakeNewPanelEntry(PanelSystem);
+    SetAndInitPanelType(Panel, PanelSystem, PanelTypeIndex, State, Context);
+    return Panel;
 }
 
 internal void
@@ -257,11 +219,14 @@ SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, pan
         
         s32 ParentTypeIndex = Parent->TypeIndex;
         gs_data ParentStateMemory = Parent->StateMemory;
+        
         Parent->Left = TakeNewPanelEntry(PanelSystem);
-        Panel_SetCurrentType(&Parent->Left->Panel, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
+        Panel_SetCurrentType(Parent->Left, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
+        Parent->Left->Parent = Parent;
         
         Parent->Right = TakeNewPanelEntry(PanelSystem);
-        Panel_SetCurrentType(&Parent->Right->Panel, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
+        Panel_SetCurrentType(Parent->Right, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
+        Parent->Right->Parent = Parent;
     }
 }
 
@@ -278,17 +243,17 @@ SplitPanelHorizontally(panel* Parent, r32 Percent, panel_system* PanelSystem, ap
 }
 
 internal void
-ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_system* PanelSystem)
+ConsolidatePanelsKeepOne(panel* Parent, panel* PanelToKeep, panel_system* PanelSystem)
 {
-    panel_entry* LeftChild = Parent->Left;
-    panel_entry* RightChild = Parent->Right;
+    panel* LeftChild = Parent->Left;
+    panel* RightChild = Parent->Right;
     
-    panel_entry* PanelEntryToDestroy = PanelEntryToKeep == LeftChild ? RightChild : LeftChild;
+    panel* PanelToDestroy = PanelToKeep == LeftChild ? RightChild : LeftChild;
     
-    *Parent = PanelEntryToKeep->Panel;
+    *Parent = *PanelToKeep;
     
-    FreePanelEntry(PanelEntryToKeep, PanelSystem);
-    FreePanelEntryRecursive(PanelEntryToDestroy, PanelSystem);
+    FreePanelEntry(PanelToKeep, PanelSystem);
+    FreePanelEntryRecursive(PanelToDestroy, PanelSystem);
 }
 
 /////////////////////////////////
@@ -296,6 +261,54 @@ ConsolidatePanelsKeepOne(panel* Parent, panel_entry* PanelEntryToKeep, panel_sys
 //   Rendering And Interaction
 //
 /////////////////////////////////
+
+internal rect2
+GetTopPanelBounds(panel* Panel)
+{
+    rect2 Result = {};
+    Result.Min = v2{
+        Panel->Bounds.Min.x,
+        LerpR32(Panel->SplitPercent, Panel->Bounds.Min.y, Panel->Bounds.Max.y)
+    };
+    Result.Max = Panel->Bounds.Max;
+    return Result;
+}
+
+internal rect2
+GetBottomPanelBounds(panel* Panel)
+{
+    rect2 Result = {};
+    Result.Min = Panel->Bounds.Min;
+    Result.Max = v2{
+        Panel->Bounds.Max.x,
+        LerpR32(Panel->SplitPercent, Panel->Bounds.Min.y, Panel->Bounds.Max.y)
+    };
+    return Result;
+}
+
+internal rect2
+GetRightPanelBounds(panel* Panel)
+{
+    rect2 Result = {};
+    Result.Min = v2{
+        LerpR32(Panel->SplitPercent, Panel->Bounds.Min.x, Panel->Bounds.Max.x),
+        Panel->Bounds.Min.y
+    };
+    Result.Max = Panel->Bounds.Max;
+    return Result;
+}
+
+internal rect2
+GetLeftPanelBounds(panel* Panel)
+{
+    rect2 Result = {};
+    Result.Min = Panel->Bounds.Min;
+    Result.Max = v2{
+        LerpR32(Panel->SplitPercent, Panel->Bounds.Min.x, Panel->Bounds.Max.x),
+        Panel->Bounds.Max.y
+    };
+    return Result;
+}
 
 internal rect2
 GetTopPanelBounds(panel* Panel, rect2 PanelBounds)
@@ -346,100 +359,74 @@ GetLeftPanelBounds(panel* Panel, rect2 PanelBounds)
 }
 
 internal void
-LayoutPanel(panel* Panel, rect2 PanelBounds, panel_layout* Layout)
+Panel_UpdateLayout(panel* Panel, rect2 Bounds)
 {
-    if (Panel->SplitDirection == PanelSplit_NoSplit)
+    Panel->Bounds = Bounds;
+    
+    if (Panel->SplitDirection != PanelSplit_NoSplit)
     {
-        panel_with_layout* WithLayout = Layout->Panels + Layout->PanelsCount++;
-        WithLayout->Panel = Panel_GetModalOverride(Panel);
-        WithLayout->Bounds = PanelBounds;
-    }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
-    {
-        rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-        rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
+        rect2 LeftOrTopBounds = {};
+        rect2 RightOrBottomBounds = {};
+        switch (Panel->SplitDirection)
+        {
+            case PanelSplit_Horizontal:
+            {
+                LeftOrTopBounds = GetTopPanelBounds(Panel);
+                RightOrBottomBounds = GetBottomPanelBounds(Panel);
+            } break;
+            
+            case PanelSplit_Vertical:
+            {
+                LeftOrTopBounds = GetLeftPanelBounds(Panel);
+                RightOrBottomBounds = GetRightPanelBounds(Panel);
+            } break;
+            
+            InvalidDefaultCase;
+        }
         
-        panel* TopPanel = Panel_GetModalOverride(&Panel->Top->Panel);
-        panel* BottomPanel = Panel_GetModalOverride(&Panel->Bottom->Panel);
-        
-        LayoutPanel(&Panel->Top->Panel, TopPanelBounds, Layout);
-        LayoutPanel(&Panel->Bottom->Panel, BottomPanelBounds, Layout);
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-        rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-        
-        panel* LeftPanel = Panel_GetModalOverride(&Panel->Top->Panel);
-        panel* RightPanel = Panel_GetModalOverride(&Panel->Bottom->Panel);
-        
-        LayoutPanel(&Panel->Left->Panel, LeftPanelBounds, Layout);
-        LayoutPanel(&Panel->Right->Panel, RightPanelBounds, Layout);
+        Panel_UpdateLayout(Panel->Left, LeftOrTopBounds);
+        Panel_UpdateLayout(Panel->Right, RightOrBottomBounds);
     }
 }
 
-internal panel_layout
-GetPanelLayout(panel_system* System, rect2 WindowBounds, gs_memory_arena* Storage)
+internal void
+PanelSystem_UpdateLayout(panel_system* System, rect2 WindowBounds)
 {
-    panel_layout Result = {};
-    Result.PanelsMax = System->PanelsUsed;
-    Result.Panels = PushArray(Storage, panel_with_layout, Result.PanelsMax);
-    
-    LayoutPanel(&System->Panels[0].Panel, WindowBounds, &Result);
-    
-    return Result;
+    panel* Root = System->Panels;
+    Panel_UpdateLayout(Root, WindowBounds);
 }
 
-internal panel_with_layout
-GetPanelContainingPoint(v2 Point, panel* Panel, rect2 PanelBounds)
+internal panel*
+GetPanelContainingPoint(v2 Point, panel* Panel)
 {
-    panel_with_layout Result = {0};
+    panel* Result = 0;
     
-    if (Panel->SplitDirection == PanelSplit_NoSplit)
+    if (PointIsInRect(Panel->Bounds, Point))
     {
-        Result.Panel = Panel;
-        Result.Bounds = PanelBounds;
-    }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
-    {
-        rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-        rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-        
-        if (PointIsInRect(TopPanelBounds, Point))
+        switch (Panel->SplitDirection)
         {
-            Result = GetPanelContainingPoint(Point, &Panel->Top->Panel, TopPanelBounds);
-        }
-        else if (PointIsInRect(BottomPanelBounds, Point))
-        {
-            Result = GetPanelContainingPoint(Point, &Panel->Bottom->Panel, BottomPanelBounds);
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-        rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-        
-        if (PointIsInRect(LeftPanelBounds, Point))
-        {
-            Result = GetPanelContainingPoint(Point, &Panel->Left->Panel, LeftPanelBounds);
-        }
-        else if (PointIsInRect(RightPanelBounds, Point))
-        {
-            Result = GetPanelContainingPoint(Point, &Panel->Right->Panel, RightPanelBounds);
+            case PanelSplit_NoSplit:
+            {
+                Result = Panel;
+            }break;
+            
+            case PanelSplit_Vertical:
+            case PanelSplit_Horizontal:
+            {
+                if (PointIsInRect(Panel->Left->Bounds, Point))
+                {
+                    Result = GetPanelContainingPoint(Point, Panel->Left);
+                }
+                else if (PointIsInRect(Panel->Right->Bounds, Point))
+                {
+                    Result = GetPanelContainingPoint(Point, Panel->Right);
+                }
+            }break;
+            
+            InvalidDefaultCase;
         }
     }
     
-    return Result;
-}
-
-internal panel_with_layout
-GetPanelContainingPoint(v2 Point, panel_system* PanelSystem, rect2 WindowBounds)
-{
-    panel_with_layout Result = {0};
-    if (PanelSystem->PanelsUsed > 0)
-    {
-        Result = GetPanelContainingPoint(Point, &PanelSystem->Panels[0].Panel, WindowBounds);
-    }
     return Result;
 }
 

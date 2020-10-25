@@ -233,5 +233,7 @@ animation_clip GlobalAnimationClips[] = {
 
 #include "../meta/gs_meta_include.cpp"
 
+#include "editor/foldhaus_editor.cpp"
+
 #define FOLDHAUS_APP_H
 #endif // FOLDHAUS_APP_H

@@ -162,66 +162,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
 }
 
-internal void
-HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue, mouse_state Mouse, context Context)
-{
-    DEBUG_TRACK_FUNCTION;
-    
-    b32 PanelSystemHandledInput = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
-    if (!PanelSystemHandledInput)
-    {
-        input_command_registry ActiveCommands = {};
-        if (State->Modes.ActiveModesCount > 0)
-        {
-            ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
-        }
-        else
-        {
-            panel_with_layout PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, &State->PanelSystem, WindowBounds);
-            if (!PanelWithMouseOverIt.Panel) { return; }
-            State->HotPanel = PanelWithMouseOverIt.Panel;
-            
-            s32 PanelTypeIndex = PanelWithMouseOverIt.Panel->TypeIndex;
-            panel_definition PanelDefinition = GlobalPanelDefs[PanelTypeIndex];
-            if (!PanelDefinition.InputCommands) { return; }
-            
-            ActiveCommands.Commands = PanelDefinition.InputCommands;
-            ActiveCommands.Size = sizeof(*PanelDefinition.InputCommands) / sizeof(PanelDefinition.InputCommands[0]);
-            ActiveCommands.Used = ActiveCommands.Size;
-        }
-        
-        for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
-        {
-            input_entry Event = InputQueue.Entries[EventIdx];
-            
-            // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege
-            // Down and Up over Held. In other words, we don't want to call a Held command on the
-            // frame when the button was released, even if the command is registered to both events
-            if (KeyTransitionedDown(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue);
-            }
-            else if (KeyTransitionedUp(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Ended, &State->CommandQueue);
-            }
-            else if (KeyHeldDown(Event))
-            {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue);
-            }
-        }
-    }
-    
-    // Execute all commands in CommandQueue
-    for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
-    {
-        command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
-        Entry->Command.Proc(State, Entry->Event, Mouse, Context);
-    }
-    
-    ClearCommandQueue(&State->CommandQueue);
-}
-
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -232,12 +172,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
-    Context->Mouse.CursorType = CursorType_Arrow;
     
-    PushRenderClearScreen(RenderBuffer);
-    State->Camera.AspectRatio = RectAspectRatio(Context->WindowBounds);
-    
-    HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
+    Editor_Update(State, Context, InputQueue);
     
     {
         animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
@@ -348,27 +284,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem);
     }
     
-    PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-    PushRenderClearScreen(RenderBuffer);
-    
-    State->WindowBounds = Context->WindowBounds;
-    State->Interface.RenderBuffer = RenderBuffer;
-    State->Interface.Mouse = Context->Mouse;
-    
-    panel_layout PanelsToRender = GetPanelLayout(&State->PanelSystem, State->WindowBounds, State->Transient);
-    DrawAllPanels(PanelsToRender, RenderBuffer, &Context->Mouse, State, *Context);
-    
-    for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
-    {
-        operation_mode OperationMode = State->Modes.ActiveModes[m];
-        if (OperationMode.Render != 0)
-        {
-            OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
-        }
-    }
-    
-    Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
-    Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
+    Editor_Render(State, Context, RenderBuffer);
     
     // Checking for overflows
 #if 0
