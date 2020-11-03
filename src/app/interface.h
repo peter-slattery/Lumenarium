@@ -341,6 +341,18 @@ ui_LayoutRemaining(ui_layout Layout)
 }
 
 //
+// Interaction
+//
+
+internal b32
+ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
+{
+    b32 Result = MouseButtonTransitionedDown(Interface.Mouse.LeftButtonState);
+    Result &= PointIsInRect(Rect, Interface.Mouse.Pos);
+    return Result;
+}
+
+//
 // Drawing Functions
 //
 

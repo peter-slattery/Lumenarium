@@ -84,7 +84,7 @@ struct panel_system
     panel_definition* PanelDefs;
     u32 PanelDefsCount;
     
-    panel Panels[PANELS_MAX];
+    panel* Panels;
     u32 PanelsUsed;
     
     free_panel* FreeList;
@@ -97,22 +97,24 @@ struct panel_system
 /////////////////////////////////
 
 internal void
-InitializePanelSystem(panel_system* PanelSystem, panel_definition* PanelDefs, u32 PanelDefsCount)
+PanelSystem_Init(panel_system* PanelSystem, panel_definition* PanelDefs, u32 PanelDefsCount, gs_memory_arena* Storage)
 {
     PanelSystem->FreeList = 0;
     PanelSystem->PanelDefs = PanelDefs;
     PanelSystem->PanelDefsCount = PanelDefsCount;
+    
+    PanelSystem->Panels = PushArray(Storage, panel, PANELS_MAX);
 }
 
 internal panel*
-TakeNewPanelEntry(panel_system* PanelSystem)
+PanelSystem_TakePanel(panel_system* PanelSystem)
 {
     panel* FreeEntry = 0;
     if (PanelSystem->FreeList != 0)
     {
         free_panel* FreePanel = PanelSystem->FreeList;
         PanelSystem->FreeList = FreePanel->Next;
-        FreeEntry = (panel*)PanelSystem->FreeList;
+        FreeEntry = (panel*)FreePanel;
     }
     else
     {
@@ -123,7 +125,7 @@ TakeNewPanelEntry(panel_system* PanelSystem)
 }
 
 internal void
-FreePanelEntry(panel* Panel, panel_system* PanelSystem)
+PanelSystem_FreePanel(panel* Panel, panel_system* PanelSystem)
 {
     Assert(Panel >= PanelSystem->Panels && Panel <= PanelSystem->Panels + PANELS_MAX);
     
@@ -133,14 +135,14 @@ FreePanelEntry(panel* Panel, panel_system* PanelSystem)
 }
 
 internal void
-FreePanelEntryRecursive(panel* Panel, panel_system* PanelSystem)
+PanelSystem_FreePanelRecursive(panel* Panel, panel_system* PanelSystem)
 {
     if (Panel->SplitDirection != PanelSplit_NoSplit)
     {
-        FreePanelEntryRecursive(Panel->Left, PanelSystem);
-        FreePanelEntryRecursive(Panel->Right, PanelSystem);
+        PanelSystem_FreePanelRecursive(Panel->Left, PanelSystem);
+        PanelSystem_FreePanelRecursive(Panel->Right, PanelSystem);
     }
-    FreePanelEntry(Panel, PanelSystem);
+    PanelSystem_FreePanel(Panel, PanelSystem);
 }
 
 internal panel*
@@ -160,13 +162,14 @@ Panel_PushModalOverride(panel* Root, panel* Override, panel_modal_override_callb
     Root->ModalOverride = Override;
     Root->ModalOverrideCB = Callback;
     Override->IsModalOverrideFor = Root;
+    Override->Bounds = Root->Bounds;
 }
 
 internal void
 Panel_PopModalOverride(panel* Parent, panel_system* System)
 {
     // TODO(pjs): Free the overrided panel
-    FreePanelEntry(Parent->ModalOverride, System);
+    PanelSystem_FreePanel(Parent->ModalOverride, System);
     Parent->ModalOverride = 0;
 }
 
@@ -185,7 +188,7 @@ Panel_SetCurrentType(panel* Panel, panel_system* System, s32 NewPanelType, gs_da
 }
 
 internal void
-SetAndInitPanelType(panel* Panel, panel_system* System, s32 NewPanelTypeIndex, app_state* State, context Context)
+Panel_SetType(panel* Panel, panel_system* System, s32 NewPanelTypeIndex, app_state* State, context Context)
 {
     gs_data EmptyStateData = {0};
     Panel_SetCurrentType(Panel, System, NewPanelTypeIndex, EmptyStateData, State, Context);
@@ -204,8 +207,8 @@ Panel_GetStateMemory(panel* Panel, u64 Size)
 internal panel*
 PanelSystem_PushPanel(panel_system* PanelSystem, s32 PanelTypeIndex, app_state* State, context Context)
 {
-    panel* Panel = TakeNewPanelEntry(PanelSystem);
-    SetAndInitPanelType(Panel, PanelSystem, PanelTypeIndex, State, Context);
+    panel* Panel = PanelSystem_TakePanel(PanelSystem);
+    Panel_SetType(Panel, PanelSystem, PanelTypeIndex, State, Context);
     return Panel;
 }
 
@@ -220,11 +223,11 @@ SplitPanel(panel* Parent, r32 Percent, panel_split_direction SplitDirection, pan
         s32 ParentTypeIndex = Parent->TypeIndex;
         gs_data ParentStateMemory = Parent->StateMemory;
         
-        Parent->Left = TakeNewPanelEntry(PanelSystem);
+        Parent->Left = PanelSystem_TakePanel(PanelSystem);
         Panel_SetCurrentType(Parent->Left, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
         Parent->Left->Parent = Parent;
         
-        Parent->Right = TakeNewPanelEntry(PanelSystem);
+        Parent->Right = PanelSystem_TakePanel(PanelSystem);
         Panel_SetCurrentType(Parent->Right, PanelSystem, ParentTypeIndex, ParentStateMemory, State, Context);
         Parent->Right->Parent = Parent;
     }
@@ -252,8 +255,8 @@ ConsolidatePanelsKeepOne(panel* Parent, panel* PanelToKeep, panel_system* PanelS
     
     *Parent = *PanelToKeep;
     
-    FreePanelEntry(PanelToKeep, PanelSystem);
-    FreePanelEntryRecursive(PanelToDestroy, PanelSystem);
+    PanelSystem_FreePanel(PanelToKeep, PanelSystem);
+    PanelSystem_FreePanelRecursive(PanelToDestroy, PanelSystem);
 }
 
 /////////////////////////////////

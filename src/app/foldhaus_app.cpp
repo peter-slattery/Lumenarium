@@ -15,6 +15,8 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     app_state* State = (app_state*)Context.MemoryBase;
     
     GlobalDebugServices = DebugServices;
+    State->PanelSystem.PanelDefs = GlobalPanelDefs;
+    State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -158,7 +160,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     } // End Animation Playground
     
     
-    InitializePanelSystem(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount);
+    PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
     PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
 }
 

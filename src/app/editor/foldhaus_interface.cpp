@@ -245,7 +245,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
     gs_data PanelStateMemory = Panel->StateMemory;
     Panel_SetCurrentType(Panel->Left, &State->PanelSystem, PanelTypeIndex, PanelStateMemory, State, Context);
     
-    SetAndInitPanelType(Panel->Right, &State->PanelSystem, PanelTypeIndex, State, Context);
+    Panel_SetType(Panel->Right, &State->PanelSystem, PanelTypeIndex, State, Context);
     
     DeactivateCurrentOperationMode(&State->Modes);
 }
@@ -396,23 +396,22 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
         {
             ButtonBounds.Min,
             v2{
-                ButtonBounds.Min.x + Rect2Width(ButtonBounds), ButtonBounds.Min.y + (Rect2Height(ButtonBounds) * GlobalPanelDefsCount)
+                ButtonBounds.Min.x + Rect2Width(ButtonBounds), ButtonBounds.Min.y + (Rect2Height(ButtonBounds) * State->PanelSystem.PanelDefsCount)
             },
         };
         
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
-            && !PointIsInRect(MenuBounds, Mouse.DownPos))
+        if (ui_MouseClickedRect(State->Interface, MenuBounds))
         {
             Panel->PanelSelectionMenuOpen = false;
         }
         
         for (s32 i = 0; i < GlobalPanelDefsCount; i++)
         {
-            panel_definition Def = GlobalPanelDefs[i];
+            panel_definition Def = State->PanelSystem.PanelDefs[i];
             gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
             if (ui_Button(&State->Interface, DefName, ButtonBounds))
             {
-                SetAndInitPanelType(Panel, &State->PanelSystem, i, State, Context);
+                Panel_SetType(Panel, &State->PanelSystem, i, State, Context);
                 Panel->PanelSelectionMenuOpen = false;
             }
             
@@ -430,8 +429,9 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
 internal void
 RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    s32 PanelType = Panel->TypeIndex;
+    u32 PanelType = Panel->TypeIndex;
     Assert(PanelType >= 0);
+    Assert(PanelType < State->PanelSystem.PanelDefsCount);
     
     rect2 FooterBounds = rect2{
         PanelBounds.Min,
@@ -442,7 +442,7 @@ RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_
         PanelBounds.Max,
     };
     
-    panel_definition Definition = GlobalPanelDefs[PanelType];
+    panel_definition Definition = State->PanelSystem.PanelDefs[PanelType];
     Definition.Render(Panel, PanelViewBounds, RenderBuffer, State, Context);
     
     PushRenderOrthographic(RenderBuffer, WindowBounds);
@@ -463,11 +463,12 @@ DrawPanelRecursive(panel* Panel, render_command_buffer* RenderBuffer, mouse_stat
         
         case PanelSplit_NoSplit:
         {
-            RenderPanel(Panel, Panel->Bounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
+            panel* OverridePanel = Panel_GetModalOverride(Panel);
+            RenderPanel(OverridePanel, OverridePanel->Bounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
             v4 BorderColor = v4{0, 0, 0, 1};
             
             PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-            DrawPanelBorder(*Panel, Panel->Bounds.Min, Panel->Bounds.Max, BorderColor, Mouse, RenderBuffer);
+            DrawPanelBorder(*OverridePanel, OverridePanel->Bounds.Min, OverridePanel->Bounds.Max, BorderColor, Mouse, RenderBuffer);
         }break;
         
         InvalidDefaultCase;

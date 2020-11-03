@@ -855,6 +855,7 @@ RectHSplit(rect2 Rect, r32 YValue, rect2* Top, rect2* Bottom)
     Bottom->Max = { Rect.Max.x, ClampedYValue };
     Bottom->Min = Rect.Min;
 }
+
 internal void
 RectVSplit(rect2 Rect, r32 XValue, rect2* Left, rect2* Right)
 {

@@ -26,7 +26,7 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
             State->HotPanel = PanelWithMouseOverIt;
             
             s32 PanelTypeIndex = PanelWithMouseOverIt->TypeIndex;
-            panel_definition PanelDefinition = GlobalPanelDefs[PanelTypeIndex];
+            panel_definition PanelDefinition = State->PanelSystem.PanelDefs[PanelTypeIndex];
             if (!PanelDefinition.InputCommands) { return; }
             
             ActiveCommands.Commands = PanelDefinition.InputCommands;

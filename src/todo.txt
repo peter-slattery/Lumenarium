@@ -1,5 +1,17 @@
 TODO FOLDHAUS
 
+
+- engine environment
+	- primary color
+- default controller
+	- gets its own update function
+	- has access to the engine state
+		- can select animations
+		- change playback speed, primary color
+- user space controller
+- socket listener
+
+
 STREAM #1: 3D Overhaul
 - Rendering (Working on this elsewhere)
     - OpenGL 3
