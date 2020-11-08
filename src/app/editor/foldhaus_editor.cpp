@@ -21,7 +21,7 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
         }
         else
         {
-            panel* PanelWithMouseOverIt = GetPanelContainingPoint(Mouse.Pos, State->PanelSystem.Panels + 0);
+            panel* PanelWithMouseOverIt = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
             if (!PanelWithMouseOverIt) { return; }
             State->HotPanel = PanelWithMouseOverIt;
             
@@ -72,7 +72,6 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
     Context->Mouse.CursorType = CursorType_Arrow;
     State->WindowBounds = Context->WindowBounds;
     State->Interface.Mouse = Context->Mouse;
-    State->Camera.AspectRatio = RectAspectRatio(Context->WindowBounds);
     
     PanelSystem_UpdateLayout(&State->PanelSystem, State->WindowBounds);
     Editor_HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);

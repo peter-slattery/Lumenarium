@@ -62,7 +62,6 @@ struct app_state
     panel_system PanelSystem;
     panel* HotPanel;
     
-    camera Camera; // TODO(Peter): move into the sculpture view
     r32 PixelsToWorldScale;
     handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
     u32 SelectedAnimationLayer; // TODO(Peter): move into animation panel

@@ -32,11 +32,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->GlobalLog = PushStruct(State->Transient, event_log);
     *State->GlobalLog = {0};
     
-    s32 CommandQueueSize = 32;
-    command_queue_entry* CommandQueueMemory = PushArray(&State->Permanent,
-                                                        command_queue_entry,
-                                                        CommandQueueSize);
-    State->CommandQueue = InitializeCommandQueue(CommandQueueMemory, CommandQueueSize);
+    State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -116,13 +112,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);
     
     State->SACN = SACN_Initialize(Context);
-    
-    State->Camera.FieldOfView = 45.0f;
-    State->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
-    State->Camera.Near = .1f;
-    State->Camera.Far = 800.0f;
-    State->Camera.Position = v3{0, 0, 400};
-    State->Camera.LookAt = v3{0, 0, 0};
     
     State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     

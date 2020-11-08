@@ -86,12 +86,12 @@ GetCommandIndexInQueue(input_command_queue* Queue, input_command Command, input_
 }
 
 internal input_command_queue
-InitializeCommandQueue(command_queue_entry* Memory, s32 MemorySize)
+CommandQueue_Create(gs_memory_arena* Storage, u64 CommandMaxCount)
 {
     input_command_queue Result = {};
-    Result.Size = MemorySize;
+    Result.Size = CommandMaxCount;
     Result.Used = 0;
-    Result.Commands = Memory;
+    Result.Commands = PushArray(Storage, command_queue_entry, CommandMaxCount);
     return Result;
 }
 

@@ -396,7 +396,7 @@ PanelSystem_UpdateLayout(panel_system* System, rect2 WindowBounds)
 }
 
 internal panel*
-GetPanelContainingPoint(v2 Point, panel* Panel)
+GetPanelContainingPoint(panel* Panel, v2 Point)
 {
     panel* Result = 0;
     
@@ -414,11 +414,11 @@ GetPanelContainingPoint(v2 Point, panel* Panel)
             {
                 if (PointIsInRect(Panel->Left->Bounds, Point))
                 {
-                    Result = GetPanelContainingPoint(Point, Panel->Left);
+                    Result = GetPanelContainingPoint(Panel->Left, Point);
                 }
                 else if (PointIsInRect(Panel->Right->Bounds, Point))
                 {
-                    Result = GetPanelContainingPoint(Point, Panel->Right);
+                    Result = GetPanelContainingPoint(Panel->Right, Point);
                 }
             }break;
             
@@ -429,6 +429,14 @@ GetPanelContainingPoint(v2 Point, panel* Panel)
     return Result;
 }
 
+internal panel*
+PanelSystem_GetPanelContainingPoint(panel_system* System, v2 Point)
+{
+    panel* Result = 0;
+    panel* Root = System->Panels;
+    Result = GetPanelContainingPoint(Root, Point);
+    return Result;
+}
 
 #define FOLDHAUS_PANEL_H
 #endif // FOLDHAUS_PANEL_H
