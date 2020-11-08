@@ -10,10 +10,10 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
 {
     DEBUG_TRACK_FUNCTION;
     
-    panel* ActivePanel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
-    b32 PanelSystemHandledInput = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
+    b32 MouseInputHandled = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
     
-    if (!PanelSystemHandledInput && ActivePanel)
+    panel* ActivePanel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
+    if (ActivePanel)
     {
         panel_definition ActiveDef = State->PanelSystem.PanelDefs[ActivePanel->TypeIndex];
         
@@ -22,20 +22,25 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
         {
             ActiveCommands = State->Modes.ActiveModes[State->Modes.ActiveModesCount - 1].Commands;
         }
-        else
+        else if (ActiveDef.InputCommands)
         {
-            if (ActiveDef.InputCommands)
-            {
-                ActiveCommands.Commands = ActiveDef.InputCommands;
-                ActiveCommands.Size = sizeof(*ActiveDef.InputCommands) / sizeof(ActiveDef.InputCommands[0]);
-                ActiveCommands.Used = ActiveCommands.Size;
-            }
+            ActiveCommands.Commands = ActiveDef.InputCommands;
+            ActiveCommands.Size = sizeof(*ActiveDef.InputCommands) / sizeof(ActiveDef.InputCommands[0]);
+            ActiveCommands.Used = ActiveCommands.Size;
         }
         
         // Fill up the command queue
         for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
+            
+            bool IsMouseEvent = (Event.Key == KeyCode_MouseLeftButton ||
+                                 Event.Key == KeyCode_MouseMiddleButton ||
+                                 Event.Key == KeyCode_MouseRightButton);
+            if (IsMouseEvent && MouseInputHandled)
+            {
+                continue;
+            }
             
             // NOTE(Peter): These are in the order Down, Up, Held because we want to privalege
             // Down and Up over Held. In other words, we don't want to call a Held command on the
