@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_COMMAND_DISPATCH_H
 
-#define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse, context Context)
+#define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse, context Context, panel* Panel)
 typedef FOLDHAUS_INPUT_COMMAND_PROC(input_command_proc);
 
 // NOTE(Peter): Helper function so I don't have to remember the parameters to this define

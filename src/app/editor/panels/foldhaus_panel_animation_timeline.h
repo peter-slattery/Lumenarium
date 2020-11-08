@@ -45,7 +45,6 @@ AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, u32 LayerHandle, animat
 
 FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 {
-    panel* Panel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Context.Mouse.Pos);
     animation_timeline_state* PanelState = Panel_GetStateStruct(Panel, animation_timeline_state);
     
     handle SelectedBlockHandle = PanelState->SelectedBlockHandle;
@@ -153,7 +152,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     animation_block* AnimationBlock = Animation_GetBlockFromHandle(ActiveAnim, OpState->BlockHandle);
     if (!AnimationBlock)
     {
-        EndCurrentOperationMode(State, {}, Mouse, Context);
+        EndCurrentOperationMode(State);
         return;
     }
     
@@ -230,7 +229,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
 }
 
 input_command DragAnimationClipCommands [] = {
-    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, EndCurrentOperationMode },
+    { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, 0 },
 };
 
 internal void
@@ -255,7 +254,6 @@ SelectAndBeginDragAnimationBlock(animation_timeline_state* TimelineState, handle
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
-    panel* Panel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Context.Mouse.Pos);
     animation_timeline_state* TimelineState = Panel_GetStateStruct(Panel, animation_timeline_state);
     
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);

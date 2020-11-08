@@ -26,6 +26,8 @@
 
 typedef struct app_state app_state;
 
+typedef struct panel panel;
+
 #include "editor/foldhaus_command_dispatch.h"
 #include "editor/foldhaus_operation_mode.h"
 
@@ -201,7 +203,8 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
 
 // END TEMPORARY PATTERNS
 
-FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
+internal void
+EndCurrentOperationMode(app_state* State)
 {
     DeactivateCurrentOperationMode(&State->Modes);
 }

@@ -42,7 +42,6 @@ input_command MouseRotateViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
 {
-    panel* Panel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Context.Mouse.DownPos);
     sculpture_view_panel_state* PanelState = Panel_GetStateStruct(Panel, sculpture_view_panel_state);
     
     operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands, Update3DViewMouseRotate);

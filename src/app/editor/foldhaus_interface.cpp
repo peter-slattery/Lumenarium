@@ -94,7 +94,6 @@ OPERATION_RENDER_PROC(UpdateAndRenderDragPanelBorder)
 FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
 {
     drag_panel_border_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_panel_border_operation_state);
-    panel* Panel = OpState->Panel;
     rect2 PanelBounds = OpState->InitialPanelBounds;
     
     if (OpState->PanelEditMode == PanelEdit_Modify)
@@ -224,7 +223,6 @@ OPERATION_RENDER_PROC(UpdateAndRenderSplitPanel)
 FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
 {
     split_panel_operation_state* OpState = GetCurrentOperationState(State->Modes, split_panel_operation_state);
-    panel* Panel = OpState->Panel;
     rect2 PanelBounds = OpState->InitialPanelBounds;
     
     r32 XDistance = Abs(Mouse.Pos.x - Mouse.DownPos.x);

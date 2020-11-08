@@ -10,10 +10,13 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
 {
     DEBUG_TRACK_FUNCTION;
     
+    panel* ActivePanel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
     b32 PanelSystemHandledInput = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
     
-    if (!PanelSystemHandledInput)
+    if (!PanelSystemHandledInput && ActivePanel)
     {
+        panel_definition ActiveDef = State->PanelSystem.PanelDefs[ActivePanel->TypeIndex];
+        
         input_command_registry ActiveCommands = {};
         if (State->Modes.ActiveModesCount > 0)
         {
@@ -21,19 +24,15 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
         }
         else
         {
-            panel* PanelWithMouseOverIt = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
-            if (!PanelWithMouseOverIt) { return; }
-            State->HotPanel = PanelWithMouseOverIt;
-            
-            s32 PanelTypeIndex = PanelWithMouseOverIt->TypeIndex;
-            panel_definition PanelDefinition = State->PanelSystem.PanelDefs[PanelTypeIndex];
-            if (!PanelDefinition.InputCommands) { return; }
-            
-            ActiveCommands.Commands = PanelDefinition.InputCommands;
-            ActiveCommands.Size = sizeof(*PanelDefinition.InputCommands) / sizeof(PanelDefinition.InputCommands[0]);
-            ActiveCommands.Used = ActiveCommands.Size;
+            if (ActiveDef.InputCommands)
+            {
+                ActiveCommands.Commands = ActiveDef.InputCommands;
+                ActiveCommands.Size = sizeof(*ActiveDef.InputCommands) / sizeof(ActiveDef.InputCommands[0]);
+                ActiveCommands.Used = ActiveCommands.Size;
+            }
         }
         
+        // Fill up the command queue
         for (s32 EventIdx = 0; EventIdx < InputQueue.QueueUsed; EventIdx++)
         {
             input_entry Event = InputQueue.Entries[EventIdx];
@@ -60,7 +59,14 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
     for (s32 CommandIdx = State->CommandQueue.Used - 1; CommandIdx >= 0; CommandIdx--)
     {
         command_queue_entry* Entry = &State->CommandQueue.Commands[CommandIdx];
-        Entry->Command.Proc(State, Entry->Event, Mouse, Context);
+        if (Entry->Command.Proc)
+        {
+            Entry->Command.Proc(State, Entry->Event, Mouse, Context, ActivePanel);
+        }
+        else
+        {
+            EndCurrentOperationMode(State);
+        }
     }
     
     ClearCommandQueue(&State->CommandQueue);
