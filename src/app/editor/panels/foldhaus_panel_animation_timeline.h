@@ -588,7 +588,8 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 internal void
 DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {
-    ui_layout Layout = ui_CreateLayout(*Interface, PanelBounds);
+    ui_layout Layout = ui_CreateLayout(Interface, PanelBounds);
+    ui_PushLayout(Interface, Layout);
     for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
     {
         animation_clip Clip = GlobalAnimationClips[i];
@@ -598,6 +599,7 @@ DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedA
             AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayerHandle, AnimationSystem);
         }
     }
+    ui_PopLayout(Interface);
 }
 
 internal void
@@ -605,34 +607,36 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
 {
     animation_system* AnimSystem = &State->AnimationSystem;
     ui_interface* Interface = &State->Interface;
-    ui_layout Layout = ui_CreateLayout(*Interface, Bounds);
+    ui_layout Layout = ui_CreateLayout(Interface, Bounds);
+    ui_PushLayout(Interface, Layout);
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
-    ui_StartRow(&Layout, 4);
+    ui_StartRow(&State->Interface, 4);
     {
-        if (ui_LayoutButton(Interface, &Layout, MakeString("Pause")))
+        if (ui_Button(Interface, MakeString("Pause")))
         {
             AnimSystem->TimelineShouldAdvance = false;
         }
         
-        if (ui_LayoutButton(Interface, &Layout, MakeString("Play"), (State->AnimationSystem.TimelineShouldAdvance ? PinkV4 : BlackV4), v4{.3f, .3f, .3f, 1.0f}, TealV4))
+        if (ui_Button(Interface, MakeString("Play")))
         {
             AnimSystem->TimelineShouldAdvance = true;
         }
         
-        if (ui_LayoutButton(Interface, &Layout, MakeString("Stop")))
+        if (ui_Button(Interface, MakeString("Stop")))
         {
             AnimSystem->TimelineShouldAdvance = false;
             AnimSystem->CurrentFrame = 0;
         }
         
-        if (ui_LayoutButton(Interface, &Layout, MakeString("Load")))
+        if (ui_Button(Interface, MakeString("Load")))
         {
             panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
         }
     }
-    ui_EndRow(&Layout);
+    ui_EndRow(&State->Interface);
+    ui_PopLayout(&State->Interface);
 }
 
 internal void
@@ -787,7 +791,33 @@ TimeRange_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_c
 internal void
 AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    ui_FillRect(&State->Interface, Bounds, PinkV4);
+    animation_system* AnimSystem = &State->AnimationSystem;
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(AnimSystem);
+    
+    ui_interface* Interface = &State->Interface;
+    ui_layout Layout = ui_CreateLayout(Interface, Bounds);
+    ui_PushLayout(Interface, Layout);
+    
+    ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
+    
+    ui_StartRow(&State->Interface, 2);
+    {
+        ui_DrawString(Interface, MakeString("Active Animation"));
+        if (ui_BeginDropdown(Interface, ActiveAnim->Name))
+        {
+            for (u32 i = 0; i < AnimSystem->Animations.Count; i++)
+            {
+                animation Animation = AnimSystem->Animations.Values[i];
+                if (ui_Button(Interface, Animation.Name))
+                {
+                    AnimSystem->ActiveAnimationIndex = i;
+                }
+            }
+        }
+        ui_EndDropdown(Interface);
+    }
+    ui_EndRow(&State->Interface);
+    ui_PopLayout(Interface);
 }
 
 internal void
@@ -807,7 +837,7 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     RectVSplit(PanelBounds, 300, &InfoBounds, &TimelineBounds);
     
     rect2 AnimInfoBounds, SelectionInfoBounds;
-    RectHSplitAtPercent(InfoBounds, .35f, &AnimInfoBounds, &SelectionInfoBounds);
+    RectHSplitAtPercent(InfoBounds, .65f, &AnimInfoBounds, &SelectionInfoBounds);
     
     { // Timeline
         rect2 LayersPanelBounds, TimeRangePanelBounds;

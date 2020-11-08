@@ -88,15 +88,16 @@ internal void
 FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
-    ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
+    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
+    ui_PushLayout(&State->Interface, Layout);
     
-    if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Exit")))
+    if (ui_Button(&State->Interface, MakeString("Exit")))
     {
         FileView_Exit_(Panel, State, Context);
     }
     
     // Header
-    ui_LayoutDrawString(&State->Interface, &Layout, FileViewState->WorkingDirectory, v4{0, 1, 0, 1});
+    ui_DrawString(&State->Interface, FileViewState->WorkingDirectory);
     
     // File Display
     for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
@@ -121,6 +122,7 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
         }
     }
     
+    ui_PopLayout(&State->Interface);
 }
 
 

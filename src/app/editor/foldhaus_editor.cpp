@@ -84,7 +84,11 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
+    ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
+    
+    ui_layout Layout = ui_CreateLayout(&State->Interface, Context->WindowBounds);
+    ui_PushLayout(&State->Interface, Layout);
     
     DrawAllPanels(State->PanelSystem, RenderBuffer, &Context->Mouse, State, *Context);
     
@@ -94,6 +98,66 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
         if (OperationMode.Render != 0)
         {
             OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
+        }
+    }
+    
+    ui_PopLayout(&State->Interface);
+    
+    // Draw the Interface
+    for (u32 i = 0; i < State->Interface.WidgetsCount; i++)
+    {
+        ui_widget Widget = State->Interface.Widgets[i];
+        
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
+        {
+            v4 Color = State->Interface.Style.ButtonColor_Inactive;
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
+            {
+                Color = State->Interface.Style.ButtonColor_Active;
+            }
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
+            {
+                Color = State->Interface.Style.ButtonColor_Selected;
+            }
+            PushRenderQuad2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Color);
+        }
+        
+        if (Widget.String.Length > 0)
+        {
+            v4 Color = State->Interface.Style.TextColor;
+            render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
+                                                                                      Widget.String.Length,
+                                                                                      State->Interface.Style.Font->BitmapMemory,
+                                                                                      State->Interface.Style.Font->BitmapTextureHandle,
+                                                                                      State->Interface.Style.Font->BitmapWidth,
+                                                                                      State->Interface.Style.Font->BitmapHeight,
+                                                                                      State->Interface.Style.Font->BitmapBytesPerPixel,
+                                                                                      State->Interface.Style.Font->BitmapStride);
+            
+            v2 RegisterPosition = Widget.Bounds.Min + State->Interface.Style.Margin;
+            
+            switch (Widget.Alignment)
+            {
+                case Align_Left:
+                {
+                    RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
+                }break;
+                
+                case Align_Right:
+                {
+                    RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
+                }break;
+                
+                InvalidDefaultCase;
+            }
+        }
+        
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
+        {
+            // TODO(pjs): replace these with values from the style
+            r32 Thickness = 1.0f;
+            v4 Color = WhiteV4;
+            PushRenderBoundingBox2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Thickness, Color);
         }
     }
     

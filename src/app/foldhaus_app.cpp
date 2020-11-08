@@ -103,7 +103,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Style.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
     State->Interface.Style.ButtonColor_Inactive = BlackV4;
     State->Interface.Style.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
-    State->Interface.Style.ButtonColor_Selected = v4{.1f, .1f, .3f, 1};
+    State->Interface.Style.ButtonColor_Selected = v4{.3f, .3f, .3f, 1};
     State->Interface.Style.TextColor = WhiteV4;
     State->Interface.Style.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
     State->Interface.Style.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
@@ -112,6 +112,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Style.Margin = v2{5, 5};
     State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
     
+    State->Interface.WidgetsCountMax = 4096;
+    State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);
+    
     State->SACN = SACN_Initialize(Context);
     
     State->Camera.FieldOfView = 45.0f;
@@ -119,8 +122,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Camera.Near = .1f;
     State->Camera.Far = 800.0f;
     State->Camera.Position = v3{0, 0, 400};
-    State->Camera.LookAt = v3{0, 0, 0
-    };
+    State->Camera.LookAt = v3{0, 0, 0};
     
     State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     

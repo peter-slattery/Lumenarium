@@ -388,42 +388,19 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
     
     rect2 PanelSelectBtnBounds = MakeRect2MinDim(FooterBounds.Min + v2{30, 1}, v2{100, 23});
     
-    if (Panel->PanelSelectionMenuOpen)
+    if (ui_BeginDropdown(&State->Interface, MakeString("Select"), PanelSelectBtnBounds))
     {
-        rect2 ButtonBounds = MakeRect2MinDim(v2{ PanelSelectBtnBounds.Min.x, FooterBounds.Max.y }, v2{ 100, 25 });
-        
-        rect2 MenuBounds = rect2
-        {
-            ButtonBounds.Min,
-            v2{
-                ButtonBounds.Min.x + Rect2Width(ButtonBounds), ButtonBounds.Min.y + (Rect2Height(ButtonBounds) * State->PanelSystem.PanelDefsCount)
-            },
-        };
-        
-        if (ui_MouseClickedRect(State->Interface, MenuBounds))
-        {
-            Panel->PanelSelectionMenuOpen = false;
-        }
-        
         for (s32 i = 0; i < GlobalPanelDefsCount; i++)
         {
             panel_definition Def = State->PanelSystem.PanelDefs[i];
             gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-            if (ui_Button(&State->Interface, DefName, ButtonBounds))
+            if (ui_Button(&State->Interface, DefName))
             {
                 Panel_SetType(Panel, &State->PanelSystem, i, State, Context);
-                Panel->PanelSelectionMenuOpen = false;
             }
-            
-            ButtonBounds = Rect2TranslateY(ButtonBounds, Rect2Height(ButtonBounds));
         }
     }
-    
-    if (ui_Button(&State->Interface, MakeString("Select"), PanelSelectBtnBounds))
-    {
-        Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
-    }
-    
+    ui_EndDropdown(&State->Interface);
 }
 
 internal void

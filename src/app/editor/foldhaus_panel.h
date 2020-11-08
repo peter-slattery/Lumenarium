@@ -36,10 +36,6 @@ struct panel
     panel_split_direction SplitDirection;
     r32 SplitPercent;
     
-    // TODO(Peter): This REALLY doesn't want to live here
-    // Probably belongs in a more generalized PanelInterfaceState or something
-    b32 PanelSelectionMenuOpen;
-    
     panel* Parent;
     
     union{
