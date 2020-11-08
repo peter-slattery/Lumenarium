@@ -45,13 +45,16 @@ AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, u32 LayerHandle, animat
 
 FOLDHAUS_INPUT_COMMAND_PROC(DeleteAnimationBlockCommand)
 {
-    handle SelectedAnimHandle = State->SelectedAnimationBlockHandle;
+    panel* Panel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Context.Mouse.Pos);
+    animation_timeline_state* PanelState = Panel_GetStateStruct(Panel, animation_timeline_state);
+    
+    handle SelectedBlockHandle = PanelState->SelectedBlockHandle;
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-    if(SelectedAnimHandle.Index < ActiveAnim->Blocks_.Count &&
-       ActiveAnim->Blocks_.Generations[SelectedAnimHandle.Index] == SelectedAnimHandle.Generation)
+    if(SelectedBlockHandle.Index < ActiveAnim->Blocks_.Count &&
+       ActiveAnim->Blocks_.Generations[SelectedBlockHandle.Index] == SelectedBlockHandle.Generation)
     {
-        Animation_RemoveBlock(ActiveAnim, State->SelectedAnimationBlockHandle);
-        State->SelectedAnimationBlockHandle = {0};
+        Animation_RemoveBlock(ActiveAnim, PanelState->SelectedBlockHandle);
+        PanelState->SelectedBlockHandle = {0};
         // TODO(pjs): Introduce an animation_block_selection in this file
         // it should have a handle to the animation, block, and a HasSelection flag
         // as it is now, you kind of always have the first block selected
@@ -252,14 +255,15 @@ SelectAndBeginDragAnimationBlock(animation_timeline_state* TimelineState, handle
 
 FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
 {
+    panel* Panel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Context.Mouse.Pos);
+    animation_timeline_state* TimelineState = Panel_GetStateStruct(Panel, animation_timeline_state);
+    
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     
-    panel* ActivePanel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
-    animation_timeline_state* TimelineState = Panel_GetStateStruct(ActivePanel, animation_timeline_state);
     frame_range Range = ActiveAnim->PlayableRange;
-    u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, ActivePanel->Bounds, Range);
+    u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, Panel->Bounds, Range);
     
-    handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, State->SelectedAnimationLayer);
+    handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, TimelineState->SelectedAnimationLayer);
     TimelineState->SelectedBlockHandle = NewBlockHandle;
 }
 
@@ -500,7 +504,7 @@ DrawAnimationTimeline (animation_system* AnimationSystem, animation_timeline_sta
     RectHSplitAtDistanceFromTop(TimelineBounds, 32, &TimelineFrameBarBounds, &TimelineBounds);
     RectHSplitAtDistanceFromBottom(TimelineBounds, 24, &TimelineBlockDisplayBounds, &TimelineRangeBarBounds);
     
-    DrawLayerMenu(AnimationSystem, CurrAnimation, *Interface, LayerMenuBounds, &State->SelectedAnimationLayer);
+    DrawLayerMenu(AnimationSystem, CurrAnimation, *Interface, LayerMenuBounds, &TimelineState->SelectedAnimationLayer);
     
     frame_range AdjustedViewRange = DrawTimelineRangeBar(AnimationSystem, CurrAnimation, TimelineState, *Interface, TimelineRangeBarBounds);
     

@@ -63,8 +63,6 @@ struct app_state
     panel* HotPanel;
     
     r32 PixelsToWorldScale;
-    handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
-    u32 SelectedAnimationLayer; // TODO(Peter): move into animation panel
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
