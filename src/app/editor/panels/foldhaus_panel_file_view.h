@@ -88,8 +88,7 @@ internal void
 FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
-    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown);
     
     if (ui_Button(&State->Interface, MakeString("Exit")))
     {
@@ -108,7 +107,7 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
         gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
         gs_string PathString = PushString(State->Transient, FileName.Length);
         PrintF(&PathString, "%S", FileName);
-        if (ui_LayoutListButton(&State->Interface, &Layout, PathString, i))
+        if (ui_LayoutListButton(&State->Interface, PathString, i))
         {
             if (File.IsDirectory)
             {

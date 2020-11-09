@@ -240,14 +240,14 @@ SelectAndBeginDragAnimationBlock(animation_timeline_state* TimelineState, handle
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     operation_mode* DragAnimationClipMode = ActivateOperationModeWithCommands(&State->Modes, DragAnimationClipCommands, UpdateDragAnimationClip);
     
+    animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, BlockHandle);
+    
     drag_animation_clip_state* OpState = CreateOperationState(DragAnimationClipMode,
                                                               &State->Modes,
                                                               drag_animation_clip_state);
     OpState->TimelineBounds = TimelineBounds;
     OpState->BlockHandle = BlockHandle;
     OpState->VisibleRange = VisibleRange;
-    
-    animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, BlockHandle);
     OpState->ClipRange = SelectedBlock->Range;
 }
 // -------------------
@@ -303,10 +303,7 @@ DrawFrameBar (animation_system* AnimationSystem, ui_interface Interface, frame_r
     r32 BarWidth = Rect2Width(BarBounds);
     
     // Mouse clicked inside frame nubmer bar -> change current frame on timeline
-    // TODO(pjs): both of these functions can get wrapped in a MouseClickedRect
-    //            and an alternate MouseIsDraggingRect
-    if (MouseButtonTransitionedDown(Interface.Mouse.LeftButtonState) &&
-        PointIsInRect(BarBounds, Interface.Mouse.DownPos))
+    if (ui_MouseClickedRect(Interface, BarBounds))
     {
         StartDragTimeMarker(BarBounds, VisibleFrames, State);
     }
@@ -590,13 +587,12 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 internal void
 DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {
-    ui_layout Layout = ui_CreateLayout(Interface, PanelBounds);
-    ui_PushLayout(Interface, Layout);
+    ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown);
     for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
     {
         animation_clip Clip = GlobalAnimationClips[i];
         gs_string ClipName = MakeString(Clip.Name, Clip.NameLength);
-        if (ui_LayoutListEntry(Interface, &Layout, ClipName, i))
+        if (ui_LayoutListButton(Interface, ClipName, i))
         {
             AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayerHandle, AnimationSystem);
         }
@@ -609,8 +605,7 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
 {
     animation_system* AnimSystem = &State->AnimationSystem;
     ui_interface* Interface = &State->Interface;
-    ui_layout Layout = ui_CreateLayout(Interface, Bounds);
-    ui_PushLayout(Interface, Layout);
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown);
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
     ui_StartRow(&State->Interface, 4);
@@ -797,8 +792,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, rende
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(AnimSystem);
     
     ui_interface* Interface = &State->Interface;
-    ui_layout Layout = ui_CreateLayout(Interface, Bounds);
-    ui_PushLayout(Interface, Layout);
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown);
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
     

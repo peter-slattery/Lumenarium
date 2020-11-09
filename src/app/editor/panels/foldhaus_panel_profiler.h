@@ -25,7 +25,7 @@ ProfilerView_Cleanup(panel* Panel, app_state* State)
 }
 
 internal void
-RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_layout Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
+RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
 {
     v4 ThreadColors[] = {
         v4{.73f, .33f, .83f, 1},
@@ -35,7 +35,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_layout Layout, deb
         v4{.74f, .40f, .25f, 1},
     };
     
-    rect2 Bounds = ui_LayoutRemaining(Layout);
+    rect2 Bounds = ui_LayoutRemaining(*Layout);
     r32 Width = Rect2Width(Bounds);
     r32 DepthHeight = 64;
     
@@ -89,7 +89,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_layout Layout, deb
 }
 
 internal void
-RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
+RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
 {
     char Backbuffer[256];
     gs_string String = MakeString(Backbuffer, 0, 256);
@@ -179,8 +179,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
-    ui_layout Layout = ui_CreateLayout(&State->Interface, ProcListBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown);
     
     ui_StartRow(&State->Interface, 4);
     {
@@ -195,7 +194,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
-        ui_ReserveElementBounds(&Layout);
+        ui_ReserveElementBounds(Layout);
         
         if (ui_Button(&State->Interface, MakeString("Resume Recording")))
         {

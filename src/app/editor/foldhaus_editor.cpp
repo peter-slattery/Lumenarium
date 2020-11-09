@@ -89,6 +89,72 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
 }
 
 internal void
+Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget)
+{
+    if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
+    {
+        v4 Color = State->Interface.Style.ButtonColor_Inactive;
+        if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
+        {
+            Color = State->Interface.Style.ButtonColor_Active;
+        }
+        if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
+        {
+            Color = State->Interface.Style.ButtonColor_Selected;
+        }
+        PushRenderQuad2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Color);
+    }
+    
+    if (Widget.String.Length > 0)
+    {
+        v4 Color = State->Interface.Style.TextColor;
+        render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
+                                                                                  Widget.String.Length,
+                                                                                  State->Interface.Style.Font->BitmapMemory,
+                                                                                  State->Interface.Style.Font->BitmapTextureHandle,
+                                                                                  State->Interface.Style.Font->BitmapWidth,
+                                                                                  State->Interface.Style.Font->BitmapHeight,
+                                                                                  State->Interface.Style.Font->BitmapBytesPerPixel,
+                                                                                  State->Interface.Style.Font->BitmapStride);
+        
+        v2 RegisterPosition = Widget.Bounds.Min + State->Interface.Style.Margin;
+        
+        switch (Widget.Alignment)
+        {
+            case Align_Left:
+            {
+                RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
+            }break;
+            
+            case Align_Right:
+            {
+                RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
+            }break;
+            
+            InvalidDefaultCase;
+        }
+    }
+    
+    if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
+    {
+        // TODO(pjs): replace these with values from the style
+        r32 Thickness = 1.0f;
+        v4 Color = WhiteV4;
+        PushRenderBoundingBox2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Thickness, Color);
+    }
+    
+    if (Widget.ChildrenRoot)
+    {
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot);
+    }
+    
+    if (Widget.Next)
+    {
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next);
+    }
+}
+
+internal void
 Editor_Render(app_state* State, context* Context, render_command_buffer* RenderBuffer)
 {
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
@@ -97,9 +163,32 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
     
-    ui_layout Layout = ui_CreateLayout(&State->Interface, Context->WindowBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown);
     
+    rect2 Rects[2];
+    RectVSplitAtPercent(Context->WindowBounds, .5f, &Rects[0], &Rects[1]);
+    for (u32 j = 0; j < 2; j++)
+    {
+        ui_PushLayout(&State->Interface, Rects[j], LayoutDirection_TopDown);
+        
+        if (ui_BeginDropdown(&State->Interface, MakeString("Select")))
+        {
+            for (s32 i = 0; i < GlobalPanelDefsCount; i++)
+            {
+                panel_definition Def = State->PanelSystem.PanelDefs[i];
+                gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
+                if (ui_Button(&State->Interface, DefName))
+                {
+                    
+                }
+            }
+        }
+        ui_EndDropdown(&State->Interface);
+        
+        ui_PopLayout(&State->Interface);
+    }
+    
+#if 0
     DrawAllPanels(State->PanelSystem, RenderBuffer, &Context->Mouse, State, *Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
@@ -110,66 +199,13 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
             OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
         }
     }
+#endif
     
     ui_PopLayout(&State->Interface);
     
     // Draw the Interface
-    for (u32 i = 0; i < State->Interface.WidgetsCount; i++)
-    {
-        ui_widget Widget = State->Interface.Widgets[i];
-        
-        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
-        {
-            v4 Color = State->Interface.Style.ButtonColor_Inactive;
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
-            {
-                Color = State->Interface.Style.ButtonColor_Active;
-            }
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
-            {
-                Color = State->Interface.Style.ButtonColor_Selected;
-            }
-            PushRenderQuad2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Color);
-        }
-        
-        if (Widget.String.Length > 0)
-        {
-            v4 Color = State->Interface.Style.TextColor;
-            render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
-                                                                                      Widget.String.Length,
-                                                                                      State->Interface.Style.Font->BitmapMemory,
-                                                                                      State->Interface.Style.Font->BitmapTextureHandle,
-                                                                                      State->Interface.Style.Font->BitmapWidth,
-                                                                                      State->Interface.Style.Font->BitmapHeight,
-                                                                                      State->Interface.Style.Font->BitmapBytesPerPixel,
-                                                                                      State->Interface.Style.Font->BitmapStride);
-            
-            v2 RegisterPosition = Widget.Bounds.Min + State->Interface.Style.Margin;
-            
-            switch (Widget.Alignment)
-            {
-                case Align_Left:
-                {
-                    RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
-                }break;
-                
-                case Align_Right:
-                {
-                    RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
-                }break;
-                
-                InvalidDefaultCase;
-            }
-        }
-        
-        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
-        {
-            // TODO(pjs): replace these with values from the style
-            r32 Thickness = 1.0f;
-            v4 Color = WhiteV4;
-            PushRenderBoundingBox2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Thickness, Color);
-        }
-    }
+    ui_widget Widget = *State->Interface.DrawOrderRoot;
+    Editor_DrawWidget(State, Context, RenderBuffer, Widget);
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
     Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);

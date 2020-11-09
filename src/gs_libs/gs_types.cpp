@@ -3112,6 +3112,24 @@ TimeHandlerGetSecondsElapsed(gs_time_handler TimeHandler, s64 StartCycles, s64 E
 // Hashes
 
 internal u32
+HashAppendDJB2ToU32(u32 Hash, u8 Byte)
+{
+    u32 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
+
+internal u64
+HashAppendDJB2ToU32(u64 Hash, u8 Byte)
+{
+    u64 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
+
+internal u32
 HashDJB2ToU32(char* String)
 {
     u32 Hash = 5381;
