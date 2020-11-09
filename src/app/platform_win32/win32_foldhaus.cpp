@@ -423,6 +423,26 @@ Win32_SendAddressedDataBuffers_Job(gs_thread_context Context, gs_data Arg)
     Win32_SendAddressedDataBuffers(Context, *OutputData);
 }
 
+#pragma pack(push, 1)
+struct test_microphone_packet
+{
+    b8 ChangeAnimation;
+    char AnimationFileName[32];
+    b8 SetLayer;
+    char LayerName[32];
+    r32 LayerOpacity;
+    b8 SetLayerParamColor;
+    char LayerParamColor[7];
+    r32 OverrideDuration;
+};
+#pragma pack(pop)
+
+inline u32
+UpackB4(const u8* ptr)
+{
+    return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -561,6 +581,20 @@ WinMain (
     WSADATA WSAData;
     WSAStartup(MAKEWORD(2, 2), &WSAData);
     Win32Sockets = Win32SocketArray_Create(16, &PlatformPermanent);
+    
+    
+    win32_socket TestSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
+    test_microphone_packet* Recv = 0;
+    while (true)
+    {
+        gs_data Data = Win32Socket_Receive(&TestSocket, ThreadContext.Transient);
+        if (Data.Size > 0)
+        {
+            OutputDebugStringA("Received\n");
+            Recv = (test_microphone_packet*)Data.Memory;
+        }
+        ClearArena(ThreadContext.Transient);
+    }
     
     Win32SerialArray_Create(ThreadContext);
     
