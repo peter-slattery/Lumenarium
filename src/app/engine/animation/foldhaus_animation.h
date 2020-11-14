@@ -102,13 +102,6 @@ struct animation_frame
 {
     animation_layer_frame* Layers;
     u32 LayersCount;
-    
-    // NOTE(pjs): These are all parallel arrays of equal length
-    animation_block* Blocks;
-    b8*              BlocksFilled;
-    
-    u32 BlocksCountMax;
-    u32 BlocksCount;
 };
 
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
@@ -442,12 +435,7 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
     animation_frame Result = {0};
     Result.LayersCount = ActiveAnim->Layers.Count;
     Result.Layers = PushArray(Arena, animation_layer_frame, Result.LayersCount);
-    ZeroArray(Result.Layers, animation_frame, Result.LayersCount);
-    
-    Result.BlocksCountMax = ActiveAnim->Layers.Count;
-    Result.Blocks = PushArray(Arena, animation_block, Result.BlocksCountMax);
-    Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
-    ZeroArray(Result.BlocksFilled, b8, Result.BlocksCountMax);
+    ZeroArray(Result.Layers, animation_layer_frame, Result.LayersCount);
     
     for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
     {
@@ -486,11 +474,6 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
                 Layer->HotOpacity = 1.0f;
                 Layer->HasHot = true;
             }
-            
-            // TODO(pjs): Get rid of these fields, they're redundant now
-            Result.BlocksFilled[Block.Layer] = true;
-            Result.Blocks[Block.Layer] = Block;
-            Result.BlocksCount++;
         }
     }
     

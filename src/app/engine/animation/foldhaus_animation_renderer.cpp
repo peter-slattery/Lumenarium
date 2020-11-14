@@ -179,17 +179,18 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
         
         // Consolidate Temp Buffers
         // We do this in reverse order so that they go from top to bottom
-        for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
+        for (u32 Layer = 0; Layer < CurrFrame.LayersCount; Layer++)
         {
-            if (!CurrFrame.BlocksFilled[Layer]) { continue; }
-            
-            led_blend_proc* Blend = LedBlend_GetProc(ActiveAnim->Layers.Values[Layer].BlendMode);
-            Assert(Blend != 0);
-            for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
+            if (CurrFrame.Layers[Layer].HasHot)
             {
-                pixel A = AssemblyLedBuffer->Colors[LED];
-                pixel B = LayerBuffers[Layer].HotBuffer.Colors[LED];
-                AssemblyLedBuffer->Colors[LED] = Blend(A, B);
+                led_blend_proc* Blend = LedBlend_GetProc(ActiveAnim->Layers.Values[Layer].BlendMode);
+                Assert(Blend != 0);
+                for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
+                {
+                    pixel A = AssemblyLedBuffer->Colors[LED];
+                    pixel B = LayerBuffers[Layer].HotBuffer.Colors[LED];
+                    AssemblyLedBuffer->Colors[LED] = Blend(A, B);
+                }
             }
         }
     }
