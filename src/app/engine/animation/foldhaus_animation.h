@@ -41,6 +41,7 @@ enum blend_mode
     BlendMode_Count,
 };
 
+// TODO(pjs): Add Opacity to this
 typedef pixel led_blend_proc(pixel PixelA, pixel PixelB);
 
 global gs_const_string BlendModeStrings[] = {
@@ -84,10 +85,22 @@ struct animation_array
     u32 CountMax;
 };
 
+struct animation_layer_frame
+{
+    animation_block Hot;
+    animation_block NextHot;
+    bool HasNextHot;
+};
+
 // NOTE(pjs): This is an evaluated frame - across all layers in an
 // animation, these are the blocks that need to be run
 struct animation_frame
 {
+    animation_layer_frame* Layers;
+    b8* LayersFilled;
+    u32 LayersCount;
+    u32 LayersCountMax;
+    
     // NOTE(pjs): These are all parallel arrays of equal length
     animation_block* Blocks;
     b8*              BlocksFilled;

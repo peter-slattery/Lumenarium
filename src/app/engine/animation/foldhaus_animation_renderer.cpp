@@ -77,22 +77,35 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
     s32 CurrentFrame = System->CurrentFrame;
     r32 FrameTime = CurrentFrame * System->SecondsPerFrame;
     
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
     animation_frame CurrFrame = AnimationSystem_CalculateAnimationFrame(System, Transient);
     
-    led_buffer* LayerLEDBuffers = PushArray(Transient, led_buffer, CurrFrame.BlocksCountMax);
+    led_buffer* LayerLedBuffers = PushArray(Transient, led_buffer, CurrFrame.BlocksCountMax);
+    
     for (u32 AssemblyIndex = 0; AssemblyIndex < Assemblies.Count; AssemblyIndex++)
     {
         assembly* Assembly = &Assemblies.Values[AssemblyIndex];
         led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(LedSystem, Assembly->LedBufferIndex);
         
+        // Create the LayerLEDBuffers
         for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
         {
+            led_buffer TempBuffer = {};
+            TempBuffer.LedCount = AssemblyLedBuffer->LedCount;
+            TempBuffer.Positions = AssemblyLedBuffer->Positions;
+            TempBuffer.Colors = PushArray(Transient, pixel, TempBuffer.LedCount);
+            LedBuffer_ClearToBlack(&TempBuffer);
+            
+            LayerLedBuffers[Layer] = TempBuffer;
+        }
+        
+        // Render Each layer's block to the appropriate temp buffer
+        for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
+        {
+            led_buffer TempBuffer = LayerLedBuffers[Layer];
+            
             if (!CurrFrame.BlocksFilled[Layer]) { continue; }
             animation_block Block = CurrFrame.Blocks[Layer];
-            
-            // Prep Temp Buffer
-            LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
-            LayerLEDBuffers[Layer].Colors = PushArray(Transient, pixel, AssemblyLedBuffer->LedCount);
             
             u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
             r32 SecondsIntoBlock = FramesIntoBlock * System->SecondsPerFrame;
@@ -100,12 +113,11 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
             // :AnimProcHandle
             u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
             animation_proc* AnimationProc = Patterns[AnimationProcIndex].Proc;
-            AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, Transient);
+            AnimationProc(&TempBuffer, *Assembly, SecondsIntoBlock, Transient);
         }
         
         // Consolidate Temp Buffers
         // We do this in reverse order so that they go from top to bottom
-        animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
         for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
         {
             if (!CurrFrame.BlocksFilled[Layer]) { continue; }
@@ -115,7 +127,7 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
             for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
             {
                 pixel A = AssemblyLedBuffer->Colors[LED];
-                pixel B = LayerLEDBuffers[Layer].Colors[LED];
+                pixel B = LayerLedBuffers[Layer].Colors[LED];
                 AssemblyLedBuffer->Colors[LED] = Blend(A, B);
             }
         }
