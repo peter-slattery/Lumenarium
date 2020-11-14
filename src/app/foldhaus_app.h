@@ -38,6 +38,7 @@ typedef struct panel panel;
 
 #include "engine/animation/foldhaus_animation.h"
 #include "engine/animation/foldhaus_animation_serializer.cpp"
+#include "engine/animation/foldhaus_animation_renderer.cpp"
 
 struct app_state
 {

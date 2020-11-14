@@ -454,6 +454,10 @@ WinMain (
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
 #if 0
+    // NOTE(pjs): UART TEST CODE
+    // NOTE(pjs): UART TEST CODE
+    // NOTE(pjs): UART TEST CODE
+    
     u32 LedCount = 48;
     u32 MessageBaseSize = sizeof(uart_header) + sizeof(uart_channel) + sizeof(uart_footer);
     MessageBaseSize += sizeof(u8) * 3 * LedCount;
@@ -580,6 +584,10 @@ WinMain (
     WSAStartup(MAKEWORD(2, 2), &WSAData);
     Win32Sockets = Win32SocketArray_Create(16, &PlatformPermanent);
     
+#if 0
+    // NOTE(pjs): SOCKET READING TEST CODE
+    // NOTE(pjs): SOCKET READING TEST CODE
+    // NOTE(pjs): SOCKET READING TEST CODE
     
     win32_socket TestSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
     test_microphone_packet* Recv = 0;
@@ -593,6 +601,7 @@ WinMain (
         }
         ClearArena(ThreadContext.Transient);
     }
+#endif
     
     Win32SerialArray_Create(ThreadContext);
     

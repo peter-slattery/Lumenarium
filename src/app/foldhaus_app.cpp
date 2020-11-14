@@ -168,104 +168,15 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     Editor_Update(State, Context, InputQueue);
     
+    AnimationSystem_Update(&State->AnimationSystem);
+    if (AnimationSystem_NeedsRender(State->AnimationSystem))
     {
-        animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-        if (State->AnimationSystem.TimelineShouldAdvance) {
-            // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-            // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-            State->AnimationSystem.CurrentFrame += 1;
-            
-            // Loop back to the beginning
-            if (State->AnimationSystem.CurrentFrame > ActiveAnim->PlayableRange.Max)
-            {
-                State->AnimationSystem.CurrentFrame = 0;
-            }
-        }
-    }
-    
-    s32 CurrentFrame = State->AnimationSystem.CurrentFrame;
-    if (CurrentFrame != State->AnimationSystem.LastUpdatedFrame)
-    {
-        State->AnimationSystem.LastUpdatedFrame = CurrentFrame;
-        r32 FrameTime = CurrentFrame * State->AnimationSystem.SecondsPerFrame;
-        
-        animation_frame CurrFrame = AnimationSystem_CalculateAnimationFrame(&State->AnimationSystem, State->Transient);
-        
-        led_buffer* LayerLEDBuffers = PushArray(State->Transient, led_buffer, CurrFrame.BlocksCountMax);
-        for (u32 AssemblyIndex = 0; AssemblyIndex < State->Assemblies.Count; AssemblyIndex++)
-        {
-            assembly* Assembly = &State->Assemblies.Values[AssemblyIndex];
-            led_buffer* AssemblyLedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly->LedBufferIndex);
-            
-            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
-            {
-                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
-                animation_block Block = CurrFrame.Blocks[Layer];
-                
-                // Prep Temp Buffer
-                LayerLEDBuffers[Layer] = *AssemblyLedBuffer;
-                LayerLEDBuffers[Layer].Colors = PushArray(State->Transient, pixel, AssemblyLedBuffer->LedCount);
-                
-                u32 FramesIntoBlock = CurrentFrame - Block.Range.Min;
-                r32 SecondsIntoBlock = FramesIntoBlock * State->AnimationSystem.SecondsPerFrame;
-                
-                // :AnimProcHandle
-                u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
-                animation_proc* AnimationProc = GlobalAnimationPatterns[AnimationProcIndex].Proc;
-                AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, State->Transient);
-            }
-            
-            // Consolidate Temp Buffers
-            // We do this in reverse order so that they go from top to bottom
-            animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-            for (u32 Layer = 0; Layer < CurrFrame.BlocksCountMax; Layer++)
-            {
-                if (!CurrFrame.BlocksFilled[Layer]) { continue; }
-                
-                switch (ActiveAnim->Layers.Values[Layer].BlendMode)
-                {
-                    case BlendMode_Overwrite:
-                    {
-                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
-                        {
-                            AssemblyLedBuffer->Colors[LED] = LayerLEDBuffers[Layer].Colors[LED];
-                        }
-                    }break;
-                    
-                    case BlendMode_Add:
-                    {
-                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
-                        {
-                            u32 R = (u32)AssemblyLedBuffer->Colors[LED].R + (u32)LayerLEDBuffers[Layer].Colors[LED].R;
-                            u32 G = (u32)AssemblyLedBuffer->Colors[LED].G + (u32)LayerLEDBuffers[Layer].Colors[LED].G;
-                            u32 B = (u32)AssemblyLedBuffer->Colors[LED].B + (u32)LayerLEDBuffers[Layer].Colors[LED].B;
-                            
-                            AssemblyLedBuffer->Colors[LED].R = (u8)Min(R, (u32)255);
-                            AssemblyLedBuffer->Colors[LED].G = (u8)Min(G, (u32)255);
-                            AssemblyLedBuffer->Colors[LED].B = (u8)Min(B, (u32)255);
-                        }
-                    }break;
-                    
-                    case BlendMode_Multiply:
-                    {
-                        for (u32 LED = 0; LED < AssemblyLedBuffer->LedCount; LED++)
-                        {
-                            r32 DR = (r32)AssemblyLedBuffer->Colors[LED].R / 255.f;
-                            r32 DG = (r32)AssemblyLedBuffer->Colors[LED].G / 255.f;
-                            r32 DB = (r32)AssemblyLedBuffer->Colors[LED].B / 255.f;
-                            
-                            r32 SR = (r32)LayerLEDBuffers[Layer].Colors[LED].R / 255.f;
-                            r32 SG = (r32)LayerLEDBuffers[Layer].Colors[LED].G / 255.f;
-                            r32 SB = (r32)LayerLEDBuffers[Layer].Colors[LED].B / 255.f;
-                            
-                            AssemblyLedBuffer->Colors[LED].R = (u8)((DR * SR) * 255.f);
-                            AssemblyLedBuffer->Colors[LED].G = (u8)((DG * SG) * 255.f);
-                            AssemblyLedBuffer->Colors[LED].B = (u8)((DB * SB) * 255.f);
-                        }
-                    }break;
-                }
-            }
-        }
+        State->AnimationSystem.LastUpdatedFrame = State->AnimationSystem.CurrentFrame;
+        AnimationSystem_RenderToLedBuffers(&State->AnimationSystem,
+                                           State->Assemblies,
+                                           &State->LedSystem,
+                                           GlobalAnimationPatterns,
+                                           State->Transient);
     }
     
     {

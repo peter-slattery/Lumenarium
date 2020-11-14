@@ -14,6 +14,10 @@ struct frame_range
     s32 Max;
 };
 
+// NOTE(pjs): An animation block is a time range paired with an
+// animation_pattern (see below). While a timeline's current time
+// is within the range of a block, that particular block's animation
+// will run
 struct animation_block
 {
     frame_range Range;
@@ -37,6 +41,8 @@ enum blend_mode
     BlendMode_Count,
 };
 
+typedef pixel led_blend_proc(pixel PixelA, pixel PixelB);
+
 global gs_const_string BlendModeStrings[] = {
     ConstString("Overwrite"),
     ConstString("Add"),
@@ -57,11 +63,15 @@ struct anim_layer_array
     u32 CountMax;
 };
 
+// NOTE(pjs): An animation is a stack of layers, each of which
+// is a timeline of animation blocks.
 struct animation
 {
     gs_string Name;
     
     anim_layer_array Layers;
+    // TODO(pjs): Pretty sure Blocks_ should be obsolete and
+    // Layers should contain their own blocks
     animation_block_array Blocks_;
     
     frame_range PlayableRange;
@@ -74,6 +84,8 @@ struct animation_array
     u32 CountMax;
 };
 
+// NOTE(pjs): This is an evaluated frame - across all layers in an
+// animation, these are the blocks that need to be run
 struct animation_frame
 {
     // NOTE(pjs): These are all parallel arrays of equal length
@@ -102,7 +114,9 @@ struct animation_system
     
 };
 
-// TODO(pjs): Better name - something like animation_prototype
+// NOTE(pjs): A Pattern is a named procedure which can be used as
+// an element of an animation. Patterns are sequenced on a timeline
+// and blended via layers to create an animation
 struct animation_pattern
 {
     char* Name;
@@ -428,6 +442,30 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
         }
     }
     
+    return Result;
+}
+
+internal void
+AnimationSystem_Update(animation_system* System)
+{
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
+    if (System->TimelineShouldAdvance) {
+        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+        System->CurrentFrame += 1;
+        
+        // Loop back to the beginning
+        if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
+        {
+            System->CurrentFrame = 0;
+        }
+    }
+}
+
+inline bool
+AnimationSystem_NeedsRender(animation_system System)
+{
+    bool Result = (System.CurrentFrame != System.LastUpdatedFrame);
     return Result;
 }
 
