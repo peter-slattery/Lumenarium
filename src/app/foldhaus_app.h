@@ -202,6 +202,17 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     }
 }
 
+internal void
+Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        Leds->Colors[LedIndex].R = 0;
+        Leds->Colors[LedIndex].B = 255;
+        Leds->Colors[LedIndex].G = 255;
+    }
+}
+
 // END TEMPORARY PATTERNS
 
 internal void
@@ -210,11 +221,12 @@ EndCurrentOperationMode(app_state* State)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-s32 GlobalAnimationPatternsCount = 3;
+s32 GlobalAnimationPatternsCount = 4;
 animation_pattern GlobalAnimationPatterns[] = {
     { "Test Pattern One", 16, TestPatternOne  },
     { "Test Pattern Two", 16, TestPatternTwo },
     { "Test Pattern Three", 18, TestPatternThree },
+    { "Pattern_AllGreen", 16, Pattern_AllGreen },
 };
 
 #include "editor/panels/foldhaus_panel_types.h"

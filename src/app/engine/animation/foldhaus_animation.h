@@ -88,8 +88,12 @@ struct animation_array
 struct animation_layer_frame
 {
     animation_block Hot;
+    bool HasHot;
+    
     animation_block NextHot;
     bool HasNextHot;
+    
+    r32 HotOpacity;
 };
 
 // NOTE(pjs): This is an evaluated frame - across all layers in an
@@ -97,9 +101,7 @@ struct animation_layer_frame
 struct animation_frame
 {
     animation_layer_frame* Layers;
-    b8* LayersFilled;
     u32 LayersCount;
-    u32 LayersCountMax;
     
     // NOTE(pjs): These are all parallel arrays of equal length
     animation_block* Blocks;
@@ -438,6 +440,10 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
     
     animation_frame Result = {0};
+    Result.LayersCount = ActiveAnim->Layers.Count;
+    Result.Layers = PushArray(Arena, animation_layer_frame, Result.LayersCount);
+    ZeroArray(Result.Layers, animation_frame, Result.LayersCount);
+    
     Result.BlocksCountMax = ActiveAnim->Layers.Count;
     Result.Blocks = PushArray(Arena, animation_block, Result.BlocksCountMax);
     Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
@@ -449,6 +455,39 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
         
         if (FrameIsInRange(Block.Range, System->CurrentFrame))
         {
+            animation_layer_frame* Layer = Result.Layers + Block.Layer;
+            if (Layer->HasHot)
+            {
+                // NOTE(pjs): With current implementation, we don't allow
+                // animations to hvae more than 2 concurrent blocks in the
+                // timeline
+                Assert(!Layer->HasNextHot);
+                
+                // NOTE(pjs): Make sure that Hot comes before NextHot
+                if (Layer->Hot.Range.Min < Block.Range.Min)
+                {
+                    Layer->NextHot = Block;
+                }
+                else
+                {
+                    Layer->NextHot = Layer->Hot;
+                    Layer->Hot = Block;
+                }
+                Layer->HasNextHot = true;
+                
+                frame_range BlendRange = {};
+                BlendRange.Min = Layer->NextHot.Range.Min;
+                BlendRange.Max = Layer->Hot.Range.Max;
+                Layer->HotOpacity = 1.0f - FrameToPercentRange(System->CurrentFrame, BlendRange);
+            }
+            else
+            {
+                Layer->Hot = Block;
+                Layer->HotOpacity = 1.0f;
+                Layer->HasHot = true;
+            }
+            
+            // TODO(pjs): Get rid of these fields, they're redundant now
             Result.BlocksFilled[Block.Layer] = true;
             Result.Blocks[Block.Layer] = Block;
             Result.BlocksCount++;
