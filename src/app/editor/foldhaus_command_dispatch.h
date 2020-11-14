@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_COMMAND_DISPATCH_H
 
-#define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse, context Context)
+#define FOLDHAUS_INPUT_COMMAND_PROC(name) void name(app_state* State, input_entry Event, mouse_state Mouse, context Context, panel* Panel)
 typedef FOLDHAUS_INPUT_COMMAND_PROC(input_command_proc);
 
 // NOTE(Peter): Helper function so I don't have to remember the parameters to this define
@@ -86,12 +86,12 @@ GetCommandIndexInQueue(input_command_queue* Queue, input_command Command, input_
 }
 
 internal input_command_queue
-InitializeCommandQueue(command_queue_entry* Memory, s32 MemorySize)
+CommandQueue_Create(gs_memory_arena* Storage, u64 CommandMaxCount)
 {
     input_command_queue Result = {};
-    Result.Size = MemorySize;
+    Result.Size = CommandMaxCount;
     Result.Used = 0;
-    Result.Commands = Memory;
+    Result.Commands = PushArray(Storage, command_queue_entry, CommandMaxCount);
     return Result;
 }
 

@@ -168,6 +168,17 @@ LedSystemGetBuffer(led_system* System, u32 Index)
     return Result;
 }
 
+internal void
+LedBuffer_ClearToBlack(led_buffer* Buffer)
+{
+    for (u32 i = 0; i < Buffer->LedCount; i++)
+    {
+        Buffer->Colors[i].R = 0;
+        Buffer->Colors[i].G = 0;
+        Buffer->Colors[i].B = 0;
+    }
+}
+
 internal u32
 StripGenData_CountLeds(strip_gen_data Data)
 {

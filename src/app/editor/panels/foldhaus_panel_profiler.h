@@ -84,7 +84,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_layout Layout, deb
         PrintF(&String, "%S : %d - %d", HotRecordName->Name, HotRecord->StartCycles, HotRecord->EndCycles);
         
         rect2 TextBounds = MakeRect2MinDim(Interface->Mouse.Pos, v2{256, 32});
-        ui_TextBox(Interface, TextBounds, String, BlackV4, WhiteV4);
+        ui_DrawString(Interface, String, TextBounds);
     }
 }
 
@@ -95,15 +95,15 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debu
     gs_string String = MakeString(Backbuffer, 0, 256);
     
     r32 ColumnWidths[] = {256, 128, 128, 128, 128};
-    ui_StartRow(&Layout, 5, &ColumnWidths[0]);
+    ui_StartRow(Interface, 5, &ColumnWidths[0]);
     {
-        ui_LayoutDrawString(Interface, &Layout, MakeString("Procedure"), Interface->Style.TextColor);
-        ui_LayoutDrawString(Interface, &Layout, MakeString("% Frame"), Interface->Style.TextColor);
-        ui_LayoutDrawString(Interface, &Layout, MakeString("Seconds"), Interface->Style.TextColor);
-        ui_LayoutDrawString(Interface, &Layout, MakeString("Cycles"), Interface->Style.TextColor);
-        ui_LayoutDrawString(Interface, &Layout, MakeString("Calls"), Interface->Style.TextColor);
+        ui_DrawString(Interface, MakeString("Procedure"));
+        ui_DrawString(Interface, MakeString("% Frame"));
+        ui_DrawString(Interface, MakeString("Seconds"));
+        ui_DrawString(Interface, MakeString("Cycles"));
+        ui_DrawString(Interface, MakeString("Calls"));
     }
-    ui_EndRow(&Layout);
+    ui_EndRow(Interface);
     
     for (s32 n = 0; n < VisibleFrame->ScopeNamesMax; n++)
     {
@@ -112,24 +112,24 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debu
         {
             collated_scope_record* CollatedRecord = VisibleFrame->CollatedScopes + n;
             
-            ui_StartRow(&Layout, 5, &ColumnWidths[0]);
+            ui_StartRow(Interface, 5, &ColumnWidths[0]);
             {
                 PrintF(&String, "%S", NameEntry.Name);
-                ui_LayoutDrawString(Interface, &Layout, String, Interface->Style.TextColor);
+                ui_DrawString(Interface, String);
                 
                 PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
-                ui_LayoutDrawString(Interface, &Layout, String, Interface->Style.TextColor);
+                ui_DrawString(Interface, String);
                 
                 PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
-                ui_LayoutDrawString(Interface, &Layout, String, Interface->Style.TextColor);
+                ui_DrawString(Interface, String);
                 
                 PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
-                ui_LayoutDrawString(Interface, &Layout, String, Interface->Style.TextColor);
+                ui_DrawString(Interface, String);
                 
                 PrintF(&String, "%d", CollatedRecord->CallCount);
-                ui_LayoutDrawString(Interface, &Layout, String, Interface->Style.TextColor);
+                ui_DrawString(Interface, String);
             }
-            ui_EndRow(&Layout);
+            ui_EndRow(Interface);
         }
     }
 }
@@ -179,41 +179,43 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
-    ui_layout Layout = ui_CreateLayout(State->Interface, ProcListBounds);
-    ui_StartRow(&Layout, 4);
+    ui_layout Layout = ui_CreateLayout(&State->Interface, ProcListBounds);
+    ui_PushLayout(&State->Interface, Layout);
+    
+    ui_StartRow(&State->Interface, 4);
     {
         s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
         s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
         u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
         PrintF(&String, "Frame %d", CurrentDebugFrame);
-        ui_LayoutDrawString(&State->Interface, &Layout, String, WhiteV4);
+        ui_DrawString(&State->Interface, String);
         
         PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
-        ui_LayoutDrawString(&State->Interface, &Layout, String, WhiteV4);
+        ui_DrawString(&State->Interface, String);
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
         ui_ReserveElementBounds(&Layout);
         
-        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Resume Recording")))
+        if (ui_Button(&State->Interface, MakeString("Resume Recording")))
         {
             GlobalDebugServices->RecordFrames = true;
         }
     }
-    ui_EndRow(&Layout);
+    ui_EndRow(&State->Interface);
     
-    ui_StartRow(&Layout, 8);
+    ui_StartRow(&State->Interface, 8);
     {
-        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("Scope View")))
+        if (ui_Button(&State->Interface, MakeString("Scope View")))
         {
             GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER;
         }
-        if (ui_LayoutButton(&State->Interface, &Layout, MakeString("List View")))
+        if (ui_Button(&State->Interface, MakeString("List View")))
         {
             GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST;
         }
     }
-    ui_EndRow(&Layout);
+    ui_EndRow(&State->Interface);
     
     if (GlobalDebugServices->Interface.FrameView == FRAME_VIEW_PROFILER)
     {
@@ -223,6 +225,8 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     {
         RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
     }
+    
+    ui_PopLayout(&State->Interface);
 }
 
 

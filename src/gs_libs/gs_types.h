@@ -231,7 +231,7 @@ struct u64_array
 # define InvalidDefaultCase default: { AssertBreak("invalid default case"); } break;
 # define StaticAssert(c) \
 enum { \
-Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
+    Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
 }
 #else
 # define Assert(c)

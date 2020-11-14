@@ -5,6 +5,14 @@
 //
 #ifndef INTERFACE_H
 
+// Widget Capabilities
+// - string
+// - background
+// - outline
+// - active (mouse is interacting)
+// - hot (mouse could be about to interact)
+// - retained state - if a toggle is active, or a drop down is open
+
 enum gs_string_alignment
 {
     Align_Left,
@@ -129,7 +137,7 @@ DrawCursor (render_quad_batch_constructor* BatchConstructor, v2 Position, v4 Col
 }
 
 internal v2
-Drawgs_stringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32 CursorPosition, bitmap_font* Font, v2 Position, v4 Color, v4 CursorColor, gs_string_alignment Alignment = Align_Left)
+DrawStringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32 CursorPosition, bitmap_font* Font, v2 Position, v4 Color, v4 CursorColor, gs_string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     v2 LowerRight = Position;
@@ -180,10 +188,44 @@ Drawgs_stringWithCursor (render_command_buffer* RenderBuffer, gs_string String, 
     return LowerRight;
 }
 
+// TODO(pjs): remove the need for htis (go thru and remove code that's in the #else block of #ifdef EXTERNAL_RENDERER s
+#define EXTERNAL_RENDERER
+
+enum ui_widget_flag
+{
+    UIWidgetFlag_DrawBackground,
+    UIWidgetFlag_DrawOutline,
+    UIWidgetFlag_Clickable,
+};
+
+struct ui_widget_id
+{
+    u64 Index;
+    u64 LayoutId;
+};
+
+struct ui_widget
+{
+    ui_widget_id Id;
+    
+    gs_string String;
+    gs_string_alignment Alignment;
+    
+    rect2 Bounds;
+    u64 Flags;
+    bool RetainedState;
+};
+
+struct ui_eval_result
+{
+    bool Clicked;
+};
+
 struct interface_config
 {
     v4 PanelBGColors[4];
     
+    // TODO(pjs): Turn these into _Default, _Hot, _Active
     v4 ButtonColor_Inactive, ButtonColor_Active, ButtonColor_Selected;
     
     v4 TextColor;
@@ -199,17 +241,38 @@ struct interface_config
     r32 RowHeight;
 };
 
+enum ui_layout_direction
+{
+    LayoutDirection_TopDown,
+    LayoutDirection_BottomUp,
+};
+
 struct ui_layout
 {
+    u64 Id;
+    
     rect2 Bounds;
     v2 Margin;
     r32 RowHeight;
     r32 RowYAt;
     
+    ui_layout_direction FillDirection;
+    
     b32 DrawHorizontal;
     u32 ColumnsMax;
     r32* ColumnWidths;
     u32 ColumnsCount;
+    
+    // NOTE(pjs): I'm not sure this will stay but
+    // its here so that when we end things like a dropdown,
+    // we can check the retained state of that dropdown
+    ui_widget_id WidgetReference;
+};
+
+struct ui_widget_retained_state
+{
+    ui_widget_id Id;
+    bool Value;
 };
 
 struct ui_interface
@@ -217,49 +280,144 @@ struct ui_interface
     interface_config Style;
     mouse_state Mouse;
     render_command_buffer* RenderBuffer;
+    
+    ui_widget* Widgets;
+    u64 WidgetsCount;
+    u64 WidgetsCountMax;
+    
+    ui_widget_id HotWidget;
+    ui_widget_id ActiveWidget;
+    
+#define LAYOUT_COUNT_MAX 8
+    ui_layout LayoutStack[LAYOUT_COUNT_MAX];
+    u64 LayoutStackCount;
+    u64 LayoutIdAcc;
+    
+#define RETAINED_STATE_MAX 128
+    ui_widget_retained_state RetainedState[RETAINED_STATE_MAX];
+    u64 RetainedStateCount;
 };
 
+internal void
+ui_InterfaceReset(ui_interface* Interface)
+{
+    Interface->WidgetsCount = 0;
+    Interface->LayoutStackCount = 0;
+    Interface->LayoutIdAcc = 0;
+}
+
+internal bool
+ui_WidgetIdsEqual(ui_widget_id A, ui_widget_id B)
+{
+    bool Result = (A.Index == B.Index) && (A.LayoutId == B.LayoutId);
+    return Result;
+}
+
+internal ui_widget_retained_state*
+ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
+{
+    ui_widget_retained_state* Result = 0;
+    for (u64 i = 0; i < Interface->RetainedStateCount; i++)
+    {
+        if (ui_WidgetIdsEqual(Interface->RetainedState[i].Id, Id))
+        {
+            Result = Interface->RetainedState + i;
+            break;
+        }
+    }
+    return Result;
+}
+
+internal ui_widget_retained_state*
+ui_CreateRetainedState(ui_interface* Interface, ui_widget_id Id)
+{
+    u64 Index = Interface->RetainedStateCount++;
+    ui_widget_retained_state* Result = Interface->RetainedState + Index;
+    Result->Id = Id;
+    return Result;
+}
+
+//
+// Interaction
+//
+
+internal b32
+ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
+{
+    b32 Result = MouseButtonTransitionedDown(Interface.Mouse.LeftButtonState);
+    Result &= PointIsInRect(Rect, Interface.Mouse.Pos);
+    return Result;
+}
+
+// Layout
+
 static ui_layout
-ui_CreateLayout(ui_interface Interface, rect2 Bounds)
+ui_CreateLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDirection = LayoutDirection_TopDown)
 {
     ui_layout Result = {0};
     Result.Bounds = Bounds;
-    Result.Margin = Interface.Style.Margin;
-    Result.RowHeight = Interface.Style.RowHeight;
-    Result.RowYAt = Bounds.Max.y - Result.RowHeight;
+    Result.Margin = Interface->Style.Margin;
+    Result.RowHeight = Interface->Style.RowHeight;
+    Result.FillDirection = FillDirection;
+    switch(FillDirection)
+    {
+        case LayoutDirection_BottomUp:
+        {
+            Result.RowYAt = Bounds.Min.y;
+        }break;
+        
+        case LayoutDirection_TopDown:
+        {
+            Result.RowYAt = Bounds.Max.y - Result.RowHeight;
+        }break;
+    }
+    
+    Result.Id = ++Interface->LayoutIdAcc;
+    
     return Result;
 }
 
 static void
-ui_StartRow(ui_layout* Layout, u32 ColumnsMax)
+ui_PushLayout(ui_interface* Interface, ui_layout Layout)
 {
-    Layout->DrawHorizontal = true;
-    Layout->ColumnsMax = ColumnsMax;
-    Layout->ColumnWidths = 0;
-    Layout->ColumnsCount = 0;
+    Assert(Interface->LayoutStackCount < LAYOUT_COUNT_MAX);
+    Interface->LayoutStack[Interface->LayoutStackCount++] = Layout;
 }
 
 static void
-ui_StartRow(ui_layout* Layout)
+ui_PopLayout(ui_interface* Interface)
 {
-    ui_StartRow(Layout, 0);
+    Assert(Interface->LayoutStackCount > 0);
+    Interface->LayoutStackCount -= 1;
 }
 
 static void
-ui_StartRow(ui_layout* Layout, u32 ColumnsMax, r32* ColumnWidths)
+ui_StartRow(ui_interface* Interface, u32 ColumnsMax = 0)
 {
-    Layout->DrawHorizontal = true;
-    Layout->ColumnsMax = ColumnsMax;
-    Layout->ColumnWidths = ColumnWidths;
-    Layout->ColumnsCount = 0;
+    u64 LayoutIdx = Interface->LayoutStackCount - 1;
+    Interface->LayoutStack[LayoutIdx].DrawHorizontal = true;
+    Interface->LayoutStack[LayoutIdx].ColumnsMax = ColumnsMax;
+    Interface->LayoutStack[LayoutIdx].ColumnWidths = 0;
+    Interface->LayoutStack[LayoutIdx].ColumnsCount = 0;
 }
 
 static void
-ui_EndRow(ui_layout* Layout)
+ui_StartRow(ui_interface* Interface, u32 ColumnsMax, r32* ColumnWidths)
 {
-    Layout->DrawHorizontal = false;
-    Layout->ColumnWidths = 0;
-    Layout->RowYAt -= Layout->RowHeight;
+    u64 LayoutIdx = Interface->LayoutStackCount - 1;
+    Interface->LayoutStack[LayoutIdx].DrawHorizontal = true;
+    Interface->LayoutStack[LayoutIdx].ColumnsMax = ColumnsMax;
+    Interface->LayoutStack[LayoutIdx].ColumnWidths = ColumnWidths;
+    Interface->LayoutStack[LayoutIdx].ColumnsCount = 0;
+}
+
+static void
+ui_EndRow(ui_interface* Interface)
+{
+    u64 LayoutIdx = Interface->LayoutStackCount - 1;
+    Interface->LayoutStack[LayoutIdx].DrawHorizontal = false;
+    Interface->LayoutStack[LayoutIdx].ColumnWidths = 0;
+    Interface->LayoutStack[LayoutIdx].RowYAt -= Interface->LayoutStack[LayoutIdx].RowHeight;
 }
 
 static b32
@@ -270,7 +428,21 @@ ui_TryReserveElementBounds(ui_layout* Layout, rect2* Bounds)
     {
         Bounds->Min = { Layout->Bounds.Min.x, Layout->RowYAt };
         Bounds->Max = { Layout->Bounds.Max.x, Bounds->Min.y + Layout->RowHeight };
-        Layout->RowYAt -= Layout->RowHeight;
+        
+        switch (Layout->FillDirection)
+        {
+            case LayoutDirection_BottomUp:
+            {
+                Layout->RowYAt += Layout->RowHeight;
+            }break;
+            
+            case LayoutDirection_TopDown:
+            {
+                Layout->RowYAt -= Layout->RowHeight;
+            }break;
+            
+            InvalidDefaultCase;
+        }
     }
     else
     {
@@ -310,14 +482,6 @@ ui_TryReserveElementBounds(ui_layout* Layout, rect2* Bounds)
 }
 
 static rect2
-ui_ReserveTextLineBounds(ui_interface Interface, gs_string Text, ui_layout* Layout)
-{
-    rect2 Bounds = {0};
-    
-    return Bounds;
-}
-
-static rect2
 ui_ReserveElementBounds(ui_layout* Layout)
 {
     rect2 Bounds = {0};
@@ -338,6 +502,81 @@ ui_LayoutRemaining(ui_layout Layout)
         Result.Max.y -= Layout.RowHeight;
     }
     return Result;
+}
+
+// Widgets
+
+internal ui_widget
+ui_CreateWidget(gs_string String)
+{
+    ui_widget Result = {};
+    Result.String = String;
+    Result.Alignment = Align_Left;
+    return Result;
+}
+
+internal void
+ui_WidgetSetFlag(ui_widget* Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    Widget->Flags = Widget->Flags | Value;
+}
+
+internal bool
+ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    bool Result = (Widget.Flags & Value);
+    return Result;
+}
+
+internal ui_eval_result
+ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
+{
+    ui_eval_result Result = {};
+    
+    Assert(Interface->WidgetsCount < Interface->WidgetsCountMax);
+    Widget->Id.Index = Interface->WidgetsCount++;
+    Widget->Id.LayoutId = Interface->LayoutStack[Interface->LayoutStackCount - 1].Id;
+    
+    Widget->Bounds = Bounds;
+    Interface->Widgets[Widget->Id.Index] = *Widget;
+    
+    if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Clickable))
+    {
+        if (PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
+        {
+            if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id) && MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
+            {
+                Result.Clicked = true;
+                Interface->ActiveWidget = Widget->Id;
+            }
+            
+            if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id) &&
+                MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
+            {
+                Interface->ActiveWidget = {};
+            }
+            
+            Interface->HotWidget = Widget->Id;
+        }
+    }
+    
+    return Result;
+}
+
+internal ui_eval_result
+ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget)
+{
+    rect2 Bounds = {0};
+    ui_layout* Layout = Interface->LayoutStack + Interface->LayoutStackCount - 1;
+    if (!ui_TryReserveElementBounds(Layout, &Bounds))
+    {
+        // TODO(pjs): This isn't invalid, but Idk when we'd hit this case yet
+        InvalidCodePath;
+    }
+    
+    return ui_EvaluateWidget(Interface, Widget, Bounds);
 }
 
 //
@@ -364,78 +603,40 @@ ui_OutlineRect(ui_interface* Interface, rect2 Bounds, r32 Thickness, v4 Color)
 }
 
 internal void
-ui_DrawString(ui_interface* Interface, gs_string String, rect2 Bounds, v4 Color, gs_string_alignment Alignment = Align_Left)
+ui_DrawString(ui_interface* Interface, gs_string String, rect2 Bounds, gs_string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
-    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(Interface->RenderBuffer,
-                                                                              String.Length,
-                                                                              Interface->Style.Font->BitmapMemory,
-                                                                              Interface->Style.Font->BitmapTextureHandle,
-                                                                              Interface->Style.Font->BitmapWidth,
-                                                                              Interface->Style.Font->BitmapHeight,
-                                                                              Interface->Style.Font->BitmapBytesPerPixel,
-                                                                              Interface->Style.Font->BitmapStride);
-    
-    v2 RegisterPosition = Bounds.Min + Interface->Style.Margin;
-    if (Alignment == Align_Left)
-    {
-        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Interface->Style.Font, Color);
-    }
-    else if (Alignment == Align_Right)
-    {
-        RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Interface->Style.Font, Color);
-    }
-    else
-    {
-        InvalidCodePath;
-    }
+    ui_widget Widget = ui_CreateWidget(String);
+    Widget.Bounds = Bounds;
+    ui_EvaluateWidget(Interface, &Widget);
 }
 
-static void
-ui_LayoutDrawString(ui_interface* Interface, ui_layout* Layout, gs_string String, v4 Color, gs_string_alignment Alignment = Align_Left)
+internal void
+ui_DrawString(ui_interface* Interface, gs_string String, gs_string_alignment Alignment = Align_Left)
 {
-    rect2 Bounds = {0};
-    if (!ui_TryReserveElementBounds(Layout, &Bounds))
-    {
-        // TODO(NAME): Not invalid, just haven't implemented yet.
-        // This is the case where Layout is in row mode without a fixed number of elements
-        InvalidCodePath;
-    }
-    ui_DrawString(Interface, String, Bounds, Color, Alignment);
-}
-
-static void
-ui_TextBox(ui_interface* Interface, rect2 Bounds, gs_string Text, v4 BGColor, v4 TextColor)
-{
-    ui_FillRect(Interface, Bounds, BGColor);
-    ui_DrawString(Interface, Text, Bounds, TextColor);
+    DEBUG_TRACK_FUNCTION;
+    ui_widget Widget = ui_CreateWidget(String);
+    ui_EvaluateWidget(Interface, &Widget);
 }
 
 static b32
-ui_Button(ui_interface* Interface, gs_string Text, rect2 Bounds, v4 InactiveColor, v4 HoverColor, v4 ClickedColor)
+ui_Button(ui_interface* Interface, gs_string Text)
 {
-    b32 Pressed = false;
-    v4 ButtonBG = InactiveColor;
-    if (PointIsInRect(Bounds, Interface->Mouse.Pos))
-    {
-        ButtonBG = HoverColor;
-        if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
-        {
-            ButtonBG = ClickedColor;
-            Pressed = true;
-        }
-    }
-    ui_TextBox(Interface, Bounds, Text, ButtonBG, Interface->Style.TextColor);
-    return Pressed;
+    ui_widget Widget = ui_CreateWidget(Text);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_DrawBackground);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, &Widget);
+    return Result.Clicked;
 }
 
 static b32
 ui_Button(ui_interface* Interface, gs_string Text, rect2 Bounds)
 {
-    v4 BGColor = Interface->Style.ButtonColor_Inactive;
-    v4 HoverColor = Interface->Style.ButtonColor_Active;
-    v4 SelectedColor = Interface->Style.ButtonColor_Selected;
-    return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
+    ui_widget Widget = ui_CreateWidget(Text);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_DrawBackground);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, &Widget, Bounds);
+    return Result.Clicked;
 }
 
 struct list_item_colors
@@ -465,35 +666,19 @@ ui_GetListItemColors(ui_interface* Interface, u32 ListItemIndex)
 static b32
 ui_ListButton(ui_interface* Interface, gs_string Text, rect2 Bounds, u32 ListItemIndex)
 {
-    list_item_colors Colors = ui_GetListItemColors(Interface, ListItemIndex);
-    return ui_Button(Interface, Text, Bounds, Colors.Hover, Colors.Selected, Colors.BGColor);
-}
-
-static b32
-ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, gs_string Text, v4 BGColor, v4 HoverColor, v4 SelectColor)
-{
-    rect2 ButtonBounds = {0};
-    if (!ui_TryReserveElementBounds(Layout, &ButtonBounds))
-    {
-        ButtonBounds = ui_ReserveTextLineBounds(*Interface, Text, Layout);
-    }
-    return ui_Button(Interface, Text, ButtonBounds, BGColor, HoverColor, SelectColor);
-}
-
-static b32
-ui_LayoutButton(ui_interface* Interface, ui_layout* Layout, gs_string Text)
-{
-    v4 BGColor = Interface->Style.ButtonColor_Inactive;
-    v4 HoverColor = Interface->Style.ButtonColor_Active;
-    v4 SelectedColor = Interface->Style.ButtonColor_Selected;
-    return ui_LayoutButton(Interface, Layout, Text, BGColor, HoverColor, SelectedColor);
+    ui_widget Widget = ui_CreateWidget(Text);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_Clickable);
+    // TODO(pjs): Reimplement alternating color backgrounds
+    Widget.Bounds = Bounds;
+    ui_eval_result Result = ui_EvaluateWidget(Interface, &Widget);
+    return Result.Clicked;
 }
 
 static b32
 ui_LayoutListButton(ui_interface* Interface, ui_layout* Layout, gs_string Text, u32 ListItemIndex)
 {
-    list_item_colors Colors = ui_GetListItemColors(Interface, ListItemIndex);
-    return ui_LayoutButton(Interface, Layout, Text, Colors.Hover, Colors.Selected, Colors.BGColor);
+    return ui_Button(Interface, Text);
 }
 
 static b32
@@ -508,10 +693,90 @@ ui_LayoutListEntry(ui_interface* Interface, ui_layout* Layout, gs_string Text, u
         // Punting this till I have a use case
         InvalidCodePath;
     }
-    v4 BGColor = ui_GetListItemBGColor(Interface->Style, Index);
-    v4 HoverColor = Interface->Style.ListBGHover;
-    v4 SelectedColor = Interface->Style.ListBGSelected;
-    return ui_Button(Interface, Text, Bounds, BGColor, HoverColor, SelectedColor);
+    return ui_Button(Interface, Text, Bounds);
+}
+
+internal bool
+ui_EvaluateDropdown(ui_interface* Interface, ui_widget Widget, ui_eval_result EvalResult)
+{
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget.Id);
+    if (!State) {
+        State = ui_CreateRetainedState(Interface, Widget.Id);
+    }
+    
+    if (EvalResult.Clicked)
+    {
+        State->Value = !State->Value;
+    }
+    
+    if (State->Value)
+    {
+        ui_layout ParentLayout = Interface->LayoutStack[Interface->LayoutStackCount - 1];
+        
+        r32 SpaceAbove = ParentLayout.Bounds.Max.y - Widget.Bounds.Max.y;
+        r32 SpaceBelow = Widget.Bounds.Min.y - ParentLayout.Bounds.Min.y;
+        ui_layout_direction Direction = LayoutDirection_TopDown;
+        rect2 MenuBounds = {};
+        
+        if (SpaceAbove > SpaceBelow)
+        {
+            r32 ParentLayoutMaxY = ParentLayout.Bounds.Max.y;
+            Direction = LayoutDirection_BottomUp;
+            MenuBounds = rect2{
+                v2{ Widget.Bounds.Min.x, Widget.Bounds.Max.y },
+                v2{ Widget.Bounds.Max.x, ParentLayoutMaxY }
+            };
+        }
+        else
+        {
+            r32 ParentLayoutMinY = ParentLayout.Bounds.Min.y;
+            Direction = LayoutDirection_TopDown;
+            MenuBounds = rect2{
+                v2{ Widget.Bounds.Min.x, ParentLayoutMinY },
+                v2{ Widget.Bounds.Max.x, Widget.Bounds.Min.y }
+            };
+        }
+        
+        ui_layout Layout = ui_CreateLayout(Interface, MenuBounds, Direction);
+        Layout.WidgetReference = Widget.Id;
+        ui_PushLayout(Interface, Layout);
+    }
+    
+    return State->Value;
+}
+
+internal bool
+ui_BeginDropdown(ui_interface* Interface, gs_string Text, rect2 Bounds)
+{
+    ui_widget Widget = ui_CreateWidget(Text);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_DrawBackground);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, &Widget, Bounds);
+    return ui_EvaluateDropdown(Interface, Widget, Result);
+}
+
+internal bool
+ui_BeginDropdown(ui_interface* Interface, gs_string Text)
+{
+    ui_widget Widget = ui_CreateWidget(Text);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(&Widget, UIWidgetFlag_DrawBackground);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, &Widget);
+    return ui_EvaluateDropdown(Interface, Widget, Result);
+}
+
+internal void
+ui_EndDropdown(ui_interface* Interface)
+{
+    ui_layout Layout = Interface->LayoutStack[Interface->LayoutStackCount - 1];
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Layout.WidgetReference);
+    if (State)
+    {
+        if (State->Value)
+        {
+            ui_PopLayout(Interface);
+        }
+    }
 }
 
 //

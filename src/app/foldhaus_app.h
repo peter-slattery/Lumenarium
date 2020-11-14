@@ -26,6 +26,8 @@
 
 typedef struct app_state app_state;
 
+typedef struct panel panel;
+
 #include "editor/foldhaus_command_dispatch.h"
 #include "editor/foldhaus_operation_mode.h"
 
@@ -36,6 +38,7 @@ typedef struct app_state app_state;
 
 #include "engine/animation/foldhaus_animation.h"
 #include "engine/animation/foldhaus_animation_serializer.cpp"
+#include "engine/animation/foldhaus_animation_renderer.cpp"
 
 struct app_state
 {
@@ -62,10 +65,7 @@ struct app_state
     panel_system PanelSystem;
     panel* HotPanel;
     
-    camera Camera; // TODO(Peter): move into the sculpture view
     r32 PixelsToWorldScale;
-    handle SelectedAnimationBlockHandle; // TODO(Peter): move into animation panel
-    u32 SelectedAnimationLayer; // TODO(Peter): move into animation panel
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
@@ -202,18 +202,31 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     }
 }
 
+internal void
+Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        Leds->Colors[LedIndex].R = 0;
+        Leds->Colors[LedIndex].B = 255;
+        Leds->Colors[LedIndex].G = 255;
+    }
+}
+
 // END TEMPORARY PATTERNS
 
-FOLDHAUS_INPUT_COMMAND_PROC(EndCurrentOperationMode)
+internal void
+EndCurrentOperationMode(app_state* State)
 {
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-s32 GlobalAnimationClipsCount = 3;
-animation_clip GlobalAnimationClips[] = {
+s32 GlobalAnimationPatternsCount = 4;
+animation_pattern GlobalAnimationPatterns[] = {
     { "Test Pattern One", 16, TestPatternOne  },
     { "Test Pattern Two", 16, TestPatternTwo },
     { "Test Pattern Three", 18, TestPatternThree },
+    { "Pattern_AllGreen", 16, Pattern_AllGreen },
 };
 
 #include "editor/panels/foldhaus_panel_types.h"
@@ -232,6 +245,8 @@ animation_clip GlobalAnimationClips[] = {
 #include "editor/foldhaus_interface.cpp"
 
 #include "../meta/gs_meta_include.cpp"
+
+#include "editor/foldhaus_editor.cpp"
 
 #define FOLDHAUS_APP_H
 #endif // FOLDHAUS_APP_H

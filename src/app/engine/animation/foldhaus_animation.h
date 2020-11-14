@@ -14,6 +14,10 @@ struct frame_range
     s32 Max;
 };
 
+// NOTE(pjs): An animation block is a time range paired with an
+// animation_pattern (see below). While a timeline's current time
+// is within the range of a block, that particular block's animation
+// will run
 struct animation_block
 {
     frame_range Range;
@@ -37,6 +41,9 @@ enum blend_mode
     BlendMode_Count,
 };
 
+// TODO(pjs): Add Opacity to this
+typedef pixel led_blend_proc(pixel PixelA, pixel PixelB);
+
 global gs_const_string BlendModeStrings[] = {
     ConstString("Overwrite"),
     ConstString("Add"),
@@ -57,11 +64,15 @@ struct anim_layer_array
     u32 CountMax;
 };
 
+// NOTE(pjs): An animation is a stack of layers, each of which
+// is a timeline of animation blocks.
 struct animation
 {
     gs_string Name;
     
     anim_layer_array Layers;
+    // TODO(pjs): Pretty sure Blocks_ should be obsolete and
+    // Layers should contain their own blocks
     animation_block_array Blocks_;
     
     frame_range PlayableRange;
@@ -74,14 +85,23 @@ struct animation_array
     u32 CountMax;
 };
 
+struct animation_layer_frame
+{
+    animation_block Hot;
+    bool HasHot;
+    
+    animation_block NextHot;
+    bool HasNextHot;
+    
+    r32 HotOpacity;
+};
+
+// NOTE(pjs): This is an evaluated frame - across all layers in an
+// animation, these are the blocks that need to be run
 struct animation_frame
 {
-    // NOTE(pjs): These are all parallel arrays of equal length
-    animation_block* Blocks;
-    b8*              BlocksFilled;
-    
-    u32 BlocksCountMax;
-    u32 BlocksCount;
+    animation_layer_frame* Layers;
+    u32 LayersCount;
 };
 
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
@@ -102,8 +122,10 @@ struct animation_system
     
 };
 
-// TODO(pjs): Better name - something like animation_prototype
-struct animation_clip
+// NOTE(pjs): A Pattern is a named procedure which can be used as
+// an element of an animation. Patterns are sequenced on a timeline
+// and blended via layers to create an animation
+struct animation_pattern
 {
     char* Name;
     s32 NameLength;
@@ -411,10 +433,9 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
     
     animation_frame Result = {0};
-    Result.BlocksCountMax = ActiveAnim->Layers.Count;
-    Result.Blocks = PushArray(Arena, animation_block, Result.BlocksCountMax);
-    Result.BlocksFilled = PushArray(Arena, b8, Result.BlocksCountMax);
-    ZeroArray(Result.BlocksFilled, b8, Result.BlocksCountMax);
+    Result.LayersCount = ActiveAnim->Layers.Count;
+    Result.Layers = PushArray(Arena, animation_layer_frame, Result.LayersCount);
+    ZeroArray(Result.Layers, animation_layer_frame, Result.LayersCount);
     
     for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
     {
@@ -422,12 +443,64 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
         
         if (FrameIsInRange(Block.Range, System->CurrentFrame))
         {
-            Result.BlocksFilled[Block.Layer] = true;
-            Result.Blocks[Block.Layer] = Block;
-            Result.BlocksCount++;
+            animation_layer_frame* Layer = Result.Layers + Block.Layer;
+            if (Layer->HasHot)
+            {
+                // NOTE(pjs): With current implementation, we don't allow
+                // animations to hvae more than 2 concurrent blocks in the
+                // timeline
+                Assert(!Layer->HasNextHot);
+                
+                // NOTE(pjs): Make sure that Hot comes before NextHot
+                if (Layer->Hot.Range.Min < Block.Range.Min)
+                {
+                    Layer->NextHot = Block;
+                }
+                else
+                {
+                    Layer->NextHot = Layer->Hot;
+                    Layer->Hot = Block;
+                }
+                Layer->HasNextHot = true;
+                
+                frame_range BlendRange = {};
+                BlendRange.Min = Layer->NextHot.Range.Min;
+                BlendRange.Max = Layer->Hot.Range.Max;
+                Layer->HotOpacity = 1.0f - FrameToPercentRange(System->CurrentFrame, BlendRange);
+            }
+            else
+            {
+                Layer->Hot = Block;
+                Layer->HotOpacity = 1.0f;
+                Layer->HasHot = true;
+            }
         }
     }
     
+    return Result;
+}
+
+internal void
+AnimationSystem_Update(animation_system* System)
+{
+    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
+    if (System->TimelineShouldAdvance) {
+        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+        System->CurrentFrame += 1;
+        
+        // Loop back to the beginning
+        if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
+        {
+            System->CurrentFrame = 0;
+        }
+    }
+}
+
+inline bool
+AnimationSystem_NeedsRender(animation_system System)
+{
+    bool Result = (System.CurrentFrame != System.LastUpdatedFrame);
     return Result;
 }
 

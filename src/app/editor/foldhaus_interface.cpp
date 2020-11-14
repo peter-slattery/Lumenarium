@@ -13,6 +13,8 @@
 
 enum panel_edit_mode
 {
+    PanelEdit_Invalid,
+    
     PanelEdit_Modify,
     PanelEdit_Destroy,
     
@@ -92,7 +94,6 @@ OPERATION_RENDER_PROC(UpdateAndRenderDragPanelBorder)
 FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
 {
     drag_panel_border_operation_state* OpState = GetCurrentOperationState(State->Modes, drag_panel_border_operation_state);
-    panel* Panel = OpState->Panel;
     rect2 PanelBounds = OpState->InitialPanelBounds;
     
     if (OpState->PanelEditMode == PanelEdit_Modify)
@@ -111,6 +112,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             else
             {
                 Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Rect2Height(PanelBounds);
+                Panel_UpdateLayout(Panel, PanelBounds);
             }
         }
         else if (Panel->SplitDirection == PanelSplit_Vertical)
@@ -127,6 +129,7 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             else
             {
                 Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Rect2Width(PanelBounds);
+                Panel_UpdateLayout(Panel, PanelBounds);
             }
         }
     }
@@ -220,7 +223,6 @@ OPERATION_RENDER_PROC(UpdateAndRenderSplitPanel)
 FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
 {
     split_panel_operation_state* OpState = GetCurrentOperationState(State->Modes, split_panel_operation_state);
-    panel* Panel = OpState->Panel;
     rect2 PanelBounds = OpState->InitialPanelBounds;
     
     r32 XDistance = Abs(Mouse.Pos.x - Mouse.DownPos.x);
@@ -239,9 +241,9 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndSplitPanelOperation)
     
     s32 PanelTypeIndex = Panel->TypeIndex;
     gs_data PanelStateMemory = Panel->StateMemory;
-    Panel_SetCurrentType(&Panel->Left->Panel, &State->PanelSystem, PanelTypeIndex, PanelStateMemory, State, Context);
+    Panel_SetCurrentType(Panel->Left, &State->PanelSystem, PanelTypeIndex, PanelStateMemory, State, Context);
     
-    SetAndInitPanelType(&Panel->Right->Panel, &State->PanelSystem, PanelTypeIndex, State, Context);
+    Panel_SetType(Panel->Right, &State->PanelSystem, PanelTypeIndex, State, Context);
     
     DeactivateCurrentOperationMode(&State->Modes);
 }
@@ -251,12 +253,12 @@ input_command SplitPanelCommands[] = {
 };
 
 internal void
-BeginSplitPanelOperation(panel* Panel, rect2 PanelBounds, mouse_state Mouse, app_state* State)
+BeginSplitPanelOperation(panel* Panel, mouse_state Mouse, app_state* State)
 {
     operation_mode* SplitPanel = ActivateOperationModeWithCommands(&State->Modes, SplitPanelCommands, UpdateAndRenderSplitPanel);
     split_panel_operation_state* OpState = CreateOperationState(SplitPanel, &State->Modes, split_panel_operation_state);
     OpState->Panel = Panel;
-    OpState->InitialPanelBounds = PanelBounds;
+    OpState->InitialPanelBounds = Panel->Bounds;
 }
 
 
@@ -265,61 +267,44 @@ BeginSplitPanelOperation(panel* Panel, rect2 PanelBounds, mouse_state Mouse, app
 #define PANEL_EDGE_CLICK_MAX_DISTANCE 6
 
 internal b32
-HandleMouseDownPanelInteractionOrRecurse(panel* Panel, panel_edit_mode PanelEditMode, rect2 PanelBounds, mouse_state Mouse, app_state* State)
+HandleMouseDownPanelInteractionOrRecurse(panel* Panel, panel_edit_mode PanelEditMode, mouse_state Mouse, app_state* State)
 {
     b32 HandledMouseInput = false;
     
-    rect2 PanelSplitButtonBounds = rect2{ PanelBounds.Min, PanelBounds.Min + v2{25, 25} };
+    // TODO(pjs): this can probably live in panel_with_layout
+    rect2 PanelSplitButtonBounds = rect2{ Panel->Bounds.Min, Panel->Bounds.Min + v2{25, 25} };
     
     if (Panel->SplitDirection == PanelSplit_NoSplit
         && PointIsInRect(PanelSplitButtonBounds, Mouse.DownPos))
     {
-        BeginSplitPanelOperation(Panel, PanelBounds, Mouse, State);
+        BeginSplitPanelOperation(Panel, Mouse, State);
         HandledMouseInput = true;
     }
-    else if (Panel->SplitDirection == PanelSplit_Horizontal)
+    else if (Panel->SplitDirection != PanelSplit_NoSplit)
     {
-        r32 SplitY = LerpR32(Panel->SplitPercent, PanelBounds.Min.y, PanelBounds.Max.y);
-        r32 ClickDistanceFromSplit = Abs(Mouse.DownPos.y - SplitY);
+        u32 ElementIndex = 0;
+        switch(Panel->SplitDirection)
+        {
+            case PanelSplit_Vertical: { ElementIndex = 0; } break;
+            case PanelSplit_Horizontal: { ElementIndex = 1; } break;
+            InvalidDefaultCase;
+        }
+        
+        r32 SplitPosition = LerpR32(Panel->SplitPercent, Panel->Bounds.Min.E[ElementIndex], Panel->Bounds.Max.E[ElementIndex]);
+        r32 ClickDistanceFromSplit = Abs(Mouse.DownPos.E[ElementIndex] - SplitPosition);
         if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
         {
-            BeginDragPanelBorder(Panel, PanelEditMode, PanelBounds, PanelSplit_Horizontal, Mouse, State);
-            HandledMouseInput = true;
+            BeginDragPanelBorder(Panel, PanelEditMode, Panel->Bounds, Panel->SplitDirection, Mouse, State);
         }
         else
         {
-            rect2 TopPanelBounds = GetTopPanelBounds(Panel, PanelBounds);
-            rect2 BottomPanelBounds = GetBottomPanelBounds(Panel, PanelBounds);
-            if (PointIsInRect(BottomPanelBounds, Mouse.DownPos))
+            if (PointIsInRect(Panel->Bottom->Bounds, Mouse.DownPos))
             {
-                HandleMouseDownPanelInteractionOrRecurse(&Panel->Bottom->Panel, PanelEditMode, BottomPanelBounds, Mouse, State);
+                HandleMouseDownPanelInteractionOrRecurse(Panel->Bottom, PanelEditMode, Mouse, State);
             }
-            if (PointIsInRect(TopPanelBounds, Mouse.DownPos))
+            else if (PointIsInRect(Panel->Top->Bounds, Mouse.DownPos))
             {
-                HandleMouseDownPanelInteractionOrRecurse(&Panel->Top->Panel, PanelEditMode, TopPanelBounds, Mouse, State);
-            }
-        }
-    }
-    else if (Panel->SplitDirection == PanelSplit_Vertical)
-    {
-        r32 SplitX = LerpR32(Panel->SplitPercent, PanelBounds.Min.x, PanelBounds.Max.x);
-        r32 ClickDistanceFromSplit = Abs(Mouse.DownPos.x - SplitX);
-        if (ClickDistanceFromSplit < PANEL_EDGE_CLICK_MAX_DISTANCE)
-        {
-            BeginDragPanelBorder(Panel, PanelEditMode, PanelBounds, PanelSplit_Vertical, Mouse, State);
-            HandledMouseInput = true;
-        }
-        else
-        {
-            rect2 LeftPanelBounds = GetLeftPanelBounds(Panel, PanelBounds);
-            rect2 RightPanelBounds = GetRightPanelBounds(Panel, PanelBounds);
-            if (PointIsInRect(LeftPanelBounds, Mouse.DownPos))
-            {
-                HandleMouseDownPanelInteractionOrRecurse(&Panel->Left->Panel, PanelEditMode, LeftPanelBounds, Mouse, State);
-            }
-            if (PointIsInRect(RightPanelBounds, Mouse.DownPos))
-            {
-                HandleMouseDownPanelInteractionOrRecurse(&Panel->Right->Panel, PanelEditMode, RightPanelBounds, Mouse, State);
+                HandleMouseDownPanelInteractionOrRecurse(Panel->Top, PanelEditMode, Mouse, State);
             }
         }
     }
@@ -332,14 +317,21 @@ HandleMousePanelInteraction(panel_system* PanelSystem, rect2 WindowBounds, mouse
 {
     b32 HandledMouseInput = false;
     
-    panel* FirstPanel = &PanelSystem->Panels[0].Panel;
+    panel* FirstPanel = PanelSystem->Panels + 0;
+    panel_edit_mode EditMode = PanelEdit_Invalid;
+    
     if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
     {
-        HandledMouseInput = HandleMouseDownPanelInteractionOrRecurse(FirstPanel, PanelEdit_Modify, WindowBounds, Mouse, State);
+        EditMode = PanelEdit_Modify;
     }
     else if (MouseButtonTransitionedDown(Mouse.RightButtonState))
     {
-        HandledMouseInput = HandleMouseDownPanelInteractionOrRecurse(FirstPanel, PanelEdit_Destroy, WindowBounds, Mouse, State);
+        EditMode = PanelEdit_Destroy;
+    }
+    
+    if (EditMode != PanelEdit_Invalid)
+    {
+        HandledMouseInput = HandleMouseDownPanelInteractionOrRecurse(FirstPanel, EditMode, Mouse, State);
     }
     
     return HandledMouseInput;
@@ -394,50 +386,27 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
     
     rect2 PanelSelectBtnBounds = MakeRect2MinDim(FooterBounds.Min + v2{30, 1}, v2{100, 23});
     
-    if (Panel->PanelSelectionMenuOpen)
+    if (ui_BeginDropdown(&State->Interface, MakeString("Select"), PanelSelectBtnBounds))
     {
-        rect2 ButtonBounds = MakeRect2MinDim(v2{ PanelSelectBtnBounds.Min.x, FooterBounds.Max.y }, v2{ 100, 25 });
-        
-        rect2 MenuBounds = rect2
-        {
-            ButtonBounds.Min,
-            v2{
-                ButtonBounds.Min.x + Rect2Width(ButtonBounds), ButtonBounds.Min.y + (Rect2Height(ButtonBounds) * GlobalPanelDefsCount)
-            },
-        };
-        
-        if (MouseButtonTransitionedDown(Mouse.LeftButtonState)
-            && !PointIsInRect(MenuBounds, Mouse.DownPos))
-        {
-            Panel->PanelSelectionMenuOpen = false;
-        }
-        
         for (s32 i = 0; i < GlobalPanelDefsCount; i++)
         {
-            panel_definition Def = GlobalPanelDefs[i];
+            panel_definition Def = State->PanelSystem.PanelDefs[i];
             gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-            if (ui_Button(&State->Interface, DefName, ButtonBounds))
+            if (ui_Button(&State->Interface, DefName))
             {
-                SetAndInitPanelType(Panel, &State->PanelSystem, i, State, Context);
-                Panel->PanelSelectionMenuOpen = false;
+                Panel_SetType(Panel, &State->PanelSystem, i, State, Context);
             }
-            
-            ButtonBounds = Rect2TranslateY(ButtonBounds, Rect2Height(ButtonBounds));
         }
     }
-    
-    if (ui_Button(&State->Interface, MakeString("Select"), PanelSelectBtnBounds))
-    {
-        Panel->PanelSelectionMenuOpen = !Panel->PanelSelectionMenuOpen;
-    }
-    
+    ui_EndDropdown(&State->Interface);
 }
 
 internal void
 RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_buffer* RenderBuffer, app_state* State, context Context, mouse_state Mouse)
 {
-    s32 PanelType = Panel->TypeIndex;
+    u32 PanelType = Panel->TypeIndex;
     Assert(PanelType >= 0);
+    Assert(PanelType < State->PanelSystem.PanelDefsCount);
     
     rect2 FooterBounds = rect2{
         PanelBounds.Min,
@@ -448,7 +417,7 @@ RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_
         PanelBounds.Max,
     };
     
-    panel_definition Definition = GlobalPanelDefs[PanelType];
+    panel_definition Definition = State->PanelSystem.PanelDefs[PanelType];
     Definition.Render(Panel, PanelViewBounds, RenderBuffer, State, Context);
     
     PushRenderOrthographic(RenderBuffer, WindowBounds);
@@ -456,20 +425,36 @@ RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_
 }
 
 internal void
-DrawAllPanels(panel_layout PanelLayout, render_command_buffer* RenderBuffer, mouse_state* Mouse, app_state* State, context Context)
+DrawPanelRecursive(panel* Panel, render_command_buffer* RenderBuffer, mouse_state* Mouse, app_state* State, context Context)
 {
-    for (u32 i = 0; i < PanelLayout.PanelsCount; i++)
+    switch (Panel->SplitDirection)
     {
-        panel_with_layout PanelWithLayout = PanelLayout.Panels[i];
-        panel* Panel = PanelWithLayout.Panel;
-        rect2 PanelBounds = PanelWithLayout.Bounds;
+        case PanelSplit_Horizontal:
+        case PanelSplit_Vertical:
+        {
+            DrawPanelRecursive(Panel->Left, RenderBuffer, Mouse, State, Context);
+            DrawPanelRecursive(Panel->Right, RenderBuffer, Mouse, State, Context);
+        }break;
         
-        RenderPanel(Panel, PanelBounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
-        v4 BorderColor = v4{0, 0, 0, 1};
+        case PanelSplit_NoSplit:
+        {
+            panel* OverridePanel = Panel_GetModalOverride(Panel);
+            RenderPanel(OverridePanel, OverridePanel->Bounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
+            v4 BorderColor = v4{0, 0, 0, 1};
+            
+            PushRenderOrthographic(RenderBuffer, State->WindowBounds);
+            DrawPanelBorder(*OverridePanel, OverridePanel->Bounds.Min, OverridePanel->Bounds.Max, BorderColor, Mouse, RenderBuffer);
+        }break;
         
-        PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-        DrawPanelBorder(*Panel, PanelBounds.Min, PanelBounds.Max, BorderColor, Mouse, RenderBuffer);
+        InvalidDefaultCase;
     }
+}
+
+internal void
+DrawAllPanels(panel_system System, render_command_buffer* RenderBuffer, mouse_state* Mouse, app_state* State, context Context)
+{
+    panel* PanelAt = System.Panels + 0;
+    DrawPanelRecursive(PanelAt, RenderBuffer, Mouse, State, Context);
 }
 
 #define FOLDHAUS_INTERFACE_CPP

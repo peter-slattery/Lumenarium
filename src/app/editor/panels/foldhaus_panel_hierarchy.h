@@ -38,7 +38,9 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    ui_layout Layout = ui_CreateLayout(State->Interface, PanelBounds);
+    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
+    ui_PushLayout(&State->Interface, Layout);
+    
     gs_string TempString = PushString(State->Transient, 256);
     u32 LineCount = (u32)(Rect2Height(PanelBounds) / Layout.RowHeight) + 1;
     u32 AssembliesToDraw = Min(LineCount, State->Assemblies.Count);
@@ -57,16 +59,15 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         assembly Assembly = State->Assemblies.Values[AssemblyIndex];
         PrintF(&TempString, "%S", Assembly.Name);
         
-        ui_layout ItemLayout = ui_CreateLayout(State->Interface, LineBounds[AssemblyIndex]);
-        ui_StartRow(&ItemLayout, 2);
+        ui_StartRow(&State->Interface, 2);
         {
-            ui_LayoutDrawString(&State->Interface, &ItemLayout, TempString, State->Interface.Style.TextColor);
-            if (ui_LayoutListButton(&State->Interface, &ItemLayout, MakeString("X"), AssemblyIndex))
+            ui_DrawString(&State->Interface, TempString);
+            if (ui_LayoutListButton(&State->Interface, &Layout, MakeString("X"), AssemblyIndex))
             {
                 UnloadAssembly(AssemblyIndex, State, Context);
             }
         }
-        ui_EndRow(&ItemLayout);
+        ui_EndRow(&State->Interface);
     }
     
     if (AssembliesToDraw < LineCount)
@@ -75,10 +76,12 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         PrintF(&TempString, "+ Add Assembly");
         if (ui_ListButton(&State->Interface, TempString, LineBounds[AssembliesToDraw], AssembliesToDraw))
         {
-            panel_entry* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
     }
+    
+    ui_PopLayout(&State->Interface);
 }
 
 

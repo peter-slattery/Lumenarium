@@ -5,11 +5,17 @@
 //
 #ifndef FOLDHAUS_PANEL_SCULPTURE_VIEW_H
 
+struct sculpture_view_panel_state
+{
+    camera Camera;
+};
+
 // 3D Mouse View
 
 OPERATION_STATE_DEF(mouse_rotate_view_operation_state)
 {
     v4 CameraStartPos;
+    camera* Camera;
 };
 
 OPERATION_RENDER_PROC(Update3DViewMouseRotate)
@@ -22,7 +28,7 @@ OPERATION_RENDER_PROC(Update3DViewMouseRotate)
     m44 YRotation = M44RotationY(TotalDeltaPos.x * State->PixelsToWorldScale);
     m44 Combined = XRotation * YRotation;
     
-    State->Camera.Position = (Combined * OpState->CameraStartPos).xyz;
+    OpState->Camera->Position = (Combined * OpState->CameraStartPos).xyz;
 }
 
 FOLDHAUS_INPUT_COMMAND_PROC(End3DViewMouseRotate)
@@ -36,11 +42,14 @@ input_command MouseRotateViewCommands [] = {
 
 FOLDHAUS_INPUT_COMMAND_PROC(Begin3DViewMouseRotate)
 {
+    sculpture_view_panel_state* PanelState = Panel_GetStateStruct(Panel, sculpture_view_panel_state);
+    
     operation_mode* RotateViewMode = ActivateOperationModeWithCommands(&State->Modes, MouseRotateViewCommands, Update3DViewMouseRotate);
     mouse_rotate_view_operation_state* OpState = CreateOperationState(RotateViewMode,
                                                                       &State->Modes,
                                                                       mouse_rotate_view_operation_state);
-    OpState->CameraStartPos = ToV4Point(State->Camera.Position);
+    OpState->CameraStartPos = ToV4Point(PanelState->Camera.Position);
+    OpState->Camera = &PanelState->Camera;
 }
 
 // ----------------
@@ -57,7 +66,16 @@ GSMetaTag(panel_type_sculpture_view);
 internal void
 SculptureView_Init(panel* Panel, app_state* State, context Context)
 {
+    sculpture_view_panel_state* PanelState = PushStruct(&State->Permanent, sculpture_view_panel_state);
     
+    PanelState->Camera.FieldOfView = 45.0f;
+    PanelState->Camera.AspectRatio = RectAspectRatio(State->WindowBounds);
+    PanelState->Camera.Near = .1f;
+    PanelState->Camera.Far = 800.0f;
+    PanelState->Camera.Position = v3{0, 0, 400};
+    PanelState->Camera.LookAt = v3{0, 0, 0};
+    
+    Panel->StateMemory = StructToData(PanelState, sculpture_view_panel_state);
 }
 
 GSMetaTag(panel_cleanup);
@@ -159,9 +177,10 @@ internal void
 SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     DEBUG_TRACK_SCOPE(RenderSculpture);
-    State->Camera.AspectRatio = RectAspectRatio(PanelBounds);
+    sculpture_view_panel_state* PanelState = Panel_GetStateStruct(Panel, sculpture_view_panel_state);
+    PanelState->Camera.AspectRatio = RectAspectRatio(PanelBounds);
     
-    PushRenderPerspective(RenderBuffer, PanelBounds, State->Camera);
+    PushRenderPerspective(RenderBuffer, PanelBounds, PanelState->Camera);
     
     u32 MaxLEDsPerJob = 2048;
     render_quad_batch_constructor RenderLEDsBatch = PushRenderQuad3DBatch(RenderBuffer, State->LedSystem.LedsCountTotal);
@@ -184,7 +203,7 @@ SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             JobData->Batch = &RenderLEDsBatch;
             JobData->BatchReservedRange = ReserveRangeInQuadConstructor(JobData->Batch, JobLedCount * 2);
             JobData->LEDHalfWidth = .5f;
-            JobData->CameraPosition = ToV4Point(State->Camera.Position);
+            JobData->CameraPosition = ToV4Point(PanelState->Camera.Position);
 #if 1
             Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue, (thread_proc*)DrawLEDsInBufferRangeJob, Data, ConstString("Sculpture Draw LEDS"));
 #else
@@ -204,7 +223,7 @@ SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         led_buffer* LedBuffer = LedSystemGetBuffer(&State->LedSystem, Assembly.LedBufferIndex);
         
         v4 LedPosition = LedBuffer->Positions[FocusPixel];
-        v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, State->Camera, PanelBounds);
+        v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, PanelState->Camera, PanelBounds);
         
         gs_string Tempgs_string = PushString(State->Transient, 256);
         PrintF(&Tempgs_string, "%f %f", LedOnScreenPosition.x, LedOnScreenPosition.y);

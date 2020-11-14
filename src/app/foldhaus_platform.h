@@ -148,7 +148,7 @@ typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
 
 // Worker Threads
 
-#define PLATFORM_THREAD_COUNT 4
+#define PLATFORM_THREAD_COUNT 0
 
 RESET_WORK_QUEUE(ResetWorkQueue)
 {
