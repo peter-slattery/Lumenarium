@@ -211,7 +211,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                 
                 // :AnimProcHandle
                 u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
-                animation_proc* AnimationProc = GlobalAnimationClips[AnimationProcIndex].Proc;
+                animation_proc* AnimationProc = GlobalAnimationPatterns[AnimationProcIndex].Proc;
                 AnimationProc(&LayerLEDBuffers[Layer], *Assembly, SecondsIntoBlock, State->Transient);
             }
             

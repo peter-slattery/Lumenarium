@@ -209,8 +209,8 @@ EndCurrentOperationMode(app_state* State)
     DeactivateCurrentOperationMode(&State->Modes);
 }
 
-s32 GlobalAnimationClipsCount = 3;
-animation_clip GlobalAnimationClips[] = {
+s32 GlobalAnimationPatternsCount = 3;
+animation_pattern GlobalAnimationPatterns[] = {
     { "Test Pattern One", 16, TestPatternOne  },
     { "Test Pattern Two", 16, TestPatternTwo },
     { "Test Pattern Three", 18, TestPatternThree },

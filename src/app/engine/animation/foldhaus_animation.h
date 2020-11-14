@@ -103,7 +103,7 @@ struct animation_system
 };
 
 // TODO(pjs): Better name - something like animation_prototype
-struct animation_clip
+struct animation_pattern
 {
     char* Name;
     s32 NameLength;

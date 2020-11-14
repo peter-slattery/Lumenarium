@@ -479,8 +479,6 @@ WinMain (
     
 #endif
     
-    
-    
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
     

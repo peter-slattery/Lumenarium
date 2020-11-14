@@ -109,7 +109,7 @@ StartDragTimeMarker(rect2 TimelineBounds, frame_range VisibleFrames, app_state* 
 
 #define CLICK_ANIMATION_BLOCK_EDGE_MAX_SCREEN_DISTANCE 10
 
-OPERATION_STATE_DEF(drag_animation_clip_state)
+OPERATION_STATE_DEF(drag_animation_block_state)
 {
     rect2 TimelineBounds;
     handle BlockHandle;
@@ -129,9 +129,9 @@ AttemptToSnapPosition(u32 SnappingFrame, u32 SnapToFrame)
     return Result;
 }
 
-OPERATION_RENDER_PROC(UpdateDragAnimationClip)
+OPERATION_RENDER_PROC(UpdateDragAnimationBlock)
 {
-    drag_animation_clip_state* OpState = (drag_animation_clip_state*)Operation.OpStateMemory;
+    drag_animation_block_state* OpState = (drag_animation_block_state*)Operation.OpStateMemory;
     
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     
@@ -228,7 +228,7 @@ OPERATION_RENDER_PROC(UpdateDragAnimationClip)
     AnimationBlock->Range.Max = (u32)Clamp(PlayableStartFrame, (s32)AnimationBlock->Range.Max, PlayableEndFrame);
 }
 
-input_command DragAnimationClipCommands [] = {
+input_command DragAnimationBlockCommands [] = {
     { KeyCode_MouseLeftButton, KeyCode_Invalid, Command_Ended, 0 },
 };
 
@@ -238,11 +238,11 @@ SelectAndBeginDragAnimationBlock(animation_timeline_state* TimelineState, handle
     TimelineState->SelectedBlockHandle = BlockHandle;
     
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-    operation_mode* DragAnimationClipMode = ActivateOperationModeWithCommands(&State->Modes, DragAnimationClipCommands, UpdateDragAnimationClip);
+    operation_mode* DragAnimationBlockMode = ActivateOperationModeWithCommands(&State->Modes, DragAnimationBlockCommands, UpdateDragAnimationBlock);
     
-    drag_animation_clip_state* OpState = CreateOperationState(DragAnimationClipMode,
-                                                              &State->Modes,
-                                                              drag_animation_clip_state);
+    drag_animation_block_state* OpState = CreateOperationState(DragAnimationBlockMode,
+                                                               &State->Modes,
+                                                               drag_animation_block_state);
     OpState->TimelineBounds = TimelineBounds;
     OpState->BlockHandle = BlockHandle;
     OpState->VisibleRange = VisibleRange;
@@ -580,7 +580,7 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
     {
         gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FileInfo.Path);
         gs_string AnimFileString = MakeString((char*)AnimFile.Data.Memory, AnimFile.Data.Size);
-        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, GlobalAnimationClipsCount, GlobalAnimationClips);
+        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, GlobalAnimationPatternsCount, GlobalAnimationPatterns);
         
         u32 NewAnimIndex = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
         State->AnimationSystem.ActiveAnimationIndex = NewAnimIndex;
@@ -588,15 +588,15 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 }
 
 internal void
-DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
+DrawAnimationPatternList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {
     ui_layout Layout = ui_CreateLayout(Interface, PanelBounds);
     ui_PushLayout(Interface, Layout);
-    for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
+    for (s32 i = 0; i < GlobalAnimationPatternsCount; i++)
     {
-        animation_clip Clip = GlobalAnimationClips[i];
-        gs_string ClipName = MakeString(Clip.Name, Clip.NameLength);
-        if (ui_LayoutListEntry(Interface, &Layout, ClipName, i))
+        animation_pattern Pattern = GlobalAnimationPatterns[i];
+        gs_string PatternName = MakeString(Pattern.Name, Pattern.NameLength);
+        if (ui_LayoutListEntry(Interface, &Layout, PatternName, i))
         {
             AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayerHandle, AnimationSystem);
         }

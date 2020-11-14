@@ -6,7 +6,7 @@
 #ifndef FOLDHAUS_ANIMATION_SERIALIZER_CPP
 
 internal gs_string
-AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_arena* Arena)
+AnimSerializer_Serialize(animation Anim, animation_pattern* GlobalClips, gs_memory_arena* Arena)
 {
     serializer Serializer = {0};
     Serializer.String = PushString(Arena, 4096);
@@ -48,7 +48,7 @@ AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_
         // TODO(pjs): Systematize the AnimationProcHandle
         // :AnimProcHandle
         u32 AnimationProcIndex = AnimationBlockAt.AnimationProcHandle - 1;
-        animation_clip Animation = GlobalClips[AnimationProcIndex];
+        animation_pattern Animation = GlobalClips[AnimationProcIndex];
         
         Serializer_OpenStruct(&Serializer, AnimField_Block);
         {
@@ -70,7 +70,7 @@ AnimSerializer_Serialize(animation Anim, animation_clip* GlobalClips, gs_memory_
 }
 
 internal animation
-AnimParser_Parse(gs_string File, gs_memory_arena* Arena, u32 AnimClipsCount, animation_clip* AnimClips)
+AnimParser_Parse(gs_string File, gs_memory_arena* Arena, u32 AnimClipsCount, animation_pattern* AnimClips)
 {
     animation Result = {0};
     
