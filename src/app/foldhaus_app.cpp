@@ -145,9 +145,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim, 22, 123, 2, 0);
+        Animation_AddBlock(&Anim, 0, Anim.PlayableRange.Max, 4, 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
+        
+        State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
     
     

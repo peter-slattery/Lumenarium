@@ -202,15 +202,128 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     }
 }
 
+v4 HSVToRGB (v4 In)
+{
+    float Hue = In.x;
+    while (Hue > 360.0f) { Hue -= 360.0f; }
+    while (Hue < 0.0f) { Hue += 360.0f; }
+    
+    float Sat = In.y;
+    float Value = In.z;
+    
+    float hh, p, q, t, ff;
+    long        i;
+    v4 Result = {};
+    Result.a = In.a;
+    
+    if(Sat <= 0.0f) {       // < is bogus, just shuts up warnings
+        Result.r = Value;
+        Result.g = Value;
+        Result.b = Value;
+        return Result;
+    }
+    hh = Hue;
+    if(hh >= 360.0f) hh = 0.0f;
+    hh /= 60.0f;
+    i = (long)hh;
+    ff = hh - i;
+    p = Value * (1.0f - Sat);
+    q = Value * (1.0f - (Sat * ff));
+    t = Value * (1.0f - (Sat * (1.0f - ff)));
+    
+    switch(i) {
+        case 0:
+        {Result.r = Value;
+            Result.g = t;
+            Result.b = p;
+        }break;
+        
+        case 1:
+        {
+            Result.r = q;
+            Result.g = Value;
+            Result.b = p;
+        }break;
+        
+        case 2:
+        {
+            Result.r = p;
+            Result.g = Value;
+            Result.b = t;
+        }break;
+        
+        case 3:
+        {
+            Result.r = p;
+            Result.g = q;
+            Result.b = Value;
+        }break;
+        
+        case 4:
+        {
+            Result.r = t;
+            Result.g = p;
+            Result.b = Value;
+        }break;
+        
+        case 5:
+        default:
+        {
+            Result.r = Value;
+            Result.g = p;
+            Result.b = q;
+        }break;
+    }
+    
+    return Result;
+}
+
 internal void
 Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
+#if 1
+    r32 Height = SinR32(Time) * 25;
+    
+    r32 CycleLength = 5.0f;
+    r32 CycleProgress = FractR32(Time / CycleLength);
+    r32 CycleBlend = (SinR32(Time) * .5f) + .5f;
+    
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
-        Leds->Colors[LedIndex].R = 0;
-        Leds->Colors[LedIndex].B = 255;
-        Leds->Colors[LedIndex].G = 255;
+        v4 Pos = Leds->Positions[LedIndex];
+        r32 Dist = Pos.y - Height;
+        
+        v4 HSV = { (ModR32(Dist, 25) / 25) * 360, 1, 1, 1 };
+        v4 RGB = HSVToRGB(HSV);
+        
+        u8 R = (u8)(RGB.x * 255);
+        u8 G = (u8)(RGB.y * 255);
+        u8 B = (u8)(RGB.z * 255);
+        
+        Leds->Colors[LedIndex].R = R;
+        Leds->Colors[LedIndex].G = G;
+        Leds->Colors[LedIndex].B = B;
     }
+#else
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        u32 I = LedIndex + 1;
+        Leds->Colors[LedIndex] = {};
+        if (I % 3 == 0)
+        {
+            Leds->Colors[LedIndex].R = 255;
+        }
+        else if (I % 3 == 1)
+        {
+            Leds->Colors[LedIndex].G = 255;
+        }
+        else if (I % 3 == 2)
+        {
+            Leds->Colors[LedIndex].B = 255;
+        }
+        
+    }
+#endif
 }
 
 // END TEMPORARY PATTERNS

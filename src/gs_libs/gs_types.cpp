@@ -442,6 +442,21 @@ SqrtU32(u32 V)
 }
 
 internal r32
+ModR32(r32 Value, r32 Int)
+{
+    r32 Div = Value / Int;
+    r32 Fract = Abs(FractR32(Div));
+    return Int * Fract;
+}
+internal r64
+ModR64(r64 Value, r64 Int)
+{
+    r64 Div = Value / Int;
+    r64 Fract = Abs(FractR64(Div));
+    return Int * Fract;
+}
+
+internal r32
 SinR32(r32 Rad)
 {
     return sinf(Rad);
