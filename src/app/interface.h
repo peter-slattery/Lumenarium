@@ -276,6 +276,7 @@ struct ui_widget_retained_state
 {
     ui_widget_id Id;
     bool Value;
+    u32 FramesSinceAccess;
 };
 
 struct ui_interface
@@ -299,6 +300,8 @@ struct ui_interface
 #define RETAINED_STATE_MAX 128
     ui_widget_retained_state RetainedState[RETAINED_STATE_MAX];
     u64 RetainedStateCount;
+    
+    gs_memory_arena* PerFrameMemory;
 };
 
 internal void
@@ -307,6 +310,16 @@ ui_InterfaceReset(ui_interface* Interface)
     Interface->WidgetsCount = 0;
     Interface->DrawOrderHead = 0;
     Interface->DrawOrderRoot = 0;
+    ClearArena(Interface->PerFrameMemory);
+    
+    for (u32 i = 0; i < Interface->RetainedStateCount; i++)
+    {
+        Interface->RetainedState[i].FramesSinceAccess += 1;
+        if (Interface->RetainedState[i].FramesSinceAccess > 1)
+        {
+            Interface->RetainedState[i] = {0};
+        }
+    }
 }
 
 internal bool
@@ -324,6 +337,7 @@ ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
     {
         if (ui_WidgetIdsEqual(Interface->RetainedState[i].Id, Id))
         {
+            Interface->RetainedState[i].FramesSinceAccess = 0;
             Result = Interface->RetainedState + i;
             break;
         }
@@ -332,11 +346,11 @@ ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
 }
 
 internal ui_widget_retained_state*
-ui_CreateRetainedState(ui_interface* Interface, ui_widget_id Id)
+ui_CreateRetainedState(ui_interface* Interface, ui_widget* Widget)
 {
     u64 Index = Interface->RetainedStateCount++;
     ui_widget_retained_state* Result = Interface->RetainedState + Index;
-    Result->Id = Id;
+    Result->Id = Widget->Id;
     return Result;
 }
 
@@ -345,6 +359,8 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
 {
     Assert(Interface->WidgetsCount < Interface->WidgetsCountMax);
     ui_widget* Result = Interface->Widgets + Interface->WidgetsCount++;
+    ZeroStruct(Result);
+    
     Result->Parent = Interface->ActiveLayout;
     
     u64 Id = HashDJB2ToU64(StringExpand(String));
@@ -352,15 +368,31 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
     {
         Id = HashAppendDJB2ToU32(Id, Result->Parent->Id.Id);
         Id = HashAppendDJB2ToU32(Id, Result->Parent->ChildCount);
+        Result->Id.ParentId = Result->Parent->Id.Id;
     }
     Result->Id.Id = Id;
     
-    Result->String = String;
+    Result->String = PushStringCopy(Interface->PerFrameMemory, String.ConstString);
     Result->Alignment = Align_Left;
     Result->Next = 0;
     Result->ChildrenRoot = 0;
     Result->ChildrenHead = 0;
     Result->Flags = 0;
+    return Result;
+}
+
+internal void
+ui_WidgetSetFlag(ui_widget* Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    Widget->Flags = Widget->Flags | Value;
+}
+
+internal bool
+ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    bool Result = (Widget.Flags & Value);
     return Result;
 }
 
@@ -379,13 +411,16 @@ ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
 // Layout
 
 static ui_widget*
-ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir)
+ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
 {
-    ui_widget* Result = ui_CreateWidget(Interface, MakeString("Layout"));
+    ui_widget* Result = ui_CreateWidget(Interface, Name);
+    ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
+    
     Result->Bounds = Bounds;
     Result->Margin = Interface->Style.Margin;
     Result->RowHeight = Interface->Style.RowHeight;
     Result->FillDirection = FillDir;
+    
     switch(FillDir)
     {
         case LayoutDirection_BottomUp:
@@ -418,7 +453,7 @@ static void
 ui_PopLayout(ui_interface* Interface)
 {
     Assert(Interface->ActiveLayout != 0);
-    ui_EvaluateWidget(Interface, Interface->ActiveLayout, Interface->ActiveLayout->Bounds);
+    //ui_EvaluateWidget(Interface, Interface->ActiveLayout, Interface->ActiveLayout->Bounds);
     Interface->ActiveLayout = Interface->ActiveLayout->Parent;
 }
 
@@ -534,35 +569,14 @@ ui_LayoutRemaining(ui_widget Layout)
 
 // Widgets
 
-internal void
-ui_WidgetSetFlag(ui_widget* Widget, u64 Flag)
-{
-    u64 Value = ((u64)1 << Flag);
-    Widget->Flags = Widget->Flags | Value;
-}
-
-internal bool
-ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
-{
-    u64 Value = ((u64)1 << Flag);
-    bool Result = (Widget.Flags & Value);
-    return Result;
-}
-
 internal ui_eval_result
 ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
 {
     ui_eval_result Result = {};
     
-    //Assert(Interface->WidgetsCount < Interface->WidgetsCountMax);
-    //u64 Index = Interface->WidgetsCount++;
-    
-    Widget->Id.Id = HashDJB2ToU64(StringExpand(Widget->String));
-    Widget->Id.ParentId = Interface->ActiveLayout->Id.Id;
-    
     Widget->Bounds = Bounds;
-    //Interface->Widgets[Index] = *Widget;
     SLLPushOrInit(Interface->ActiveLayout->ChildrenRoot, Interface->ActiveLayout->ChildrenHead, Widget);
+    Interface->ActiveLayout->ChildCount += 1;
     
     if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Clickable))
     {
@@ -711,7 +725,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
 {
     ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
     if (!State) {
-        State = ui_CreateRetainedState(Interface, Widget->Id);
+        State = ui_CreateRetainedState(Interface, Widget);
     }
     
     if (EvalResult.Clicked)
@@ -747,7 +761,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
             };
         }
         
-        ui_widget* Layout = ui_PushLayout(Interface, MenuBounds, Direction);
+        ui_widget* Layout = ui_PushLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
         Layout->WidgetReference = Widget->Id;
     }
     
@@ -760,6 +774,7 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text, rect2 Bounds)
     ui_widget* Widget = ui_CreateWidget(Interface, Text);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget, Bounds);
     return ui_EvaluateDropdown(Interface, Widget, Result);
 }
@@ -770,6 +785,7 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text)
     ui_widget* Widget = ui_CreateWidget(Interface, Text);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
     return ui_EvaluateDropdown(Interface, Widget, Result);
 }

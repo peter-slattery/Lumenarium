@@ -1,3 +1,5 @@
+x blending between animation
+
 x saving animation timelines
 x Buckets & Lists
     x On second thought, I just really don't like these. Lets get rid of them, and put custom structures in place

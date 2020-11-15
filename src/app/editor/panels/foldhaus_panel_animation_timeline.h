@@ -587,7 +587,7 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 internal void
 DrawAnimationClipsList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
 {
-    ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown);
+    ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown, MakeString("AnimClips Layout"));
     for (s32 i = 0; i < GlobalAnimationClipsCount; i++)
     {
         animation_clip Clip = GlobalAnimationClips[i];
@@ -605,7 +605,7 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
 {
     animation_system* AnimSystem = &State->AnimationSystem;
     ui_interface* Interface = &State->Interface;
-    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown);
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("PlayBar Layout"));
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
     ui_StartRow(&State->Interface, 4);
@@ -792,7 +792,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, rende
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(AnimSystem);
     
     ui_interface* Interface = &State->Interface;
-    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown);
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"));
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
     

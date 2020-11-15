@@ -88,7 +88,7 @@ internal void
 FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
-    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown);
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("FileView Layout"));
     
     if (ui_Button(&State->Interface, MakeString("Exit")))
     {

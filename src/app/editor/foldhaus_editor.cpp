@@ -105,7 +105,7 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
         PushRenderQuad2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Color);
     }
     
-    if (Widget.String.Length > 0)
+    if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
     {
         v4 Color = State->Interface.Style.TextColor;
         render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
@@ -155,25 +155,22 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
 }
 
 internal void
-Editor_Render(app_state* State, context* Context, render_command_buffer* RenderBuffer)
+TestRender(app_state* State, context* Context, render_command_buffer* RenderBuffer)
 {
-    PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-    PushRenderClearScreen(RenderBuffer);
-    
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
     
-    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown);
+    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown, MakeString("TestRender Layout"));
     
-    rect2 Rects[2];
-    RectVSplitAtPercent(Context->WindowBounds, .5f, &Rects[0], &Rects[1]);
+    ui_widget_id Ids[2];
+    
+    gs_string String = MakeString("Select");
+    ui_StartRow(&State->Interface, 2);
     for (u32 j = 0; j < 2; j++)
     {
-        ui_PushLayout(&State->Interface, Rects[j], LayoutDirection_TopDown);
-        
-        if (ui_BeginDropdown(&State->Interface, MakeString("Select")))
+        if (ui_BeginDropdown(&State->Interface, String))
         {
-            for (s32 i = 0; i < GlobalPanelDefsCount; i++)
+            for (u32 i = 0; i < State->PanelSystem.PanelDefsCount; i++)
             {
                 panel_definition Def = State->PanelSystem.PanelDefs[i];
                 gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
@@ -184,11 +181,30 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
             }
         }
         ui_EndDropdown(&State->Interface);
-        
-        ui_PopLayout(&State->Interface);
     }
+    ui_EndRow(&State->Interface);
+    
+    ui_PopLayout(&State->Interface);
+    
+    Assert(!ui_WidgetIdsEqual(Ids[0], Ids[1]));
+}
+
+internal void
+Editor_Render(app_state* State, context* Context, render_command_buffer* RenderBuffer)
+{
+    PushRenderOrthographic(RenderBuffer, State->WindowBounds);
+    PushRenderClearScreen(RenderBuffer);
     
 #if 0
+    TestRender(State, Context, RenderBuffer);
+    //ui_widget_id IdTwo = TestRender(State, Context, RenderBuffer);
+    //Assert(ui_WidgetIdsEqual(IdOne, IdTwo));
+    
+#else
+    ui_InterfaceReset(&State->Interface);
+    State->Interface.RenderBuffer = RenderBuffer;
+    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown, MakeString("Editor Layout"));
+    
     DrawAllPanels(State->PanelSystem, RenderBuffer, &Context->Mouse, State, *Context);
     
     for (s32 m = 0; m < State->Modes.ActiveModesCount; m++)
@@ -199,13 +215,16 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
             OperationMode.Render(State, RenderBuffer, OperationMode, Context->Mouse, *Context);
         }
     }
-#endif
     
     ui_PopLayout(&State->Interface);
+#endif
     
     // Draw the Interface
-    ui_widget Widget = *State->Interface.DrawOrderRoot;
-    Editor_DrawWidget(State, Context, RenderBuffer, Widget);
+    if (State->Interface.DrawOrderRoot != 0)
+    {
+        ui_widget Widget = *State->Interface.DrawOrderRoot;
+        Editor_DrawWidget(State, Context, RenderBuffer, Widget);
+    }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
     Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);

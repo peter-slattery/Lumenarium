@@ -43,7 +43,6 @@ STREAM #1: 3D Overhaul
     - :ErrorLogging
 
 - Animation System
-    - blending between animation
     - layers
         - layer masks by sculpture
 		- layer masks by tag / value

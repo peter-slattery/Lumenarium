@@ -179,7 +179,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
-    ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown);
+    ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown, MakeString("Profiler Layout"));
     
     ui_StartRow(&State->Interface, 4);
     {

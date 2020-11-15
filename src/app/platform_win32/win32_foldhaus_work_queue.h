@@ -46,6 +46,8 @@ Win32CreateThreadContext(gs_memory_arena* Transient = 0)
                                            Win32EnumerateDirectory,
                                            Result.Transient);
     
+    Result.DebugOutput.Print = Win32DebugPrint;
+    
     return Result;
 }
 

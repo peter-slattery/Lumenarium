@@ -38,7 +38,7 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown);
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Hierarchy Layout"));
     
     // TODO(pjs): Come back to this after the layout stuff is handled.
     // Ideally it handles the visuals of the hierarchy itself.

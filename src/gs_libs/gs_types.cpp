@@ -1979,31 +1979,31 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             if (FormatAt[0] == 'h' && FormatAt[1] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 1;
+                Length = 1;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 2;
+                Length = 2;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'l' && FormatAt[1] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 4;
+                Length = 4;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'j')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'z')
@@ -2034,7 +2034,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'u')
             {
-                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u64 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
                 U64ToASCII(&StringRemaining, UnsignedInt, 10, Base10Chars);
             }
             else if (FormatAt[0] == 'o')
@@ -2472,6 +2472,19 @@ PushStringF(gs_memory_arena* Arena, u32 MaxLength, char* Format, ...)
     PrintFArgsList(&Result, Format, Args);
     va_end(Args);
     
+    return Result;
+}
+
+internal gs_string
+PushStringCopy(gs_memory_arena* Arena, gs_const_string String)
+{
+    gs_string Result = PushString(Arena, String.Length);
+    Result.Size = String.Length;
+    Result.Length = String.Length;
+    for (u32 i = 0; i < String.Length; i++)
+    {
+        Result.Str[i] = String.Str[i];
+    }
     return Result;
 }
 

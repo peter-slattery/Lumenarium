@@ -413,7 +413,7 @@ Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_
     gs_string OutputStr = AllocatorAllocString(Context.Allocator, 256);
     PrintF(&OutputStr, "Buffers Sent: %d\n", BuffersSent);
     NullTerminate(&OutputStr);
-    OutputDebugStringA(OutputStr.Str);
+    //OutputDebugStringA(OutputStr.Str);
 }
 
 internal void
@@ -685,6 +685,10 @@ WinMain (
         
         LastFrameSecondsElapsed = SecondsElapsed;
         LastFrameEnd = GetWallClock();
+        
+        
+        OutputDebugStringA("-- Frame END -- \n");
+        
     }
     
     Context.CleanupApplication(Context);

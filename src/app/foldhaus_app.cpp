@@ -110,6 +110,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->Interface.WidgetsCountMax = 4096;
     State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);
+    State->Interface.PerFrameMemory = PushStruct(&State->Permanent, gs_memory_arena);
+    *State->Interface.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator);
     
     State->SACN = SACN_Initialize(Context);
     
@@ -149,7 +151,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
     } // End Animation Playground
-    
     
     PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
     PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
