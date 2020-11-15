@@ -52,7 +52,6 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     // Fill in alternating color rows for the backgrounds
     for (u32 Line = 0; Line < LineCount; Line++)
     {
-        //LineBounds[Line] = ui_ReserveElementBounds(Layout);
         v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface.Style, Line);
         ui_FillRect(&State->Interface, LineBounds[Line], ListItemBGColor);
     }

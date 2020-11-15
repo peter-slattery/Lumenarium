@@ -200,39 +200,86 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
 {
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
+    State->Interface.WindowBounds = Context->WindowBounds;
     
-    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown, MakeString("TestRender Layout"));
+    gs_string A = MakeString("TestRender Layout");
     
-    ui_widget_id Ids[2];
-    
-    gs_string String = MakeString("Select");
-    ui_StartRow(&State->Interface, 2);
-    for (u32 j = 0; j < 2; j++)
+    ui_PushLayout(&State->Interface, A);
     {
-        if (ui_BeginDropdown(&State->Interface, String))
+#if 1
+        ui_column_spec ColumnRules[] = {
+            { UIColumnSize_Fixed, 128 },
+            { UIColumnSize_Fill, 0 },
+            { UIColumnSize_Percent, .5f }
+        };
+        ui_BeginRow(&State->Interface, 3, ColumnRules);
+        
         {
-            for (u32 i = 0; i < State->PanelSystem.PanelDefsCount; i++)
+            ui_Button(&State->Interface, MakeString("B"));
+            ui_Button(&State->Interface, MakeString("B"));
+            ui_Button(&State->Interface, MakeString("B"));
+        }
+        ui_EndRow(&State->Interface);
+        ui_Button(&State->Interface, MakeString("B"));
+        ui_Button(&State->Interface, MakeString("C"));
+#elif 0
+        ui_PushLayout(&State->Interface, MakeString("Outer"));
+        {
+            for (u32 i = 0; i < 3; i++)
             {
-                panel_definition Def = State->PanelSystem.PanelDefs[i];
-                gs_string DefName = MakeString(Def.PanelName, Def.PanelNameLength);
-                if (ui_Button(&State->Interface, DefName))
-                {
-                    
-                }
+                ui_Button(&State->Interface, MakeString("A"));
             }
         }
-        ui_EndDropdown(&State->Interface);
+        ui_PopLayout(&State->Interface);
+        
+        ui_BeginRow(&State->Interface, 2);
+        {
+            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
+            {
+                for (u32 i = 0; i < 5; i++)
+                {
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                }
+            }
+            ui_PopLayout(&State->Interface);
+            
+            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
+            {
+                ui_Button(&State->Interface, MakeString("TestButon"));
+                TestToggle = ui_Toggle(&State->Interface, MakeString("Toggle"), TestToggle);
+                TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
+                if (ui_BeginDropdown(&State->Interface, MakeString("TestDropdown")))
+                {
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                }
+                ui_EndDropdown(&State->Interface);
+            }
+            ui_PopLayout(&State->Interface);
+        }
+        ui_EndRow(&State->Interface);
+        
+        ui_PushLayout(&State->Interface, MakeString("Outer"));
+        {
+            for (u32 i = 0; i < 3; i++)
+            {
+                ui_Button(&State->Interface, MakeString("B"));
+            }
+        }
+        ui_PopLayout(&State->Interface);
+#else
+        ui_BeginList(&State->Interface, MakeString("Test List"), 10);
+        {
+            for (u32 i = 0; i < 32; i++)
+            {
+                ui_Button(&State->Interface, MakeString("Option"));
+            }
+        }
+        ui_EndList(&State->Interface);
+#endif
     }
-    ui_EndRow(&State->Interface);
-    TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("Test Slider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
-    
-    TestToggle = ui_Toggle(&State->Interface, MakeString("test toggle"), TestToggle);
-    
-    ui_Button(&State->Interface, MakeString("Hello"));
-    
     ui_PopLayout(&State->Interface);
-    
-    Assert(!ui_WidgetIdsEqual(Ids[0], Ids[1]));
 }
 
 internal void
@@ -243,9 +290,6 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     
 #if 0
     TestRender(State, Context, RenderBuffer);
-    //ui_widget_id IdTwo = TestRender(State, Context, RenderBuffer);
-    //Assert(ui_WidgetIdsEqual(IdOne, IdTwo));
-    
 #else
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;

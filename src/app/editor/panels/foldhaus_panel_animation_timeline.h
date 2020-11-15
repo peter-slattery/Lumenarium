@@ -608,7 +608,7 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
     ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("PlayBar Layout"));
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
-    ui_StartRow(&State->Interface, 4);
+    ui_BeginRow(&State->Interface, 4);
     {
         if (ui_Button(Interface, MakeString("Pause")))
         {
@@ -796,7 +796,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, rende
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
     
-    ui_StartRow(&State->Interface, 2);
+    ui_BeginRow(&State->Interface, 2);
     {
         ui_Label(Interface, MakeString("Active Animation"));
         if (ui_BeginDropdown(Interface, ActiveAnim->Name))

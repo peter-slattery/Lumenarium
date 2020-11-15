@@ -106,7 +106,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Style.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
     State->Interface.Style.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
     State->Interface.Style.Margin = v2{5, 5};
-    State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
+    State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface) + (2 * State->Interface.Style.Margin.y);
     
     State->Interface.WidgetsCountMax = 4096;
     State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);

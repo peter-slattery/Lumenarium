@@ -94,8 +94,13 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
     char Backbuffer[256];
     gs_string String = MakeString(Backbuffer, 0, 256);
     
-    r32 ColumnWidths[] = {256, 128, 128, 128, 128};
-    ui_StartRow(Interface, 5, &ColumnWidths[0]);
+    ui_column_spec ColumnWidths[] = {
+        { UIColumnSize_Fixed, 256 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 }};
+    ui_BeginRow(Interface, 5, &ColumnWidths[0]);
     {
         ui_Label(Interface, MakeString("Procedure"));
         ui_Label(Interface, MakeString("% Frame"));
@@ -112,7 +117,7 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
         {
             collated_scope_record* CollatedRecord = VisibleFrame->CollatedScopes + n;
             
-            ui_StartRow(Interface, 5, &ColumnWidths[0]);
+            ui_BeginRow(Interface, 5, &ColumnWidths[0]);
             {
                 PrintF(&String, "%S", NameEntry.Name);
                 ui_Label(Interface, String);
@@ -181,7 +186,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown, MakeString("Profiler Layout"));
     
-    ui_StartRow(&State->Interface, 4);
+    ui_BeginRow(&State->Interface, 4);
     {
         s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
         s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
@@ -194,7 +199,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
-        ui_ReserveElementBounds(Layout);
+        ui_ReserveBounds(Layout, true);
         
         if (ui_Button(&State->Interface, MakeString("Resume Recording")))
         {
@@ -203,7 +208,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     }
     ui_EndRow(&State->Interface);
     
-    ui_StartRow(&State->Interface, 8);
+    ui_BeginRow(&State->Interface, 8);
     {
         if (ui_Button(&State->Interface, MakeString("Scope View")))
         {

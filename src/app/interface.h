@@ -199,6 +199,13 @@ enum ui_layout_direction
 {
     LayoutDirection_TopDown,
     LayoutDirection_BottomUp,
+    LayoutDirection_Inherit,
+};
+
+struct ui_column
+{
+    r32 XMin;
+    r32 XMax;
 };
 
 struct ui_widget
@@ -225,10 +232,9 @@ struct ui_widget
     
     ui_layout_direction FillDirection;
     
-    b32 DrawHorizontal;
-    u32 ColumnsMax;
-    r32* ColumnWidths;
+    ui_column* Columns;
     u32 ColumnsCount;
+    u32 ColumnsFilled;
     
     // NOTE(pjs): I'm not sure this will stay but
     // its here so that when we end things like a dropdown,
@@ -278,7 +284,10 @@ struct ui_widget_retained_state
 struct ui_interface
 {
     interface_config Style;
+    
     mouse_state Mouse;
+    rect2 WindowBounds;
+    
     render_command_buffer* RenderBuffer;
     
     ui_widget* Widgets;
@@ -322,6 +331,28 @@ internal bool
 ui_WidgetIdsEqual(ui_widget_id A, ui_widget_id B)
 {
     bool Result = (A.Id == B.Id) && (A.ParentId == B.ParentId);
+    return Result;
+}
+
+internal void
+ui_WidgetSetFlag(ui_widget* Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    Widget->Flags = Widget->Flags | Value;
+}
+
+internal void
+ui_WidgetClearFlag(ui_widget* Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    Widget->Flags = Widget->Flags & ~Value;
+}
+
+internal bool
+ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
+{
+    u64 Value = ((u64)1 << Flag);
+    bool Result = (Widget.Flags & Value);
     return Result;
 }
 
@@ -374,21 +405,7 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
     Result->ChildrenRoot = 0;
     Result->ChildrenHead = 0;
     Result->Flags = 0;
-    return Result;
-}
-
-internal void
-ui_WidgetSetFlag(ui_widget* Widget, u64 Flag)
-{
-    u64 Value = ((u64)1 << Flag);
-    Widget->Flags = Widget->Flags | Value;
-}
-
-internal bool
-ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
-{
-    u64 Value = ((u64)1 << Flag);
-    bool Result = (Widget.Flags & Value);
+    
     return Result;
 }
 
@@ -406,37 +423,146 @@ ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
 
 // Layout
 
+static rect2
+ui_ReserveBounds(ui_widget* Widget, bool Inset)
+{
+    Assert(Widget->ColumnsCount > 0);
+    rect2 Bounds = {0};
+    u32 ColumnIndex = Widget->ChildCount % Widget->ColumnsCount;
+    
+    ui_column Column = Widget->Columns[ColumnIndex];
+    Bounds.Min.x = Column.XMin;
+    Bounds.Min.y = Widget->RowYAt;
+    Bounds.Max.x = Column.XMax;
+    Bounds.Max.y = Bounds.Min.y + Widget->RowHeight;
+    
+    if (Inset)
+    {
+        Bounds.Min.x += Widget->Margin.x;
+        Bounds.Min.y += Widget->Margin.y;
+        Bounds.Max.x -= Widget->Margin.x;
+        Bounds.Max.y -= Widget->Margin.y;
+    }
+    
+    return Bounds;
+}
+
+internal void
+ui_CommitBounds(ui_widget* Parent, rect2 Bounds)
+{
+    u32 ColumnIndex = Parent->ChildCount % Parent->ColumnsCount;
+    if (ColumnIndex == 0)
+    {
+        switch (Parent->FillDirection)
+        {
+            case LayoutDirection_BottomUp:
+            {
+                Parent->RowYAt = Bounds.Max.y;
+            }break;
+            
+            case LayoutDirection_TopDown:
+            {
+                Parent->RowYAt = Bounds.Min.y - Parent->RowHeight;
+            }break;
+        }
+    }
+}
+
+internal void
+ui_ExpandParentToFit(ui_widget* Widget)
+{
+    ui_widget* Parent = Widget->Parent;
+    switch (Widget->FillDirection)
+    {
+        case LayoutDirection_TopDown:
+        {
+            Parent->Bounds.Min.y = Min(Parent->Bounds.Min.y, Widget->Bounds.Min.y - Parent->Margin.y);
+        }break;
+        
+        case LayoutDirection_BottomUp:
+        {
+            Parent->Bounds.Max.y = Max(Parent->Bounds.Max.y, Widget->Bounds.Max.y + Parent->Margin.y);
+        }break;
+        
+        InvalidDefaultCase;
+    }
+}
+
+internal void
+ui_WidgetCreateColumns(ui_widget* Widget, u32 ColumnsCount, ui_interface* Interface)
+{
+    Widget->Columns = PushArray(Interface->PerFrameMemory, ui_column, ColumnsCount);
+    Widget->ColumnsCount = ColumnsCount;
+    Widget->ColumnsFilled = 0;
+}
+
+internal void
+ui_WidgetInitUniformColumns(ui_widget* Widget)
+{
+    r32 CurrentRowWidth = Rect2Width(Widget->Bounds);
+    r32 ColumnWidth = CurrentRowWidth / Widget->ColumnsCount;
+    for (u32 i = 0; i < Widget->ColumnsCount; i++)
+    {
+        ui_column* Column = Widget->Columns + i;
+        Column->XMin = Widget->Bounds.Min.x + (ColumnWidth * i);
+        Column->XMax = Column->XMin + ColumnWidth;
+    }
+}
+
 internal ui_widget*
-ui_CreateLayoutWidget(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+ui_CreateLayoutWidget(ui_interface* Interface, rect2 Bounds, gs_string Name, ui_layout_direction FillDir = LayoutDirection_Inherit)
 {
     ui_widget* Result = ui_CreateWidget(Interface, Name);
-    //ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
+    ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
     
     Result->Bounds = Bounds;
     Result->Margin = Interface->Style.Margin;
     Result->RowHeight = Interface->Style.RowHeight;
-    Result->FillDirection = FillDir;
     
-    switch(FillDir)
+    // Single Column Layout
+    ui_WidgetCreateColumns(Result, 1, Interface);
+    ui_WidgetInitUniformColumns(Result);
+    
+    if (FillDir == LayoutDirection_Inherit && Result->Parent != 0)
+    {
+        Result->FillDirection = Result->Parent->FillDirection;
+    }
+    else
+    {
+        Result->FillDirection = FillDir;
+    }
+    
+    switch(Result->FillDirection)
     {
         case LayoutDirection_BottomUp:
         {
-            Result->RowYAt = Bounds.Min.y + Result->Margin.y;
+            Result->RowYAt = Bounds.Min.y;
         }break;
         
         case LayoutDirection_TopDown:
         {
-            Result->RowYAt = Bounds.Max.y - (Result->RowHeight + Result->Margin.y);
+            Result->RowYAt = Bounds.Max.y - Result->RowHeight;
         }break;
+        
+        InvalidDefaultCase;
     }
     
     return Result;
 }
 
 static ui_widget*
+ui_PushOverlayLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+{
+    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, Name, FillDir);
+    SLLPushOrInit(Interface->DrawOrderRoot, Interface->DrawOrderHead, Result);
+    Interface->ActiveLayout = Result;
+    return Result;
+}
+
+static ui_widget*
 ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
 {
-    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, FillDir, Name);
+    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, Name, FillDir);
     
     if (Interface->DrawOrderRoot)
     {
@@ -453,124 +579,178 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
 }
 
 static ui_widget*
-ui_PushOverlayLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+ui_PushLayout(ui_interface* Interface, gs_string Name, bool Inset = true)
 {
-    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, FillDir, Name);
-    SLLPushOrInit(Interface->DrawOrderRoot, Interface->DrawOrderHead, Result);
-    Interface->ActiveLayout = Result;
-    return Result;
+    rect2 Bounds = {};
+    ui_layout_direction Direction = LayoutDirection_TopDown;
+    if (Interface->ActiveLayout)
+    {
+        Bounds = ui_ReserveBounds(Interface->ActiveLayout, Inset);
+        Direction = Interface->ActiveLayout->FillDirection;
+    }
+    else
+    {
+        Bounds.Min.x = Interface->WindowBounds.Min.x;
+        Bounds.Min.y = Interface->WindowBounds.Max.y;
+        Bounds.Max.x = Interface->WindowBounds.Max.x;
+        Bounds.Max.y = Interface->WindowBounds.Max.y;
+        
+        if (Inset)
+        {
+            Bounds.Min.x += Interface->Style.Margin.x;
+            Bounds.Max.x -= Interface->Style.Margin.x;
+        }
+        
+        Direction = LayoutDirection_TopDown;
+    }
+    return ui_PushLayout(Interface, Bounds, Direction, Name);
+}
+
+internal void
+ui_ExpandToFitChildren(ui_widget* Parent)
+{
+    v2 Extents = { Parent->Bounds.Max.y, Parent->Bounds.Min.y };
+    for (ui_widget* Child = Parent->ChildrenRoot; Child != 0; Child = Child->Next)
+    {
+        Extents.x = Min(Extents.x, Child->Bounds.Min.y);
+        Extents.y = Max(Extents.y, Child->Bounds.Max.y);
+    }
+    
+    switch(Parent->FillDirection)
+    {
+        case LayoutDirection_BottomUp:
+        {
+            Parent->Bounds.Max.y = Extents.y + Parent->Margin.y;
+        }break;
+        
+        case LayoutDirection_TopDown:
+        {
+            Parent->Bounds.Min.y = Extents.x - Parent->Margin.y;
+        }break;
+        
+        InvalidDefaultCase;
+    }
 }
 
 static void
 ui_PopLayout(ui_interface* Interface)
 {
     Assert(Interface->ActiveLayout != 0);
+    
+    ui_widget* Layout = Interface->ActiveLayout;
+    ui_ExpandToFitChildren(Layout);
+    
     Interface->ActiveLayout = Interface->ActiveLayout->Parent;
+    
+    // NOTE(pjs): This indicates that the parent layout should
+    // expand to fit the layout that we just popped
+    if (Interface->ActiveLayout != 0 &&
+        Interface->ActiveLayout->ChildrenHead == Layout)
+    {
+        ui_CommitBounds(Interface->ActiveLayout, Layout->Bounds);
+    }
 }
 
 static void
-ui_StartRow(ui_interface* Interface, u32 ColumnsMax = 0)
+ui_BeginRow(ui_interface* Interface, u32 ColumnsMax)
 {
-    Interface->ActiveLayout->DrawHorizontal = true;
-    Interface->ActiveLayout->ColumnsMax = ColumnsMax;
-    Interface->ActiveLayout->ColumnWidths = 0;
-    Interface->ActiveLayout->ColumnsCount = 0;
+    ui_widget* Layout = ui_PushLayout(Interface, MakeString("Row"), false);
+    ui_WidgetCreateColumns(Layout, ColumnsMax, Interface);
+    ui_WidgetInitUniformColumns(Layout);
 }
 
-static void
-ui_StartRow(ui_interface* Interface, u32 ColumnsMax, r32* ColumnWidths)
+enum ui_column_size_rule
 {
-    Interface->ActiveLayout->DrawHorizontal = true;
-    Interface->ActiveLayout->ColumnsMax = ColumnsMax;
-    Interface->ActiveLayout->ColumnWidths = ColumnWidths;
-    Interface->ActiveLayout->ColumnsCount = 0;
+    UIColumnSize_Fixed,
+    UIColumnSize_Percent,
+    UIColumnSize_Fill,
+};
+
+struct ui_column_spec
+{
+    ui_column_size_rule Rule;
+    union
+    {
+        r32 Width;
+        r32 Percent;
+    };
+};
+
+static void
+ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules)
+{
+    ui_widget* Layout = ui_PushLayout(Interface, MakeString("Row"), false);
+    ui_WidgetCreateColumns(Layout, ColumnsMax, Interface);
+    
+    // First Pass, determine widths of each column, and how much space is left to be divided by the fill columns
+    r32 RowWidth = Rect2Width(Layout->Bounds);
+    r32 RemainingSpace = RowWidth;
+    u32 FillColumnsCount = 0;
+    for (u32 i = 0; i < Layout->ColumnsCount; i++)
+    {
+        ui_column_spec Spec = ColumnRules[i];
+        ui_column* Column = Layout->Columns + i;
+        
+        switch (Spec.Rule)
+        {
+            case UIColumnSize_Fixed:
+            {
+                Column->XMax = Spec.Width;
+                RemainingSpace -= Column->XMax;
+            }break;
+            
+            case UIColumnSize_Percent:
+            {
+                Column->XMax = Spec.Percent * RowWidth;
+                RemainingSpace -= Column->XMax;
+            }break;
+            
+            case UIColumnSize_Fill:
+            {
+                FillColumnsCount += 1;
+            }break;
+            InvalidDefaultCase;
+        }
+    }
+    
+    r32 FillColumnWidth = RemainingSpace / FillColumnsCount;
+    
+    // Second Pass, specify the actual XMin and XMax of each column
+    r32 ColumnStartX = Layout->Bounds.Min.x;
+    for (u32 i = 0; i < Layout->ColumnsCount; i++)
+    {
+        ui_column_spec Spec = ColumnRules[i];
+        ui_column* Column = Layout->Columns + i;
+        
+        r32 ColumnWidth = 0;
+        switch (Spec.Rule)
+        {
+            case UIColumnSize_Fixed:
+            case UIColumnSize_Percent:
+            {
+                ColumnWidth = Column->XMax;
+            }break;
+            
+            case UIColumnSize_Fill:
+            {
+                ColumnWidth = FillColumnWidth;
+            }break;
+        }
+        
+        Column->XMin = ColumnStartX ;
+        Column->XMax = Column->XMin + Max(0, ColumnWidth);
+        ColumnStartX = Column->XMax;
+    }
 }
 
 static void
 ui_EndRow(ui_interface* Interface)
 {
-    Interface->ActiveLayout->DrawHorizontal = false;
-    Interface->ActiveLayout->ColumnWidths = 0;
-    Interface->ActiveLayout->RowYAt -= (Interface->ActiveLayout->RowHeight + Interface->ActiveLayout->Margin.y);
-}
-
-static b32
-ui_TryReserveElementBounds(ui_widget* Widget, rect2* Bounds)
-{
-    b32 Result = true;
-    if (!Widget->DrawHorizontal)
-    {
-        Bounds->Min = { Widget->Bounds.Min.x + Widget->Margin.x, Widget->RowYAt };
-        Bounds->Max = { Widget->Bounds.Max.x - Widget->Margin.x, Bounds->Min.y + Widget->RowHeight };
-        
-        r32 RowOffset = Widget->RowHeight + Widget->Margin.y;
-        switch (Widget->FillDirection)
-        {
-            case LayoutDirection_BottomUp:
-            {
-                Widget->RowYAt += RowOffset;
-            }break;
-            
-            case LayoutDirection_TopDown:
-            {
-                Widget->RowYAt -= RowOffset;
-            }break;
-            
-            InvalidDefaultCase;
-        }
-    }
-    else
-    {
-        if (Widget->ColumnsMax > 0)
-        {
-            Assert(Widget->ColumnsCount < Widget->ColumnsMax);
-            if (Widget->ColumnWidths != 0)
-            {
-                v2 Min = {
-                    Widget->Bounds.Min.x + Widget->Margin.x,
-                    Widget->RowYAt
-                };
-                for (u32 i = 0; i < Widget->ColumnsCount; i++)
-                {
-                    Min.x += Widget->ColumnWidths[i];
-                }
-                Bounds->Min = Min;
-                Bounds->Max = Bounds->Min + v2{
-                    Widget->ColumnWidths[Widget->ColumnsCount] - Widget->Margin.x,
-                    Widget->RowHeight
-                };
-            }
-            else
-            {
-                r32 ElementWidth = Rect2Width(Widget->Bounds) / Widget->ColumnsMax;
-                Bounds->Min = {
-                    Widget->Bounds.Min.x + (ElementWidth * Widget->ColumnsCount) + Widget->Margin.x,
-                    Widget->RowYAt
-                };
-                Bounds->Max = {
-                    Bounds->Min.x + ElementWidth - (Widget->Margin.x * 2),
-                    Bounds->Min.y + Widget->RowHeight
-                };
-            }
-            Widget->ColumnsCount++;
-        }
-        else
-        {
-            Result = false;
-        }
-    }
-    return Result;
-}
-
-static rect2
-ui_ReserveElementBounds(ui_widget* Layout)
-{
-    rect2 Bounds = {0};
-    if (!ui_TryReserveElementBounds(Layout, &Bounds))
-    {
-        InvalidCodePath;
-    }
-    return Bounds;
+    ui_PopLayout(Interface);
+    //ui_widget* Layout = Interface->ActiveLayout;
+    //Layout->DrawHorizontal = false;
+    //Layout->RowYAt -= (Layout->RowHeight + Layout->Margin.y);
+    
 }
 
 static rect2
@@ -578,10 +758,6 @@ ui_LayoutRemaining(ui_widget Layout)
 {
     rect2 Result = Layout.Bounds;
     Result.Max.y = Layout.RowYAt;
-    if (Layout.DrawHorizontal)
-    {
-        Result.Max.y -= Layout.RowHeight;
-    }
     return Result;
 }
 
@@ -625,20 +801,17 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
         
     }
     
+    Assert(Widget->Parent != 0);
+    ui_CommitBounds(Widget->Parent, Widget->Bounds);
+    
     return Result;
 }
 
 internal ui_eval_result
 ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget)
 {
-    rect2 Bounds = {0};
     ui_widget* Layout = Interface->ActiveLayout;
-    if (!ui_TryReserveElementBounds(Layout, &Bounds))
-    {
-        // TODO(pjs): This isn't invalid, but Idk when we'd hit this case yet
-        InvalidCodePath;
-    }
-    
+    rect2 Bounds = ui_ReserveBounds(Layout, true);
     return ui_EvaluateWidget(Interface, Widget, Bounds);
 }
 
@@ -781,8 +954,8 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
             r32 ParentLayoutMaxY = ParentLayout.Bounds.Max.y;
             Direction = LayoutDirection_BottomUp;
             MenuBounds = rect2{
-                v2{ Widget->Bounds.Min.x, Widget->Bounds.Max.y },
-                v2{ Widget->Bounds.Max.x, ParentLayoutMaxY }
+                v2{ Widget->Bounds.Min.x - ParentLayout.Margin.x, Widget->Bounds.Max.y },
+                v2{ Widget->Bounds.Max.x + ParentLayout.Margin.x, ParentLayoutMaxY }
             };
         }
         else
@@ -790,14 +963,15 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
             r32 ParentLayoutMinY = ParentLayout.Bounds.Min.y;
             Direction = LayoutDirection_TopDown;
             MenuBounds = rect2{
-                v2{ Widget->Bounds.Min.x, ParentLayoutMinY },
-                v2{ Widget->Bounds.Max.x, Widget->Bounds.Min.y }
+                v2{ Widget->Bounds.Min.x - ParentLayout.Margin.x, ParentLayoutMinY },
+                v2{ Widget->Bounds.Max.x + ParentLayout.Margin.x, Widget->Bounds.Min.y }
             };
         }
         
         ui_widget* Layout = ui_PushOverlayLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
         Layout->Margin.y = 0;
         Layout->WidgetReference = Widget->Id;
+        ui_WidgetClearFlag(Layout, UIWidgetFlag_DrawOutline);
     }
     
     return State->Value;
@@ -911,6 +1085,19 @@ ui_Toggle(ui_interface* Interface, gs_string Text, bool Value)
     bool Result = Eval.Clicked ? !Value : Value;
     Widget->HorizontalFillPercent = Result ? 1.0f : 0.0f;
     return Result;
+}
+
+internal void
+ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows)
+{
+    ui_widget* Layout = ui_PushLayout(Interface, Text);
+    
+}
+
+internal void
+ui_EndList(ui_interface* Interface)
+{
+    
 }
 
 
