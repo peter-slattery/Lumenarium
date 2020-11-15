@@ -406,8 +406,8 @@ ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
 
 // Layout
 
-static ui_widget*
-ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+internal ui_widget*
+ui_CreateLayoutWidget(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
 {
     ui_widget* Result = ui_CreateWidget(Interface, Name);
     //ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
@@ -430,6 +430,14 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
         }break;
     }
     
+    return Result;
+}
+
+static ui_widget*
+ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+{
+    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, FillDir, Name);
+    
     if (Interface->DrawOrderRoot)
     {
         SLLPushOrInit(Interface->ActiveLayout->ChildrenRoot, Interface->ActiveLayout->ChildrenHead, Result);
@@ -439,6 +447,16 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
     {
         SLLPushOrInit(Interface->DrawOrderRoot, Interface->DrawOrderHead, Result);
     }
+    
+    Interface->ActiveLayout = Result;
+    return Result;
+}
+
+static ui_widget*
+ui_PushOverlayLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
+{
+    ui_widget* Result = ui_CreateLayoutWidget(Interface, Bounds, FillDir, Name);
+    SLLPushOrInit(Interface->DrawOrderRoot, Interface->DrawOrderHead, Result);
     Interface->ActiveLayout = Result;
     return Result;
 }
@@ -775,7 +793,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
             };
         }
         
-        ui_widget* Layout = ui_PushLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
+        ui_widget* Layout = ui_PushOverlayLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
         Layout->Margin.y = 0;
         Layout->WidgetReference = Widget->Id;
     }
