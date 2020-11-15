@@ -187,7 +187,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, false, true,
                                ShiftDown, AltDown, CtrlDown, false);
             
-            Mouse->LeftButtonState = KeyState_IsDown & ~KeyState_WasDown;
+            Mouse->LeftButtonState |= KeyState_IsDown;
             Mouse->DownPos = Mouse->Pos;
             
             // :Win32MouseEventCapture
@@ -237,7 +237,7 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
             
             AddInputEventEntry(InputQueue, KeyCode_MouseLeftButton, true, false,
                                ShiftDown, AltDown, CtrlDown, false);
-            Mouse->LeftButtonState = ~KeyState_IsDown & KeyState_WasDown;
+            Mouse->LeftButtonState &= ~KeyState_IsDown;
             
             // :Win32MouseEventCapture
             ReleaseCapture();
@@ -593,7 +593,7 @@ WinMain (
         
         AddressedDataBufferList_Clear(&OutputData);
         
-        { // Mouse Position
+        { // Mouse
             POINT MousePos;
             GetCursorPos (&MousePos);
             ScreenToClient(MainWindow.Handle, &MousePos);
@@ -602,6 +602,15 @@ WinMain (
             Context.Mouse.OldPos = Context.Mouse.Pos;
             Context.Mouse.Pos = v2{(r32)MousePos.x, (r32)MainWindow.Height - MousePos.y};
             Context.Mouse.DeltaPos = Context.Mouse.Pos - Context.Mouse.OldPos;
+            
+            if (KeyIsDown(Context.Mouse.LeftButtonState))
+            {
+                SetKeyWasDown(Context.Mouse.LeftButtonState);
+            }
+            else
+            {
+                SetKeyWasUp(Context.Mouse.LeftButtonState);
+            }
         }
         
         MSG Message;
@@ -687,7 +696,7 @@ WinMain (
         LastFrameEnd = GetWallClock();
         
         
-        OutputDebugStringA("-- Frame END -- \n");
+        //OutputDebugStringA("-- Frame END -- \n");
         
     }
     

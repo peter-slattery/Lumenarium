@@ -5,14 +5,6 @@
 //
 #ifndef INTERFACE_H
 
-// Widget Capabilities
-// - string
-// - background
-// - outline
-// - active (mouse is interacting)
-// - hot (mouse could be about to interact)
-// - retained state - if a toggle is active, or a drop down is open
-
 enum gs_string_alignment
 {
     Align_Left,
@@ -188,15 +180,13 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32
     return LowerRight;
 }
 
-// TODO(pjs): remove the need for htis (go thru and remove code that's in the #else block of #ifdef EXTERNAL_RENDERER s
-#define EXTERNAL_RENDERER
-
 enum ui_widget_flag
 {
     UIWidgetFlag_DrawBackground,
     UIWidgetFlag_DrawString,
     UIWidgetFlag_DrawOutline,
     UIWidgetFlag_Clickable,
+    UIWidgetFlag_DrawHorizontalFill,
 };
 
 struct ui_widget_id
@@ -222,6 +212,9 @@ struct ui_widget
     u64 Flags;
     
     ui_widget* Next;
+    
+    // Slider
+    r32 HorizontalFillPercent;
     
     // Layout
     ui_widget* Parent;
@@ -250,6 +243,8 @@ struct ui_widget
 struct ui_eval_result
 {
     bool Clicked;
+    bool Held;
+    v2 DragDelta;
 };
 
 struct interface_config
@@ -276,6 +271,7 @@ struct ui_widget_retained_state
 {
     ui_widget_id Id;
     bool Value;
+    r32 InitialValueR32;
     u32 FramesSinceAccess;
 };
 
@@ -414,7 +410,7 @@ static ui_widget*
 ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
 {
     ui_widget* Result = ui_CreateWidget(Interface, Name);
-    ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
+    //ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
     
     Result->Bounds = Bounds;
     Result->Margin = Interface->Style.Margin;
@@ -425,12 +421,12 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
     {
         case LayoutDirection_BottomUp:
         {
-            Result->RowYAt = Bounds.Min.y;
+            Result->RowYAt = Bounds.Min.y + Result->Margin.y;
         }break;
         
         case LayoutDirection_TopDown:
         {
-            Result->RowYAt = Bounds.Max.y - Result->RowHeight;
+            Result->RowYAt = Bounds.Max.y - (Result->RowHeight + Result->Margin.y);
         }break;
     }
     
@@ -447,13 +443,10 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
     return Result;
 }
 
-internal ui_eval_result ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds);
-
 static void
 ui_PopLayout(ui_interface* Interface)
 {
     Assert(Interface->ActiveLayout != 0);
-    //ui_EvaluateWidget(Interface, Interface->ActiveLayout, Interface->ActiveLayout->Bounds);
     Interface->ActiveLayout = Interface->ActiveLayout->Parent;
 }
 
@@ -480,7 +473,7 @@ ui_EndRow(ui_interface* Interface)
 {
     Interface->ActiveLayout->DrawHorizontal = false;
     Interface->ActiveLayout->ColumnWidths = 0;
-    Interface->ActiveLayout->RowYAt -= Interface->ActiveLayout->RowHeight;
+    Interface->ActiveLayout->RowYAt -= (Interface->ActiveLayout->RowHeight + Interface->ActiveLayout->Margin.y);
 }
 
 static b32
@@ -489,19 +482,20 @@ ui_TryReserveElementBounds(ui_widget* Widget, rect2* Bounds)
     b32 Result = true;
     if (!Widget->DrawHorizontal)
     {
-        Bounds->Min = { Widget->Bounds.Min.x, Widget->RowYAt };
-        Bounds->Max = { Widget->Bounds.Max.x, Bounds->Min.y + Widget->RowHeight };
+        Bounds->Min = { Widget->Bounds.Min.x + Widget->Margin.x, Widget->RowYAt };
+        Bounds->Max = { Widget->Bounds.Max.x - Widget->Margin.x, Bounds->Min.y + Widget->RowHeight };
         
+        r32 RowOffset = Widget->RowHeight + Widget->Margin.y;
         switch (Widget->FillDirection)
         {
             case LayoutDirection_BottomUp:
             {
-                Widget->RowYAt += Widget->RowHeight;
+                Widget->RowYAt += RowOffset;
             }break;
             
             case LayoutDirection_TopDown:
             {
-                Widget->RowYAt -= Widget->RowHeight;
+                Widget->RowYAt -= RowOffset;
             }break;
             
             InvalidDefaultCase;
@@ -514,13 +508,19 @@ ui_TryReserveElementBounds(ui_widget* Widget, rect2* Bounds)
             Assert(Widget->ColumnsCount < Widget->ColumnsMax);
             if (Widget->ColumnWidths != 0)
             {
-                v2 Min = { Widget->Bounds.Min.x, Widget->RowYAt };
+                v2 Min = {
+                    Widget->Bounds.Min.x + Widget->Margin.x,
+                    Widget->RowYAt
+                };
                 for (u32 i = 0; i < Widget->ColumnsCount; i++)
                 {
                     Min.x += Widget->ColumnWidths[i];
                 }
                 Bounds->Min = Min;
-                Bounds->Max = Bounds->Min + v2{ Widget->ColumnWidths[Widget->ColumnsCount], Widget->RowHeight };
+                Bounds->Max = Bounds->Min + v2{
+                    Widget->ColumnWidths[Widget->ColumnsCount] - Widget->Margin.x,
+                    Widget->RowHeight
+                };
             }
             else
             {
@@ -530,7 +530,7 @@ ui_TryReserveElementBounds(ui_widget* Widget, rect2* Bounds)
                     Widget->RowYAt
                 };
                 Bounds->Max = {
-                    Bounds->Min.x + ElementWidth - Widget->Margin.x,
+                    Bounds->Min.x + ElementWidth - (Widget->Margin.x * 2),
                     Bounds->Min.y + Widget->RowHeight
                 };
             }
@@ -584,18 +584,27 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
         {
             if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id) && MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
             {
+                Assert(!ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id));
                 Result.Clicked = true;
                 Interface->ActiveWidget = Widget->Id;
             }
-            
-            if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id) &&
-                MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
-            {
-                Interface->ActiveWidget = {};
-            }
-            
             Interface->HotWidget = Widget->Id;
         }
+        
+        
+        if (MouseButtonHeldDown(Interface->Mouse.LeftButtonState) &&
+            PointIsInRect(Widget->Bounds, Interface->Mouse.DownPos))
+        {
+            Result.Held = true;
+            Result.DragDelta = Interface->Mouse.Pos - Interface->Mouse.DownPos;
+        }
+        
+        if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id) &&
+            MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
+        {
+            Interface->ActiveWidget = {};
+        }
+        
     }
     
     return Result;
@@ -655,24 +664,29 @@ ui_DrawString(ui_interface* Interface, gs_string String, gs_string_alignment Ali
     ui_EvaluateWidget(Interface, Widget);
 }
 
-static b32
-ui_Button(ui_interface* Interface, gs_string Text)
+internal ui_widget*
+ui_CreateButtonWidget(ui_interface* Interface, gs_string Text)
 {
     ui_widget* Widget = ui_CreateWidget(Interface, Text);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
+    return Widget;
+}
+
+internal b32
+ui_Button(ui_interface* Interface, gs_string Text)
+{
+    ui_widget* Widget = ui_CreateButtonWidget(Interface, Text);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
     return Result.Clicked;
 }
 
-static b32
+internal b32
 ui_Button(ui_interface* Interface, gs_string Text, rect2 Bounds)
 {
-    ui_widget* Widget = ui_CreateWidget(Interface, Text);
-    ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
-    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
-    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_widget* Widget = ui_CreateButtonWidget(Interface, Text);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget, Bounds);
     return Result.Clicked;
 }
@@ -762,6 +776,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
         }
         
         ui_widget* Layout = ui_PushLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
+        Layout->Margin.y = 0;
         Layout->WidgetReference = Widget->Id;
     }
     
@@ -775,6 +790,7 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text, rect2 Bounds)
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget, Bounds);
     return ui_EvaluateDropdown(Interface, Widget, Result);
 }
@@ -786,6 +802,7 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text)
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
     return ui_EvaluateDropdown(Interface, Widget, Result);
 }
@@ -803,6 +820,79 @@ ui_EndDropdown(ui_interface* Interface)
         }
     }
 }
+
+internal r32
+ui_EvaluateRangeSlider(ui_interface* Interface, ui_widget* Widget, ui_eval_result EvalResult, r32 Value, r32 MinValue, r32 MaxValue)
+{
+    r32 NewValue = Value;
+    
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Widget);
+    }
+    
+    if (EvalResult.Clicked)
+    {
+        State->InitialValueR32 = Value;
+    }
+    
+    if (EvalResult.Held)
+    {
+        r32 Percent = (Interface->Mouse.Pos.x - Widget->Bounds.Min.x) / Rect2Width(Widget->Bounds);
+        NewValue = LerpR32(Percent, MinValue, MaxValue);
+    }
+    
+    NewValue = Clamp(MinValue, NewValue, MaxValue);
+    Widget->HorizontalFillPercent = RemapR32(NewValue, MinValue, MaxValue, 0, 1);
+    return NewValue;
+}
+
+internal ui_widget*
+ui_CreateRangeSliderWidget(ui_interface* Interface, gs_string Text, r32 Value)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, Text);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawHorizontalFill);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
+    Widget->String = PushStringF(Interface->PerFrameMemory, 128, "%f", Value);
+    return Widget;
+}
+
+internal r32
+ui_RangeSlider(ui_interface* Interface, gs_string Text, r32 Value, r32 ValueMin, r32 ValueMax)
+{
+    ui_widget* Widget = ui_CreateRangeSliderWidget(Interface, Text, Value);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
+    return ui_EvaluateRangeSlider(Interface, Widget, Result, Value, ValueMin, ValueMax);
+    
+}
+
+internal r32
+ui_RangeSlider(ui_interface* Interface, gs_string Text, rect2 Bounds, r32 Value, r32 ValueMin, r32 ValueMax)
+{
+    ui_widget* Widget = ui_CreateRangeSliderWidget(Interface, Text, Value);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, Widget, Bounds);
+    return ui_EvaluateRangeSlider(Interface, Widget, Result, Value, ValueMin, ValueMax);
+}
+
+internal bool
+ui_Toggle(ui_interface* Interface, gs_string Text, bool Value)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, Text);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawHorizontalFill);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
+    ui_eval_result Eval = ui_EvaluateWidget(Interface, Widget);
+    
+    bool Result = Eval.Clicked ? !Value : Value;
+    Widget->HorizontalFillPercent = Result ? 1.0f : 0.0f;
+    return Result;
+}
+
 
 //
 // OLD

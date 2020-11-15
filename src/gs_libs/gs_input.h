@@ -15,32 +15,32 @@ enum key_code
     KeyCode_CapsLock,
     KeyCode_LeftShift, KeyCode_RightShift,
     KeyCode_LeftCtrl, KeyCode_RightCtrl,
-    KeyCode_Fn, 
-    KeyCode_Alt, 
+    KeyCode_Fn,
+    KeyCode_Alt,
     KeyCode_PageUp, KeyCode_PageDown,
     KeyCode_Backspace, KeyCode_Delete,
     KeyCode_Enter,
     
     // Function Keys
     KeyCode_F0, KeyCode_F1, KeyCode_F2, KeyCode_F3, KeyCode_F4, KeyCode_F5, KeyCode_F6, KeyCode_F7,
-    KeyCode_F8, KeyCode_F9, KeyCode_F10, KeyCode_F11, KeyCode_F12, 
+    KeyCode_F8, KeyCode_F9, KeyCode_F10, KeyCode_F11, KeyCode_F12,
     
     // Letters
     KeyCode_a, KeyCode_b, KeyCode_c, KeyCode_d, KeyCode_e, KeyCode_f, KeyCode_g, KeyCode_h,
-    KeyCode_i, KeyCode_j, KeyCode_k, KeyCode_l, KeyCode_m, KeyCode_n, KeyCode_o, KeyCode_p, 
-    KeyCode_q, KeyCode_r, KeyCode_s, KeyCode_t, KeyCode_u, KeyCode_v, KeyCode_w, KeyCode_x, 
+    KeyCode_i, KeyCode_j, KeyCode_k, KeyCode_l, KeyCode_m, KeyCode_n, KeyCode_o, KeyCode_p,
+    KeyCode_q, KeyCode_r, KeyCode_s, KeyCode_t, KeyCode_u, KeyCode_v, KeyCode_w, KeyCode_x,
     KeyCode_y, KeyCode_z,
     
     KeyCode_A, KeyCode_B, KeyCode_C, KeyCode_D, KeyCode_E, KeyCode_F, KeyCode_G, KeyCode_H,
-    KeyCode_I, KeyCode_J, KeyCode_K, KeyCode_L, KeyCode_M, KeyCode_N, KeyCode_O, KeyCode_P, 
-    KeyCode_Q, KeyCode_R, KeyCode_S, KeyCode_T, KeyCode_U, KeyCode_V, KeyCode_W, KeyCode_X, 
+    KeyCode_I, KeyCode_J, KeyCode_K, KeyCode_L, KeyCode_M, KeyCode_N, KeyCode_O, KeyCode_P,
+    KeyCode_Q, KeyCode_R, KeyCode_S, KeyCode_T, KeyCode_U, KeyCode_V, KeyCode_W, KeyCode_X,
     KeyCode_Y, KeyCode_Z,
     
     // Numbers
     KeyCode_0, KeyCode_1, KeyCode_2, KeyCode_3, KeyCode_4, KeyCode_5, KeyCode_6, KeyCode_7,
     KeyCode_8, KeyCode_9,
     
-    KeyCode_Num0, KeyCode_Num1, KeyCode_Num2, KeyCode_Num3, KeyCode_Num4, KeyCode_Num5, 
+    KeyCode_Num0, KeyCode_Num1, KeyCode_Num2, KeyCode_Num3, KeyCode_Num4, KeyCode_Num5,
     KeyCode_Num6, KeyCode_Num7, KeyCode_Num8, KeyCode_Num9,
     
     // Symbols
@@ -48,7 +48,7 @@ enum key_code
     KeyCode_Ampersand, KeyCode_Star, KeyCode_LeftParen, KeyCode_RightParen, KeyCode_Minus, KeyCode_Plus,
     KeyCode_Equals, KeyCode_Underscore, KeyCode_LeftBrace, KeyCode_RightBrace, KeyCode_LeftBracket,
     KeyCode_RightBracket, KeyCode_Colon, KeyCode_SemiColon, KeyCode_SingleQuote, KeyCode_DoubleQuote,
-    KeyCode_ForwardSlash, KeyCode_Backslash, KeyCode_Pipe, KeyCode_Comma, KeyCode_Period, 
+    KeyCode_ForwardSlash, KeyCode_Backslash, KeyCode_Pipe, KeyCode_Comma, KeyCode_Period,
     KeyCode_QuestionMark, KeyCode_LessThan, KeyCode_GreaterThan, KeyCode_Tilde, KeyCode_BackQuote,
     
     // Arrows
@@ -77,9 +77,9 @@ CharacterFromKeyCode (key_code Code)
         case KeyCode_Tab: { Result = '\t'; }break;
         
         // Letters
-        case KeyCode_a: { Result = 'a'; }break; 
-        case KeyCode_b: { Result = 'b'; }break; 
-        case KeyCode_c: { Result = 'c'; }break; 
+        case KeyCode_a: { Result = 'a'; }break;
+        case KeyCode_b: { Result = 'b'; }break;
+        case KeyCode_c: { Result = 'c'; }break;
         case KeyCode_d: { Result = 'd'; }break;
         case KeyCode_e: { Result = 'e'; }break;
 		case KeyCode_f: { Result = 'f'; }break;
@@ -92,7 +92,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_m: { Result = 'm'; }break;
 		case KeyCode_n: { Result = 'n'; }break;
 		case KeyCode_o: { Result = 'o'; }break;
-		case KeyCode_p: { Result = 'p'; }break; 
+		case KeyCode_p: { Result = 'p'; }break;
         case KeyCode_q: { Result = 'q'; }break;
 		case KeyCode_r: { Result = 'r'; }break;
 		case KeyCode_s: { Result = 's'; }break;
@@ -100,7 +100,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_u: { Result = 'u'; }break;
 		case KeyCode_v: { Result = 'v'; }break;
 		case KeyCode_w: { Result = 'w'; }break;
-		case KeyCode_x: { Result = 'x'; }break; 
+		case KeyCode_x: { Result = 'x'; }break;
         case KeyCode_y: { Result = 'y'; }break;
 		case KeyCode_z: { Result = 'z'; }break;
         
@@ -119,7 +119,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_M: { Result = 'M'; }break;
 		case KeyCode_N: { Result = 'N'; }break;
 		case KeyCode_O: { Result = 'O'; }break;
-		case KeyCode_P: { Result = 'P'; }break; 
+		case KeyCode_P: { Result = 'P'; }break;
         case KeyCode_Q: { Result = 'Q'; }break;
 		case KeyCode_R: { Result = 'R'; }break;
 		case KeyCode_S: { Result = 'S'; }break;
@@ -127,7 +127,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_U: { Result = 'U'; }break;
 		case KeyCode_V: { Result = 'V'; }break;
 		case KeyCode_W: { Result = 'W'; }break;
-		case KeyCode_X: { Result = 'X'; }break; 
+		case KeyCode_X: { Result = 'X'; }break;
         case KeyCode_Y: { Result = 'Y'; }break;
 		case KeyCode_Z: { Result = 'Z'; }break;
         
@@ -148,7 +148,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_Num2: { Result = '2'; }break;
 		case KeyCode_Num3: { Result = '3'; }break;
 		case KeyCode_Num4: { Result = '4'; }break;
-		case KeyCode_Num5: { Result = '5'; }break; 
+		case KeyCode_Num5: { Result = '5'; }break;
         case KeyCode_Num6: { Result = '6'; }break;
 		case KeyCode_Num7: { Result = '7'; }break;
 		case KeyCode_Num8: { Result = '8'; }break;
@@ -181,7 +181,7 @@ CharacterFromKeyCode (key_code Code)
 		case KeyCode_Backslash: { Result = '\\'; }break;
 		case KeyCode_Pipe: { Result = '|'; }break;
 		case KeyCode_Comma: { Result = ','; }break;
-		case KeyCode_Period: { Result = '.'; }break; 
+		case KeyCode_Period: { Result = '.'; }break;
         case KeyCode_QuestionMark: { Result = '?'; }break;
 		case KeyCode_LessThan: { Result = '<'; }break;
 		case KeyCode_GreaterThan: { Result = '>'; }break;
@@ -227,6 +227,11 @@ enum key_state_flags
 #define KeyWasDown(event) ((event & KeyState_WasDown) > 0)
 #define KeyIsDown(event) ((event & KeyState_IsDown) > 0)
 
+#define SetKeyDown(key) (key |= KeyState_IsDown)
+#define SetKeyWasDown(key) (key |= KeyState_WasDown)
+#define SetKeyUp(key) (key &= ~KeyState_IsDown)
+#define SetKeyWasUp(key) (key &= ~KeyState_WasDown)
+
 struct input_entry
 {
     key_code Key;
@@ -265,6 +270,8 @@ struct mouse_state
     b32 LeftButtonState;
     b32 MiddleButtonState;
     b32 RightButtonState;
+    
+    
     
     cursor_type CursorType;
 };
@@ -327,7 +334,7 @@ KeyTransitionedUp (input Input, key_code Key)
 }
 
 internal void
-AddInputEventEntry (input_queue* Queue, key_code Key, 
+AddInputEventEntry (input_queue* Queue, key_code Key,
                     b32 WasDown, b32 IsDown, b32 ShiftDown, b32 AltDown, b32 CtrlDown, b32 SysDown)
 {
     Assert(Queue->QueueUsed < Queue->QueueSize);
@@ -392,10 +399,10 @@ GetMouseButtonStateAdvanced (b32 ButtonState)
         !((ButtonState & KeyState_IsDown) > 0))
     {
         Result= 0;
-    } 
-    else if (ButtonState & KeyState_IsDown) 
-    { 
-        Result |= KeyState_WasDown; 
+    }
+    else if (ButtonState & KeyState_IsDown)
+    {
+        Result |= KeyState_WasDown;
     }
     return Result;
 }
