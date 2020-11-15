@@ -798,7 +798,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, rende
     
     ui_StartRow(&State->Interface, 2);
     {
-        ui_DrawString(Interface, MakeString("Active Animation"));
+        ui_Label(Interface, MakeString("Active Animation"));
         if (ui_BeginDropdown(Interface, ActiveAnim->Name))
         {
             for (u32 i = 0; i < AnimSystem->Animations.Count; i++)

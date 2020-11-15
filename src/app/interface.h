@@ -666,19 +666,20 @@ ui_OutlineRect(ui_interface* Interface, rect2 Bounds, r32 Thickness, v4 Color)
 }
 
 internal void
-ui_DrawString(ui_interface* Interface, gs_string String, rect2 Bounds, gs_string_alignment Alignment = Align_Left)
+ui_Label(ui_interface* Interface, gs_string String, rect2 Bounds, gs_string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     ui_widget* Widget = ui_CreateWidget(Interface, String);
-    Widget->Bounds = Bounds;
-    ui_EvaluateWidget(Interface, Widget);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_EvaluateWidget(Interface, Widget, Bounds);
 }
 
 internal void
-ui_DrawString(ui_interface* Interface, gs_string String, gs_string_alignment Alignment = Align_Left)
+ui_Label(ui_interface* Interface, gs_string String, gs_string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     ui_widget* Widget = ui_CreateWidget(Interface, String);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
     ui_EvaluateWidget(Interface, Widget);
 }
 
@@ -756,7 +757,8 @@ internal bool
 ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result EvalResult)
 {
     ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
-    if (!State) {
+    if (!State)
+    {
         State = ui_CreateRetainedState(Interface, Widget);
     }
     

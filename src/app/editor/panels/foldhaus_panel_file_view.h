@@ -96,7 +96,7 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
     }
     
     // Header
-    ui_DrawString(&State->Interface, FileViewState->WorkingDirectory);
+    ui_Label(&State->Interface, FileViewState->WorkingDirectory);
     
     // File Display
     for (u32 i = 0; i < FileViewState->FileNames.Count; i++)

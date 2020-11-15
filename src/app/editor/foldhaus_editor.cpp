@@ -241,7 +241,7 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
-#if 1
+#if 0
     TestRender(State, Context, RenderBuffer);
     //ui_widget_id IdTwo = TestRender(State, Context, RenderBuffer);
     //Assert(ui_WidgetIdsEqual(IdOne, IdTwo));

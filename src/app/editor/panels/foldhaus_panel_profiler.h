@@ -84,7 +84,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
         PrintF(&String, "%S : %d - %d", HotRecordName->Name, HotRecord->StartCycles, HotRecord->EndCycles);
         
         rect2 TextBounds = MakeRect2MinDim(Interface->Mouse.Pos, v2{256, 32});
-        ui_DrawString(Interface, String, TextBounds);
+        ui_Label(Interface, String, TextBounds);
     }
 }
 
@@ -97,11 +97,11 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
     r32 ColumnWidths[] = {256, 128, 128, 128, 128};
     ui_StartRow(Interface, 5, &ColumnWidths[0]);
     {
-        ui_DrawString(Interface, MakeString("Procedure"));
-        ui_DrawString(Interface, MakeString("% Frame"));
-        ui_DrawString(Interface, MakeString("Seconds"));
-        ui_DrawString(Interface, MakeString("Cycles"));
-        ui_DrawString(Interface, MakeString("Calls"));
+        ui_Label(Interface, MakeString("Procedure"));
+        ui_Label(Interface, MakeString("% Frame"));
+        ui_Label(Interface, MakeString("Seconds"));
+        ui_Label(Interface, MakeString("Cycles"));
+        ui_Label(Interface, MakeString("Calls"));
     }
     ui_EndRow(Interface);
     
@@ -115,19 +115,19 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
             ui_StartRow(Interface, 5, &ColumnWidths[0]);
             {
                 PrintF(&String, "%S", NameEntry.Name);
-                ui_DrawString(Interface, String);
+                ui_Label(Interface, String);
                 
                 PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
-                ui_DrawString(Interface, String);
+                ui_Label(Interface, String);
                 
                 PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
-                ui_DrawString(Interface, String);
+                ui_Label(Interface, String);
                 
                 PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
-                ui_DrawString(Interface, String);
+                ui_Label(Interface, String);
                 
                 PrintF(&String, "%d", CollatedRecord->CallCount);
-                ui_DrawString(Interface, String);
+                ui_Label(Interface, String);
             }
             ui_EndRow(Interface);
         }
@@ -187,10 +187,10 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
         u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
         PrintF(&String, "Frame %d", CurrentDebugFrame);
-        ui_DrawString(&State->Interface, String);
+        ui_Label(&State->Interface, String);
         
         PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
-        ui_DrawString(&State->Interface, String);
+        ui_Label(&State->Interface, String);
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
