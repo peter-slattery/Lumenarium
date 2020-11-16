@@ -25,7 +25,7 @@ ProfilerView_Cleanup(panel* Panel, app_state* State)
 }
 
 internal void
-RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
+RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Transient)
 {
     v4 ThreadColors[] = {
         v4{.73f, .33f, .83f, 1},
@@ -45,11 +45,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
     debug_scope_record_list* ThreadScopeCalls = GetScopeListForThreadInFrame(GlobalDebugServices,
                                                                              VisibleFrame);
     
-    scope_record* HotRecord = 0;
-    scope_name* HotRecordName = 0;
-    
-    char Backbuffer[256];
-    gs_string String = MakeString(Backbuffer, 0, 256);
+    gs_string String = PushString(Transient, 256);
     for (s32 i = 0; i < ThreadScopeCalls->Count; i++)
     {
         scope_record* Record = ThreadScopeCalls->Calls + i;
@@ -70,21 +66,18 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
             if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
             {
                 Color = GreenV4;
-                HotRecord = Record;
-                HotRecordName = Name;
+                
+                ui_BeginMousePopup(Interface, rect2{ 25, 25, 300, 57 }, LayoutDirection_TopDown, MakeString("Hover"));
+                {
+                    PrintF(&String, "%S : %d - %d", Name->Name, Record->StartCycles, Record->EndCycles);
+                    ui_Label(Interface, String);
+                }
+                ui_EndMousePopup(Interface);
             }
             
             ui_FillRect(Interface, ScopeBounds, Color);
             ui_OutlineRect(Interface, ScopeBounds, 1, BlackV4);
         }
-    }
-    
-    if (HotRecord != 0)
-    {
-        PrintF(&String, "%S : %d - %d", HotRecordName->Name, HotRecord->StartCycles, HotRecord->EndCycles);
-        
-        rect2 TextBounds = MakeRect2MinDim(Interface->Mouse.Pos, v2{256, 32});
-        ui_Label(Interface, String, TextBounds);
     }
 }
 

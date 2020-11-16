@@ -1244,6 +1244,19 @@ ui_EndList(ui_interface* Interface)
     ui_EndRow(Interface);
 }
 
+internal void
+ui_BeginMousePopup(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Text)
+{
+    rect2 FollowMouseBounds = Rect2Translate(Bounds, Interface->Mouse.Pos);
+    ui_widget* Layout = ui_PushOverlayLayout(Interface, FollowMouseBounds, FillDir, Text);
+    ui_WidgetSetFlag(Layout, UIWidgetFlag_DrawBackground);
+}
+
+internal void
+ui_EndMousePopup(ui_interface* Interface)
+{
+    ui_PopLayout(Interface);
+}
 
 #define INTERFACE_H
 #endif // INTERFACE_H
