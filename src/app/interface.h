@@ -13,22 +13,68 @@ enum gs_string_alignment
 };
 
 internal void
-DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 MinY, codepoint_bitmap CodepointInfo, v4 Color)
+ClipUVRect(rect2* Bounds, rect2* UVs, rect2 ClippingBox)
 {
+    rect2 NewBounds = Rect2Union(*Bounds, ClippingBox);
+    
+    r32 OldWidth = Rect2Width(*Bounds);
+    r32 OldHeight = Rect2Height(*Bounds);
+    
+    v2 MinInsetPercent = v2{
+        (NewBounds.Min.x - Bounds->Min.x) / OldWidth,
+        (NewBounds.Min.y - Bounds->Min.y) / OldHeight,
+    };
+    
+    v2 MaxInsetPercent = v2{
+        (NewBounds.Max.x - Bounds->Min.x) / OldWidth,
+        (NewBounds.Max.y - Bounds->Min.y) / OldHeight,
+    };
+    
+    UVs->Min.x = LerpR32(MinInsetPercent.x, UVs->Min.x, UVs->Max.x);
+    UVs->Min.y = LerpR32(MinInsetPercent.y, UVs->Min.y, UVs->Max.y);
+    UVs->Max.x = LerpR32(MaxInsetPercent.x, UVs->Min.x, UVs->Max.x);
+    UVs->Max.y = LerpR32(MaxInsetPercent.y, UVs->Min.y, UVs->Max.y);
+    
+    *Bounds = NewBounds;
+}
+
+internal void
+DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 MinY, codepoint_bitmap CodepointInfo, rect2 ClippingBox, v4 Color)
+{
+    rect2 Bounds = {};
+    Bounds.Min.x = FloorR32(MinX);
+    Bounds.Min.y = FloorR32(MinY);
+    Bounds.Max.x = Bounds.Min.x + (CodepointInfo.Width);
+    Bounds.Max.y = Bounds.Min.y + (CodepointInfo.Height);
+    
+    rect2 UVBounds = {};
+    UVBounds.Min = CodepointInfo.UVMin;
+    UVBounds.Max = CodepointInfo.UVMax;
+    
+    ClipUVRect(&Bounds, &UVBounds, ClippingBox);
+    
     s32 AlignedMinX = (s32)(MinX);
     s32 AlignedMinY = (s32)(MinY);
     s32 AlignedMaxX = AlignedMinX + (CodepointInfo.Width);
     s32 AlignedMaxY = AlignedMinY + (CodepointInfo.Height);
     
+#if 1
+    PushQuad2DOnBatch(BatchConstructor,
+                      Rect2BottomLeft(Bounds), Rect2BottomRight(Bounds),
+                      Rect2TopRight(Bounds), Rect2TopLeft(Bounds),
+                      UVBounds.Min, UVBounds.Max,
+                      Color);
+#else
     PushQuad2DOnBatch(BatchConstructor,
                       v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY},
                       v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},
                       CodepointInfo.UVMin, CodepointInfo.UVMax,
                       Color);
+#endif
 }
 
 internal v2
-DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color)
+DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, rect2 ClippingBox, v4 Color)
 {
     s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
     codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
@@ -36,7 +82,7 @@ DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char 
     // NOTE(Peter):
     r32 MinX = Position.x + CodepointInfo.XOffset;
     r32 MinY = Position.y + CodepointInfo.YOffset;
-    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
+    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, ClippingBox, Color);
     
     // NOTE(Peter):
     v2 PointAfterCharacter = v2{Position.x + CodepointInfo.Width, Position.y};
@@ -44,7 +90,7 @@ DrawCharacterLeftAligned (render_quad_batch_constructor* BatchConstructor, char 
 }
 
 internal v2
-DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, v4 Color)
+DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char C, bitmap_font Font, v2 Position, rect2 ClippingBox, v4 Color)
 {
     s32 GlyphDataIndex = GetIndexForCodepoint(Font, C);
     codepoint_bitmap CodepointInfo = Font.CodepointValues[GlyphDataIndex];
@@ -52,7 +98,7 @@ DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char
     // NOTE(Peter):
     r32 MinX = Position.x - (CodepointInfo.XOffset + CodepointInfo.Width);
     r32 MinY = Position.y + CodepointInfo.YOffset + CodepointInfo.YOffset;
-    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, Color);
+    DrawCharacter_(BatchConstructor, MinX, MinY, CodepointInfo, ClippingBox, Color);
     
     // NOTE(Peter):
     v2 PointAfterCharacter = v2{Position.x-(CodepointInfo.Width + CodepointInfo.XOffset), Position.y};
@@ -60,13 +106,13 @@ DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char
 }
 
 internal v2
-DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, rect2 ClippingBox, v4 Color)
 {
     v2 RegisterPosition = InitialRegisterPosition;
     char* C = gs_string;
     for (s32 i = 0; i < Length; i++)
     {
-        v2 PositionAfterCharacter = DrawCharacterLeftAligned(BatchConstructor, *C, *Font, RegisterPosition, Color);
+        v2 PositionAfterCharacter = DrawCharacterLeftAligned(BatchConstructor, *C, *Font, RegisterPosition, ClippingBox, Color);
         RegisterPosition.x = PositionAfterCharacter.x;
         C++;
     }
@@ -74,13 +120,13 @@ DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, s32 Leng
 }
 
 internal v2
-DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, v4 Color)
+DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, rect2 ClippingBox, v4 Color)
 {
     v2 RegisterPosition = InitialRegisterPosition;
     char* C = gs_string + Length - 1;
     for (s32 i = Length - 1; i >= 0; i--)
     {
-        v2 PositionAfterCharacter = DrawCharacterRightAligned(BatchConstructor, *C, *Font, RegisterPosition, Color);
+        v2 PositionAfterCharacter = DrawCharacterRightAligned(BatchConstructor, *C, *Font, RegisterPosition, ClippingBox, Color);
         RegisterPosition.x = PositionAfterCharacter.x;
         C--;
     }
@@ -101,14 +147,22 @@ DrawString(render_command_buffer* RenderBuffer, gs_string String, bitmap_font* F
                                                                               Font->BitmapBytesPerPixel,
                                                                               Font->BitmapStride);
     
+    // TODO(pjs): I don't like this solution but it'll do for now and I want to focus on other problems
+    // especially since I think this one will go away once I finish the ui overhaul
+    rect2 InfiniteClipBox = {};
+    InfiniteClipBox.Min.x = -100000;
+    InfiniteClipBox.Min.y = -100000;
+    InfiniteClipBox.Max.x = 100000;
+    InfiniteClipBox.Max.y = 100000;
+    
     v2 RegisterPosition = Position;
     if (Alignment == Align_Left)
     {
-        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, Color);
+        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, InfiniteClipBox, Color);
     }
     else if (Alignment == Align_Right)
     {
-        RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, Color);
+        RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, InfiniteClipBox, Color);
     }
     else
     {
@@ -128,6 +182,7 @@ DrawCursor (render_quad_batch_constructor* BatchConstructor, v2 Position, v4 Col
     PushQuad2DOnBatch(BatchConstructor, Min, Max, Color);
 }
 
+#if 0
 internal v2
 DrawStringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32 CursorPosition, bitmap_font* Font, v2 Position, v4 Color, v4 CursorColor, gs_string_alignment Alignment = Align_Left)
 {
@@ -179,14 +234,19 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32
     LowerRight.x = RegisterPosition.x;
     return LowerRight;
 }
+#endif
 
 enum ui_widget_flag
 {
+    UIWidgetFlag_ExpandsToFitChildren,
     UIWidgetFlag_DrawBackground,
     UIWidgetFlag_DrawString,
     UIWidgetFlag_DrawOutline,
     UIWidgetFlag_Clickable,
     UIWidgetFlag_DrawHorizontalFill,
+    UIWidgetFlag_DrawVerticalFill,
+    UIWidgetFlag_DrawFillReversed,
+    UIWidgetFlag_DrawFillAsHandle,
 };
 
 struct ui_widget_id
@@ -221,7 +281,7 @@ struct ui_widget
     ui_widget* Next;
     
     // Slider
-    r32 HorizontalFillPercent;
+    r32 FillPercent;
     
     // Layout
     ui_widget* Parent;
@@ -279,6 +339,9 @@ struct ui_widget_retained_state
     bool Value;
     r32 InitialValueR32;
     u32 FramesSinceAccess;
+    
+    // For use in layouts that allow you to scroll / pan
+    v2 ChildrenDrawOffset;
 };
 
 struct ui_interface
@@ -381,6 +444,17 @@ ui_CreateRetainedState(ui_interface* Interface, ui_widget* Widget)
     return Result;
 }
 
+internal ui_widget_retained_state*
+ui_GetOrCreateRetainedState(ui_interface* Interface, ui_widget* Widget)
+{
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Widget);
+    }
+    return State;
+}
+
 internal ui_widget*
 ui_CreateWidget(ui_interface* Interface, gs_string String)
 {
@@ -405,6 +479,7 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
     Result->ChildrenRoot = 0;
     Result->ChildrenHead = 0;
     Result->Flags = 0;
+    ui_WidgetSetFlag(Result, UIWidgetFlag_ExpandsToFitChildren);
     
     return Result;
 }
@@ -424,7 +499,7 @@ ui_MouseClickedRect(ui_interface Interface, rect2 Rect)
 // Layout
 
 static rect2
-ui_ReserveBounds(ui_widget* Widget, bool Inset)
+ui_ReserveBounds(ui_interface* Interface, ui_widget* Widget, bool Inset)
 {
     Assert(Widget->ColumnsCount > 0);
     rect2 Bounds = {0};
@@ -442,6 +517,15 @@ ui_ReserveBounds(ui_widget* Widget, bool Inset)
         Bounds.Min.y += Widget->Margin.y;
         Bounds.Max.x -= Widget->Margin.x;
         Bounds.Max.y -= Widget->Margin.y;
+    }
+    
+    if (Widget->ChildCount == 0)
+    {
+        ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+        if (State)
+        {
+            Bounds = Rect2Translate(Bounds, State->ChildrenDrawOffset);
+        }
     }
     
     return Bounds;
@@ -585,7 +669,7 @@ ui_PushLayout(ui_interface* Interface, gs_string Name, bool Inset = true)
     ui_layout_direction Direction = LayoutDirection_TopDown;
     if (Interface->ActiveLayout)
     {
-        Bounds = ui_ReserveBounds(Interface->ActiveLayout, Inset);
+        Bounds = ui_ReserveBounds(Interface, Interface->ActiveLayout, Inset);
         Direction = Interface->ActiveLayout->FillDirection;
     }
     else
@@ -609,6 +693,8 @@ ui_PushLayout(ui_interface* Interface, gs_string Name, bool Inset = true)
 internal void
 ui_ExpandToFitChildren(ui_widget* Parent)
 {
+    if (!ui_WidgetIsFlagSet(*Parent, UIWidgetFlag_ExpandsToFitChildren)) { return; }
+    
     v2 Extents = { Parent->Bounds.Max.y, Parent->Bounds.Min.y };
     for (ui_widget* Child = Parent->ChildrenRoot; Child != 0; Child = Child->Next)
     {
@@ -620,12 +706,12 @@ ui_ExpandToFitChildren(ui_widget* Parent)
     {
         case LayoutDirection_BottomUp:
         {
-            Parent->Bounds.Max.y = Extents.y + Parent->Margin.y;
+            Parent->Bounds.Max.y = Max(Extents.y + Parent->Margin.y, Parent->Bounds.Max.y);
         }break;
         
         case LayoutDirection_TopDown:
         {
-            Parent->Bounds.Min.y = Extents.x - Parent->Margin.y;
+            Parent->Bounds.Min.y = Min(Extents.x - Parent->Margin.y, Parent->Bounds.Min.y);
         }break;
         
         InvalidDefaultCase;
@@ -651,12 +737,13 @@ ui_PopLayout(ui_interface* Interface)
     }
 }
 
-static void
+static ui_widget*
 ui_BeginRow(ui_interface* Interface, u32 ColumnsMax)
 {
     ui_widget* Layout = ui_PushLayout(Interface, MakeString("Row"), false);
     ui_WidgetCreateColumns(Layout, ColumnsMax, Interface);
     ui_WidgetInitUniformColumns(Layout);
+    return Layout;
 }
 
 enum ui_column_size_rule
@@ -676,13 +763,14 @@ struct ui_column_spec
     };
 };
 
-static void
+static ui_widget*
 ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules)
 {
     ui_widget* Layout = ui_PushLayout(Interface, MakeString("Row"), false);
     ui_WidgetCreateColumns(Layout, ColumnsMax, Interface);
     
     // First Pass, determine widths of each column, and how much space is left to be divided by the fill columns
+    // If a size is specified, it is stored in Column->XMax
     r32 RowWidth = Rect2Width(Layout->Bounds);
     r32 RemainingSpace = RowWidth;
     u32 FillColumnsCount = 0;
@@ -741,16 +829,14 @@ ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules
         Column->XMax = Column->XMin + Max(0, ColumnWidth);
         ColumnStartX = Column->XMax;
     }
+    
+    return Layout;
 }
 
 static void
 ui_EndRow(ui_interface* Interface)
 {
     ui_PopLayout(Interface);
-    //ui_widget* Layout = Interface->ActiveLayout;
-    //Layout->DrawHorizontal = false;
-    //Layout->RowYAt -= (Layout->RowHeight + Layout->Margin.y);
-    
 }
 
 static rect2
@@ -771,10 +857,12 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
     Widget->Bounds = Bounds;
     SLLPushOrInit(Interface->ActiveLayout->ChildrenRoot, Interface->ActiveLayout->ChildrenHead, Widget);
     Interface->ActiveLayout->ChildCount += 1;
+    ui_CommitBounds(Widget->Parent, Widget->Bounds);
     
     if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Clickable))
     {
-        if (PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
+        if (PointIsInRect(Widget->Parent->Bounds, Interface->Mouse.Pos) &&
+            PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
         {
             if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id) && MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
             {
@@ -784,7 +872,6 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
             }
             Interface->HotWidget = Widget->Id;
         }
-        
         
         if (MouseButtonHeldDown(Interface->Mouse.LeftButtonState) &&
             PointIsInRect(Widget->Bounds, Interface->Mouse.DownPos))
@@ -802,8 +889,6 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
     }
     
     Assert(Widget->Parent != 0);
-    ui_CommitBounds(Widget->Parent, Widget->Bounds);
-    
     return Result;
 }
 
@@ -811,7 +896,7 @@ internal ui_eval_result
 ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget)
 {
     ui_widget* Layout = Interface->ActiveLayout;
-    rect2 Bounds = ui_ReserveBounds(Layout, true);
+    rect2 Bounds = ui_ReserveBounds(Interface, Layout, true);
     return ui_EvaluateWidget(Interface, Widget, Bounds);
 }
 
@@ -1019,12 +1104,7 @@ internal r32
 ui_EvaluateRangeSlider(ui_interface* Interface, ui_widget* Widget, ui_eval_result EvalResult, r32 Value, r32 MinValue, r32 MaxValue)
 {
     r32 NewValue = Value;
-    
-    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
-    if (!State)
-    {
-        State = ui_CreateRetainedState(Interface, Widget);
-    }
+    ui_widget_retained_state* State = ui_GetOrCreateRetainedState(Interface, Widget);
     
     if (EvalResult.Clicked)
     {
@@ -1038,7 +1118,7 @@ ui_EvaluateRangeSlider(ui_interface* Interface, ui_widget* Widget, ui_eval_resul
     }
     
     NewValue = Clamp(MinValue, NewValue, MaxValue);
-    Widget->HorizontalFillPercent = RemapR32(NewValue, MinValue, MaxValue, 0, 1);
+    Widget->FillPercent = RemapR32(NewValue, MinValue, MaxValue, 0, 1);
     return NewValue;
 }
 
@@ -1083,81 +1163,92 @@ ui_Toggle(ui_interface* Interface, gs_string Text, bool Value)
     ui_eval_result Eval = ui_EvaluateWidget(Interface, Widget);
     
     bool Result = Eval.Clicked ? !Value : Value;
-    Widget->HorizontalFillPercent = Result ? 1.0f : 0.0f;
+    Widget->FillPercent = Result ? 1.0f : 0.0f;
     return Result;
 }
 
 internal void
-ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows)
+ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 ElementCount)
 {
-    ui_widget* Layout = ui_PushLayout(Interface, Text);
+    ui_column_spec ColumnRules[] = {
+        { UIColumnSize_Fixed, 32 },
+        { UIColumnSize_Fill, 0 },
+    };
+    ui_widget* Layout = ui_BeginRow(Interface, 2, ColumnRules);
+    ui_WidgetClearFlag(Layout, UIWidgetFlag_ExpandsToFitChildren);
     
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Layout->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Layout);
+        State->InitialValueR32 = 1.0f;
+    }
+    
+    r32 LayoutHeight = Layout->RowHeight * ViewportRows;
+    switch (Layout->Parent->FillDirection)
+    {
+        case LayoutDirection_TopDown:
+        {
+            Layout->Bounds.Min.y = Layout->Bounds.Max.y - LayoutHeight;
+        }break;
+        
+        case LayoutDirection_BottomUp:
+        {
+            Layout->Bounds.Max.y = Layout->Bounds.Min.y + LayoutHeight;
+        }break;
+        
+        InvalidDefaultCase;
+    }
+    
+    // Create the scroll bar
+    //
+    
+    ui_widget* SliderRegion = ui_CreateWidget(Interface, MakeString("Slider"));
+    ui_WidgetSetFlag(SliderRegion, UIWidgetFlag_DrawOutline);
+    ui_WidgetSetFlag(SliderRegion, UIWidgetFlag_DrawVerticalFill);
+    ui_WidgetSetFlag(SliderRegion, UIWidgetFlag_DrawFillAsHandle);
+    
+    ui_WidgetSetFlag(SliderRegion, UIWidgetFlag_Clickable);
+    
+    rect2 SliderBounds = ui_ReserveBounds(Interface, Layout, true);
+    SliderBounds.Min.y = Layout->Bounds.Min.y + Layout->Margin.y;
+    SliderBounds.Max.y = Layout->Bounds.Max.y - Layout->Margin.y;
+    
+    ui_eval_result SliderEval = ui_EvaluateWidget(Interface, SliderRegion, SliderBounds);
+    if (SliderEval.Clicked || SliderEval.Held)
+    {
+        r32 Percent = (Interface->Mouse.Pos.y - SliderRegion->Bounds.Min.y) / Rect2Height(SliderRegion->Bounds);
+        State->InitialValueR32 = Clamp01(Percent);
+    }
+    SliderRegion->FillPercent = State->InitialValueR32;
+    
+    // Create the viewport that offsets list contents (and at render time determines what is visible)
+    //
+    ui_widget* ViewportLayout = ui_PushLayout(Interface, MakeString("Contents"));
+    ui_WidgetClearFlag(ViewportLayout, UIWidgetFlag_ExpandsToFitChildren);
+    
+    ViewportLayout->Bounds.Min.y = SliderBounds.Min.y;
+    ViewportLayout->Bounds.Max.y = SliderBounds.Max.y;
+    
+    ui_widget_retained_state* ViewportState = ui_GetOrCreateRetainedState(Interface, ViewportLayout);
+    ViewportState->ChildrenDrawOffset.x = 0;
+    ViewportState->ChildrenDrawOffset.y = ((1.0f - State->InitialValueR32) * (r32)(ElementCount - ViewportRows)) * ViewportLayout->RowHeight;
 }
 
 internal void
 ui_EndList(ui_interface* Interface)
 {
-    
+    // Pop the Viewport Layout
+    ui_PopLayout(Interface);
+    // TODO(pjs): Ensure that the active layout is the row layout we started in begin list
+    // Pop the actual list layout
+    ui_EndRow(Interface);
 }
 
 
 //
 // OLD
 //
-
-enum selection_state
-{
-    Selection_None,
-    Selection_Selected,
-    Selection_Deselected,
-};
-
-struct interface_list
-{
-    rect2 ListBounds;
-    
-    v2 ListElementDimensions;
-    v2 ElementLabelIndent;
-    
-    v4 TextColor;
-    v4* LineBGColors;
-    s32 LineBGColorsCount;
-    v4 LineBGHoverColor;
-    
-    s32 ListElementsCount;
-};
-
-internal rect2
-DrawListElementBackground(interface_list* List, mouse_state Mouse, render_command_buffer* RenderBuffer)
-{
-    rect2 LineBounds = {};
-    LineBounds.Min = v2{
-        List->ListBounds.Min.x,
-        List->ListBounds.Max.y - (List->ListElementDimensions.y * (List->ListElementsCount + 1))
-    };
-    LineBounds.Max = LineBounds.Min + List->ListElementDimensions;
-    
-    v4 Color = List->LineBGColors[List->ListElementsCount % List->LineBGColorsCount];
-    if (PointIsInRect(LineBounds, Mouse.Pos))
-    {
-        Color = List->LineBGHoverColor;
-    }
-    
-    PushRenderQuad2D(RenderBuffer, LineBounds.Min, LineBounds.Max, Color);
-    return LineBounds;
-}
-
-internal rect2
-DrawListElement(gs_string Label, interface_list* List, mouse_state Mouse, render_command_buffer* RenderBuffer, interface_config Interface)
-{
-    rect2 Bounds = DrawListElementBackground(List, Mouse, RenderBuffer);
-    
-    v2 LabelPosition = Bounds.Min + List->ElementLabelIndent;
-    DrawString(RenderBuffer, Label, Interface.Font, LabelPosition, List->TextColor);
-    
-    List->ListElementsCount++;
-    return Bounds;
-}
 
 
 internal r32
@@ -1196,108 +1287,6 @@ EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask,
     v2 DragBarMax = DragBarMin + v2{DragBarWidth, (Max.y - Min.y) + 4};
     
     PushQuad2DOnBatch(&Batch, DragBarMin, DragBarMax, v4{.3f, .3f, .3f, 1.f});
-    
-    return Result;
-}
-
-internal b32
-EvaluateColorPicker (render_command_buffer* RenderBuffer, v4* Value, v2 PanelMin, interface_config Config, mouse_state Mouse)
-{
-    b32 ShouldClose = false;
-    
-    v2 PanelMax = v2{400, 500};
-    // TODO(Peter): Can this get passed from outside? rather pass rect2 than min/max pairs
-    rect2 PanelRect = rect2{PanelMin, PanelMax};
-    if (MouseButtonTransitionedDown(Mouse.LeftButtonState) && !PointIsInRect(PanelRect, Mouse.Pos))
-    {
-        ShouldClose = true;
-    }
-    else
-    {
-        PushRenderQuad2D(RenderBuffer, PanelRect.Min, PanelRect.Max, v4{.5f, .5f, .5f, 1.f});
-        
-        v2 TitleMin = v2{PanelRect.Min.x + 5, PanelRect.Max.y - (Config.Font->PixelHeight + 5)};
-        DrawString(RenderBuffer, MakeString("Color Picker"), Config.Font,
-                   TitleMin, WhiteV4);
-        
-        v2 SliderDim = v2{(PanelMax.x - PanelMin.x) - 20, 32};
-        // channel sliders
-        v2 SliderMin = TitleMin - v2{0, SliderDim.y + 10};
-        Value->r = EvaluateColorChannelSlider(RenderBuffer, RedV4, SliderMin, SliderMin + SliderDim, Value->r, Mouse);
-        SliderMin.y -= SliderDim.y + 10;
-        Value->g = EvaluateColorChannelSlider(RenderBuffer, GreenV4, SliderMin, SliderMin + SliderDim, Value->g, Mouse);
-        SliderMin.y -= SliderDim.y + 10;
-        Value->b = EvaluateColorChannelSlider(RenderBuffer, BlueV4, SliderMin, SliderMin + SliderDim, Value->b, Mouse);
-        SliderMin.y -= SliderDim.y + 10;
-        Value->a = EvaluateColorChannelSlider(RenderBuffer, WhiteV4, SliderMin, SliderMin + SliderDim, Value->a, Mouse);
-        
-        // Output Color Display
-        SliderMin.y -= 100;
-        PushRenderQuad2D(RenderBuffer, SliderMin, SliderMin + v2{75, 75}, *Value);
-    }
-    
-    return ShouldClose;
-}
-
-struct search_lister_result
-{
-    s32 HotItem;
-    s32 SelectedItem;
-    b32 ShouldRemainOpen;
-};
-
-typedef gs_string search_lister_get_list_item_at_offset(u8* ListMemory, s32 ListLength, gs_string Searchgs_string, s32 Offset);
-
-internal search_lister_result
-EvaluateSearchLister (ui_interface* Interface, v2 TopLeft, v2 Dimension, gs_string Title,
-                      gs_string* ItemList, s32* ListLUT, s32 ListLength,
-                      s32 HotItem,
-                      gs_string* Searchgs_string, s32 Searchgs_stringCursorPosition)
-{
-    search_lister_result Result = {};
-    Result.ShouldRemainOpen = true;
-    Result.HotItem = HotItem;
-    
-    // TODO(Peter): Was tired. Nothing wrong with the code below
-    InvalidCodePath;
-#if 0
-    // Title Bar
-    rect2 TitleBarBounds = rect2{v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}};
-    ui_FillRect(Interface, TitleBarBounds, v4{.3f, .3f, .3f, 1.f});
-    ui_Drawgs_string(Interface, Title, TitleBarBounds, Interface->Style.TextColor);
-    
-    MakeStringBuffer(Debuggs_string, 256);
-    PrintF(&Debuggs_string, "Hot Item: %d  |  Filtered Items: %d", HotItem, ListLength);
-    rect2 DebugBounds = MakeRectMinWidth(v2{ TopLeft.x + 256, TopLeft.y - 25}, v2{256, Interface->Style.LineHeight});
-    ui_Drawgs_string(Interface, Debuggs_string, DebugBounds, Interface->Style.TextColor);
-    
-    // Search Bar
-    PushRenderQuad2D(RenderBuffer, v2{TopLeft.x, TopLeft.y - 30}, v2{TopLeft.x + 300, TopLeft.y}, v4{.3f, .3f, .3f, 1.f});
-    Drawgs_stringWithCursor(RenderBuffer, *Searchgs_string, Searchgs_stringCursorPosition, Font, v2{TopLeft.x, TopLeft.y - 25}, WhiteV4, GreenV4);
-    TopLeft.y -= 30;
-    
-    for (s32 i = 0; i < ListLength; i++)
-    {
-        s32 FilteredIndex = ListLUT[i];
-        gs_string ListItemgs_string = ItemList[FilteredIndex];
-        
-        v2 Min = v2{TopLeft.x, TopLeft.y - 30};
-        v2 Max = Min + Dimension - v2{0, Config.Margin.y};
-        
-        v4 ButtonColor = Config.ButtonColor_Inactive;
-        if (i == HotItem)
-        {
-            ButtonColor = Config.ButtonColor_Active;
-        }
-        
-        if (ui_Button(Interface, ListItemgs_string, rect2{Min, Max}))
-        {
-            Result.SelectedItem = i;
-        }
-        
-        TopLeft.y -= 30;
-    }
-#endif
     
     return Result;
 }

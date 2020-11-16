@@ -927,6 +927,10 @@ Range2Union(range2 A, range2 B)
     Result.Min.y = Max(A.Min.y, B.Min.y);
     Result.Max.x = Min(A.Max.x, B.Max.x);
     Result.Max.y = Min(A.Max.y, B.Max.y);
+    
+    if (Rect2Width(Result) < 0) { Result.Min.x = Result.Max.x; }
+    if (Rect2Height(Result) < 0) { Result.Min.y = Result.Max.y; }
+    
     return Result;
 }
 internal range3
@@ -946,6 +950,41 @@ internal v2
 Rect2GetRectLocalPoint(rect2 Rect, v2 Point)
 {
     v2 Result = Point - Rect.Min;
+    return Result;
+}
+
+internal r32
+Rect2Area(rect2 Rect)
+{
+    r32 Result = Rect2Width(Rect) * Rect2Height(Rect);
+    return Result;
+}
+
+internal v2
+Rect2BottomLeft(rect2 Rect)
+{
+    v2 Result = Rect.Min;
+    return Result;
+}
+
+internal v2
+Rect2BottomRight(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Max.x, Rect.Min.y };
+    return Result;
+}
+
+internal v2
+Rect2TopRight(rect2 Rect)
+{
+    v2 Result = Rect.Max;
+    return Result;
+}
+
+internal v2
+Rect2TopLeft(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Min.x, Rect.Max.y };
     return Result;
 }
 

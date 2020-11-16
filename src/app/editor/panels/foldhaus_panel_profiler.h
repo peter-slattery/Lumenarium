@@ -199,7 +199,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
-        ui_ReserveBounds(Layout, true);
+        ui_ReserveBounds(&State->Interface, Layout, true);
         
         if (ui_Button(&State->Interface, MakeString("Resume Recording")))
         {
