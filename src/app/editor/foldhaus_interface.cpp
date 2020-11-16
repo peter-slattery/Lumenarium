@@ -98,38 +98,38 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
     
     if (OpState->PanelEditMode == PanelEdit_Modify)
     {
-        if (Panel->SplitDirection == PanelSplit_Horizontal)
+        if (OpState->Panel->SplitDirection == PanelSplit_Horizontal)
         {
             r32 NewSplitY = Mouse.Pos.y;
             if (NewSplitY <= PanelBounds.Min.y)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Top, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Top, &State->PanelSystem);
             }
             else if (NewSplitY >= PanelBounds.Max.y)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Bottom, &State->PanelSystem);
             }
             else
             {
-                Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Rect2Height(PanelBounds);
-                Panel_UpdateLayout(Panel, PanelBounds);
+                OpState->Panel->SplitPercent = (NewSplitY  - PanelBounds.Min.y) / Rect2Height(PanelBounds);
+                Panel_UpdateLayout(OpState->Panel, PanelBounds);
             }
         }
-        else if (Panel->SplitDirection == PanelSplit_Vertical)
+        else if (OpState->Panel->SplitDirection == PanelSplit_Vertical)
         {
             r32 NewSplitX = Mouse.Pos.x;
             if (NewSplitX <= PanelBounds.Min.x)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Right, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Right, &State->PanelSystem);
             }
             else if (NewSplitX >= PanelBounds.Max.x)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Left, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Left, &State->PanelSystem);
             }
             else
             {
-                Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Rect2Width(PanelBounds);
-                Panel_UpdateLayout(Panel, PanelBounds);
+                OpState->Panel->SplitPercent = (NewSplitX  - PanelBounds.Min.x) / Rect2Width(PanelBounds);
+                Panel_UpdateLayout(OpState->Panel, PanelBounds);
             }
         }
     }
@@ -140,11 +140,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             r32 SplitY = LerpR32(OpState->Panel->SplitPercent, PanelBounds.Min.y, PanelBounds.Max.y);
             if (Mouse.Pos.y > SplitY)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Bottom, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Bottom, &State->PanelSystem);
             }
             else
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Top, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Top, &State->PanelSystem);
             }
         }
         else if (OpState->PanelEdgeDirection == PanelSplit_Vertical)
@@ -152,11 +152,11 @@ FOLDHAUS_INPUT_COMMAND_PROC(EndDragPanelBorderOperation)
             r32 SplitX = LerpR32(OpState->Panel->SplitPercent, PanelBounds.Min.x, PanelBounds.Max.x);
             if (Mouse.Pos.x > SplitX)
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Left, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Left, &State->PanelSystem);
             }
             else
             {
-                ConsolidatePanelsKeepOne(Panel, Panel->Right, &State->PanelSystem);
+                ConsolidatePanelsKeepOne(OpState->Panel, OpState->Panel->Right, &State->PanelSystem);
             }
         }
     }
