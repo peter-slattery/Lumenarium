@@ -240,8 +240,8 @@ SelectAndBeginDragAnimationBlock(animation_timeline_state* TimelineState, handle
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     operation_mode* DragAnimationBlockMode = ActivateOperationModeWithCommands(&State->Modes, DragAnimationBlockCommands, UpdateDragAnimationBlock);
     
+    animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, BlockHandle);
     drag_animation_block_state* OpState = CreateOperationState(DragAnimationBlockMode,
-    
                                                                &State->Modes,
                                                                drag_animation_block_state);
     OpState->TimelineBounds = TimelineBounds;
@@ -591,7 +591,7 @@ DrawAnimationPatternList(rect2 PanelBounds, ui_interface* Interface, u32 Selecte
     {
         animation_pattern Pattern = GlobalAnimationPatterns[i];
         gs_string PatternName = MakeString(Pattern.Name, Pattern.NameLength);
-        if (ui_LayoutListEntry(Interface, &Layout, PatternName, i))
+        if (ui_Button(Interface, PatternName))
         {
             AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayerHandle, AnimationSystem);
         }
