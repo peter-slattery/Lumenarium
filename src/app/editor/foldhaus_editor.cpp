@@ -152,14 +152,11 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
         if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawHorizontalFill) ||
             ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawVerticalFill))
         {
-            v4 Color = State->Interface.Style.ButtonColor_Active;
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
+            v4 Color = State->Interface.Style.ButtonColor_Selected;
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget) ||
+                ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
             {
-                Color = State->Interface.Style.ButtonColor_Selected;
-            }
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
-            {
-                Color = State->Interface.Style.ButtonColor_Selected;
+                Color = WhiteV4;
             }
             
             rect2 FillBounds = {};
@@ -205,7 +202,7 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
                     FillBounds.Max.y = FillToPoint;
                 }
             }
-            PushRenderQuad2D(RenderBuffer, FillBounds.Min, FillBounds.Max, Color);
+            PushRenderQuad2DClipped(RenderBuffer, FillBounds, WidgetParentUnion, Color);
             
             if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
             {
@@ -260,18 +257,12 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
         ui_Label(&State->Interface, MakeString("Spacer"));
         ui_Label(&State->Interface, MakeString("Spacer"));
         
-        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 9);
+        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 4);
         {
             ui_Button(&State->Interface, MakeString("B"));
             ui_Button(&State->Interface, MakeString("B"));
             ui_Button(&State->Interface, MakeString("B"));
             ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            
         }
         ui_EndList(&State->Interface);
         //ui_Button(&State->Interface, MakeString("B"));

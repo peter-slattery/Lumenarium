@@ -58,19 +58,11 @@ DrawCharacter_ (render_quad_batch_constructor* BatchConstructor, r32 MinX, r32 M
     s32 AlignedMaxX = AlignedMinX + (CodepointInfo.Width);
     s32 AlignedMaxY = AlignedMinY + (CodepointInfo.Height);
     
-#if 1
     PushQuad2DOnBatch(BatchConstructor,
                       Rect2BottomLeft(Bounds), Rect2BottomRight(Bounds),
                       Rect2TopRight(Bounds), Rect2TopLeft(Bounds),
                       UVBounds.Min, UVBounds.Max,
                       Color);
-#else
-    PushQuad2DOnBatch(BatchConstructor,
-                      v2{(r32)AlignedMinX, (r32)AlignedMinY}, v2{(r32)AlignedMaxX, (r32)AlignedMinY},
-                      v2{(r32)AlignedMaxX, (r32)AlignedMaxY}, v2{(r32)AlignedMinX, (r32)AlignedMaxY},
-                      CodepointInfo.UVMin, CodepointInfo.UVMax,
-                      Color);
-#endif
 }
 
 internal v2
@@ -1170,6 +1162,11 @@ ui_Toggle(ui_interface* Interface, gs_string Text, bool Value)
 internal void
 ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 ElementCount)
 {
+    if (ElementCount < ViewportRows)
+    {
+        ViewportRows = ElementCount;
+    }
+    
     ui_column_spec ColumnRules[] = {
         { UIColumnSize_Fixed, 32 },
         { UIColumnSize_Fill, 0 },
@@ -1202,6 +1199,7 @@ ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 Elem
     
     // Create the scroll bar
     //
+    // TODO(pjs): Maybe make this a vertical slider widget?
     
     ui_widget* SliderRegion = ui_CreateWidget(Interface, MakeString("Slider"));
     ui_WidgetSetFlag(SliderRegion, UIWidgetFlag_DrawOutline);
@@ -1230,9 +1228,10 @@ ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 Elem
     ViewportLayout->Bounds.Min.y = SliderBounds.Min.y;
     ViewportLayout->Bounds.Max.y = SliderBounds.Max.y;
     
+    s32 ScrollableElements = Max(0, ElementCount - ViewportRows);
     ui_widget_retained_state* ViewportState = ui_GetOrCreateRetainedState(Interface, ViewportLayout);
     ViewportState->ChildrenDrawOffset.x = 0;
-    ViewportState->ChildrenDrawOffset.y = ((1.0f - State->InitialValueR32) * (r32)(ElementCount - ViewportRows)) * ViewportLayout->RowHeight;
+    ViewportState->ChildrenDrawOffset.y = ((1.0f - State->InitialValueR32) * (r32)(ScrollableElements)) * ViewportLayout->RowHeight;
 }
 
 internal void
@@ -1245,51 +1244,6 @@ ui_EndList(ui_interface* Interface)
     ui_EndRow(Interface);
 }
 
-
-//
-// OLD
-//
-
-
-internal r32
-EvaluateColorChannelSlider (render_command_buffer* RenderBuffer, v4 ChannelMask, v2 Min, v2 Max, r32 Current, mouse_state Mouse)
-{
-    r32 Result = Current;
-    
-    // TODO(Peter): Can this come from outside the function? Would rather pass rect around than min/max
-    rect2 Rect = rect2{ Min, Max };
-    
-    render_quad_batch_constructor Batch = PushRenderQuad2DBatch(RenderBuffer, 2);
-    
-    v4 LeftColor = ChannelMask * 0;
-    LeftColor.a = 1.f;
-    v4 RightColor = ChannelMask;
-    PushQuad2DOnBatch(&Batch,
-                      RectBottomLeft(Rect), RectBottomRight(Rect),
-                      RectTopRight(Rect), RectTopLeft(Rect),
-                      v2{0, 0}, v2{1, 0}, v2{1, 1}, v2{0, 1},
-                      LeftColor, RightColor, RightColor, LeftColor);
-    
-    if (MouseButtonTransitionedDown(Mouse.LeftButtonState))
-    {
-        if (PointIsInRect(Rect, Mouse.DownPos))
-        {
-            Result = ((r32)Mouse.Pos.x - Min.x) / (Max.x - Min.x);
-            Result = Clamp01(Result);
-        }
-    }
-    
-    r32 DragBarWidth = 8;
-    v2 DragBarMin = v2{
-        LerpR32(Result, Min.x, Max.x) - (DragBarWidth / 2),
-        Min.y - 2
-    };
-    v2 DragBarMax = DragBarMin + v2{DragBarWidth, (Max.y - Min.y) + 4};
-    
-    PushQuad2DOnBatch(&Batch, DragBarMin, DragBarMax, v4{.3f, .3f, .3f, 1.f});
-    
-    return Result;
-}
 
 #define INTERFACE_H
 #endif // INTERFACE_H
