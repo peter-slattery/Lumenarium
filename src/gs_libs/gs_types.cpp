@@ -942,6 +942,10 @@ Range2Union(range2 A, range2 B)
     Result.Min.y = Max(A.Min.y, B.Min.y);
     Result.Max.x = Min(A.Max.x, B.Max.x);
     Result.Max.y = Min(A.Max.y, B.Max.y);
+    
+    if (Rect2Width(Result) < 0) { Result.Min.x = Result.Max.x; }
+    if (Rect2Height(Result) < 0) { Result.Min.y = Result.Max.y; }
+    
     return Result;
 }
 internal range3
@@ -961,6 +965,41 @@ internal v2
 Rect2GetRectLocalPoint(rect2 Rect, v2 Point)
 {
     v2 Result = Point - Rect.Min;
+    return Result;
+}
+
+internal r32
+Rect2Area(rect2 Rect)
+{
+    r32 Result = Rect2Width(Rect) * Rect2Height(Rect);
+    return Result;
+}
+
+internal v2
+Rect2BottomLeft(rect2 Rect)
+{
+    v2 Result = Rect.Min;
+    return Result;
+}
+
+internal v2
+Rect2BottomRight(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Max.x, Rect.Min.y };
+    return Result;
+}
+
+internal v2
+Rect2TopRight(rect2 Rect)
+{
+    v2 Result = Rect.Max;
+    return Result;
+}
+
+internal v2
+Rect2TopLeft(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Min.x, Rect.Max.y };
     return Result;
 }
 
@@ -1994,31 +2033,31 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             if (FormatAt[0] == 'h' && FormatAt[1] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 1;
+                Length = 1;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 2;
+                Length = 2;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'l' && FormatAt[1] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 4;
+                Length = 4;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'j')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'z')
@@ -2049,7 +2088,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'u')
             {
-                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u64 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
                 U64ToASCII(&StringRemaining, UnsignedInt, 10, Base10Chars);
             }
             else if (FormatAt[0] == 'o')
@@ -2487,6 +2526,19 @@ PushStringF(gs_memory_arena* Arena, u32 MaxLength, char* Format, ...)
     PrintFArgsList(&Result, Format, Args);
     va_end(Args);
     
+    return Result;
+}
+
+internal gs_string
+PushStringCopy(gs_memory_arena* Arena, gs_const_string String)
+{
+    gs_string Result = PushString(Arena, String.Length);
+    Result.Size = String.Length;
+    Result.Length = String.Length;
+    for (u32 i = 0; i < String.Length; i++)
+    {
+        Result.Str[i] = String.Str[i];
+    }
     return Result;
 }
 
@@ -3125,6 +3177,24 @@ TimeHandlerGetSecondsElapsed(gs_time_handler TimeHandler, s64 StartCycles, s64 E
 ///////////////////////////
 //
 // Hashes
+
+internal u32
+HashAppendDJB2ToU32(u32 Hash, u8 Byte)
+{
+    u32 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
+
+internal u64
+HashAppendDJB2ToU32(u64 Hash, u8 Byte)
+{
+    u64 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
 
 internal u32
 HashDJB2ToU32(char* String)

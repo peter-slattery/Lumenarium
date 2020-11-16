@@ -38,18 +38,20 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Hierarchy Layout"));
     
+    // TODO(pjs): Come back to this after the layout stuff is handled.
+    // Ideally it handles the visuals of the hierarchy itself.
+    
+#if 0
     gs_string TempString = PushString(State->Transient, 256);
-    u32 LineCount = (u32)(Rect2Height(PanelBounds) / Layout.RowHeight) + 1;
+    u32 LineCount = (u32)(Rect2Height(PanelBounds) / Layout->RowHeight) + 1;
     u32 AssembliesToDraw = Min(LineCount, State->Assemblies.Count);
     rect2* LineBounds = PushArray(State->Transient, rect2, LineCount);
     
     // Fill in alternating color rows for the backgrounds
     for (u32 Line = 0; Line < LineCount; Line++)
     {
-        LineBounds[Line] = ui_ReserveElementBounds(&Layout);
         v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface.Style, Line);
         ui_FillRect(&State->Interface, LineBounds[Line], ListItemBGColor);
     }
@@ -62,7 +64,7 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         ui_StartRow(&State->Interface, 2);
         {
             ui_DrawString(&State->Interface, TempString);
-            if (ui_LayoutListButton(&State->Interface, &Layout, MakeString("X"), AssemblyIndex))
+            if (ui_LayoutListButton(&State->Interface, MakeString("X"), AssemblyIndex))
             {
                 UnloadAssembly(AssemblyIndex, State, Context);
             }
@@ -80,6 +82,7 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
     }
+#endif
     
     ui_PopLayout(&State->Interface);
 }

@@ -386,7 +386,8 @@ DrawPanelFooter(panel* Panel, render_command_buffer* RenderBuffer, rect2 FooterB
     
     rect2 PanelSelectBtnBounds = MakeRect2MinDim(FooterBounds.Min + v2{30, 1}, v2{100, 23});
     
-    if (ui_BeginDropdown(&State->Interface, MakeString("Select"), PanelSelectBtnBounds))
+    panel_definition CurrentDef = State->PanelSystem.PanelDefs[Panel->TypeIndex];
+    if (ui_BeginDropdown(&State->Interface, MakeString(CurrentDef.PanelName, CurrentDef.PanelNameLength), PanelSelectBtnBounds))
     {
         for (s32 i = 0; i < GlobalPanelDefsCount; i++)
         {

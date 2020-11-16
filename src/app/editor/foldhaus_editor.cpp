@@ -89,16 +89,259 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
 }
 
 internal void
+Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ClippingBox, v4 Color)
+{
+    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
+                                                                              Widget.String.Length,
+                                                                              State->Interface.Style.Font->BitmapMemory,
+                                                                              State->Interface.Style.Font->BitmapTextureHandle,
+                                                                              State->Interface.Style.Font->BitmapWidth,
+                                                                              State->Interface.Style.Font->BitmapHeight,
+                                                                              State->Interface.Style.Font->BitmapBytesPerPixel,
+                                                                              State->Interface.Style.Font->BitmapStride);
+    
+    v2 RegisterPosition = Widget.Bounds.Min + State->Interface.Style.Margin;
+    
+    switch (Widget.Alignment)
+    {
+        case Align_Left:
+        {
+            RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, ClippingBox, Color);
+        }break;
+        
+        case Align_Right:
+        {
+            RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, ClippingBox, Color);
+        }break;
+        
+        InvalidDefaultCase;
+    }
+}
+
+internal void
+Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds)
+{
+    rect2 WidgetParentUnion = Widget.Bounds;
+    WidgetParentUnion = Rect2Union(Widget.Bounds, ParentClipBounds);
+    
+    if (!Widget.Parent || (Rect2Area(WidgetParentUnion) > 0))
+    {
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
+        {
+            v4 Color = State->Interface.Style.ButtonColor_Inactive;
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
+            {
+                Color = State->Interface.Style.ButtonColor_Active;
+            }
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
+            {
+                Color = State->Interface.Style.ButtonColor_Selected;
+            }
+            PushRenderQuad2DClipped(RenderBuffer, Widget.Bounds, WidgetParentUnion, Color);
+        }
+        
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
+        {
+            v4 Color = State->Interface.Style.TextColor;
+            Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, WidgetParentUnion, Color);
+        }
+        
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawHorizontalFill) ||
+            ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawVerticalFill))
+        {
+            v4 Color = State->Interface.Style.ButtonColor_Selected;
+            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget) ||
+                ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
+            {
+                Color = WhiteV4;
+            }
+            
+            rect2 FillBounds = {};
+            if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawHorizontalFill))
+            {
+                FillBounds.Min.y = Widget.Bounds.Min.y;
+                FillBounds.Max.y = Widget.Bounds.Max.y;
+                r32 FillToPoint = LerpR32(Widget.FillPercent, Widget.Bounds.Min.x, Widget.Bounds.Max.x);
+                if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawFillReversed))
+                {
+                    FillBounds.Min.x = FillToPoint;
+                    FillBounds.Max.x = Widget.Bounds.Max.x;
+                }
+                else if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawFillAsHandle))
+                {
+                    FillBounds.Min.x = FillToPoint - 5;
+                    FillBounds.Max.x = FillToPoint + 5;
+                }
+                else
+                {
+                    FillBounds.Min.x = Widget.Bounds.Min.x;
+                    FillBounds.Max.x = FillToPoint;
+                }
+            }
+            else if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawVerticalFill))
+            {
+                FillBounds.Min.x = Widget.Bounds.Min.x;
+                FillBounds.Max.x = Widget.Bounds.Max.x;
+                r32 FillToPoint = LerpR32(Widget.FillPercent, Widget.Bounds.Min.y, Widget.Bounds.Max.y);
+                if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawFillReversed))
+                {
+                    FillBounds.Min.y = FillToPoint;
+                    FillBounds.Max.y = Widget.Bounds.Max.y;
+                }
+                else if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawFillAsHandle))
+                {
+                    FillBounds.Min.y = FillToPoint - 5;
+                    FillBounds.Max.y = FillToPoint + 5;
+                }
+                else
+                {
+                    FillBounds.Min.y = Widget.Bounds.Min.y;
+                    FillBounds.Max.y = FillToPoint;
+                }
+            }
+            PushRenderQuad2DClipped(RenderBuffer, FillBounds, WidgetParentUnion, Color);
+            
+            if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
+            {
+                // TODO(pjs): Mask this text by the horizontal fill
+                // TODO(pjs): add this color to the style
+                v4 TextColor = BlackV4;
+                Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, WidgetParentUnion, TextColor);
+            }
+        }
+        
+        
+        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
+        {
+            // TODO(pjs): replace these with values from the style
+            r32 Thickness = 1.0f;
+            v4 Color = WhiteV4;
+            PushRenderBoundingBox2D(RenderBuffer, WidgetParentUnion.Min, WidgetParentUnion.Max, Thickness, Color);
+        }
+    }
+    
+    if (Widget.ChildrenRoot)
+    {
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot, WidgetParentUnion);
+    }
+    
+    if (Widget.Next)
+    {
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next, ParentClipBounds);
+    }
+}
+
+global r32 TestSlider_Value = 5;
+global r32 TestSlider_Min = 0;
+global r32 TestSlider_Max = 10;
+global bool TestToggle = true;
+
+internal void
+TestRender(app_state* State, context* Context, render_command_buffer* RenderBuffer)
+{
+    ui_InterfaceReset(&State->Interface);
+    State->Interface.RenderBuffer = RenderBuffer;
+    State->Interface.WindowBounds = Context->WindowBounds;
+    
+    gs_string A = MakeString("TestRender Layout");
+    
+    ui_PushLayout(&State->Interface, A);
+    {
+#if 1
+        ui_Label(&State->Interface, MakeString("Spacer"));
+        ui_Label(&State->Interface, MakeString("Spacer"));
+        ui_Label(&State->Interface, MakeString("Spacer"));
+        ui_Label(&State->Interface, MakeString("Spacer"));
+        ui_Label(&State->Interface, MakeString("Spacer"));
+        
+        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 16);
+        {
+            ui_BeginRow(&State->Interface, 3);
+            for (u32 i = 0; i < 16; i++)
+            {
+                
+                ui_Button(&State->Interface, MakeString("B"));
+                ui_Button(&State->Interface, MakeString("C"));
+                ui_Button(&State->Interface, MakeString("D"));
+            }
+            ui_EndRow(&State->Interface);
+        }
+        ui_EndList(&State->Interface);
+        //ui_Button(&State->Interface, MakeString("B"));
+        //ui_Button(&State->Interface, MakeString("C"));
+        //TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
+#elif 0
+        ui_PushLayout(&State->Interface, MakeString("Outer"));
+        {
+            for (u32 i = 0; i < 3; i++)
+            {
+                ui_Button(&State->Interface, MakeString("A"));
+            }
+        }
+        ui_PopLayout(&State->Interface);
+        
+        ui_BeginRow(&State->Interface, 2);
+        {
+            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
+            {
+                for (u32 i = 0; i < 5; i++)
+                {
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                }
+            }
+            ui_PopLayout(&State->Interface);
+            
+            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
+            {
+                ui_Button(&State->Interface, MakeString("TestButon"));
+                TestToggle = ui_Toggle(&State->Interface, MakeString("Toggle"), TestToggle);
+                TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
+                if (ui_BeginDropdown(&State->Interface, MakeString("TestDropdown")))
+                {
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                    ui_Button(&State->Interface, MakeString("TestButon"));
+                }
+                ui_EndDropdown(&State->Interface);
+            }
+            ui_PopLayout(&State->Interface);
+        }
+        ui_EndRow(&State->Interface);
+        
+        ui_PushLayout(&State->Interface, MakeString("Outer"));
+        {
+            for (u32 i = 0; i < 3; i++)
+            {
+                ui_Button(&State->Interface, MakeString("B"));
+            }
+        }
+        ui_PopLayout(&State->Interface);
+#else
+        ui_BeginList(&State->Interface, MakeString("Test List"), 10);
+        {
+            for (u32 i = 0; i < 32; i++)
+            {
+                ui_Button(&State->Interface, MakeString("Option"));
+            }
+        }
+        ui_EndList(&State->Interface);
+#endif
+    }
+    ui_PopLayout(&State->Interface);
+}
+
+internal void
 Editor_Render(app_state* State, context* Context, render_command_buffer* RenderBuffer)
 {
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
+#if 0
+    TestRender(State, Context, RenderBuffer);
+#else
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
-    
-    ui_layout Layout = ui_CreateLayout(&State->Interface, Context->WindowBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_PushLayout(&State->Interface, Context->WindowBounds, LayoutDirection_TopDown, MakeString("Editor Layout"));
     
     DrawAllPanels(State->PanelSystem, RenderBuffer, &Context->Mouse, State, *Context);
     
@@ -112,63 +355,13 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     }
     
     ui_PopLayout(&State->Interface);
+#endif
     
     // Draw the Interface
-    for (u32 i = 0; i < State->Interface.WidgetsCount; i++)
+    if (State->Interface.DrawOrderRoot != 0)
     {
-        ui_widget Widget = State->Interface.Widgets[i];
-        
-        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
-        {
-            v4 Color = State->Interface.Style.ButtonColor_Inactive;
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.HotWidget))
-            {
-                Color = State->Interface.Style.ButtonColor_Active;
-            }
-            if (ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget))
-            {
-                Color = State->Interface.Style.ButtonColor_Selected;
-            }
-            PushRenderQuad2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Color);
-        }
-        
-        if (Widget.String.Length > 0)
-        {
-            v4 Color = State->Interface.Style.TextColor;
-            render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
-                                                                                      Widget.String.Length,
-                                                                                      State->Interface.Style.Font->BitmapMemory,
-                                                                                      State->Interface.Style.Font->BitmapTextureHandle,
-                                                                                      State->Interface.Style.Font->BitmapWidth,
-                                                                                      State->Interface.Style.Font->BitmapHeight,
-                                                                                      State->Interface.Style.Font->BitmapBytesPerPixel,
-                                                                                      State->Interface.Style.Font->BitmapStride);
-            
-            v2 RegisterPosition = Widget.Bounds.Min + State->Interface.Style.Margin;
-            
-            switch (Widget.Alignment)
-            {
-                case Align_Left:
-                {
-                    RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
-                }break;
-                
-                case Align_Right:
-                {
-                    RegisterPosition = DrawStringRightAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, Color);
-                }break;
-                
-                InvalidDefaultCase;
-            }
-        }
-        
-        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
-        {
-            // TODO(pjs): replace these with values from the style
-            r32 Thickness = 1.0f;
-            v4 Color = WhiteV4;
-            PushRenderBoundingBox2D(RenderBuffer, Widget.Bounds.Min, Widget.Bounds.Max, Thickness, Color);
-        }
+        ui_widget Widget = *State->Interface.DrawOrderRoot;
+        Editor_DrawWidget(State, Context, RenderBuffer, Widget, Context->WindowBounds);
     }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
