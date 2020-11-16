@@ -66,50 +66,6 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         ui_EndRow(&State->Interface);
     }
     ui_EndList(&State->Interface);
-    
-    
-    // TODO(pjs): Come back to this after the layout stuff is handled.
-    // Ideally it handles the visuals of the hierarchy itself.
-#if 0
-    gs_string TempString = PushString(State->Transient, 256);
-    u32 LineCount = (u32)(Rect2Height(PanelBounds) / Layout->RowHeight) + 1;
-    u32 AssembliesToDraw = Min(LineCount, State->Assemblies.Count);
-    rect2* LineBounds = PushArray(State->Transient, rect2, LineCount);
-    
-    // Fill in alternating color rows for the backgrounds
-    for (u32 Line = 0; Line < LineCount; Line++)
-    {
-        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface.Style, Line);
-        ui_FillRect(&State->Interface, LineBounds[Line], ListItemBGColor);
-    }
-    
-    for (u32 AssemblyIndex = 0; AssemblyIndex < AssembliesToDraw; AssemblyIndex++)
-    {
-        assembly Assembly = State->Assemblies.Values[AssemblyIndex];
-        PrintF(&TempString, "%S", Assembly.Name);
-        
-        ui_StartRow(&State->Interface, 2);
-        {
-            ui_DrawString(&State->Interface, TempString);
-            if (ui_LayoutListButton(&State->Interface, MakeString("X"), AssemblyIndex))
-            {
-                UnloadAssembly(AssemblyIndex, State, Context);
-            }
-        }
-        ui_EndRow(&State->Interface);
-    }
-    
-    if (AssembliesToDraw < LineCount)
-    {
-        // NOTE(Peter): Add assembly button
-        PrintF(&TempString, "+ Add Assembly");
-        if (ui_Button(&State->Interface, TempString))
-        {
-            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
-            Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
-        }
-    }
-#endif
     ui_PopLayout(&State->Interface);
 }
 

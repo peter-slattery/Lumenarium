@@ -247,7 +247,7 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
     
     ui_PushLayout(&State->Interface, A);
     {
-#if 1
+#if 0
         ui_Label(&State->Interface, MakeString("Spacer"));
         ui_Label(&State->Interface, MakeString("Spacer"));
         ui_Label(&State->Interface, MakeString("Spacer"));
@@ -270,7 +270,7 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
         //ui_Button(&State->Interface, MakeString("B"));
         //ui_Button(&State->Interface, MakeString("C"));
         //TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
-#elif 0
+#elif 1
         ui_PushLayout(&State->Interface, MakeString("Outer"));
         {
             for (u32 i = 0; i < 3; i++)
@@ -314,6 +314,13 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
             {
                 ui_Button(&State->Interface, MakeString("B"));
             }
+        }
+        ui_PopLayout(&State->Interface);
+        
+        
+        ui_PushOverlayLayout(&State->Interface, rect2{25, 25, 200, 200}, LayoutDirection_TopDown, MakeString("t"));
+        {
+            ui_Label(&State->Interface, PushStringF(State->Interface.PerFrameMemory, 256, "Mouse Pos - %f %f", State->Interface.Mouse.Pos.x, State->Interface.Mouse.Pos.y));
         }
         ui_PopLayout(&State->Interface);
 #else

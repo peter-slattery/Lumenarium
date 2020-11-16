@@ -534,11 +534,19 @@ ui_CommitBounds(ui_widget* Parent, rect2 Bounds)
             case LayoutDirection_BottomUp:
             {
                 Parent->RowYAt = Bounds.Max.y;
+                if (ui_WidgetIsFlagSet(*Parent, UIWidgetFlag_ExpandsToFitChildren))
+                {
+                    Parent->Bounds.Max.y = Parent->RowYAt;
+                }
             }break;
             
             case LayoutDirection_TopDown:
             {
                 Parent->RowYAt = Bounds.Min.y - Parent->RowHeight;
+                if (ui_WidgetIsFlagSet(*Parent, UIWidgetFlag_ExpandsToFitChildren))
+                {
+                    Parent->Bounds.Min.y = Bounds.Min.y;
+                }
             }break;
         }
     }
@@ -589,7 +597,7 @@ internal ui_widget*
 ui_CreateLayoutWidget(ui_interface* Interface, rect2 Bounds, gs_string Name, ui_layout_direction FillDir = LayoutDirection_Inherit)
 {
     ui_widget* Result = ui_CreateWidget(Interface, Name);
-    ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
+    //ui_WidgetSetFlag(Result, UIWidgetFlag_DrawOutline);
     
     Result->Bounds = Bounds;
     Result->Margin = Interface->Style.Margin;
@@ -1021,8 +1029,8 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
     {
         ui_widget ParentLayout = *Interface->ActiveLayout;
         
-        r32 SpaceAbove = ParentLayout.Bounds.Max.y - Widget->Bounds.Max.y;
-        r32 SpaceBelow = Widget->Bounds.Min.y - ParentLayout.Bounds.Min.y;
+        r32 SpaceAbove = Interface->WindowBounds.Max.y - Widget->Bounds.Max.y;
+        r32 SpaceBelow = Widget->Bounds.Min.y - Interface->WindowBounds.Min.y;
         ui_layout_direction Direction = LayoutDirection_TopDown;
         rect2 MenuBounds = {};
         
