@@ -110,6 +110,18 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
     }
     ui_EndRow(Interface);
     
+    s32 CountedScopes = 0;
+    for (s32 n = 0; n < VisibleFrame->ScopeNamesMax; n++)
+    {
+        scope_name NameEntry = VisibleFrame->ScopeNamesHash[n];
+        if (NameEntry.Hash != 0)
+        {
+            CountedScopes += 1;
+        }
+    }
+    
+    ui_BeginList(Interface, MakeString("Scope List"), 10, CountedScopes);
+    ui_BeginRow(Interface, 5, &ColumnWidths[0]);
     for (s32 n = 0; n < VisibleFrame->ScopeNamesMax; n++)
     {
         scope_name NameEntry = VisibleFrame->ScopeNamesHash[n];
@@ -117,26 +129,24 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
         {
             collated_scope_record* CollatedRecord = VisibleFrame->CollatedScopes + n;
             
-            ui_BeginRow(Interface, 5, &ColumnWidths[0]);
-            {
-                PrintF(&String, "%S", NameEntry.Name);
-                ui_Label(Interface, String);
-                
-                PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
-                ui_Label(Interface, String);
-                
-                PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
-                ui_Label(Interface, String);
-                
-                PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
-                ui_Label(Interface, String);
-                
-                PrintF(&String, "%d", CollatedRecord->CallCount);
-                ui_Label(Interface, String);
-            }
-            ui_EndRow(Interface);
+            PrintF(&String, "%S", NameEntry.Name);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%d", CollatedRecord->CallCount);
+            ui_Label(Interface, String);
         }
     }
+    ui_EndRow(Interface);
+    ui_EndList(Interface);
 }
 
 GSMetaTag(panel_render);

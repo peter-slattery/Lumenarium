@@ -119,13 +119,10 @@ Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffe
 }
 
 internal void
-Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget)
+Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds)
 {
     rect2 WidgetParentUnion = Widget.Bounds;
-    if (Widget.Parent)
-    {
-        WidgetParentUnion = Rect2Union(Widget.Bounds, Widget.Parent->Bounds);
-    }
+    WidgetParentUnion = Rect2Union(Widget.Bounds, ParentClipBounds);
     
     if (!Widget.Parent || (Rect2Area(WidgetParentUnion) > 0))
     {
@@ -225,12 +222,12 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
     
     if (Widget.ChildrenRoot)
     {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot);
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot, WidgetParentUnion);
     }
     
     if (Widget.Next)
     {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next);
+        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next, ParentClipBounds);
     }
 }
 
@@ -257,12 +254,17 @@ TestRender(app_state* State, context* Context, render_command_buffer* RenderBuff
         ui_Label(&State->Interface, MakeString("Spacer"));
         ui_Label(&State->Interface, MakeString("Spacer"));
         
-        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 4);
+        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 16);
         {
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
-            ui_Button(&State->Interface, MakeString("B"));
+            ui_BeginRow(&State->Interface, 3);
+            for (u32 i = 0; i < 16; i++)
+            {
+                
+                ui_Button(&State->Interface, MakeString("B"));
+                ui_Button(&State->Interface, MakeString("C"));
+                ui_Button(&State->Interface, MakeString("D"));
+            }
+            ui_EndRow(&State->Interface);
         }
         ui_EndList(&State->Interface);
         //ui_Button(&State->Interface, MakeString("B"));
@@ -334,7 +336,7 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
-#if 1
+#if 0
     TestRender(State, Context, RenderBuffer);
 #else
     ui_InterfaceReset(&State->Interface);
@@ -359,7 +361,7 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     if (State->Interface.DrawOrderRoot != 0)
     {
         ui_widget Widget = *State->Interface.DrawOrderRoot;
-        Editor_DrawWidget(State, Context, RenderBuffer, Widget);
+        Editor_DrawWidget(State, Context, RenderBuffer, Widget, Context->WindowBounds);
     }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
