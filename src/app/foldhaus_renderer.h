@@ -44,7 +44,7 @@ GetCameraMatrix(camera Camera)
 internal v2
 ProjectWorldPointToScreen(v4 WorldSpacePoint, camera Camera, rect2 WindowBounds)
 {
-    v2 WindowExtents = v2{Rect2Width(WindowBounds), Rect2Height(WindowBounds)};
+    v2 WindowExtents = (v2){Rect2Width(WindowBounds), Rect2Height(WindowBounds)};
     v4 ProjectedPosition = GetCameraMatrix(Camera) * WorldSpacePoint;
     ProjectedPosition.xyz /= ProjectedPosition.w;
     v2 ScreenPosition = V2MultiplyPairwise(ProjectedPosition.xy, (WindowExtents / 2)) + (WindowExtents / 2);
@@ -74,8 +74,8 @@ ProjectScreenPointToWorldRay(v2 ScreenPoint, camera Camera, rect2 WindowBounds)
     
     r32 Near = Camera.Near;
     r32 Far = Camera.Far;
-    v3 MousePointOnNearPlane = v3{CameraX, CameraY, -1} * Near;
-    v3 MousePointOnFarPlane = v3{CameraX, CameraY, -1} * Far;
+    v3 MousePointOnNearPlane = (v3){CameraX, CameraY, -1} * Near;
+    v3 MousePointOnFarPlane = (v3){CameraX, CameraY, -1} * Far;
     
     v4 MouseRayDirection = ToV4Vec(V3Normalize(MousePointOnFarPlane - MousePointOnNearPlane));
     m44 CameraTransform = M44Transpose(M44LookAt(ToV4Point(Camera.Position), ToV4Point(Camera.LookAt)));
@@ -307,7 +307,13 @@ PushQuad2DBatch (render_command_buffer* Buffer, render_quad_batch_constructor* C
 internal s32
 ThreadSafeIncrementQuadConstructorCount (render_quad_batch_constructor* Constructor)
 {
+    InvalidCodePath;
+    s32 Result = 0;
+    #if 0
+    // TODO(pjs): compiling this out for now while I try and get mac up and running. Will need
+    // to come back and create a platform wrapper around my atomic functions
     s32 Result = InterlockedIncrement((long*)&Constructor->Count);
+    #endif
     // NOTE(Peter): Have to decrement the value by one.
     // Interlocked Increment acts as (++Constructor->Count), not (Constructor->Count++) which
     // is what we wanted;
@@ -336,7 +342,12 @@ internal quad_batch_constructor_reserved_range
 ThreadSafeReserveRangeInQuadConstructor(render_quad_batch_constructor* Constructor, s32 TrisNeeded)
 {
     quad_batch_constructor_reserved_range Result = {};
+    InvalidCodePath;
+    #if 0
+    // TODO(pjs): I need to come back and implement a platform wrapper
+    // around my atomics before I compile this in
     Result.OnePastLast = InterlockedAdd((long*)&Constructor->Count, TrisNeeded);
+    #endif
     Result.Start = Result.OnePastLast - TrisNeeded;
     return Result;
 }
@@ -382,8 +393,8 @@ internal void
 PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 P2, v4 P3, v2 UVMin, v2 UVMax, v4 Color)
 {
     Assert(Constructor->Count + 2 <= Constructor->Max);
-    PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, v2{UVMax.x, UVMin.y}, UVMax, Color, Color, Color);
-    PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, v2{UVMin.x, UVMax.y}, Color, Color, Color);
+    PushTri3DOnBatch(Constructor, P0, P1, P2, UVMin, (v2){UVMax.x, UVMin.y}, UVMax, Color, Color, Color);
+    PushTri3DOnBatch(Constructor, P0, P2, P3, UVMin, UVMax, (v2){UVMin.x, UVMax.y}, Color, Color, Color);
 }
 
 internal void
@@ -400,7 +411,7 @@ PushQuad3DOnBatch (render_quad_batch_constructor* Constructor,
 internal void
 PushQuad3DOnBatch (render_quad_batch_constructor* Constructor, v4 P0, v4 P1, v4 P2, v4 P3, v4 Color)
 {
-    PushQuad3DOnBatch(Constructor, P0, P1, P2, P3, v2{0, 0}, v2{1, 1}, Color);
+    PushQuad3DOnBatch(Constructor, P0, P1, P2, P3, (v2){0, 0}, (v2){1, 1}, Color);
 }
 
 internal void
@@ -463,12 +474,12 @@ PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, v2 
     
     // Tri 1 UVs
     Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 0, 0)] = UVMin;
-    Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 0, 1)] = v2{UVMax.x, UVMin.y};
+    Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 0, 1)] = (v2){UVMax.x, UVMin.y};
     Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 0, 2)] = UVMax;
     // Tri 2 UVs
     Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 1, 0)] = UVMin;
     Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 1, 1)] = UVMax;
-    Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 1, 2)] = v2{UVMin.x, UVMax.y};
+    Constructor->UVs[BATCH_2D_UV_INDEX(Quad, 1, 2)] = (v2){UVMin.x, UVMax.y};
     
     // Tri 1 Colors
     Constructor->ColorsV[BATCH_2D_COLOR_INDEX(Quad, 0, 0)] = Color;
@@ -483,8 +494,8 @@ PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, v2 
 internal void
 PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, v2 Min, v2 Max, v4 Color)
 {
-    PushQuad2DOnBatch(Constructor, v2{Min.x, Min.y}, v2{Max.x, Min.y}, v2{Max.x, Max.y}, v2{Min.x, Max.y},
-                      v2{0, 0}, v2{1, 1}, Color);
+    PushQuad2DOnBatch(Constructor, (v2){Min.x, Min.y}, (v2){Max.x, Min.y}, (v2){Max.x, Max.y}, (v2){Min.x, Max.y},
+                      (v2){0, 0}, (v2){1, 1}, Color);
 }
 
 internal void
@@ -494,7 +505,7 @@ PushLine2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, r32
     v2 Perpendicular = V2Normalize(V2PerpendicularCCW(P1 - P0)) * HalfThickness;
     
     PushQuad2DOnBatch(Constructor, P0 - Perpendicular, P1 - Perpendicular, P1 + Perpendicular, P0 + Perpendicular,
-                      v2{0, 0}, v2{1, 1}, Color);
+                      (v2){0, 0}, (v2){1, 1}, Color);
 }
 
 // Commands
@@ -608,7 +619,7 @@ internal void
 PushRenderQuad2D(render_command_buffer* Buffer, v2 P0, v2 P1, v2 P2, v2 P3, v4 Color)
 {
     render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);
-    PushQuad2DOnBatch(&Batch, P0, P1, P2, P3, v2{0,0}, v2{1,1}, Color);
+    PushQuad2DOnBatch(&Batch, P0, P1, P2, P3, (v2){0,0}, (v2){1,1}, Color);
 }
 
 internal void
@@ -647,10 +658,10 @@ internal void
 PushRenderCameraFacingQuad (render_command_buffer* Buffer, v4 Center, v2 Dimensions, v4 Color)
 {
     // TODO(Peter): Turn this into an actual camera facing quad
-    v4 A = v4{Center.x - Dimensions.x, Center.y - Dimensions.y, Center.z, Center.w};
-    v4 B = v4{Center.x + Dimensions.x, Center.y - Dimensions.y, Center.z, Center.w};
-    v4 C = v4{Center.x + Dimensions.x, Center.y + Dimensions.y, Center.z, Center.w};
-    v4 D = v4{Center.x - Dimensions.x, Center.y + Dimensions.y, Center.z, Center.w};
+    v4 A = (v4){Center.x - Dimensions.x, Center.y - Dimensions.y, Center.z, Center.w};
+    v4 B = (v4){Center.x + Dimensions.x, Center.y - Dimensions.y, Center.z, Center.w};
+    v4 C = (v4){Center.x + Dimensions.x, Center.y + Dimensions.y, Center.z, Center.w};
+    v4 D = (v4){Center.x - Dimensions.x, Center.y + Dimensions.y, Center.z, Center.w};
     
     PushRenderQuad3D(Buffer, A, B, C, D, Color);
 }
@@ -678,7 +689,7 @@ PushRenderTexture2DBatch (render_command_buffer* Buffer, s32 QuadCount,
                           u8* TextureMemory, s32 TextureHandle, s32 TextureWidth, s32 TextureHeight,
                           s32 TextureBytesPerPixel, s32 TextureStride)
 {
-    render_texture Texture = render_texture{
+    render_texture Texture = (render_texture){
         TextureMemory,
         TextureHandle,
         TextureWidth,
@@ -694,7 +705,7 @@ PushRenderTexture2D (render_command_buffer* Buffer, v2 Min, v2 Max, v4 Color,
                      render_texture* Texture)
 {
     render_quad_batch_constructor Batch = PushRenderTexture2DBatch(Buffer, 1, *Texture);
-    PushQuad2DOnBatch(&Batch, v2{Min.x, Min.y}, v2{Max.x, Min.y}, v2{Max.x, Max.y}, v2{Min.x, Max.y},
+    PushQuad2DOnBatch(&Batch, (v2){Min.x, Min.y}, (v2){Max.x, Min.y}, (v2){Max.x, Max.y}, (v2){Min.x, Max.y},
                       UVMin, UVMax, Color);
 }
 
@@ -702,10 +713,10 @@ internal void
 PushRenderBoundingBox2D (render_command_buffer* Buffer, v2 Min, v2 Max, r32 Thickness, v4 Color)
 {
     render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 4);
-    PushQuad2DOnBatch(&Batch, Min, v2{Min.x + Thickness, Max.y}, Color);
-    PushQuad2DOnBatch(&Batch, v2{Min.x, Max.y - Thickness}, Max, Color);
-    PushQuad2DOnBatch(&Batch, v2{Max.x - Thickness, Min.y}, Max, Color);
-    PushQuad2DOnBatch(&Batch, Min, v2{Max.x, Min.y + Thickness}, Color);
+    PushQuad2DOnBatch(&Batch, Min, (v2){Min.x + Thickness, Max.y}, Color);
+    PushQuad2DOnBatch(&Batch, (v2){Min.x, Max.y - Thickness}, Max, Color);
+    PushQuad2DOnBatch(&Batch, (v2){Max.x - Thickness, Min.y}, Max, Color);
+    PushQuad2DOnBatch(&Batch, Min, (v2){Max.x, Min.y + Thickness}, Color);
 }
 
 

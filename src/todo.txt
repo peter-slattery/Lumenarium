@@ -1,5 +1,6 @@
 TODO FOLDHAUS
-
+- mac version
+    - conform to new gs_thread_context
 
 - engine environment
 	- primary color

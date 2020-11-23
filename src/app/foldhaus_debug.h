@@ -166,7 +166,7 @@ StartDebugFrame(debug_frame* Frame, debug_services* Services)
     for (s32 c = 0; c < Frame->CollatedScopesMax; c++)
     {
         s32 Hash = Frame->CollatedScopes[c].NameHash;
-        Frame->CollatedScopes[c] = {};
+        Frame->CollatedScopes[c] = (collated_scope_record){};
         Frame->CollatedScopes[c].NameHash = Hash;
     }
 }

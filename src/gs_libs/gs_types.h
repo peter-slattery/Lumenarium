@@ -578,15 +578,20 @@ CStringLength(char* Str)
 }
 
 #define StringExpand(str) (int)(str).Length, (str).Str
-#define LitString(cstr) gs_const_string{(char*)(cstr), CStringLength((char*)cstr) }
+#define LitString(cstr) (gs_const_string){(char*)(cstr), sizeof(cstr) }
 
 // The index of the character in these arrays corresponds to its value as a number in
 // the relevant base, so you can do FindFirst on them with a char to get the int value
 //   ie. 3 is at index 3 in Base10Chars.
 //   ie. C is at index 12 in Base16Chars.
-global_const gs_const_string Base8Chars  = LitString("01234567");
+global gs_const_string Base8Chars  = LitString("01234567");
 global_const gs_const_string Base10Chars = LitString("0123456789");
 global_const gs_const_string Base16Chars = LitString("0123456789ABCDEF");
+
+struct va_list_wrapper
+{
+    va_list Args;
+};
 
 //////////////////////////
 //

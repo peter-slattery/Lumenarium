@@ -10,6 +10,7 @@
 #include <intrin.h>
 #include <windowsx.h>
 #include <gl/gl.h>
+#include <windows.h>
 
 #include "../../meta/gs_meta_include.h"
 #include "../foldhaus_platform.h"

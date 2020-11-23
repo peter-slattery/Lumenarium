@@ -299,7 +299,7 @@ internal void SwapInputBuffers (input* Input);
 internal void
 InitializeInput (input* Input)
 {
-    *(Input) = {};
+    *(Input) = (input){0};
     Input->New = &Input->Frames[0];
     Input->Old = &Input->Frames[1];
 }

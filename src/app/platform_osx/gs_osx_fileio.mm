@@ -1,51 +1,81 @@
 #include <sys/stat.h>
+#include <dirent.h>
 
-static uint32_t
-gsosx_GetLastFileWriteTime(char* Path)
+internal gs_file_info
+OsxGetFileInfo(int FileHandle, gs_const_string Path)
 {
-	int32_t Result = 0;
-	struct stat FileStat = {0};
-	if (stat(Path, &FileStat) == 0)
+	gs_file_info Result = (gs_file_info){0};
+	Result.Path = Path;
+	Result.AbsolutePath = Path;
+
+	struct stat FileStat;
+	if (fstat(FileHandle, &FileStat) == 0)
 	{
-		Result = FileStat.st_mtimespec.tv_sec;
+		Result.FileSize = (u32)FileStat.st_size;
+		Result.LastWriteTime = (s32)FileStat.st_mtimespec.tv_sec;
 	}
 	else
 	{
-		// TODO: Asserts
+		// TODO(pjs): Error Handling
+		InvalidCodePath;
 	}
+
+	Result.IsDirectory = false;
 	return Result;
 }
 
-static uint32_t
-gsosx_GetFilesize(char* Path)
+GET_FILE_INFO(OsxGetFileInfo)
 {
-	uint32_t Result = 0;
-
-	int FileHandle = open(Path, O_RDONLY);
-	struct stat FileStat = {0};
-	fstat(FileHandle, &FileStat);
-	close(FileHandle);
-
-	Result = (uint32_t)FileStat.st_size;
-	return Result;
-}
-
-static bool
-gsosx_LoadFileIntoMemory(char* Path, uint32_t FileSize, uint8_t* FileMemory)
-{
-	bool Result = false;
-	int FileHandle = open(Path, O_RDONLY);
-
-	struct stat FileStat = {0};
-	fstat(FileHandle, &FileStat);
-	if (FileStat.st_size <= FileSize)
+	Assert(IsNullTerminated(Path));
+	gs_file_info Result = (gs_file_info){0};
+	
+	int FileHandle = open(Path.Str, O_RDONLY);
+	if (FileHandle != -1)
 	{
-		read(FileHandle, FileMemory, FileSize);
-		Result = true;
+		Result = OsxGetFileInfo(FileHandle, Path);
+		close(FileHandle);
 	}
-	close(FileHandle);
+	else
+	{
+		// TODO(pjs): Error Handling
+		InvalidCodePath;
+	}
 
 	return Result;
+}
+
+READ_ENTIRE_FILE(OsxReadEntireFile)
+{
+	Assert(DataIsNonEmpty(Memory));
+    Assert(IsNullTerminated(Path));
+
+    gs_file Result = (gs_file){0};
+
+    int FileHandle = open(Path.Str, O_RDONLY);
+    if (FileHandle != -1)
+    {
+    	Result.FileInfo = OsxGetFileInfo(FileHandle, Path);
+    	s32 BytesRead = read(FileHandle, (uint8_t*)Memory.Memory, Memory.Size - 1);
+    	if (BytesRead != -1)
+    	{
+    		Memory.Memory[Memory.Size - 1] = 0;
+    		Result.Data = Memory;
+
+    		// TODO: Get Absolute Path
+    	}
+    	else
+    	{
+    		InvalidCodePath; // Error
+    	}
+
+    	close(FileHandle);
+    }
+    else
+    {
+    	InvalidCodePath; // Error
+    }
+
+    return Result;
 }
 
 static bool
@@ -61,3 +91,62 @@ gsosx_WriteEntireFile(char* Path, uint32_t FileSize, uint8_t* FileMemory)
 	close(FileHandle);
 	return Result;
 }
+
+WRITE_ENTIRE_FILE(OsxWriteEntireFile)
+{
+	Assert(DataIsNonEmpty(Data));
+    Assert(IsNullTerminated(Path));
+
+    bool Success = false;
+
+    int FileHandle = open(Path.Str, O_WRONLY | O_CREAT, 0777);
+    if (FileHandle != -1)
+    {
+    	ssize_t BytesWritten = write(FileHandle, Data.Memory, Data.Size);
+    	if (BytesWritten == Data.Size)
+    	{
+    		Success = true;
+    	}
+    	else
+    	{
+    		InvalidCodePath; // Error
+    	}
+
+    	close(FileHandle);
+    }
+    else
+    {
+    	InvalidCodePath; // Error
+    }
+
+    return Success;
+}
+
+ENUMERATE_DIRECTORY(OsxEnumerateDirectory)
+{
+	Assert(IsNullTerminated(Path));
+    gs_file_info_array Result = (gs_file_info_array){0};
+
+    DIR* DirectoryHandle = opendir(Path.Str);
+    if (DirectoryHandle != NULL)
+    {
+    	dirent* FileInfo;
+    	while (NULL != (FileInfo = readdir(DirectoryHandle)))
+    	{
+    		// TODO
+    	}
+    	closedir(DirectoryHandle);
+    }
+    else
+    {
+    	InvalidCodePath; // Error;
+    }
+
+    return Result;
+}
+
+
+
+
+
+

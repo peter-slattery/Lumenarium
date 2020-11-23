@@ -5,12 +5,10 @@
 //
 #ifndef FOLDHAUS_PLATFORM_H
 
-#include <windows.h>
-
 #include <math.h> // TODO Remove
 
-#include "..\gs_libs\gs_types.h"
-#include "..\gs_libs\gs_types.cpp"
+#include "../gs_libs/gs_types.h"
+#include "../gs_libs/gs_types.cpp"
 
 struct handle
 {
@@ -25,13 +23,13 @@ Handle_IsValid(handle Handle)
     return Result;
 }
 
-#include "..\gs_libs\gs_string.h"
+#include "../gs_libs/gs_string.h"
 
 #include "foldhaus_debug.h"
 global debug_services* GlobalDebugServices;
 
 //#include "..\gs_libs\gs_vector_matrix.h"
-#include "..\gs_libs\gs_input.h"
+#include "../gs_libs/gs_input.h"
 
 struct platform_network_address
 {
@@ -154,7 +152,7 @@ RESET_WORK_QUEUE(ResetWorkQueue)
 {
     for (u32 i = 0; i < Queue->JobsMax; i++)
     {
-        Queue->Jobs[i].Data = {0};
+        Queue->Jobs[i].Data = (gs_data){0};
         Queue->Jobs[i].WorkProc = 0;
     }
     

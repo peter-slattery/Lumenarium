@@ -1,10 +1,17 @@
 #include <Cocoa/Cocoa.h>
+#include <CoreServices/CoreServices.h>
+
+#include "../foldhaus_platform.h"
+
 #include "gs_osx_memory.mm"
-#include "gs_osx_window.mm"
 #include "gs_osx_fileio.mm"
+#include "gs_osx_time.mm"
+#include "gs_osx_window.mm"
+
+#if 0
+#include "gs_osx_window.mm"
 #include "gs_osx_lib.mm"
 #include "gs_osx_opengl.mm"
-#include "gs_osx_time.mm"
 
 static void
 gsosx_ProcessWindowEvents(NSApplication* App, NSWindow* Window)
@@ -73,4 +80,10 @@ int main(int ArgCount, char** Args)
 	}
 
 	return (0);
+}
+#endif
+
+int main(int ArgCount, char** Args)
+{
+
 }

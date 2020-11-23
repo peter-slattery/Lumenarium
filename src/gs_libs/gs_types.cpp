@@ -529,7 +529,7 @@ ATanR64(r64 Rad)
 internal v2
 V2MultiplyPairwise(v2 A, v2 B)
 {
-    v2 Result = v2{
+    v2 Result = (v2){
         A.x * B.x,
         A.y * B.y,
     };
@@ -539,7 +539,7 @@ V2MultiplyPairwise(v2 A, v2 B)
 internal v3
 V3MultiplyPairwise(v3 A, v3 B)
 {
-    v3 Result = v3{
+    v3 Result = (v3){
         A.x * B.x,
         A.y * B.y,
         A.z * B.z,
@@ -550,7 +550,7 @@ V3MultiplyPairwise(v3 A, v3 B)
 internal v4
 V4MultiplyPairwise(v4 A, v4 B)
 {
-    v4 Result = v4{
+    v4 Result = (v4){
         A.x * B.x,
         A.y * B.y,
         A.z * B.z,
@@ -560,17 +560,17 @@ V4MultiplyPairwise(v4 A, v4 B)
 }
 
 
-v2 operator- (v2 A) { return { -A.x, -A.y }; }
-v3 operator- (v3 A) { return { -A.x, -A.y, -A.z }; }
-v4 operator- (v4 A) { return { -A.x, -A.y, -A.z, -A.w }; }
+v2 operator- (v2 A) { return (v2){ -A.x, -A.y }; }
+v3 operator- (v3 A) { return (v3){ -A.x, -A.y, -A.z }; }
+v4 operator- (v4 A) { return (v4){ -A.x, -A.y, -A.z, -A.w }; }
 
-v2 operator+ (v2 A, v2 B) { return { A.x + B.x, A.y + B.y }; }
-v3 operator+ (v3 A, v3 B) { return { A.x + B.x, A.y + B.y, A.z + B.z }; }
-v4 operator+ (v4 A, v4 B) { return { A.x + B.x, A.y + B.y, A.z + B.z, A.w + B.w }; }
+v2 operator+ (v2 A, v2 B) { return (v2){ A.x + B.x, A.y + B.y }; }
+v3 operator+ (v3 A, v3 B) { return (v3){ A.x + B.x, A.y + B.y, A.z + B.z }; }
+v4 operator+ (v4 A, v4 B) { return (v4){ A.x + B.x, A.y + B.y, A.z + B.z, A.w + B.w }; }
 
-v2 operator- (v2 A, v2 B) { return { A.x - B.x, A.y - B.y }; }
-v3 operator- (v3 A, v3 B) { return { A.x - B.x, A.y - B.y, A.z - B.z }; }
-v4 operator- (v4 A, v4 B) { return { A.x - B.x, A.y - B.y, A.z - B.z, A.w - B.w }; }
+v2 operator- (v2 A, v2 B) { return (v2){ A.x - B.x, A.y - B.y }; }
+v3 operator- (v3 A, v3 B) { return (v3){ A.x - B.x, A.y - B.y, A.z - B.z }; }
+v4 operator- (v4 A, v4 B) { return (v4){ A.x - B.x, A.y - B.y, A.z - B.z, A.w - B.w }; }
 
 void operator+= (v2& A, v2 B) { A.x += B.x; A.y += B.y; }
 void operator+= (v3& A, v3 B) { A.x += B.x; A.y += B.y; A.z += B.z; }
@@ -580,13 +580,13 @@ void operator-= (v2& A, v2 B) { A.x -= B.x; A.y -= B.y; }
 void operator-= (v3& A, v3 B) { A.x -= B.x; A.y -= B.y; A.z -= B.z; }
 void operator-= (v4& A, v4 B) { A.x -= B.x; A.y -= B.y; A.z -= B.z; A.w -= B.w; }
 
-v2 operator* (v2 A, r32 B) { return { A.x * B, A.y * B }; }
-v3 operator* (v3 A, r32 B) { return { A.x * B, A.y * B, A.z * B }; }
-v4 operator* (v4 A, r32 B) { return { A.x * B, A.y * B, A.z * B, A.w * B }; }
+v2 operator* (v2 A, r32 B) { return (v2){ A.x * B, A.y * B }; }
+v3 operator* (v3 A, r32 B) { return (v3){ A.x * B, A.y * B, A.z * B }; }
+v4 operator* (v4 A, r32 B) { return (v4){ A.x * B, A.y * B, A.z * B, A.w * B }; }
 
-v2 operator/ (v2 A, r32 B) { return { A.x / B, A.y / B }; }
-v3 operator/ (v3 A, r32 B) { return { A.x / B, A.y / B, A.z / B }; }
-v4 operator/ (v4 A, r32 B) { return { A.x / B, A.y / B, A.z / B, A.w / B }; }
+v2 operator/ (v2 A, r32 B) { return (v2){ A.x / B, A.y / B }; }
+v3 operator/ (v3 A, r32 B) { return (v3){ A.x / B, A.y / B, A.z / B }; }
+v4 operator/ (v4 A, r32 B) { return (v4){ A.x / B, A.y / B, A.z / B, A.w / B }; }
 
 void operator*= (v2& A, r32 B) { A.x *= B; A.y *= B; }
 void operator*= (v3& A, r32 B) { A.x *= B; A.y *= B; A.z *= B; }
@@ -604,11 +604,11 @@ bool operator != (v2 A, v2 B) { return !((A.x == B.x) && (A.y == B.y)); }
 bool operator != (v3 A, v3 B) { return !((A.x == B.x) && (A.y == B.y) && (A.z == B.z)); }
 bool operator != (v4 A, v4 B) { return !((A.x == B.x) && (A.y == B.y) && (A.z == B.z) && (A.w == B.w)); }
 
-internal v3 ToV3(v2 V, r32 Z = 0) { return v3{V.x, V.y, Z}; }
-internal v4 V2ToV4(v2 V, r32 Z = 0, r32 W = 0) { return v4{V.x, V.y, Z, W}; }
+internal v3 ToV3(v2 V, r32 Z = 0) { return (v3){V.x, V.y, Z}; }
+internal v4 V2ToV4(v2 V, r32 Z = 0, r32 W = 0) { return (v4){V.x, V.y, Z, W}; }
 internal v4 ToV4_(v3 V, r32 W)
 {
-    return v4{V.x, V.y, V.z, W};
+    return (v4){V.x, V.y, V.z, W};
 }
 #define ToV4Point(v) ToV4_((v), 1.0f) // all points have a w value of 1
 #define ToV4Vec(v) ToV4_((v), 0.0f) // all vectors have a w value of 0 ie. they cannot be translated
@@ -652,8 +652,8 @@ internal r32 V2Dot(v2 A, v2 B) { return ((A.x * B.x) + (A.y * B.y)); }
 internal r32 V3Dot(v3 A, v3 B) { return ((A.x * B.x) + (A.y * B.y) + (A.z * B.z)); }
 internal r32 V4Dot(v4 A, v4 B) { return ((A.x * B.x) + (A.y * B.y) + (A.z * B.z) + (A.w * B.w)); }
 
-internal v2 V2PerpendicularCW(v2 A) { return v2{A.y, -A.x}; }
-internal v2 V2PerpendicularCCW(v2 A) { return v2{A.y, A.x}; }
+internal v2 V2PerpendicularCW(v2 A) { return (v2){A.y, -A.x}; }
+internal v2 V2PerpendicularCCW(v2 A) { return (v2){A.y, A.x}; }
 
 internal r32
 V2Cross(v2 A, v2 B)
@@ -687,7 +687,7 @@ V4Cross(v4 A, v4 B)
 internal v2
 V2Lerp(v2 A, v2 B, r32 T)
 {
-    v2 Result = v2{
+    v2 Result = (v2){
         LerpR32(A.x, B.x, T),
         LerpR32(A.y, B.y, T),
     };
@@ -697,7 +697,7 @@ V2Lerp(v2 A, v2 B, r32 T)
 internal v3
 V3Lerp(v3 A, v3 B, r32 T)
 {
-    v3 Result = v3{
+    v3 Result = (v3){
         LerpR32(A.x, B.x, T),
         LerpR32(A.y, B.y, T),
         LerpR32(A.z, B.z, T),
@@ -708,7 +708,7 @@ V3Lerp(v3 A, v3 B, r32 T)
 internal v4
 V4Lerp(v4 A, v4 B, r32 T)
 {
-    v4 Result = v4{
+    v4 Result = (v4){
         LerpR32(A.x, B.x, T),
         LerpR32(A.y, B.y, T),
         LerpR32(A.z, B.z, T),
@@ -832,18 +832,18 @@ internal v4  Range4Center(range4 Range) { return (Range.Max + Range.Min) / 2.0f;
 
 #define Rect2Center(r) Range2Center((r))
 
-internal range1 Range1Offset(range1 Range, r32 Delta) { return range1{ Range.Min + Delta, Range.Max + Delta }; }
-internal range2 Range2Offset(range2 Range, v2 Delta) { return range2{ Range.Min + Delta, Range.Max + Delta }; }
-internal range3 Range3Offset(range3 Range, v3 Delta) { return range3{ Range.Min + Delta, Range.Max + Delta }; }
-internal range4 Range4Offset(range4 Range, v4 Delta) { return range4{ Range.Min + Delta, Range.Max + Delta }; }
+internal range1 Range1Offset(range1 Range, r32 Delta) { return (range1){ Range.Min + Delta, Range.Max + Delta }; }
+internal range2 Range2Offset(range2 Range, v2 Delta) { return (range2){ Range.Min + Delta, Range.Max + Delta }; }
+internal range3 Range3Offset(range3 Range, v3 Delta) { return (range3){ Range.Min + Delta, Range.Max + Delta }; }
+internal range4 Range4Offset(range4 Range, v4 Delta) { return (range4){ Range.Min + Delta, Range.Max + Delta }; }
 
 #define Rect2Translate(r, d) Range2Offset((r), (d))
-#define Rect2TranslateX(r, dx) Range2Offset((r), v2{(dx), 0})
-#define Rect2TranslateY(r, dy) Range2Offset((r), v2{0, (dy)})
+#define Rect2TranslateX(r, dx) Range2Offset((r), (v2){(dx), 0})
+#define Rect2TranslateY(r, dy) Range2Offset((r), (v2){0, (dy)})
 
 internal v2 RectTopLeft(rect2 Rect)
 {
-    return v2{ Rect.Min.x, Rect.Max.y };
+    return (v2){ Rect.Min.x, Rect.Max.y };
 }
 internal v2 RectTopRight(rect2 Rect)
 {
@@ -855,7 +855,7 @@ internal v2 RectBottomLeft(rect2 Rect)
 }
 internal v2 RectBottomRight(rect2 Rect)
 {
-    return v2{ Rect.Max.x, Rect.Min.y };
+    return (v2){ Rect.Max.x, Rect.Min.y };
 }
 
 internal r32 AspectRatio(r32 Width, r32 Height) { return Width / Height; }
@@ -866,8 +866,8 @@ RectHSplit(rect2 Rect, r32 YValue, rect2* Top, rect2* Bottom)
 {
     r32 ClampedYValue = Clamp(Rect.Min.y, YValue, Rect.Max.y);
     Top->Max = Rect.Max;
-    Top->Min = { Rect.Min.x, ClampedYValue };
-    Bottom->Max = { Rect.Max.x, ClampedYValue };
+    Top->Min = (v2){ Rect.Min.x, ClampedYValue };
+    Bottom->Max = (v2){ Rect.Max.x, ClampedYValue };
     Bottom->Min = Rect.Min;
 }
 
@@ -875,10 +875,10 @@ internal void
 RectVSplit(rect2 Rect, r32 XValue, rect2* Left, rect2* Right)
 {
     r32 ClampedXValue = Clamp(Rect.Min.x, XValue, Rect.Max.x);
-    Left->Max = { ClampedXValue, Rect.Max.y};
+    Left->Max = (v2){ ClampedXValue, Rect.Max.y};
     Left->Min = Rect.Min;
     Right->Max = Rect.Max;
-    Right->Min = { ClampedXValue, Rect.Min.y };
+    Right->Min = (v2){ ClampedXValue, Rect.Min.y };
 }
 
 internal void
@@ -921,7 +921,7 @@ RectInset(rect2 Outer, v2 Amount)
 internal rect2
 RectInset(rect2 Outer, r32 UniformAmount)
 {
-    return RectInset(Outer, v2{UniformAmount, UniformAmount});
+    return RectInset(Outer, (v2){UniformAmount, UniformAmount});
 }
 
 
@@ -985,7 +985,7 @@ Rect2BottomLeft(rect2 Rect)
 internal v2
 Rect2BottomRight(rect2 Rect)
 {
-    v2 Result = v2{ Rect.Max.x, Rect.Min.y };
+    v2 Result = (v2){ Rect.Max.x, Rect.Min.y };
     return Result;
 }
 
@@ -999,7 +999,7 @@ Rect2TopRight(rect2 Rect)
 internal v2
 Rect2TopLeft(rect2 Rect)
 {
-    v2 Result = v2{ Rect.Min.x, Rect.Max.y };
+    v2 Result = (v2){ Rect.Min.x, Rect.Max.y };
     return Result;
 }
 
@@ -1344,7 +1344,7 @@ M44LookAt(v4 Position, v4 Target)
     // NOTE(Peter): the camera usually points along the -z axis, hence
     // Forward = a ray that points from the target back towards your position
     v4 Forward = V4Normalize(Position - Target);
-    v4 Right = V4Normalize(V4Cross(v4{0, 1, 0, 0}, Forward));
+    v4 Right = V4Normalize(V4Cross((v4){0, 1, 0, 0}, Forward));
     v4 Up = V4Normalize(V4Cross(Forward, Right));
     m44 Result = M44CoordinateFrame(Forward, Right, Up);
     return Result;
@@ -1354,8 +1354,8 @@ M44LookAt(v4 Position, v4 Target)
 //
 // Strings
 
-internal gs_const_string ConstString(char* Data, u64 Length) { return gs_const_string{Data, Length}; }
-internal gs_const_string ConstString(char* Data) { return gs_const_string{Data, CStringLength(Data)}; }
+internal gs_const_string ConstString(char* Data, u64 Length) { return (gs_const_string){Data, Length}; }
+internal gs_const_string ConstString(char* Data) { return (gs_const_string){Data, CStringLength(Data)}; }
 internal gs_string MakeString(char* Data, u64 Length, u64 Size)
 {
     Assert(Length <= Size);
@@ -1381,7 +1381,7 @@ internal gs_string MakeString(gs_const_string ConstString)
 
 internal gs_data StringToData(gs_const_string String)
 {
-    gs_data Result = gs_data{0};
+    gs_data Result = (gs_data){0};
     Result.Memory = (u8*)String.Str;
     Result.Size = String.Length * sizeof(char);
     return Result;
@@ -1887,54 +1887,54 @@ R64ToASCII(gs_string* String, r64 Value, u64 Precision)
 }
 
 internal s64
-ReadVarArgsSignedInteger (s32 Width, va_list* Args)
+ReadVarArgsSignedInteger (s32 Width, va_list_wrapper* List)
 {
     s64 Result = 0;
     switch (Width)
     {
         // NOTE(Peter): For Width lower than 4 bytes, the C++ spec specifies
         // that it will get promoted to an int anyways
-        case 1: { Result = (s64)va_arg(*Args, s32); } break;
-        case 2: { Result = (s64)va_arg(*Args, s32); } break;
-        case 4: { Result = (s64)va_arg(*Args, s32); } break;
-        case 8: { Result = (s64)va_arg(*Args, s64); } break;
+        case 1: { Result = (s64)va_arg(List->Args, s32); } break;
+        case 2: { Result = (s64)va_arg(List->Args, s32); } break;
+        case 4: { Result = (s64)va_arg(List->Args, s32); } break;
+        case 8: { Result = (s64)va_arg(List->Args, s64); } break;
         InvalidDefaultCase;
     }
     return Result;
 }
 
 internal r64
-ReadVarArgsUnsignedInteger (s32 Width, va_list* Args)
+ReadVarArgsUnsignedInteger (s32 Width, va_list_wrapper* List)
 {
     u64 Result = 0;
     switch (Width)
     {
         // NOTE(Peter): For Width lower than 4 bytes, the C++ spec specifies
         // that it will get promoted to an int anyways
-        case 1: { Result = (u64)va_arg(*Args, u32); } break;
-        case 2: { Result = (u64)va_arg(*Args, u32); } break;
-        case 4: { Result = (u64)va_arg(*Args, u32); } break;
-        case 8: { Result = (u64)va_arg(*Args, u64); } break;
+        case 1: { Result = (u64)va_arg(List->Args, u32); } break;
+        case 2: { Result = (u64)va_arg(List->Args, u32); } break;
+        case 4: { Result = (u64)va_arg(List->Args, u32); } break;
+        case 8: { Result = (u64)va_arg(List->Args, u64); } break;
         InvalidDefaultCase;
     }
     return Result;
 }
 
 internal r64
-ReadVarArgsFloat (s32 Width, va_list* Args)
+ReadVarArgsFloat (s32 Width, va_list_wrapper* List)
 {
     r64 Result = 0;
     switch (Width)
     {
-        case 4: { Result = (r64)va_arg(*Args, r64); } break;
-        case 8: { Result = (r64)va_arg(*Args, r64); } break;
+        case 4: { Result = (r64)va_arg(List->Args, r64); } break;
+        case 8: { Result = (r64)va_arg(List->Args, r64); } break;
         InvalidDefaultCase;
     }
     return Result;
 }
 
 internal s32
-PrintFArgsList (gs_string* String, char* Format, va_list Args)
+PrintFArgsList (gs_string* String, char* Format, va_list_wrapper List)
 {
     char* FormatAt = Format;
     while (*FormatAt)
@@ -1996,7 +1996,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             else if (FormatAt[0] == '*')
             {
                 WidthSpecified = true;
-                Width = va_arg(Args, s32);
+                Width = va_arg(List.Args, s32);
                 Assert(Width >= 0);
                 FormatAt++;
             }
@@ -2020,7 +2020,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
                 else if (FormatAt[0] == '*')
                 {
                     PrecisionSpecified = true;
-                    Precision = va_arg(Args, s32);
+                    Precision = va_arg(List.Args, s32);
                     Assert(Precision >= 0);
                     FormatAt++;
                 }
@@ -2078,7 +2078,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             Assert(StringRemaining.Length == 0);
             if (FormatAt[0] == 'd' || FormatAt[0] == 'i')
             {
-                s64 SignedInt = ReadVarArgsSignedInteger(Length, &Args);
+                s64 SignedInt = ReadVarArgsSignedInteger(Length, &List);
                 if (SignedInt < 0)
                 {
                     OutChar(&StringRemaining, '-');
@@ -2088,22 +2088,22 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'u')
             {
-                u64 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u64 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &List);
                 U64ToASCII(&StringRemaining, UnsignedInt, 10, Base10Chars);
             }
             else if (FormatAt[0] == 'o')
             {
-                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &List);
                 U64ToASCII(&StringRemaining, UnsignedInt, 8, Base8Chars);
             }
             else if (FormatAt[0] == 'x' || FormatAt[0] == 'X')
             {
-                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &List);
                 U64ToASCII(&StringRemaining, UnsignedInt, 16, Base16Chars);
             }
             else if (FormatAt[0] == 'f' || FormatAt[0] == 'F')
             {
-                r64 Float = ReadVarArgsFloat(Length, &Args);
+                r64 Float = ReadVarArgsFloat(Length, &List);
                 s32 AfterPoint = 6;
                 if (PrecisionSpecified)
                 {
@@ -2113,12 +2113,12 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'c')
             {
-                char InsertChar = va_arg(Args, s32);
+                char InsertChar = va_arg(List.Args, s32);
                 OutChar(&StringRemaining, InsertChar);
             }
             else if (FormatAt[0] == 's')
             {
-                char* InsertString = va_arg(Args, char*);
+                char* InsertString = va_arg(List.Args, char*);
                 
                 s32 InsertStringLength = CStringLength(InsertString);
                 if (PrecisionSpecified)
@@ -2134,7 +2134,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'S')
             {
-                gs_const_string InsertString = va_arg(Args, gs_const_string);
+                gs_const_string InsertString = va_arg(List.Args, gs_const_string);
                 
                 for (s32 c = 0; c < InsertString.Length; c++)
                 {
@@ -2162,11 +2162,11 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
 internal void
 PrintF (gs_string* String, char* Format, ...)
 {
-    va_list Args;
-    va_start(Args, Format);
+    va_list_wrapper List = {0};
+    va_start(List.Args, Format);
     String->Length = 0;
-    PrintFArgsList(String, Format, Args);
-    va_end(Args);
+    PrintFArgsList(String, Format, List);
+    va_end(List.Args);
 }
 internal void
 PrintF (gs_string* String, const char* Format, ...)
@@ -2175,20 +2175,20 @@ PrintF (gs_string* String, const char* Format, ...)
     // implicit conversion from a const char* (a static c string) to char*, so this
     // version of the function just provides the conversion so the compiler will be quiet
     // without removing the other implementation, which is more useful
-    va_list Args;
-    va_start(Args, Format);
+    va_list_wrapper List = {0};
+    va_start(List.Args, Format);
     String->Length = 0;
-    PrintFArgsList(String, (char*)Format, Args);
-    va_end(Args);
+    PrintFArgsList(String, (char*)Format, List);
+    va_end(List.Args);
 }
 
 internal void
 AppendPrintF (gs_string* String, char* Format, ...)
 {
-    va_list Args;
-    va_start(Args, Format);
-    PrintFArgsList(String, Format, Args);
-    va_end(Args);
+    va_list_wrapper List = {0};
+    va_start(List.Args, Format);
+    PrintFArgsList(String, Format, List);
+    va_end(List.Args);
 }
 internal void
 AppendPrintF (gs_string* String, const char* Format, ...)
@@ -2197,10 +2197,10 @@ AppendPrintF (gs_string* String, const char* Format, ...)
     // implicit conversion from a const char* (a static c string) to char*, so this
     // version of the function just provides the conversion so the compiler will be quiet
     // without removing the other implementation, which is more useful
-    va_list Args;
-    va_start(Args, Format);
-    PrintFArgsList(String, (char*)Format, Args);
-    va_end(Args);
+    va_list_wrapper List = {0};
+    va_start(List.Args, Format);
+    PrintFArgsList(String, (char*)Format, List);
+    va_end(List.Args);
 }
 
 ///////////////////////////
@@ -2521,10 +2521,10 @@ PushStringF(gs_memory_arena* Arena, u32 MaxLength, char* Format, ...)
 {
     gs_string Result = PushString(Arena, MaxLength);
     
-    va_list Args;
-    va_start(Args, Format);
-    PrintFArgsList(&Result, Format, Args);
-    va_end(Args);
+    va_list_wrapper List;
+    va_start(List.Args, Format);
+    PrintFArgsList(&Result, Format, List);
+    va_end(List.Args);
     
     return Result;
 }
@@ -2583,9 +2583,10 @@ internal void
 DebugPrintF(debug_output Output, char* Format, ...)
 {
     gs_string Message = PushString(Output.Storage, 1024);
-    va_list Args;
-    va_start(Args, Format);
-    PrintFArgsList(&Message, Format, Args);
+    va_list_wrapper List;
+    va_start(List.Args, Format);
+    PrintFArgsList(&Message, Format, List);
+    va_end(List.Args);
     NullTerminate(&Message);
     Output.Print(Output, Message.ConstString);
 }
@@ -3028,7 +3029,7 @@ FileHandlerGetFileInfo_NoOp(gs_file_handler FileHandler, gs_const_string Path)
 internal gs_file
 FileHandlerReadFile_NoOp(gs_const_string Path)
 {
-    return gs_file{0};
+    return (gs_file){0};
 }
 
 internal bool
@@ -3040,7 +3041,7 @@ FileHandlerWriteFile_NoOp(gs_const_string Path, gs_data Data)
 internal gs_const_string_array
 FileHandlerEnumerateDirectory_NoOp(gs_const_string Path, bool Recursive, bool IncludeDirs)
 {
-    return gs_const_string_array{0};
+    return (gs_const_string_array){0};
 }
 
 internal gs_file_handler
