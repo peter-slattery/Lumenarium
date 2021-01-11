@@ -65,8 +65,6 @@ struct app_state
     ui_interface Interface;
     panel_system PanelSystem;
     panel* HotPanel;
-    
-    r32 PixelsToWorldScale;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);

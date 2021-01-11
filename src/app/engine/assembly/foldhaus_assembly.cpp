@@ -72,7 +72,7 @@ AssemblyArray_Filter(assembly_array Array, assembly_array_filter_proc* Filter, g
 ///////////////////////////
 
 internal led_system
-LedSystemInitialize(gs_allocator PlatformMemory, u32 BuffersMax)
+LedSystem_Create(gs_allocator PlatformMemory, u32 BuffersMax)
 {
     led_system Result = {};
     Result.PlatformMemory = PlatformMemory;

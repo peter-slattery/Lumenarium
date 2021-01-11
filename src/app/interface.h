@@ -1528,5 +1528,26 @@ ui_EndLabeledDropdown(ui_interface* Interface)
     ui_EndRow(Interface);
 }
 
+internal ui_interface
+ui_InterfaceCreate(context Context, interface_config Style, gs_memory_arena* Permanent)
+{
+    ui_interface Result = {0};
+    Result.Style = Style;
+    
+    gs_file FontFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/Anonymous Pro.ttf"));
+    Result.Style.Font = PushStruct(Permanent, bitmap_font);
+    *Result.Style.Font = TextFont_Create(FontFile, 512, Style.FontSize, Context, Permanent);
+    
+    Result.Style.RowHeight = ui_GetTextLineHeight(Result) + (2 * Result.Style.Margin.y);
+    
+    Result.WidgetsCountMax = 4096;
+    Result.Widgets = PushArray(Permanent, ui_widget, Result.WidgetsCountMax);
+    Result.PerFrameMemory = PushStruct(Permanent, gs_memory_arena);
+    *Result.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator);
+    Result.Permanent = Permanent;
+    
+    return Result;
+}
+
 #define INTERFACE_H
 #endif // INTERFACE_H

@@ -17,6 +17,9 @@ struct win32_socket_array
     s32 Count;
 };
 
+global WSADATA WSAData;
+global win32_socket_array Win32Sockets;
+
 //////////////////////
 //
 // Win32 Socket Array
@@ -50,9 +53,7 @@ Win32SocketArray_Get(win32_socket_array Array, s32 Index)
 
 //////////////////////
 //
-// Win32 Socket System
-
-global win32_socket_array Win32Sockets;
+// Win32 Sockets
 
 internal win32_socket
 Win32Socket_Create(s32 AddressFamily, s32 Type, s32 Protocol)
@@ -239,6 +240,38 @@ Win32Socket_Close(win32_socket* Socket)
 {
     closesocket(Socket->Socket);
     Socket->Socket = INVALID_SOCKET;
+}
+
+internal void
+Win32Socket_CloseArray(win32_socket_array Array)
+{
+    for (s32 i = 0; i < Array.Count; i++)
+    {
+        win32_socket* Socket = Array.Values + i;
+        Win32Socket_Close(Socket);
+    }
+}
+
+//////////////////////
+//
+// Win32 Socket System
+
+internal void
+Win32SocketSystem_Init(gs_memory_arena* Arena)
+{
+    WSAStartup(MAKEWORD(2, 2), &WSAData);
+    Win32Sockets = Win32SocketArray_Create(16, Arena);
+}
+
+internal void
+Win32SocketSystem_Cleanup()
+{
+    Win32Socket_CloseArray(Win32Sockets);
+    
+    s32 CleanupResult = 0;
+    do {
+        CleanupResult = WSACleanup();
+    }while(CleanupResult == SOCKET_ERROR);
 }
 
 PLATFORM_GET_SOCKET_HANDLE(Win32GetSocketHandle)

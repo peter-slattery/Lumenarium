@@ -23,6 +23,7 @@
 #include "win32_foldhaus_work_queue.h"
 #include "win32_foldhaus_serial.h"
 #include "win32_foldhaus_socket.h"
+#include "win32_foldhaus_mouse.h"
 
 #include "../foldhaus_renderer.cpp"
 
@@ -369,23 +370,6 @@ Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
     return NewMemory;
 }
 
-// NOTE(Peter): Only meant to take one of the values specified below:
-// IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM,
-// IDC_ICON, IDC_NO, IDC_SIZE, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE,
-// IDC_SIZEWE, IDC_UPARROW, IDC_WAIT
-internal HCURSOR
-Win32LoadSystemCursor(char* CursorIdentifier)
-{
-    u32 Error = 0;
-    HCURSOR Result = LoadCursorA(NULL, CursorIdentifier);
-    if (Result == NULL)
-    {
-        Error = GetLastError();
-        InvalidCodePath;
-    }
-    return Result;
-}
-
 internal void
 Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_list OutputData)
 {
@@ -467,6 +451,23 @@ UpackB4(const u8* ptr)
     return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
 }
 
+internal bool
+ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError)
+{
+    bool Success = false;
+    if (HotLoadDLL(DLL))
+    {
+        SetApplicationLinks(Context, *DLL, WorkQueue);
+        Context->ReloadStaticData(*Context, GlobalDebugServices);
+        Success = true;
+    }
+    else if(ShouldError)
+    {
+        OutputDebugStringA("Unable to load application DLL at startup.\nAborting\n");
+    }
+    return Success;
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -477,36 +478,6 @@ WinMain (
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
-#if 0
-    // NOTE(pjs): UART TEST CODE
-    // NOTE(pjs): UART TEST CODE
-    // NOTE(pjs): UART TEST CODE
-    
-    u32 LedCount = 48;
-    u32 MessageBaseSize = sizeof(uart_header) + sizeof(uart_channel) + sizeof(uart_footer);
-    MessageBaseSize += sizeof(u8) * 3 * LedCount;
-    gs_data MessageBuffer = PushSizeToData(ThreadContext.Transient);
-    
-    gs_memory_cursor WriteCursor = CreateMemoryCursor(MessageBuffer);
-    
-    uart_header* Header = PushStructOnCursor(WriteCursor, uart_header);
-    UART_FillHeader(Header, Strip.UARTAddr.Channel, UART_SET_CHANNEL_WS2812);
-    uart_channel* Channel = PushStructOnCursor(WriteCursor, uart_channel);
-    *Channel = ChannelSettings;
-    
-    for (u32 i = 0; i < LedCount; i++)
-    {
-        u8* OutputPixel = PushArrayOnCursor(WriteCursor, u8, 3);
-        OutputPixel[Channel->RedIndex] = (u8)(i);
-        OutputPixel[Channel->GreenIndex] = 0;
-        OutputPixel[Channel->BlueIndex] = 0;
-    }
-    
-    uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
-    UART_FillFooter(Footer, (u8*)Header);
-    
-#endif
-    
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
     
@@ -516,14 +487,10 @@ WinMain (
     OpenGLWindowInfo.DepthBits = 0;
     CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
     
-    s32 InitialMemorySize = MB(64);
-    u8* InitialMemory = (u8*)Win32Alloc(InitialMemorySize, 0);
     context Context = {};
     Context.ThreadContext = ThreadContext;
-    Context.MemorySize = InitialMemorySize;
-    Context.MemoryBase = InitialMemory;
-    Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
-    Context.Mouse = {0};
+    Context.MemorySize = MB(64);
+    Context.MemoryBase = (u8*)Win32Alloc(Context.MemorySize, 0);
     
     gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator);
     
@@ -533,109 +500,37 @@ WinMain (
     r32 LastFrameSecondsElapsed = 0.0f;
     
     GlobalDebugServices = PushStruct(&PlatformPermanent, debug_services);
-    s32 DebugThreadCount = PLATFORM_THREAD_COUNT + 1;
     InitDebugServices(GlobalDebugServices,
                       PerformanceCountFrequency,
                       DEBUGAlloc,
                       Win32Realloc,
                       GetWallClock,
                       Win32GetThreadId,
-                      DebugThreadCount);
+                      PLATFORM_THREAD_COUNT + 1);
     
-    input_queue InputQueue;
-    {
-        s32 InputQueueMemorySize = sizeof(input_entry) * 32;
-        u8* InputQueueMemory = (u8*)Win32Alloc(InputQueueMemorySize, 0);
-        InputQueue = InitializeInputQueue(InputQueueMemory, InputQueueMemorySize);
-    }
+    input_queue InputQueue = InputQueue_Create(&PlatformPermanent, 32);
     
-    //
-    // Set up worker threads
-    const s32 WorkerThreadCount = PLATFORM_THREAD_COUNT;
-    worker_thread_info* WorkerThreads = 0;
-    if (PLATFORM_THREAD_COUNT > 0)
-    {
-        WorkerThreads = PushArray(&PlatformPermanent, worker_thread_info, PLATFORM_THREAD_COUNT);
-    }
-    
-    HANDLE WorkQueueSemaphoreHandle = CreateSemaphoreEx(0, 0, PLATFORM_THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
-    
-    gs_work_queue WorkQueue = {};
-    WorkQueue.SemaphoreHandle = &WorkQueueSemaphoreHandle;
-    WorkQueue.JobsMax = 512;
-    WorkQueue.Jobs = PushArray(&PlatformPermanent, gs_threaded_job, WorkQueue.JobsMax);
-    WorkQueue.NextJobIndex = 0;
-    WorkQueue.PushWorkOnQueue = Win32PushWorkOnQueue;
-    WorkQueue.CompleteQueueWork = Win32DoQueueWorkUntilDone;
-    WorkQueue.ResetWorkQueue = ResetWorkQueue;
-    
-    for (s32 i = 0; i < PLATFORM_THREAD_COUNT; i++)
-    {
-        // ID = 0 is reserved for this thread
-        WorkerThreads[i].Queue = &WorkQueue;
-        WorkerThreads[i].Handle = CreateThread(0, 0, &WorkerThreadProc, (void*)&WorkerThreads[i], 0, 0);
-    }
-    
-    // Cursors
-    HCURSOR CursorArrow = Win32LoadSystemCursor(IDC_ARROW);
-    HCURSOR CursorPointer = Win32LoadSystemCursor(IDC_HAND);
-    HCURSOR CursorLoading = Win32LoadSystemCursor(IDC_WAIT);
-    HCURSOR CursorHorizontalArrows = Win32LoadSystemCursor(IDC_SIZEWE);
-    HCURSOR CursorVerticalArrows = Win32LoadSystemCursor(IDC_SIZENS);
-    HCURSOR CursorDiagonalTopLeftArrows = Win32LoadSystemCursor(IDC_SIZENWSE);
-    HCURSOR CursorDiagonalTopRightArrows = Win32LoadSystemCursor(IDC_SIZENESW);
+    Win32WorkQueue_Init(&PlatformPermanent, PLATFORM_THREAD_COUNT);
     
     // Platform functions
-    Context.GeneralWorkQueue = &WorkQueue;
+    Context.GeneralWorkQueue = &Win32WorkQueue.WorkQueue;
     Context.PlatformGetGPUTextureHandle = Win32GetGPUTextureHandle;
     Context.PlatformGetSocketHandle = Win32GetSocketHandle;
     Context.PlatformGetFontInfo = Win32GetFontInfo;
     Context.PlatformDrawFontCodepoint = Win32DrawFontCodepoint;
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
-    if (HotLoadDLL(&DLLRefresh))
-    {
-        SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-        Context.ReloadStaticData(Context, GlobalDebugServices);
-    }
-    else
-    {
-        MessageBox(MainWindow.Handle, "Unable to load application DLL at startup.\nAborting\n", "Set Up Error", MB_OK);
-        return -1;
-    }
+    if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
     
-    WSADATA WSAData;
-    WSAStartup(MAKEWORD(2, 2), &WSAData);
-    Win32Sockets = Win32SocketArray_Create(16, &PlatformPermanent);
+    Mouse_Init();
     
-#if 0
-    // NOTE(pjs): SOCKET READING TEST CODE
-    // NOTE(pjs): SOCKET READING TEST CODE
-    // NOTE(pjs): SOCKET READING TEST CODE
-    
-    win32_socket TestSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
-    test_microphone_packet* Recv = 0;
-    while (true)
-    {
-        gs_data Data = Win32Socket_Receive(&TestSocket, ThreadContext.Transient);
-        if (Data.Size > 0)
-        {
-            OutputDebugStringA("Received\n");
-            Recv = (test_microphone_packet*)Data.Memory;
-        }
-        ClearArena(ThreadContext.Transient);
-    }
-#endif
+    Win32SocketSystem_Init(&PlatformPermanent);
     
     Win32SerialArray_Create(ThreadContext);
     
-    s32 RenderMemorySize = MB(12);
-    u8* RenderMemory = PushSize(&PlatformPermanent, RenderMemorySize);
-    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(RenderMemory, RenderMemorySize, Win32Realloc);
+    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, Win32Realloc);
     
-    addressed_data_buffer_list OutputData = {};
-    OutputData.Arena = AllocatorAllocStruct(Context.ThreadContext.Allocator, gs_memory_arena);
-    *OutputData.Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
+    addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
     
     Context.InitializeApplication(Context);
     
@@ -650,33 +545,12 @@ WinMain (
         DEBUG_TRACK_SCOPE(MainLoop);
         
         ResetInputQueue(&InputQueue);
-        if (HotLoadDLL(&DLLRefresh))
-        {
-            SetApplicationLinks(&Context, DLLRefresh, &WorkQueue);
-            Context.ReloadStaticData(Context, GlobalDebugServices);
-        }
+        
+        ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false);
         
         AddressedDataBufferList_Clear(&OutputData);
         
-        { // Mouse
-            POINT MousePos;
-            GetCursorPos (&MousePos);
-            ScreenToClient(MainWindow.Handle, &MousePos);
-            
-            Context.Mouse.Scroll = 0;
-            Context.Mouse.OldPos = Context.Mouse.Pos;
-            Context.Mouse.Pos = v2{(r32)MousePos.x, (r32)MainWindow.Height - MousePos.y};
-            Context.Mouse.DeltaPos = Context.Mouse.Pos - Context.Mouse.OldPos;
-            
-            if (KeyIsDown(Context.Mouse.LeftButtonState))
-            {
-                SetKeyWasDown(Context.Mouse.LeftButtonState);
-            }
-            else
-            {
-                SetKeyWasUp(Context.Mouse.LeftButtonState);
-            }
-        }
+        Mouse_Update(MainWindow, &Context);
         
         MSG Message;
         while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
@@ -700,45 +574,10 @@ WinMain (
             gs_data ProcArg = {};
             ProcArg.Memory = (u8*)&OutputData;
             ProcArg.Size = sizeof(OutputData);
-            Win32PushWorkOnQueue(&WorkQueue, Win32_SendAddressedDataBuffers_Job, ProcArg, ConstString("Send UART Data"));
+            Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffers_Job, ProcArg, ConstString("Send UART Data"));
         }
         
-        Context.Mouse.LeftButtonState = GetMouseButtonStateAdvanced(Context.Mouse.LeftButtonState);
-        Context.Mouse.MiddleButtonState = GetMouseButtonStateAdvanced(Context.Mouse.MiddleButtonState);
-        Context.Mouse.RightButtonState = GetMouseButtonStateAdvanced(Context.Mouse.RightButtonState);
-        
-        switch (Context.Mouse.CursorType)
-        {
-            case CursorType_Arrow:
-            {
-                SetCursor(CursorArrow);
-            }break;
-            case CursorType_Pointer:
-            {
-                SetCursor(CursorPointer);
-            }break;
-            case CursorType_Loading:
-            {
-                SetCursor(CursorLoading);
-            }break;
-            case CursorType_HorizontalArrows:
-            {
-                SetCursor(CursorHorizontalArrows);
-            }break;
-            case CursorType_VerticalArrows:
-            {
-                SetCursor(CursorVerticalArrows);
-            }break;
-            case CursorType_DiagonalTopLeftArrows:
-            {
-                SetCursor(CursorDiagonalTopLeftArrows);
-            }break;
-            case CursorType_DiagonalTopRightArrows:
-            {
-                SetCursor(CursorDiagonalTopRightArrows);
-            }break;
-            InvalidDefaultCase;
-        }
+        Mouse_Advance(&Context);
         
         HDC DeviceContext = GetDC(MainWindow.Handle);
         SwapBuffers(DeviceContext);
@@ -759,28 +598,13 @@ WinMain (
         
         LastFrameSecondsElapsed = SecondsElapsed;
         LastFrameEnd = GetWallClock();
-        
-        
-        //OutputDebugStringA("-- Frame END -- \n");
-        
     }
     
     Context.CleanupApplication(Context);
     
-    for (s32 SocketIdx = 0; SocketIdx < Win32Sockets.Count; SocketIdx++)
-    {
-        Win32Socket_Close(Win32Sockets.Values + SocketIdx);
-    }
+    Win32SocketSystem_Cleanup();
     
-    s32 CleanupResult = 0;
-    do {
-        CleanupResult = WSACleanup();
-    }while(CleanupResult == SOCKET_ERROR);
-    
-    for (s32 Thread = 0; Thread < PLATFORM_THREAD_COUNT; Thread++)
-    {
-        TerminateThread(WorkerThreads[Thread].Handle, 0);
-    }
+    Win32WorkQueue_Cleanup();
     
     return 0;
 }

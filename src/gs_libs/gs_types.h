@@ -1047,7 +1047,6 @@ struct gs_work_queue
     // Work Queue
     push_work_on_queue* PushWorkOnQueue;
     complete_queue_work* CompleteQueueWork;
-    reset_work_queue* ResetWorkQueue;
 };
 
 #define GS_TYPES_H

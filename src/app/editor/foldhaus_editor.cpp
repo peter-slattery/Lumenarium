@@ -358,7 +358,7 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);
-    Context->GeneralWorkQueue->ResetWorkQueue(Context->GeneralWorkQueue);
+    ResetWorkQueue(Context->GeneralWorkQueue);
     
 }
 

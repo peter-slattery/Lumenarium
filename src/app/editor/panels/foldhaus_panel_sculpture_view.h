@@ -5,6 +5,12 @@
 //
 #ifndef FOLDHAUS_PANEL_SCULPTURE_VIEW_H
 
+// Definitions
+
+#define PIXEL_TO_WORLD_SCALE 0.01f
+
+//
+
 struct sculpture_view_panel_state
 {
     camera Camera;
@@ -24,8 +30,8 @@ OPERATION_RENDER_PROC(Update3DViewMouseRotate)
     
     v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
     
-    m44 XRotation = M44RotationX(-TotalDeltaPos.y * State->PixelsToWorldScale);
-    m44 YRotation = M44RotationY(TotalDeltaPos.x * State->PixelsToWorldScale);
+    m44 XRotation = M44RotationX(-TotalDeltaPos.y * PIXEL_TO_WORLD_SCALE);
+    m44 YRotation = M44RotationY(TotalDeltaPos.x * PIXEL_TO_WORLD_SCALE);
     m44 Combined = XRotation * YRotation;
     
     OpState->Camera->Position = (Combined * OpState->CameraStartPos).xyz;

@@ -251,10 +251,10 @@ enum cursor_type
     CursorType_Arrow,
     CursorType_Pointer,
     CursorType_Loading,
-    CursorType_HorizontalArrows,
-    CursorType_VerticalArrows,
-    CursorType_DiagonalTopLeftArrows,
-    CursorType_DiagonalTopRightArrows,
+    CursorType_HArrows,
+    CursorType_VArrows,
+    CursorType_DTopLeftArrows,
+    CursorType_DTopRightArrows,
     CursorType_Count,
 };
 
@@ -277,13 +277,25 @@ struct mouse_state
 };
 
 internal input_queue
-InitializeInputQueue (u8* Memory, s32 MemorySize)
+InputQueue_Create (u8* Memory, s32 MemorySize)
 {
     input_queue Result = {};
     s32 EntriesCount = MemorySize / sizeof(input_entry);
     Result.QueueSize = EntriesCount;
     Result.QueueUsed = 0;
     Result.Entries = (input_entry*)Memory;
+    return Result;
+}
+internal input_queue
+InputQueue_Create(gs_memory_arena* Arena, u32 CountMax)
+{
+    input_queue Result = {0};
+    if (CountMax > 0)
+    {
+        s32 Size = sizeof(input_entry) * 32;
+        u8* Memory = PushSize(Arena, Size);
+        Result = InputQueue_Create(Memory, Size);
+    }
     return Result;
 }
 

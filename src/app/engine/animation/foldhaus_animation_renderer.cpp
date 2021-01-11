@@ -192,6 +192,8 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
             }
         }
     }
+    
+    System->LastUpdatedFrame = System->CurrentFrame;
 }
 
 #define FOLDHAUS_ANIMATION_RENDERER_CPP

@@ -353,28 +353,28 @@ DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state* Mo
         v2 LeftEdgeMin = PanelMin;
         v2 LeftEdgeMax = v2{PanelMin.x + HighlightThickness, PanelMax.y};
         PushRenderQuad2D(RenderBuffer, LeftEdgeMin, LeftEdgeMax, HighlightColor);
-        Mouse->CursorType = CursorType_HorizontalArrows;
+        Mouse->CursorType = CursorType_HArrows;
     }
     else if (MouseRightEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 RightEdgeMin = v2{PanelMax.x - HighlightThickness, PanelMin.y};
         v2 RightEdgeMax = PanelMax;
         PushRenderQuad2D(RenderBuffer, RightEdgeMin, RightEdgeMax, HighlightColor);
-        Mouse->CursorType = CursorType_HorizontalArrows;
+        Mouse->CursorType = CursorType_HArrows;
     }
     else if (MouseTopEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 TopEdgeMin = v2{PanelMin.x, PanelMax.y - HighlightThickness};
         v2 TopEdgeMax = PanelMax;
         PushRenderQuad2D(RenderBuffer, TopEdgeMin, TopEdgeMax, HighlightColor);
-        Mouse->CursorType = CursorType_VerticalArrows;
+        Mouse->CursorType = CursorType_VArrows;
     }
     else if (MouseBottomEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
     {
         v2 BottomEdgeMin = PanelMin;
         v2 BottomEdgeMax = v2{PanelMax.x, PanelMin.y + HighlightThickness};
         PushRenderQuad2D(RenderBuffer, BottomEdgeMin, BottomEdgeMax, HighlightColor);
-        Mouse->CursorType = CursorType_VerticalArrows;
+        Mouse->CursorType = CursorType_VArrows;
     }
 }
 
