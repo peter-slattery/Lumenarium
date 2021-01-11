@@ -1593,6 +1593,21 @@ FindLastFromSet(gs_const_string String, char* SetArray)
 }
 
 internal bool
+StringContains(gs_const_string Str, char C)
+{
+    bool Result = false;
+    for (u32 i = 0; i < Str.Length; i++)
+    {
+        if (Str.Str[i] == C)
+        {
+            Result = true;
+            break;
+        }
+    }
+    return Result;
+}
+
+internal bool
 StringsEqualUpToLength(gs_const_string A, gs_const_string B, u64 Length)
 {
     bool Result = false;
@@ -1695,29 +1710,65 @@ CharToUInt(char C, u64 Base)
     return CharToUInt(C, GetCharSetForBase(Base));
 }
 
-internal u64
-ParseUInt(gs_const_string String, u64 Base = 10, u64* ParsedLength = 0)
+struct parse_uint_result
 {
-    u64 Result = 0;
+    b8 Success;
+    u64 Value;
+    u32 ParsedLength;
+};
+
+internal parse_uint_result
+ValidateAndParseUInt(gs_const_string String, u64 Base = 10)
+{
+    parse_uint_result Result = {0};
+    
     gs_const_string CharSet = GetCharSetForBase(Base);
-    u64 i = 0;
-    for (; i < String.Length; i++)
+    
+    bool StringIsValid = true;
+    for (u32 i = 0; i < String.Length; i++)
     {
-        u64 CharIndex = FindFirst(CharSet, String.Str[i]);
-        if (CharIndex  < CharSet.Length)
+        if (!StringContains(CharSet, String.Str[i]))
         {
-            Result = CharToUInt(String.Str[i], CharSet) + (Result * Base);
-        }
-        else
-        {
+            StringIsValid = false;
             break;
         }
     }
-    if (ParsedLength != 0)
+    
+    if (StringIsValid)
     {
-        *ParsedLength = i;
+        u64 Acc = 0;
+        u64 i = 0;
+        for (; i < String.Length; i++)
+        {
+            u64 CharIndex = FindFirst(CharSet, String.Str[i]);
+            if (CharIndex  < CharSet.Length)
+            {
+                Acc = CharToUInt(String.Str[i], CharSet) + (Acc * Base);
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        Result.Success = true;
+        Result.Value = Acc;
+        Result.ParsedLength = i;
     }
+    
     return Result;
+}
+
+internal u64
+ParseUInt(gs_const_string String, u64 Base = 10, u64* ParsedLength = 0)
+{
+    parse_uint_result ParseResult = ValidateAndParseUInt(String, Base);
+    Assert(ParseResult.Success);
+    if (ParsedLength)
+    {
+        *ParsedLength = ParseResult.ParsedLength;
+    }
+    return ParseResult.Value;
 }
 internal u64
 ParseUInt(u64 Length, char* String, u64 Base = 10, u64* ParsedLength = 0)
@@ -1756,39 +1807,75 @@ ParseInt(char* String, u64 Base = 10, u64* ParsedLength = 0)
     return ParseInt(LitString(String), Base, ParsedLength);
 }
 
+struct parse_float_result
+{
+    b8 Success;
+    r64 Value;
+    u64 ParsedLength;
+};
+
+internal parse_float_result
+ValidateAndParseFloat(gs_const_string String)
+{
+    parse_float_result Result = {0};
+    Result.Success = false;
+    
+    // Validate
+    bool StringIsValid = true;
+    for (u64 i = 0; i < String.Length; i++)
+    {
+        if (!IsNumericDecimal(String.Str[i]) && String.Str[i] != '-')
+        {
+            StringIsValid = false;
+            break;
+        }
+    }
+    
+    if (StringIsValid)
+    {
+        u64 DecimalIndex = FindFirst(String, '.');
+        u64 TempParsedLength = 0;
+        u64 PlacesAfterPoint = 0;
+        
+        gs_const_string IntegerString = GetStringBefore(String, DecimalIndex);
+        gs_const_string DecimalString = GetStringAfter(String, DecimalIndex + 1);
+        
+        r32 Polarity = 1;
+        if (IntegerString.Str[0] == '-')
+        {
+            IntegerString = GetStringAfter(IntegerString, 1);
+            Polarity = -1;
+        }
+        
+        Result.Value = (r64)ParseInt(IntegerString, 10, &TempParsedLength);
+        
+        if (TempParsedLength == IntegerString.Length)
+        {
+            r64 AfterPoint = (r64)ParseUInt(DecimalString, 10, &PlacesAfterPoint);
+            r64 Decimal = (AfterPoint / PowR64(10, PlacesAfterPoint));
+            Result.Value = Result.Value + Decimal;
+            Result.Value *= Polarity;
+        }
+        
+        Result.ParsedLength = TempParsedLength + PlacesAfterPoint;
+        if (DecimalIndex < String.Length) { Result.ParsedLength += 1; }
+        
+        Result.Success = true;
+    }
+    
+    return Result;
+}
+
 internal r64
 ParseFloat(gs_const_string String, u64* ParsedLength = 0)
 {
-    
-    u64 DecimalIndex = FindFirst(String, '.');
-    u64 TempParsedLength = 0;
-    u64 PlacesAfterPoint = 0;
-    
-    gs_const_string IntegerString = GetStringBefore(String, DecimalIndex);
-    gs_const_string DecimalString = GetStringAfter(String, DecimalIndex + 1);
-    
-    r32 Polarity = 1;
-    if (IntegerString.Str[0] == '-')
-    {
-        IntegerString = GetStringAfter(IntegerString, 1);
-        Polarity = -1;
-    }
-    r64 Result = (r64)ParseInt(IntegerString, 10, &TempParsedLength);
-    
-    if (TempParsedLength == IntegerString.Length)
-    {
-        r64 AfterPoint = (r64)ParseUInt(DecimalString, 10, &PlacesAfterPoint);
-        r64 Decimal = (AfterPoint / PowR64(10, PlacesAfterPoint));
-        Result = Result + Decimal;
-        Result *= Polarity;
-    }
-    
+    parse_float_result Result = ValidateAndParseFloat(String);
+    Assert(Result.Success);
     if (ParsedLength != 0)
     {
-        *ParsedLength = TempParsedLength + PlacesAfterPoint;
-        if (DecimalIndex < String.Length) { *ParsedLength += 1; }
+        *ParsedLength = Result.ParsedLength;
     }
-    return Result;
+    return Result.Value;
 }
 internal r64
 ParseFloat(char* String, u64* ParsedLength = 0)
@@ -2010,11 +2097,16 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
                 FormatAt++;
                 if (IsBase10(FormatAt[0]))
                 {
-                    
                     PrecisionSpecified = true;
+                    
+                    gs_const_string PrecisionStr = {};
+                    PrecisionStr.Str = FormatAt;
+                    for (char* C = FormatAt; *FormatAt && IsBase10(*C); C++)
+                    {
+                        PrecisionStr.Length++;
+                    }
                     u64 Parsed = 0;
-                    AssertMessage("ParseInt assumes whole string is an integer");
-                    Precision = (s32)ParseInt(FormatAt, 10, &Parsed);
+                    Precision = (s32)ParseInt(PrecisionStr, 10, &Parsed);
                     FormatAt += Parsed;
                 }
                 else if (FormatAt[0] == '*')

@@ -34,7 +34,7 @@ GetXPositionFromFrameInAnimationPanel (u32 Frame, rect2 PanelBounds, frame_range
 }
 
 internal handle
-AddAnimationBlockAtCurrentTime (u32 AnimationProcHandle, u32 LayerHandle, animation_system* System)
+AddAnimationBlockAtCurrentTime (animation_pattern_handle AnimationProcHandle, u32 LayerHandle, animation_system* System)
 {
     u32 NewBlockStart = System->CurrentFrame;
     u32 NewBlockEnd = NewBlockStart + SecondsToFrames(3, *System);
@@ -260,7 +260,8 @@ FOLDHAUS_INPUT_COMMAND_PROC(AddAnimationBlockCommand)
     frame_range Range = ActiveAnim->PlayableRange;
     u32 MouseDownFrame = GetFrameFromPointInAnimationPanel(Mouse.Pos, Panel->Bounds, Range);
     
-    handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), 4, TimelineState->SelectedAnimationLayer);
+    animation_pattern_handle PatternHandle = Patterns_IndexToHandle(4);
+    handle NewBlockHandle = Animation_AddBlock(ActiveAnim, MouseDownFrame, MouseDownFrame + SecondsToFrames(3, State->AnimationSystem), PatternHandle, TimelineState->SelectedAnimationLayer);
     TimelineState->SelectedBlockHandle = NewBlockHandle;
 }
 
@@ -575,8 +576,10 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
     if (FileInfo.Path.Length > 0)
     {
         gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FileInfo.Path);
+        
         gs_string AnimFileString = MakeString((char*)AnimFile.Data.Memory, AnimFile.Data.Size);
-        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, GlobalAnimationPatternsCount, GlobalAnimationPatterns);
+        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, State->Patterns);
+        NewAnim.FileInfo = AnimFile.FileInfo;
         
         u32 NewAnimIndex = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
         State->AnimationSystem.ActiveAnimationIndex = NewAnimIndex;
@@ -584,16 +587,17 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 }
 
 internal void
-DrawAnimationPatternList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem)
+DrawAnimationPatternList(rect2 PanelBounds, ui_interface* Interface, u32 SelectedAnimationLayerHandle, animation_system* AnimationSystem, animation_pattern_array Patterns)
 {
     ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown, MakeString("AnimClips Layout"));
-    for (s32 i = 0; i < GlobalAnimationPatternsCount; i++)
+    for (u32 i = 0; i < Patterns.Count; i++)
     {
-        animation_pattern Pattern = GlobalAnimationPatterns[i];
+        animation_pattern Pattern = Patterns.Values[i];
         gs_string PatternName = MakeString(Pattern.Name, Pattern.NameLength);
         if (ui_Button(Interface, PatternName))
         {
-            AddAnimationBlockAtCurrentTime(i + 1, SelectedAnimationLayerHandle, AnimationSystem);
+            animation_pattern_handle PatternHandle = Patterns_IndexToHandle(i);
+            AddAnimationBlockAtCurrentTime(PatternHandle, SelectedAnimationLayerHandle, AnimationSystem);
         }
     }
     ui_PopLayout(Interface);
@@ -624,12 +628,6 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
             AnimSystem->TimelineShouldAdvance = false;
             AnimSystem->CurrentFrame = 0;
         }
-        
-        if (ui_Button(Interface, MakeString("Load")))
-        {
-            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
-            Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
-        }
     }
     ui_EndRow(&State->Interface);
     ui_PopLayout(&State->Interface);
@@ -640,7 +638,11 @@ FrameCount_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_
 {
     ui_interface* Interface = &State->Interface;
     gs_string TempString = PushString(State->Transient, 256);
-    frame_range VisibleFrames = TimelineState->VisibleRange;
+    // :FrameRange
+    // frame_range VisibleFrames = TimelineState->VisibleRange;
+    animation ActiveAnim = *AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+    frame_range VisibleFrames = ActiveAnim.PlayableRange;
+    
     s32 VisibleFrameCount = VisibleFrames.Max - VisibleFrames.Min;
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
@@ -685,7 +687,7 @@ FrameCount_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_
 }
 
 internal void
-LayerList_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+LayerList_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     ui_interface* Interface = &State->Interface;
     animation ActiveAnim = *AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
@@ -720,9 +722,15 @@ internal void
 TimeRange_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     ui_interface* Interface = &State->Interface;
-    frame_range ViewRange = TimelineState->VisibleRange;
-    
     animation ActiveAnim = *AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+    
+    // TODO(pjs): setting the timeline to show the entire range
+    // of the current animation until I reimplement the range
+    // slider bars
+    // :FrameRange
+    // frame_range ViewRange = TimelineState->VisibleRange;
+    frame_range ViewRange = ActiveAnim.PlayableRange;
+    
     handle SelectedBlockHandle = TimelineState->SelectedBlockHandle;
     s32 CurrentFrame = State->AnimationSystem.CurrentFrame;
     
@@ -785,7 +793,7 @@ TimeRange_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_c
 }
 
 internal void
-AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
+AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     animation_system* AnimSystem = &State->AnimationSystem;
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(AnimSystem);
@@ -795,23 +803,84 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, rende
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
     
-    ui_BeginRow(&State->Interface, 2);
+    if (ui_BeginLabeledDropdown(Interface, MakeString("Active Animation"), ActiveAnim->Name))
     {
-        ui_Label(Interface, MakeString("Active Animation"));
-        if (ui_BeginDropdown(Interface, ActiveAnim->Name))
+        for (u32 i = 0; i < AnimSystem->Animations.Count; i++)
         {
-            for (u32 i = 0; i < AnimSystem->Animations.Count; i++)
+            animation Animation = AnimSystem->Animations.Values[i];
+            if (ui_Button(Interface, Animation.Name))
             {
-                animation Animation = AnimSystem->Animations.Values[i];
-                if (ui_Button(Interface, Animation.Name))
+                AnimSystem->ActiveAnimationIndex = i;
+            }
+        }
+    }
+    ui_EndLabeledDropdown(&State->Interface);
+    
+    ui_BeginRow(Interface, 3);
+    {
+        if (ui_Button(Interface, MakeString("New")))
+        {
+            animation NewAnim = {};
+            NewAnim.Name = PushString(State->AnimationSystem.Storage, 256);
+            
+            u32 NewAnimIndex = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
+            State->AnimationSystem.ActiveAnimationIndex = NewAnimIndex;
+        }
+        if (ui_Button(Interface, MakeString("Save")))
+        {
+            // Save Animation File
+            // TODO(pjs): If you created the animation via the "new" button, there won't be a file attached.
+            // need to use the file browser to create a file
+            u32 ActiveAnimIndex = State->AnimationSystem.ActiveAnimationIndex;
+            animation ActiveAnimation = State->AnimationSystem.Animations.Values[ActiveAnimIndex];
+            gs_string FileText = AnimSerializer_Serialize(ActiveAnimation, State->Patterns, State->Transient);
+            if (WriteEntireFile(Context.ThreadContext.FileHandler, ActiveAnimation.FileInfo.Path, StringToData(FileText)))
+            {
+                InvalidCodePath;
+            }
+        }
+        if (ui_Button(Interface, MakeString("Load")))
+        {
+            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            Panel_PushModalOverride(Panel, FileBrowser, LoadAnimationFileCallback);
+        }
+        
+    }
+    ui_EndRow(Interface);
+    
+    ui_TextEntry(Interface, MakeString("Anim Name"), &ActiveAnim->Name);
+    
+    ui_Label(Interface, MakeString("Frame Range"));
+    ui_BeginRow(Interface, 3);
+    {
+        ActiveAnim->PlayableRange.Min = ui_TextEntryU64(Interface, MakeString("StartFrame"), ActiveAnim->PlayableRange.Min);
+        ActiveAnim->PlayableRange.Max = ui_TextEntryU64(Interface, MakeString("EndFrame"), ActiveAnim->PlayableRange.Max);
+        
+    }
+    ui_EndRow(Interface);
+    
+    animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, TimelineState->SelectedBlockHandle);
+    if (SelectedBlock)
+    {
+        animation_pattern BlockPattern = Patterns_GetPattern(State->Patterns, SelectedBlock->AnimationProcHandle);
+        
+        ui_BeginRow(Interface, 3);
+        ui_Label(Interface, MakeString("Selected Pattern"));
+        //if (ui_BeginLabeledDropdown(Interface, MakeString("Selected Pattern"), MakeString(BlockPattern.Name, BlockPattern.NameLength)))
+        if (ui_BeginDropdown(Interface, MakeString(BlockPattern.Name, BlockPattern.NameLength)))
+        {
+            for (u32 i = 0; i < State->Patterns.Count; i++)
+            {
+                animation_pattern Pattern = State->Patterns.Values[i];
+                if (ui_Button(Interface, MakeString(Pattern.Name, Pattern.NameLength)))
                 {
-                    AnimSystem->ActiveAnimationIndex = i;
+                    SelectedBlock->AnimationProcHandle = Patterns_IndexToHandle(i);
                 }
             }
         }
-        ui_EndDropdown(Interface);
+        ui_EndLabeledDropdown(Interface);
     }
-    ui_EndRow(&State->Interface);
+    
     ui_PopLayout(Interface);
 }
 
@@ -831,8 +900,10 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     rect2 TimelineBounds, InfoBounds;
     RectVSplit(PanelBounds, 300, &InfoBounds, &TimelineBounds);
     
+#if 0
     rect2 AnimInfoBounds, SelectionInfoBounds;
     RectHSplitAtPercent(InfoBounds, .65f, &AnimInfoBounds, &SelectionInfoBounds);
+#endif
     
     { // Timeline
         rect2 LayersPanelBounds, TimeRangePanelBounds;
@@ -847,12 +918,11 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
         
         PlayBar_Render(TimelineState, PlayBarBounds, Panel, RenderBuffer, State, Context);
         FrameCount_Render(TimelineState, FrameCountBounds, RenderBuffer, State, Context);
-        LayerList_Render(TimelineState, LayersBounds, RenderBuffer, State, Context);
+        LayerList_Render(TimelineState, LayersBounds, Panel, RenderBuffer, State, Context);
         TimeRange_Render(TimelineState, TimeRangeBounds, RenderBuffer, State, Context);
     }
     
-    AnimInfoView_Render(TimelineState, AnimInfoBounds, RenderBuffer, State, Context);
-    SelectionInfoView_Render(TimelineState, SelectionInfoBounds, RenderBuffer, State, Context);
+    AnimInfoView_Render(TimelineState, InfoBounds, Panel, RenderBuffer, State, Context);
 }
 
 #define FOLDHAUS_PANEL_ANIMATION_TIMELINE_H

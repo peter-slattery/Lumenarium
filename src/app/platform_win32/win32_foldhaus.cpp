@@ -276,8 +276,30 @@ HandleWindowMessage (MSG Message, window* Window, input_queue* InputQueue, mouse
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
+#if 0
             int VirtualKey = (int)Message.wParam;
             key_code Key = Win32GetKeyCode(VirtualKey, true, false);
+            s32 KeyIndex = (int)Key;
+            
+            b32 KeyWasDown = (Message.lParam & (1 << 30)) != 0;
+            b32 KeyIsDown = (Message.lParam & (1 << 31)) == 0;
+            
+            b32 ShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+            b32 AltDown = GetKeyState(VK_MENU) & 0x8000;
+            b32 CtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+            
+            // New Input Queue
+            AddInputEventEntry(InputQueue, Key, KeyWasDown, KeyIsDown,
+                               ShiftDown, AltDown, CtrlDown, false);
+#endif
+            TranslateMessage(&Message);
+            DispatchMessage(&Message);
+        }break;
+        
+        case WM_CHAR:
+        {
+            char VirtualKey = (char)Message.wParam;
+            key_code Key = CharToKeyCode(VirtualKey);
             s32 KeyIndex = (int)Key;
             
             b32 KeyWasDown = (Message.lParam & (1 << 30)) != 0;
@@ -370,6 +392,7 @@ Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_
     DEBUG_TRACK_FUNCTION;
     
     u32 BuffersSent = 0;
+    u32 DataSizeSent = 0;
     
     for (addressed_data_buffer* BufferAt = OutputData.Root;
          BufferAt != 0;
@@ -397,6 +420,7 @@ Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_
                         if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
                         {
                             BuffersSent += 1;
+                            DataSizeSent += BufferAt->Data.Size;
                         }
                     }
                 }
@@ -411,9 +435,9 @@ Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_
     }
     
     gs_string OutputStr = AllocatorAllocString(Context.Allocator, 256);
-    PrintF(&OutputStr, "Buffers Sent: %d\n", BuffersSent);
+    PrintF(&OutputStr, "Buffers Sent: %d | Size Sent: %d\n", BuffersSent, DataSizeSent);
     NullTerminate(&OutputStr);
-    //OutputDebugStringA(OutputStr.Str);
+    OutputDebugStringA(OutputStr.Str);
 }
 
 internal void

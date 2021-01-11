@@ -53,6 +53,7 @@ struct app_state
     assembly_array Assemblies;
     animation_system AnimationSystem;
     event_log* GlobalLog;
+    animation_pattern_array Patterns;
     
     // Interface
     //
@@ -205,8 +206,15 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
 v4 HSVToRGB (v4 In)
 {
     float Hue = In.x;
-    while (Hue > 360.0f) { Hue -= 360.0f; }
+    /*
+while (Hue > 360.0f) { Hue -= 360.0f; }
     while (Hue < 0.0f) { Hue += 360.0f; }
+    */
+    Hue = ModR32(Hue, 360.0f);
+    if (Hue < 0) { Hue += 360.0f; }
+    if (Hue == MinR32) { Hue = 0; }
+    if (Hue == MaxR32) { Hue = 360; }
+    Assert(Hue >= 0 && Hue < 360);
     
     float Sat = In.y;
     float Value = In.z;
@@ -279,9 +287,8 @@ v4 HSVToRGB (v4 In)
 }
 
 internal void
-Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
 {
-#if 1
     r32 Height = SinR32(Time) * 25;
     
     r32 CycleLength = 5.0f;
@@ -304,7 +311,41 @@ Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
         Leds->Colors[LedIndex].G = G;
         Leds->Colors[LedIndex].B = B;
     }
-#else
+}
+
+internal pixel
+V4ToRGBPixel(v4 C)
+{
+    pixel Result = {};
+    Result.R = (u8)(C.x * 255);
+    Result.G = (u8)(C.y * 255);
+    Result.B = (u8)(C.z * 255);
+    return Result;
+}
+
+internal void
+Pattern_HueFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    r32 HueBase = ModR32(Time * 50, 360);
+    
+    r32 CycleLength = 5.0f;
+    r32 CycleProgress = FractR32(Time / CycleLength);
+    r32 CycleBlend = (SinR32(Time) * .5f) + .5f;
+    
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 Pos = Leds->Positions[LedIndex];
+        r32 Hue = HueBase + Pos.y + Pos.x;
+        v4 HSV = { Hue, 1, 1, 1 };
+        v4 RGB = HSVToRGB(HSV);
+        
+        Leds->Colors[LedIndex] = V4ToRGBPixel(RGB);
+    }
+}
+
+internal void
+Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
         u32 I = LedIndex + 1;
@@ -323,6 +364,110 @@ Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
         }
         
     }
+}
+
+internal r32
+PatternHash(r32 Seed)
+{
+    return FractR32(Seed * 17.0 * FractR32(Seed * 0.3183099));
+}
+
+internal void
+Pattern_Spots(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    pixel ColorA = { 0, 255, 255 };
+    pixel ColorB = { 255, 0, 255 };
+    
+    r32 Speed = .5f;
+    Time *= Speed;
+    r32 ScaleA = 2 * SinR32(Time / 5);
+    r32 ScaleB = 2.4f * CosR32(Time / 2.5f);
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 V = P.y;
+        r32 Noise = .3f * PatternHash(V);
+        r32 ThetaY = (Leds->Positions[LedIndex].y / 10) + Time + Noise;
+        r32 ThetaX = (Leds->Positions[LedIndex].x / 13) + Time + Noise;
+        r32 Fade = (ScaleA * SinR32(ThetaY)) + (ScaleB * CosR32(3 * ThetaX));
+        Fade = RemapClampedR32(Fade, -1, 1, 0, 1);
+        
+        Leds->Colors[LedIndex].R = (u8)LerpR32(Fade, ColorA.R, ColorB.R);
+        Leds->Colors[LedIndex].G = (u8)LerpR32(Fade, ColorA.G, ColorB.G);
+        Leds->Colors[LedIndex].B = (u8)LerpR32(Fade, ColorA.B, ColorB.B);
+    }
+}
+
+internal void
+Pattern_LighthouseRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    v2 RefVector = V2Normalize(v2{ SinR32(Time), CosR32(Time) });
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v2 Vector = v2{
+            Leds->Positions[LedIndex].x,
+            Leds->Positions[LedIndex].z
+        };
+        Vector = V2Normalize(Vector);
+        
+        r32 Angle = V2Dot(RefVector, Vector);
+        
+#if 0
+        r32 Fade = RemapR32(Angle, -1, 1, 0, 1);
+        Leds->Colors[LedIndex].R = (u8)(Fade * 255);
+        Leds->Colors[LedIndex].G = (u8)(Fade * 255);
+        Leds->Colors[LedIndex].B = (u8)(Fade * 255);
+#endif
+        
+        v4 HSV = { (Angle * 30) + (Time * 10) + Leds->Positions[LedIndex].y, 1, 1, 1 };
+        v4 RGB = HSVToRGB(HSV);
+        
+        Leds->Colors[LedIndex] = V4ToRGBPixel(RGB);
+    }
+}
+
+internal r32
+Smoothstep(r32 T)
+{
+    r32 Result = (T * T * (3 - (2 * T)));
+    return Result;
+}
+
+internal void
+Pattern_SmoothGrowRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+{
+    r32 FillCycleTime = ModR32(Time, 7.0f) / 7.0f;
+    r32 ColorCycleTime = ModR32(Time, 21.0f) / 21.0f;
+    
+    //v4 HSV = { ColorCycleTime * 360, 1, 1, 1 };
+    //v4 RGB0 = HSVToRGB(HSV);
+    //HSV.x += ;
+    //v4 RGB1 = HSVToRGB(HSV);
+    
+    v4 HSV = { 0, 1, 1, 1 };
+    for (u32 s = 0; s < Assembly.StripCount; s++)
+    {
+        v2_strip Strip = Assembly.Strips[s];
+        
+        v4 RGB0 = HSVToRGB(HSV);
+        for (u32 l = 0; l < Strip.LedCount; l++)
+        {
+            u32 LedIndex = Strip.LedLUT[l];
+            Leds->Colors[LedIndex] = V4ToRGBPixel(RGB0);
+        }
+        
+        HSV.x += 15;
+    }
+    
+#if 0
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        
+        Leds->Colors[LedIndex] = V4ToRGBPixel(RGB0);
+        
+        
+    }
 #endif
 }
 
@@ -333,14 +478,6 @@ EndCurrentOperationMode(app_state* State)
 {
     DeactivateCurrentOperationMode(&State->Modes);
 }
-
-s32 GlobalAnimationPatternsCount = 4;
-animation_pattern GlobalAnimationPatterns[] = {
-    { "Test Pattern One", 16, TestPatternOne  },
-    { "Test Pattern Two", 16, TestPatternTwo },
-    { "Test Pattern Three", 18, TestPatternThree },
-    { "Pattern_AllGreen", 16, Pattern_AllGreen },
-};
 
 #include "editor/panels/foldhaus_panel_types.h"
 

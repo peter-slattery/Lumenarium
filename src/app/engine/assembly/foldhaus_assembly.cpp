@@ -136,7 +136,7 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 }
 
 internal u32
-Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* StripAt, strip_gen_data GenData, v4 RootPosition, u32 LedStartIndex)
+Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* StripAt, strip_gen_data GenData, v4 RootPosition, u32 LedStartIndex, u32 LedLUTStartIndex)
 {
     u32 LedsAdded = 0;
     
@@ -154,7 +154,7 @@ Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* Str
                 s32 LedIndex = LedStartIndex + LedsAdded++;
                 v4 LedPosition = WS_StripStart + (SingleStep * Step);
                 LedBufferSetLed(LedBuffer, LedIndex, LedPosition);
-                StripAt->LedLUT[Step] = LedIndex;
+                StripAt->LedLUT[Step + LedLUTStartIndex] = LedIndex;
             }
         }break;
         
@@ -164,7 +164,7 @@ Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* Str
             for (u32 i = 0; i < Sequence.ElementsCount; i++)
             {
                 strip_gen_data SegmentGenData = Sequence.Elements[i];
-                LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded);
+                LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded, LedsAdded);
             }
         }break;
         
@@ -190,7 +190,7 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
         StripAt->LedLUT = PushArray(&Assembly->Arena, u32, StripAt->LedCount);
         
         strip_gen_data GenData = StripAt->GenerationData;
-        LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, GenData, RootPosition, LedsAdded);
+        LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, GenData, RootPosition, LedsAdded, 0);
     }
 }
 

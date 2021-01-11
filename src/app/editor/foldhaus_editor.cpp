@@ -12,6 +12,8 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
     
     b32 MouseInputHandled = HandleMousePanelInteraction(&State->PanelSystem, State->WindowBounds, Mouse, State);
     
+    gs_string TextInputString = PushString(State->Transient, 32);
+    
     panel* ActivePanel = PanelSystem_GetPanelContainingPoint(&State->PanelSystem, Mouse.Pos);
     if (ActivePanel)
     {
@@ -47,7 +49,14 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
             // frame when the button was released, even if the command is registered to both events
             if (KeyTransitionedDown(Event))
             {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue);
+                if (!FindAndPushExistingCommand(ActiveCommands, Event, Command_Began, &State->CommandQueue))
+                {
+                    char KeyASCII = KeyCodeToChar(Event.Key);
+                    if (KeyASCII)
+                    {
+                        OutChar(&TextInputString, KeyASCII);
+                    }
+                }
             }
             else if (KeyTransitionedUp(Event))
             {
@@ -55,7 +64,14 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
             }
             else if (KeyHeldDown(Event))
             {
-                FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue);
+                if (!FindAndPushExistingCommand(ActiveCommands, Event, Command_Held, &State->CommandQueue))
+                {
+                    char KeyASCII = KeyCodeToChar(Event.Key);
+                    if (KeyASCII)
+                    {
+                        OutChar(&TextInputString, KeyASCII);
+                    }
+                }
             }
         }
     }
@@ -74,6 +90,8 @@ Editor_HandleInput (app_state* State, rect2 WindowBounds, input_queue InputQueue
         }
     }
     
+    State->Interface.TempInputString = TextInputString.ConstString;
+    
     ClearCommandQueue(&State->CommandQueue);
 }
 
@@ -84,6 +102,12 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
     State->WindowBounds = Context->WindowBounds;
     State->Interface.Mouse = Context->Mouse;
     
+    State->Interface.HotWidgetFramesSinceUpdate += 1;
+    if (State->Interface.HotWidgetFramesSinceUpdate > 1)
+    {
+        State->Interface.HotWidget = {};
+    }
+    
     PanelSystem_UpdateLayout(&State->PanelSystem, State->WindowBounds);
     Editor_HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
 }
@@ -91,6 +115,8 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
 internal void
 Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ClippingBox, v4 Color)
 {
+    gs_string Temp = PushString(State->Transient, 256);
+    PrintF(&Temp, "%d", Widget.Id.Id);
     render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
                                                                               Widget.String.Length,
                                                                               State->Interface.Style.Font->BitmapMemory,
@@ -199,14 +225,14 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
                     FillBounds.Max.y = FillToPoint;
                 }
             }
-            PushRenderQuad2DClipped(RenderBuffer, FillBounds, WidgetParentUnion, Color);
+            rect2 ClippedFillBounds = Rect2Union(FillBounds, WidgetParentUnion);
+            PushRenderQuad2D(RenderBuffer, ClippedFillBounds, Color);
             
             if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
             {
-                // TODO(pjs): Mask this text by the horizontal fill
                 // TODO(pjs): add this color to the style
                 v4 TextColor = BlackV4;
-                Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, WidgetParentUnion, TextColor);
+                Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, ClippedFillBounds, TextColor);
             }
         }
         
@@ -231,120 +257,67 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
     }
 }
 
-global r32 TestSlider_Value = 5;
-global r32 TestSlider_Min = 0;
-global r32 TestSlider_Max = 10;
-global bool TestToggle = true;
+#include "../interface_test.cpp"
 
-internal void
-TestRender(app_state* State, context* Context, render_command_buffer* RenderBuffer)
+FOLDHAUS_INPUT_COMMAND_PROC(ActiveWidget_TypeCharacter)
 {
-    ui_InterfaceReset(&State->Interface);
-    State->Interface.RenderBuffer = RenderBuffer;
-    State->Interface.WindowBounds = Context->WindowBounds;
-    
-    gs_string A = MakeString("TestRender Layout");
-    
-    ui_PushLayout(&State->Interface, A);
+    ui_widget* ActiveWidget = ui_InterfaceGetWidgetWithId(&State->Interface, State->Interface.ActiveWidget);
+    ui_widget_retained_state* WidgetState = ui_GetRetainedState(&State->Interface, ActiveWidget->Id);
+    if (WidgetState)
     {
-#if 0
-        ui_Label(&State->Interface, MakeString("Spacer"));
-        ui_Label(&State->Interface, MakeString("Spacer"));
-        ui_Label(&State->Interface, MakeString("Spacer"));
-        ui_Label(&State->Interface, MakeString("Spacer"));
-        ui_Label(&State->Interface, MakeString("Spacer"));
-        
-        ui_BeginList(&State->Interface, MakeString("TestList"), 5, 16);
+        char AsciiValue = CharacterFromKeyCode(Event.Key);
+        if (AsciiValue)
         {
-            ui_BeginRow(&State->Interface, 3);
-            for (u32 i = 0; i < 16; i++)
-            {
-                
-                ui_Button(&State->Interface, MakeString("B"));
-                ui_Button(&State->Interface, MakeString("C"));
-                ui_Button(&State->Interface, MakeString("D"));
-            }
-            ui_EndRow(&State->Interface);
+            OutChar(&WidgetState->EditString, AsciiValue);
         }
-        ui_EndList(&State->Interface);
-        //ui_Button(&State->Interface, MakeString("B"));
-        //ui_Button(&State->Interface, MakeString("C"));
-        //TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
-#elif 1
-        ui_PushLayout(&State->Interface, MakeString("Outer"));
-        {
-            for (u32 i = 0; i < 3; i++)
-            {
-                ui_Button(&State->Interface, MakeString("A"));
-            }
-        }
-        ui_PopLayout(&State->Interface);
-        
-        ui_BeginRow(&State->Interface, 2);
-        {
-            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
-            {
-                for (u32 i = 0; i < 5; i++)
-                {
-                    ui_Button(&State->Interface, MakeString("TestButon"));
-                }
-            }
-            ui_PopLayout(&State->Interface);
-            
-            ui_PushLayout(&State->Interface, MakeString("TestLayout"));
-            {
-                ui_Button(&State->Interface, MakeString("TestButon"));
-                TestToggle = ui_Toggle(&State->Interface, MakeString("Toggle"), TestToggle);
-                TestSlider_Value = ui_RangeSlider(&State->Interface, MakeString("TestSlider"), TestSlider_Value, TestSlider_Min, TestSlider_Max);
-                if (ui_BeginDropdown(&State->Interface, MakeString("TestDropdown")))
-                {
-                    ui_Button(&State->Interface, MakeString("TestButon"));
-                    ui_Button(&State->Interface, MakeString("TestButon"));
-                    ui_Button(&State->Interface, MakeString("TestButon"));
-                }
-                ui_EndDropdown(&State->Interface);
-            }
-            ui_PopLayout(&State->Interface);
-        }
-        ui_EndRow(&State->Interface);
-        
-        ui_PushLayout(&State->Interface, MakeString("Outer"));
-        {
-            for (u32 i = 0; i < 3; i++)
-            {
-                ui_Button(&State->Interface, MakeString("B"));
-            }
-        }
-        ui_PopLayout(&State->Interface);
-        
-        
-        ui_PushOverlayLayout(&State->Interface, rect2{25, 25, 200, 200}, LayoutDirection_TopDown, MakeString("t"));
-        {
-            ui_Label(&State->Interface, PushStringF(State->Interface.PerFrameMemory, 256, "Mouse Pos - %f %f", State->Interface.Mouse.Pos.x, State->Interface.Mouse.Pos.y));
-        }
-        ui_PopLayout(&State->Interface);
-#else
-        ui_BeginList(&State->Interface, MakeString("Test List"), 10);
-        {
-            for (u32 i = 0; i < 32; i++)
-            {
-                ui_Button(&State->Interface, MakeString("Option"));
-            }
-        }
-        ui_EndList(&State->Interface);
-#endif
     }
-    ui_PopLayout(&State->Interface);
 }
+
+FOLDHAUS_INPUT_COMMAND_PROC(ActiveWidget_DeleteBackwards)
+{
+    ui_widget* ActiveWidget = ui_InterfaceGetWidgetWithId(&State->Interface, State->Interface.ActiveWidget);
+    ui_widget_retained_state* WidgetState = ui_GetRetainedState(&State->Interface, ActiveWidget->Id);
+    if (WidgetState)
+    {
+        WidgetState->EditString.Length -= 1;
+    }
+}
+
+FOLDHAUS_INPUT_COMMAND_PROC(ActiveWidget_EndTypingMode)
+{
+    DeactivateCurrentOperationMode(&State->Modes);
+}
+
+OPERATION_RENDER_PROC(ActiveWidget_EndTypingMode)
+{
+    ui_widget* ActiveWidget = ui_InterfaceGetWidgetWithId(&State->Interface, State->Interface.ActiveWidget);
+    ui_widget* LastActiveWidget = ui_InterfaceGetWidgetWithId(&State->Interface, State->Interface.LastActiveWidget);
+    if (ActiveWidget == 0 && LastActiveWidget != 0)
+    {
+        // if there was an active widget last frame that was typable, we want to deactivate the typing mode
+        DeactivateCurrentOperationMode(&State->Modes);
+    }
+}
+
+input_command InterfaceTypingCommands [] = {
+    { KeyCode_A, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_TypeCharacter },
+    { KeyCode_B, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_TypeCharacter },
+    { KeyCode_C, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_TypeCharacter },
+    { KeyCode_D, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_TypeCharacter },
+    { KeyCode_E, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_TypeCharacter },
+    { KeyCode_Enter, KeyCode_Invalid, Command_Began, ActiveWidget_EndTypingMode },
+    { KeyCode_Backspace, KeyCode_Invalid, Command_Began | Command_Held, ActiveWidget_DeleteBackwards },
+};
 
 internal void
 Editor_Render(app_state* State, context* Context, render_command_buffer* RenderBuffer)
 {
+    State->Interface.WindowBounds = Context->WindowBounds;
     PushRenderOrthographic(RenderBuffer, State->WindowBounds);
     PushRenderClearScreen(RenderBuffer);
     
 #if 0
-    TestRender(State, Context, RenderBuffer);
+    InterfaceTest_Render(State, Context, RenderBuffer);
 #else
     ui_InterfaceReset(&State->Interface);
     State->Interface.RenderBuffer = RenderBuffer;
@@ -369,6 +342,19 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     {
         ui_widget Widget = *State->Interface.DrawOrderRoot;
         Editor_DrawWidget(State, Context, RenderBuffer, Widget, Context->WindowBounds);
+        
+#if 0
+        // TODO(pjs): got distracted halfway through getting typing input into the interface
+        if (ui_WidgetIdsEqual(State->Interface.ActiveWidget, State->Interface.LastActiveWidget))
+        {
+            ui_widget* ActiveWidget = ui_InterfaceGetWidgetWithId(&State->Interface, State->Interface.ActiveWidget);
+            if (ActiveWidget != 0 &&
+                ui_WidgetIsFlagSet(*ActiveWidget, UIWidgetFlag_Typable))
+            {
+                operation_mode* TypingMode = ActivateOperationModeWithCommands(&State->Modes, InterfaceTypingCommands, ActiveWidget_EndTypingMode);
+            }
+        }
+#endif
     }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);

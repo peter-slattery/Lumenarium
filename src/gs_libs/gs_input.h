@@ -407,5 +407,253 @@ GetMouseButtonStateAdvanced (b32 ButtonState)
     return Result;
 }
 
+internal char
+KeyCodeToChar(key_code Code)
+{
+    char Result = 0;
+    
+    switch (Code)
+    {
+        case KeyCode_Space: { Result = ' '; } break;
+        case KeyCode_Tab: { Result = '\t'; } break;
+        case KeyCode_Enter: { Result = '\n'; } break;
+        case KeyCode_Backspace: { Result = '\b'; } break;
+        
+        case KeyCode_a: { Result = 'a'; } break;
+        case KeyCode_b: { Result = 'b'; } break;
+        case KeyCode_c: { Result = 'c'; } break;
+        case KeyCode_d: { Result = 'd'; } break;
+        case KeyCode_e: { Result = 'e'; } break;
+        case KeyCode_f: { Result = 'f'; } break;
+        case KeyCode_g: { Result = 'g'; } break;
+        case KeyCode_h: { Result = 'h'; } break;
+        case KeyCode_i: { Result = 'i'; } break;
+        case KeyCode_j: { Result = 'j'; } break;
+        case KeyCode_k: { Result = 'k'; } break;
+        case KeyCode_l: { Result = 'l'; } break;
+        case KeyCode_m: { Result = 'm'; } break;
+        case KeyCode_n: { Result = 'n'; } break;
+        case KeyCode_o: { Result = 'o'; } break;
+        case KeyCode_p: { Result = 'p'; } break;
+        case KeyCode_q: { Result = 'q'; } break;
+        case KeyCode_r: { Result = 'r'; } break;
+        case KeyCode_s: { Result = 's'; } break;
+        case KeyCode_t: { Result = 't'; } break;
+        case KeyCode_u: { Result = 'u'; } break;
+        case KeyCode_v: { Result = 'v'; } break;
+        case KeyCode_w: { Result = 'w'; } break;
+        case KeyCode_x: { Result = 'x'; } break;
+        case KeyCode_y: { Result = 'y'; } break;
+        case KeyCode_z: { Result = 'z'; } break;
+        case KeyCode_A: { Result = 'A'; } break;
+        case KeyCode_B: { Result = 'B'; } break;
+        case KeyCode_C: { Result = 'C'; } break;
+        case KeyCode_D: { Result = 'D'; } break;
+        case KeyCode_E: { Result = 'E'; } break;
+        case KeyCode_F: { Result = 'F'; } break;
+        case KeyCode_G: { Result = 'G'; } break;
+        case KeyCode_H: { Result = 'H'; } break;
+        case KeyCode_I: { Result = 'I'; } break;
+        case KeyCode_J: { Result = 'J'; } break;
+        case KeyCode_K: { Result = 'K'; } break;
+        case KeyCode_L: { Result = 'L'; } break;
+        case KeyCode_M: { Result = 'M'; } break;
+        case KeyCode_N: { Result = 'N'; } break;
+        case KeyCode_O: { Result = 'O'; } break;
+        case KeyCode_P: { Result = 'P'; } break;
+        case KeyCode_Q: { Result = 'Q'; } break;
+        case KeyCode_R: { Result = 'R'; } break;
+        case KeyCode_S: { Result = 'S'; } break;
+        case KeyCode_T: { Result = 'T'; } break;
+        case KeyCode_U: { Result = 'U'; } break;
+        case KeyCode_V: { Result = 'V'; } break;
+        case KeyCode_W: { Result = 'W'; } break;
+        case KeyCode_X: { Result = 'X'; } break;
+        case KeyCode_Y: { Result = 'Y'; } break;
+        case KeyCode_Z: { Result = 'Z'; } break;
+        
+        case KeyCode_Num0:
+        case KeyCode_0: { Result = '0'; } break;
+        case KeyCode_Num1:
+        case KeyCode_1: { Result = '1'; } break;
+        case KeyCode_Num2:
+        case KeyCode_2: { Result = '2'; } break;
+        case KeyCode_Num3:
+        case KeyCode_3: { Result = '3'; } break;
+        case KeyCode_Num4:
+        case KeyCode_4: { Result = '4'; } break;
+        case KeyCode_Num5:
+        case KeyCode_5: { Result = '5'; } break;
+        case KeyCode_Num6:
+        case KeyCode_6: { Result = '6'; } break;
+        case KeyCode_Num7:
+        case KeyCode_7: { Result = '7'; } break;
+        case KeyCode_Num8:
+        case KeyCode_8: { Result = '8'; } break;
+        case KeyCode_Num9:
+        case KeyCode_9: { Result = '9'; } break;
+        
+        case KeyCode_Bang: { Result = '!'; } break;
+        case KeyCode_At: { Result = '@'; } break;
+        case KeyCode_Pound: { Result = '#'; } break;
+        case KeyCode_Dollar: { Result = '$'; } break;
+        case KeyCode_Percent: { Result = '%'; } break;
+        case KeyCode_Carrot: { Result = '^'; } break;
+        case KeyCode_Ampersand: { Result = '&'; } break;
+        case KeyCode_Star: { Result = '*'; } break;
+        case KeyCode_LeftParen: { Result = '('; } break;
+        case KeyCode_RightParen: { Result = ')'; } break;
+        case KeyCode_Minus: { Result = '-'; } break;
+        case KeyCode_Plus: { Result = '+'; } break;
+        case KeyCode_Equals: { Result = '='; } break;
+        case KeyCode_Underscore: { Result = '_'; } break;
+        case KeyCode_LeftBrace: { Result = '{'; } break;
+        case KeyCode_RightBrace: { Result = '}'; } break;
+        case KeyCode_LeftBracket: { Result = '['; } break;
+        case KeyCode_RightBracket: { Result = ']'; } break;
+        case KeyCode_Colon: { Result = ':'; } break;
+        case KeyCode_SemiColon: { Result = ';'; } break;
+        case KeyCode_SingleQuote: { Result = '\''; } break;
+        case KeyCode_DoubleQuote: { Result = '"'; } break;
+        case KeyCode_ForwardSlash: { Result = '/'; } break;
+        case KeyCode_Backslash: { Result = '\\'; } break;
+        case KeyCode_Pipe: { Result = '|'; } break;
+        case KeyCode_Comma: { Result = ','; } break;
+        case KeyCode_Period: { Result = '.'; } break;
+        case KeyCode_QuestionMark: { Result = '?'; } break;
+        case KeyCode_LessThan: { Result = '<'; } break;
+        case KeyCode_GreaterThan: { Result = '>'; } break;
+        case KeyCode_Tilde: { Result = '~'; } break;
+        case KeyCode_BackQuote: { Result = '`'; } break;
+        
+        default: { Result = 0; } break;
+    }
+    
+    return Result;
+}
+
+internal bool
+KeyCodeHasChar(key_code Code)
+{
+    bool Result = KeyCodeToChar(Code) != 0;
+    return Result;
+}
+
+
+internal key_code
+CharToKeyCode(char C)
+{
+    key_code Result = KeyCode_Invalid;
+    
+    switch (C)
+    {
+        case ' ': { Result =  KeyCode_Space; } break;
+        case '\t': { Result =  KeyCode_Tab; } break;
+        case '\n': { Result =  KeyCode_Enter; } break;
+        case '\b': { Result =  KeyCode_Backspace; } break;
+        
+        case 'a': { Result =  KeyCode_a; } break;
+        case 'b': { Result =  KeyCode_b; } break;
+        case 'c': { Result =  KeyCode_c; } break;
+        case 'd': { Result =  KeyCode_d; } break;
+        case 'e': { Result =  KeyCode_e; } break;
+        case 'f': { Result =  KeyCode_f; } break;
+        case 'g': { Result =  KeyCode_g; } break;
+        case 'h': { Result =  KeyCode_h; } break;
+        case 'i': { Result =  KeyCode_i; } break;
+        case 'j': { Result =  KeyCode_j; } break;
+        case 'k': { Result =  KeyCode_k; } break;
+        case 'l': { Result =  KeyCode_l; } break;
+        case 'm': { Result =  KeyCode_m; } break;
+        case 'n': { Result =  KeyCode_n; } break;
+        case 'o': { Result =  KeyCode_o; } break;
+        case 'p': { Result =  KeyCode_p; } break;
+        case 'q': { Result =  KeyCode_q; } break;
+        case 'r': { Result =  KeyCode_r; } break;
+        case 's': { Result =  KeyCode_s; } break;
+        case 't': { Result =  KeyCode_t; } break;
+        case 'u': { Result =  KeyCode_u; } break;
+        case 'v': { Result =  KeyCode_v; } break;
+        case 'w': { Result =  KeyCode_w; } break;
+        case 'x': { Result =  KeyCode_x; } break;
+        case 'y': { Result =  KeyCode_y; } break;
+        case 'z': { Result =  KeyCode_z; } break;
+        case 'A': { Result =  KeyCode_A; } break;
+        case 'B': { Result =  KeyCode_B; } break;
+        case 'C': { Result =  KeyCode_C; } break;
+        case 'D': { Result =  KeyCode_D; } break;
+        case 'E': { Result =  KeyCode_E; } break;
+        case 'F': { Result =  KeyCode_F; } break;
+        case 'G': { Result =  KeyCode_G; } break;
+        case 'H': { Result =  KeyCode_H; } break;
+        case 'I': { Result =  KeyCode_I; } break;
+        case 'J': { Result =  KeyCode_J; } break;
+        case 'K': { Result =  KeyCode_K; } break;
+        case 'L': { Result =  KeyCode_L; } break;
+        case 'M': { Result =  KeyCode_M; } break;
+        case 'N': { Result =  KeyCode_N; } break;
+        case 'O': { Result =  KeyCode_O; } break;
+        case 'P': { Result =  KeyCode_P; } break;
+        case 'Q': { Result =  KeyCode_Q; } break;
+        case 'R': { Result =  KeyCode_R; } break;
+        case 'S': { Result =  KeyCode_S; } break;
+        case 'T': { Result =  KeyCode_T; } break;
+        case 'U': { Result =  KeyCode_U; } break;
+        case 'V': { Result =  KeyCode_V; } break;
+        case 'W': { Result =  KeyCode_W; } break;
+        case 'X': { Result =  KeyCode_X; } break;
+        case 'Y': { Result =  KeyCode_Y; } break;
+        case 'Z': { Result =  KeyCode_Z; } break;
+        
+        case '0': { Result =  KeyCode_0; } break;
+        case '1': { Result =  KeyCode_1; } break;
+        case '2': { Result =  KeyCode_2; } break;
+        case '3': { Result =  KeyCode_3; } break;
+        case '4': { Result =  KeyCode_4; } break;
+        case '5': { Result =  KeyCode_5; } break;
+        case '6': { Result =  KeyCode_6; } break;
+        case '7': { Result =  KeyCode_7; } break;
+        case '8': { Result =  KeyCode_8; } break;
+        case '9': { Result =  KeyCode_9; } break;
+        
+        case '!': { Result =  KeyCode_Bang; } break;
+        case '@': { Result =  KeyCode_At; } break;
+        case '#': { Result =  KeyCode_Pound; } break;
+        case '$': { Result =  KeyCode_Dollar; } break;
+        case '%': { Result =  KeyCode_Percent; } break;
+        case '^': { Result =  KeyCode_Carrot; } break;
+        case '&': { Result =  KeyCode_Ampersand; } break;
+        case '*': { Result =  KeyCode_Star; } break;
+        case '(': { Result =  KeyCode_LeftParen; } break;
+        case ')': { Result =  KeyCode_RightParen; } break;
+        case '-': { Result =  KeyCode_Minus; } break;
+        case '+': { Result =  KeyCode_Plus; } break;
+        case '=': { Result =  KeyCode_Equals; } break;
+        case '_': { Result =  KeyCode_Underscore; } break;
+        case '{': { Result =  KeyCode_LeftBrace; } break;
+        case '}': { Result =  KeyCode_RightBrace; } break;
+        case '[': { Result =  KeyCode_LeftBracket; } break;
+        case ']': { Result =  KeyCode_RightBracket; } break;
+        case ':': { Result =  KeyCode_Colon; } break;
+        case ';': { Result =  KeyCode_SemiColon; } break;
+        case '\'': { Result =  KeyCode_SingleQuote; } break;
+        case '"': { Result =  KeyCode_DoubleQuote; } break;
+        case '/': { Result =  KeyCode_ForwardSlash; } break;
+        case '\\': { Result =  KeyCode_Backslash; } break;
+        case '|': { Result =  KeyCode_Pipe; } break;
+        case ',': { Result =  KeyCode_Comma; } break;
+        case '.': { Result =  KeyCode_Period; } break;
+        case '?': { Result =  KeyCode_QuestionMark; } break;
+        case '<': { Result =  KeyCode_LessThan; } break;
+        case '>': { Result =  KeyCode_GreaterThan; } break;
+        case '~': { Result =  KeyCode_Tilde; } break;
+        case '`': { Result =  KeyCode_BackQuote; } break;
+        
+        default: { Result = KeyCode_Invalid; } break;
+    }
+    
+    return Result;
+}
+
 #define GS_INPUT_H
 #endif // GS_INPUT_H

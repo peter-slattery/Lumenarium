@@ -40,7 +40,7 @@ OperationModeSystemInit(gs_memory_arena* Storage, gs_thread_context ThreadContex
     // TODO(Peter): Do we really need an arena? Can this just operate in constant memory footprint?
     Result.Arena.Allocator = ThreadContext.Allocator;
     
-    Result.ModeMemoryPagesFreeList.CountMax = 16; // TODO(Peter): Static number of modes that can be active simultaneously
+    Result.ModeMemoryPagesFreeList.CountMax = 32; // TODO(Peter): Static number of modes that can be active simultaneously
     Result.ModeMemoryPagesFreeList.Data = PushArray(Storage, gs_data, Result.ModeMemoryPagesFreeList.CountMax);
     for (u32 Page = 0; Page < Result.ModeMemoryPagesFreeList.CountMax; Page++)
     {

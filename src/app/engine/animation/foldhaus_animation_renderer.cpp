@@ -81,21 +81,19 @@ LedBlend_GetProc(blend_mode BlendMode)
 }
 
 internal void
-AnimationSystem_RenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer,  assembly Assembly, animation_pattern* Patterns,  gs_memory_arena* Transient)
+AnimationSystem_RenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer,  assembly Assembly, animation_pattern_array Patterns,  gs_memory_arena* Transient)
 {
     u32 FramesIntoBlock = System->CurrentFrame - Block.Range.Min;
     r32 SecondsIntoBlock = FramesIntoBlock * System->SecondsPerFrame;
     
-    // :AnimProcHandle
-    u32 AnimationProcIndex = Block.AnimationProcHandle - 1;
-    animation_proc* AnimationProc = Patterns[AnimationProcIndex].Proc;
-    AnimationProc(Buffer, Assembly, SecondsIntoBlock, Transient);
+    animation_pattern Pattern = Patterns_GetPattern(Patterns, Block.AnimationProcHandle);
+    Pattern.Proc(Buffer, Assembly, SecondsIntoBlock, Transient);
 }
 
 internal void
 AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Assemblies,
                                    led_system* LedSystem,
-                                   animation_pattern* Patterns,
+                                   animation_pattern_array Patterns,
                                    gs_memory_arena* Transient)
 {
     s32 CurrentFrame = System->CurrentFrame;

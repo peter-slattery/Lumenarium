@@ -69,7 +69,12 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
                 
                 ui_BeginMousePopup(Interface, rect2{ 25, 25, 300, 57 }, LayoutDirection_TopDown, MakeString("Hover"));
                 {
-                    PrintF(&String, "%S : %d - %d", Name->Name, Record->StartCycles, Record->EndCycles);
+                    s64 Cycles = (Record->EndCycles - Record->StartCycles);
+                    r64 PercentFrame = (r64)(Cycles) / (r64)(FrameTotalCycles);
+                    PrintF(&String, "%S : %.2f%% frame | %dcy",
+                           Name->Name,
+                           PercentFrame,
+                           Cycles);
                     ui_Label(Interface, String);
                 }
                 ui_EndMousePopup(Interface);

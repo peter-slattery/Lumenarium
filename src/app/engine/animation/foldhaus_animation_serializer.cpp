@@ -6,7 +6,7 @@
 #ifndef FOLDHAUS_ANIMATION_SERIALIZER_CPP
 
 internal gs_string
-AnimSerializer_Serialize(animation Anim, animation_pattern* GlobalClips, gs_memory_arena* Arena)
+AnimSerializer_Serialize(animation Anim, animation_pattern_array Patterns, gs_memory_arena* Arena)
 {
     serializer Serializer = {0};
     Serializer.String = PushString(Arena, 4096);
@@ -45,10 +45,7 @@ AnimSerializer_Serialize(animation Anim, animation_pattern* GlobalClips, gs_memo
         // TODO(pjs): Handle free'd animation blocks
         animation_block AnimationBlockAt = Anim.Blocks_.Values[i];
         
-        // TODO(pjs): Systematize the AnimationProcHandle
-        // :AnimProcHandle
-        u32 AnimationProcIndex = AnimationBlockAt.AnimationProcHandle - 1;
-        animation_pattern Animation = GlobalClips[AnimationProcIndex];
+        animation_pattern Animation = Patterns_GetPattern(Patterns, AnimationBlockAt.AnimationProcHandle);
         
         Serializer_OpenStruct(&Serializer, AnimField_Block);
         {
@@ -70,7 +67,7 @@ AnimSerializer_Serialize(animation Anim, animation_pattern* GlobalClips, gs_memo
 }
 
 internal animation
-AnimParser_Parse(gs_string File, gs_memory_arena* Arena, u32 AnimClipsCount, animation_pattern* AnimClips)
+AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array AnimPatterns)
 {
     animation Result = {0};
     
@@ -162,12 +159,13 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, u32 AnimClipsCount, ani
                     
                     // TODO(pjs): AnimName -> Animation Proc Handle
                     gs_string AnimName = Parser_ReadStringValue(&Parser, AnimField_BlockAnimName);
-                    Block.AnimationProcHandle = 0;
-                    for (u32 i = 0; i < AnimClipsCount; i++)
+                    Block.AnimationProcHandle = {0};
+                    for (u32 i = 0; i < AnimPatterns.Count; i++)
                     {
-                        if (StringEqualsCharArray(AnimName.ConstString, AnimClips[i].Name, CStringLength(AnimClips[i].Name)))
+                        animation_pattern Pattern = AnimPatterns.Values[i];
+                        if (StringEqualsCharArray(AnimName.ConstString, Pattern.Name, Pattern.NameLength))
                         {
-                            Block.AnimationProcHandle = i + 1;
+                            Block.AnimationProcHandle = Patterns_IndexToHandle(i);
                             break;
                         }
                     }

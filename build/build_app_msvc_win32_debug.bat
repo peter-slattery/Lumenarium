@@ -29,6 +29,8 @@ cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /lin
 
 cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial_monitor.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
 
+cl %CommonCompilerFlags% %ProjectDevPath%\src\sculpture_gen\gen_blumen_lumen.cpp /Fegen_blumen_lumen.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
+
 popd
 
 call %MyPath%\_postbuild_win32.bat

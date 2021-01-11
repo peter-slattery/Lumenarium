@@ -226,14 +226,10 @@ SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, PanelState->Camera, PanelBounds);
         
         gs_string Tempgs_string = PushString(State->Transient, 256);
-        PrintF(&Tempgs_string, "%f %f", LedOnScreenPosition.x, LedOnScreenPosition.y);
+        PrintF(&Tempgs_string, "Hot Id: %u, ZIndex: %u | Active Id: %u", State->Interface.HotWidget.Id,
+               State->Interface.HotWidget.ZIndex,State->Interface.ActiveWidget.Id);
         DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4);
         
-        
-        v2 BoxHalfDim = v2{ 25, 25 };
-        v2 BoxMin = LedOnScreenPosition - BoxHalfDim;
-        v2 BoxMax = LedOnScreenPosition + BoxHalfDim;
-        PushRenderBoundingBox2D(RenderBuffer, BoxMin, BoxMax, 2.0f, TealV4);
     }
     Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
 }

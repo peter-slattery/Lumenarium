@@ -231,20 +231,24 @@ DrawStringWithCursor (render_command_buffer* RenderBuffer, gs_string String, s32
 enum ui_widget_flag
 {
     UIWidgetFlag_ExpandsToFitChildren,
+    
     UIWidgetFlag_DrawBackground,
     UIWidgetFlag_DrawString,
     UIWidgetFlag_DrawOutline,
-    UIWidgetFlag_Clickable,
     UIWidgetFlag_DrawHorizontalFill,
     UIWidgetFlag_DrawVerticalFill,
     UIWidgetFlag_DrawFillReversed,
     UIWidgetFlag_DrawFillAsHandle,
+    
+    UIWidgetFlag_Clickable,
+    UIWidgetFlag_Selectable,
+    UIWidgetFlag_Typable,
 };
 
 struct ui_widget_id
 {
     u64 Id;
-    u64 ParentId;
+    u64 ZIndex;
 };
 
 enum ui_layout_direction
@@ -293,6 +297,8 @@ struct ui_widget
     // we can check the retained state of that dropdown
     ui_widget_id WidgetReference;
     
+    u64 ChildZIndexOffset;
+    
     ui_widget* ChildrenRoot;
     ui_widget* ChildrenHead;
     u32 ChildCount;
@@ -334,6 +340,8 @@ struct ui_widget_retained_state
     
     // For use in layouts that allow you to scroll / pan
     v2 ChildrenDrawOffset;
+    
+    gs_string EditString;
 };
 
 struct ui_interface
@@ -342,6 +350,9 @@ struct ui_interface
     
     mouse_state Mouse;
     rect2 WindowBounds;
+    
+    // A per-frame string of the characters which have been typed
+    gs_const_string TempInputString;
     
     render_command_buffer* RenderBuffer;
     
@@ -353,7 +364,11 @@ struct ui_interface
     ui_widget* DrawOrderRoot;
     
     ui_widget_id HotWidget;
+    // This should really never get higher than 1 or 2
+    u8 HotWidgetFramesSinceUpdate;
+    
     ui_widget_id ActiveWidget;
+    ui_widget_id LastActiveWidget;
     
     ui_widget* ActiveLayout;
     
@@ -362,6 +377,12 @@ struct ui_interface
     u64 RetainedStateCount;
     
     gs_memory_arena* PerFrameMemory;
+    
+    // TODO(pjs): DONT USE THIS
+    // Right now you only need this to create EditStrings for ui_widget_retained_state's
+    // and even for those, you eventually want a better solution than "create a string and it lives forever"
+    // TODO(pjs): Get rid of the need for this vvv
+    gs_memory_arena* Permanent;
 };
 
 internal void
@@ -380,12 +401,14 @@ ui_InterfaceReset(ui_interface* Interface)
             Interface->RetainedState[i] = {0};
         }
     }
+    
+    Interface->LastActiveWidget = Interface->ActiveWidget;
 }
 
 internal bool
 ui_WidgetIdsEqual(ui_widget_id A, ui_widget_id B)
 {
-    bool Result = (A.Id == B.Id) && (A.ParentId == B.ParentId);
+    bool Result = (A.Id == B.Id);// && (A.ParentId == B.ParentId);
     return Result;
 }
 
@@ -411,6 +434,53 @@ ui_WidgetIsFlagSet(ui_widget Widget, u64 Flag)
     return Result;
 }
 
+internal void
+ui_WidgetSetChildrenPopover(ui_widget* Widget)
+{
+    Widget->ChildZIndexOffset = 1000;
+}
+
+internal ui_widget*
+ui_WidgetGetWidgetWithId(ui_widget* Parent, ui_widget_id Id)
+{
+    ui_widget* Result = 0;
+    
+    if (ui_WidgetIdsEqual(Parent->Id, Id))
+    {
+        Result = Parent;
+    }
+    else if (Parent->ChildrenRoot != 0)
+    {
+        for (ui_widget* At = Parent->ChildrenRoot; At != 0; At = At->Next)
+        {
+            Result = ui_WidgetGetWidgetWithId(At, Id);
+            if (Result != 0)
+            {
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+internal ui_widget*
+ui_InterfaceGetWidgetWithId(ui_interface* Interface, ui_widget_id Id)
+{
+    ui_widget* Result = 0;
+    
+    for (ui_widget* At = Interface->DrawOrderRoot; At != 0; At = At->Next)
+    {
+        Result = ui_WidgetGetWidgetWithId(At, Id);
+        if (Result != 0)
+        {
+            break;
+        }
+    }
+    
+    return Result;
+}
+
 internal ui_widget_retained_state*
 ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
 {
@@ -433,6 +503,7 @@ ui_CreateRetainedState(ui_interface* Interface, ui_widget* Widget)
     u64 Index = Interface->RetainedStateCount++;
     ui_widget_retained_state* Result = Interface->RetainedState + Index;
     Result->Id = Widget->Id;
+    Result->EditString = PushString(Interface->Permanent, 256);
     return Result;
 }
 
@@ -451,7 +522,8 @@ internal ui_widget*
 ui_CreateWidget(ui_interface* Interface, gs_string String)
 {
     Assert(Interface->WidgetsCount < Interface->WidgetsCountMax);
-    ui_widget* Result = Interface->Widgets + Interface->WidgetsCount++;
+    u64 Index = Interface->WidgetsCount++;
+    ui_widget* Result = Interface->Widgets + Index;
     ZeroStruct(Result);
     
     Result->Parent = Interface->ActiveLayout;
@@ -461,9 +533,17 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
     {
         Id = HashAppendDJB2ToU32(Id, Result->Parent->Id.Id);
         Id = HashAppendDJB2ToU32(Id, Result->Parent->ChildCount);
-        Result->Id.ParentId = Result->Parent->Id.Id;
+        //Result->Id.ParentId = Result->Parent->Id.Id;
     }
     Result->Id.Id = Id;
+    
+    u64 ZIndex = Index + 1;
+    if (Result->Parent)
+    {
+        Result->ChildZIndexOffset += Result->Parent->ChildZIndexOffset;
+        ZIndex += Result->Parent->ChildZIndexOffset;
+    }
+    Result->Id.ZIndex = ZIndex;
     
     Result->String = PushStringCopy(Interface->PerFrameMemory, String.ConstString);
     Result->Alignment = Align_Left;
@@ -859,20 +939,81 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
     Interface->ActiveLayout->ChildCount += 1;
     ui_CommitBounds(Widget->Parent, Widget->Bounds);
     
+    if (PointIsInRect(Widget->Parent->Bounds, Interface->Mouse.Pos) &&
+        PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
+    {
+        if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
+        {
+            if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id))
+            {
+                Result.Clicked = true;
+                Interface->ActiveWidget = Widget->Id;
+            }
+        }
+        
+        if (Interface->HotWidget.ZIndex == 0 ||
+            Interface->HotWidget.ZIndex <= Widget->Id.ZIndex)
+        {
+            Interface->HotWidget = Widget->Id;
+            Interface->HotWidgetFramesSinceUpdate = 0;
+        }
+    }
+    else
+    {
+        if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id) &&
+            MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
+        {
+            Interface->ActiveWidget = {};
+        }
+    }
+    
+    if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id))
+    {
+        // click & drag
+        if (MouseButtonHeldDown(Interface->Mouse.LeftButtonState))
+        {
+            Result.Held = true;
+            Result.DragDelta = Interface->Mouse.Pos - Interface->Mouse.DownPos;
+        }
+        
+        if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Typable) &&
+            Interface->TempInputString.Length > 0)
+        {
+            ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+            
+            // TODO(pjs): Backspace?
+            for (u32 i = 0; i < Interface->TempInputString.Length; i++)
+            {
+                if (Interface->TempInputString.Str[i] == '\b')
+                {
+                    State->EditString.Length -= 1;
+                }
+                else
+                {
+                    OutChar(&State->EditString, Interface->TempInputString.Str[i]);
+                }
+            }
+        }
+    }
+    
+#if 0
+    // if you can click it
     if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Clickable))
     {
+        // updating hot widget, and handling mouse clicks
         if (PointIsInRect(Widget->Parent->Bounds, Interface->Mouse.Pos) &&
             PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
         {
             if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id) && MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
             {
-                Assert(!ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id));
                 Result.Clicked = true;
                 Interface->ActiveWidget = Widget->Id;
             }
+            
             Interface->HotWidget = Widget->Id;
         }
         
+        // click and drag
         if (MouseButtonHeldDown(Interface->Mouse.LeftButtonState) &&
             PointIsInRect(Widget->Bounds, Interface->Mouse.DownPos))
         {
@@ -880,13 +1021,45 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
             Result.DragDelta = Interface->Mouse.Pos - Interface->Mouse.DownPos;
         }
         
-        if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id) &&
-            MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
+        // if this is the active widget (its been clicked)
+        if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id))
         {
-            Interface->ActiveWidget = {};
+            // if you can select it
+            if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Selectable))
+            {
+                //
+                if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState) &&
+                    !PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
+                {
+                    Interface->ActiveWidget = {};
+                }
+                
+                if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Typable) &&
+                    Interface->TempInputString.Length > 0)
+                {
+                    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+                    
+                    // TODO(pjs): Backspace?
+                    for (u32 i = 0; i < Interface->TempInputString.Length; i++)
+                    {
+                        if (Interface->TempInputString.Str[i] == '\b')
+                        {
+                            State->EditString.Length -= 1;
+                        }
+                        else
+                        {
+                            OutChar(&State->EditString, Interface->TempInputString.Str[i]);
+                        }
+                    }
+                }
+            }
+            else if (MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
+            {
+                Interface->ActiveWidget = {};
+            }
         }
-        
     }
+#endif
     
     Assert(Widget->Parent != 0);
     return Result;
@@ -939,6 +1112,77 @@ ui_Label(ui_interface* Interface, gs_string String, gs_string_alignment Alignmen
     ui_widget* Widget = ui_CreateWidget(Interface, String);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
     ui_EvaluateWidget(Interface, Widget);
+}
+
+internal void
+ui_TextEntrySetFlags(ui_widget* Widget, gs_string EditString)
+{
+    Widget->String = EditString;
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Selectable);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Typable);
+}
+
+internal void
+ui_TextEntry(ui_interface* Interface, gs_string Identifier, gs_string* Value)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, Identifier);
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Widget);
+    }
+    PrintF(&State->EditString, "%S", *Value);
+    
+    ui_TextEntrySetFlags(Widget, State->EditString);
+    
+    ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
+    PrintF(Value, "%S", State->EditString);
+}
+
+internal u64
+ui_TextEntryU64(ui_interface* Interface, gs_string String, u64 CurrentValue)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, String);
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Widget);
+        PrintF(&State->EditString, "%u", CurrentValue);
+    }
+    ui_TextEntrySetFlags(Widget, State->EditString);
+    
+    ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
+    parse_uint_result ParseResult = ValidateAndParseUInt(State->EditString.ConstString);
+    u64 ValueResult = CurrentValue;
+    if (ParseResult.Success)
+    {
+        ValueResult = ParseResult.Value;
+    }
+    return ValueResult;
+}
+
+internal r64
+ui_TextEntryR64(ui_interface* Interface, gs_string String, r64 CurrentValue)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, String);
+    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
+    if (!State)
+    {
+        State = ui_CreateRetainedState(Interface, Widget);
+        PrintF(&State->EditString, "%f", CurrentValue);
+    }
+    ui_TextEntrySetFlags(Widget, State->EditString);
+    ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
+    parse_float_result ParseResult = ValidateAndParseFloat(State->EditString.ConstString);
+    r64 ValueResult = CurrentValue;
+    if (ParseResult.Success)
+    {
+        ValueResult = ParseResult.Value;
+    }
+    return ValueResult;
 }
 
 internal ui_widget*
@@ -1057,6 +1301,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
         Layout->Margin.y = 0;
         Layout->WidgetReference = Widget->Id;
         ui_WidgetClearFlag(Layout, UIWidgetFlag_DrawOutline);
+        ui_WidgetSetChildrenPopover(Layout);
     }
     
     return State->Value;
@@ -1070,6 +1315,7 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text, rect2 Bounds)
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
+    
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget, Bounds);
     return ui_EvaluateDropdown(Interface, Widget, Result);
 }
@@ -1264,6 +1510,22 @@ internal void
 ui_EndMousePopup(ui_interface* Interface)
 {
     ui_PopLayout(Interface);
+}
+
+//
+internal bool
+ui_BeginLabeledDropdown(ui_interface* Interface, gs_string Label, gs_string DropdownValue)
+{
+    ui_BeginRow(Interface, 2);
+    ui_Label(Interface, Label);
+    return ui_BeginDropdown(Interface, DropdownValue);
+}
+
+internal void
+ui_EndLabeledDropdown(ui_interface* Interface)
+{
+    ui_EndDropdown(Interface);
+    ui_EndRow(Interface);
 }
 
 #define INTERFACE_H

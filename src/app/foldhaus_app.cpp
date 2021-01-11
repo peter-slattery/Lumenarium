@@ -10,6 +10,23 @@
 
 ////////////////////////////////////////////////////////////////////////
 
+internal void
+ClearAndPushPatterns(animation_pattern_array* Patterns)
+{
+    if (Patterns->CountMax == 0) { return; }
+    
+    Patterns->Count = 0;
+    Patterns_PushPattern(Patterns, TestPatternOne);
+    Patterns_PushPattern(Patterns, TestPatternTwo);
+    Patterns_PushPattern(Patterns, TestPatternThree);
+    Patterns_PushPattern(Patterns, Pattern_AllGreen);
+    Patterns_PushPattern(Patterns, Pattern_HueShift);
+    Patterns_PushPattern(Patterns, Pattern_HueFade);
+    Patterns_PushPattern(Patterns, Pattern_Spots);
+    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
+    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
+}
+
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     app_state* State = (app_state*)Context.MemoryBase;
@@ -17,6 +34,8 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     GlobalDebugServices = DebugServices;
     State->PanelSystem.PanelDefs = GlobalPanelDefs;
     State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
+    
+    ClearAndPushPatterns(&State->Patterns);
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -33,6 +52,9 @@ INITIALIZE_APPLICATION(InitializeApplication)
     *State->GlobalLog = {0};
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
+    
+    State->Patterns = Patterns_Create(&State->Permanent, 10);
+    ClearAndPushPatterns(&State->Patterns);
     
     // TODO(Peter): put in InitializeInterface?
     r32 FontSize = 14;
@@ -112,13 +134,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);
     State->Interface.PerFrameMemory = PushStruct(&State->Permanent, gs_memory_arena);
     *State->Interface.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator);
+    State->Interface.Permanent = &State->Permanent;
     
     State->SACN = SACN_Initialize(Context);
     
     State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
     
 #if 1
-    gs_const_string SculpturePath = ConstString("data/blumen_lumen_silver_spring.fold");
+    gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
@@ -147,7 +170,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim, 0, Anim.PlayableRange.Max, 4, 0);
+        Animation_AddBlock(&Anim, 0, Anim.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
         
@@ -178,7 +201,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         AnimationSystem_RenderToLedBuffers(&State->AnimationSystem,
                                            State->Assemblies,
                                            &State->LedSystem,
-                                           GlobalAnimationPatterns,
+                                           State->Patterns,
                                            State->Transient);
     }
     
@@ -192,19 +215,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     }
     
     Editor_Render(State, Context, RenderBuffer);
-    
-    // Checking for overflows
-#if 0
-    {
-        DEBUG_TRACK_SCOPE(OverflowChecks);
-        AssertAllocationsNoOverflow(State->Permanent);
-        for (u32 i = 0; i < State->Assemblies.Count; i++)
-        {
-            assembly* Assembly = &State->Assemblies.Values[i];
-            AssertAllocationsNoOverflow(Assembly->Arena);
-        }
-    }
-#endif
 }
 
 CLEANUP_APPLICATION(CleanupApplication)
