@@ -37,52 +37,68 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
     
     rect2 Bounds = ui_LayoutRemaining(*Layout);
     r32 Width = Rect2Width(Bounds);
-    r32 DepthHeight = 64;
+    r32 DepthHeight = 32;
     
     s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
-    s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
+    r32 FrameTotalCycles = (r32)(VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles);
     
-    debug_scope_record_list* ThreadScopeCalls = GetScopeListForThreadInFrame(GlobalDebugServices,
-                                                                             VisibleFrame);
+    r32 NextThreadTop = Bounds.Max.y;
     
-    gs_string String = PushString(Transient, 256);
-    for (s32 i = 0; i < ThreadScopeCalls->Count; i++)
+    for (s32 t = 0; t < VisibleFrame->ThreadCount; t++)
     {
-        scope_record* Record = ThreadScopeCalls->Calls + i;
-        scope_name* Name = GetOrAddNameHashEntry(VisibleFrame, Record->NameHash);
-        r32 PercentStart = (r32)(Record->StartCycles - FrameStartCycles) / (r32)FrameTotalCycles;
-        r32 PercentEnd = (r32)(Record->EndCycles - FrameStartCycles) / (r32)FrameTotalCycles;
+        debug_scope_record_list ThreadCalls = VisibleFrame->ThreadCalls[t];
         
-        r32 PixelStart = Bounds.Min.x + (Width * PercentStart);
-        r32 PixelEnd = Bounds.Min.x + (Width * PercentEnd);
-        r32 MinY = Bounds.Max.y - ((Record->CallDepth + 1) * DepthHeight);
-        rect2 ScopeBounds = {
-            v2{ PixelStart, MinY },
-            v2{ PixelEnd, MinY + (DepthHeight - 4) }
-        };
-        if (Rect2Width(ScopeBounds) >= 1)
+        gs_string String = PushString(Transient, 256);
+        
+        r32 ThreadScopeMin = Bounds.Max.y;
+        
+        for (s32 i = 0; i < ThreadCalls.Count; i++)
         {
-            v4 Color = ThreadColors[0];
-            if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
-            {
-                Color = GreenV4;
-                
-                ui_BeginMousePopup(Interface, rect2{ 25, 25, 300, 57 }, LayoutDirection_TopDown, MakeString("Hover"));
-                {
-                    s64 Cycles = (Record->EndCycles - Record->StartCycles);
-                    r64 PercentFrame = (r64)(Cycles) / (r64)(FrameTotalCycles);
-                    PrintF(&String, "%S : %.2f%% frame | %dcy",
-                           Name->Name,
-                           PercentFrame,
-                           Cycles);
-                    ui_Label(Interface, String);
-                }
-                ui_EndMousePopup(Interface);
-            }
+            scope_record* Record = ThreadCalls.Calls + i;
+            scope_name* Name = GetOrAddNameHashEntry(VisibleFrame, Record->NameHash);
+            s64 OffsetStart = Record->StartCycles - FrameStartCycles;
+            s64 OffsetEnd = Record->EndCycles - FrameStartCycles;
+            r32 PercentStart = (r32)(OffsetStart) / FrameTotalCycles;
+            r32 PercentEnd = (r32)(OffsetEnd) / FrameTotalCycles;
+            r32 PercentWidth = PercentEnd - PercentStart;
             
-            ui_FillRect(Interface, ScopeBounds, Color);
-            ui_OutlineRect(Interface, ScopeBounds, 1, BlackV4);
+            rect2 ScopeBounds = {
+                v2{0, 0},
+                v2{PercentWidth * Width, DepthHeight - 4},
+            };
+            v2 Offset = {
+                Bounds.Min.x + (PercentStart * Width),
+                NextThreadTop - ((Record->CallDepth + 1) * DepthHeight)
+            };
+            ScopeBounds = Rect2Translate(ScopeBounds, Offset);
+            ThreadScopeMin = Min(ScopeBounds.Min.y, ThreadScopeMin);
+            
+            if (Rect2Width(ScopeBounds) >= 1)
+            {
+                v4 Color = ThreadColors[t];
+                if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
+                {
+                    Color = GreenV4;
+                    
+                    ui_BeginMousePopup(Interface, rect2{ 25, 25, 300, 57 }, LayoutDirection_TopDown, MakeString("Hover"));
+                    {
+                        s64 Cycles = (Record->EndCycles - Record->StartCycles);
+                        r32 PercentFrame = (r32)(Cycles) / FrameTotalCycles;
+                        PrintF(&String, "%S : %.2f%% frame | %dcy",
+                               Name->Name,
+                               PercentFrame,
+                               Cycles);
+                        ui_Label(Interface, String);
+                    }
+                    ui_EndMousePopup(Interface);
+                }
+                
+                ui_FillRect(Interface, ScopeBounds, Color);
+                ui_OutlineRect(Interface, ScopeBounds, 1, BlackV4);
+            }
         }
+        
+        NextThreadTop = ThreadScopeMin;
     }
 }
 

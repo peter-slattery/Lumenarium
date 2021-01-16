@@ -56,7 +56,7 @@ UART_DrawAll_Create(gs_memory_cursor* WriteCursor)
 }
 
 internal void
-UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem)
+UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem, gs_memory_arena* Transient)
 {
     uart_channel ChannelSettings = {0};
     ChannelSettings.ElementsCount = 3;
@@ -71,22 +71,88 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
         assembly Assembly = Assemblies.Values[AssemblyIdx];
         led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
         
-        u32 TotalBufferSize = MessageBaseSize * Assembly.StripCount; // SetChannelBuffer messages
-        TotalBufferSize += MessageBaseSize; // DrawAll message
-        TotalBufferSize += ChannelSettings.ElementsCount * Assembly.LedCountTotal; // pixels * channels per pixel
+        struct strips_to_data_buffer
+        {
+            gs_const_string ComPort;
+            u32* StripIndices;
+            u32 StripIndicesCount;
+            u32 StripIndicesCountMax;
+            
+            u64 LedCount;
+            
+            strips_to_data_buffer* Next;
+        };
         
-        addressed_data_buffer* Buffer = AddressedDataBufferList_Push(Output, TotalBufferSize);
-        AddressedDataBuffer_SetCOMPort(Buffer, Assembly.UARTComPort.ConstString);
-        gs_memory_cursor WriteCursor = CreateMemoryCursor(Buffer->Data);
+        strips_to_data_buffer* BuffersNeededHead = 0;
+        strips_to_data_buffer* BuffersNeededTail = 0;
         
         for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)
         {
             v2_strip StripAt = Assembly.Strips[StripIdx];
-            ChannelSettings.PixelsCount = StripAt.LedCount;
-            UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
+            
+            // If there is a buffer for this com port already created
+            // we use that
+            strips_to_data_buffer* BufferSelected = 0;
+            for (strips_to_data_buffer* At = BuffersNeededHead;
+                 At!= 0;
+                 At = At->Next)
+            {
+                if (StringsEqual(At->ComPort, StripAt.UARTAddr.ComPort.ConstString))
+                {
+                    BufferSelected = At;
+                    break;
+                }
+            }
+            
+            // if no existing buffer for this com port
+            // create a new one
+            if (!BufferSelected)
+            {
+                BufferSelected = PushStruct(Transient, strips_to_data_buffer);
+                *BufferSelected = {};
+                BufferSelected->ComPort = StripAt.UARTAddr.ComPort.ConstString;
+                // we don't know at this point how many indices per
+                // com port so just make enough room to fit all the strips
+                // if necessary
+                BufferSelected->StripIndicesCountMax = Assembly.StripCount;
+                BufferSelected->StripIndices = PushArray(Transient, u32, BufferSelected->StripIndicesCountMax);
+                BufferSelected->LedCount = 0;
+                BufferSelected->Next = 0;
+                
+                SLLPushOrInit(BuffersNeededHead, BuffersNeededTail, BufferSelected);
+            }
+            
+            Assert(BufferSelected->StripIndicesCount < BufferSelected->StripIndicesCountMax);
+            u32 Index = BufferSelected->StripIndicesCount++;
+            BufferSelected->StripIndices[Index] =  StripIdx;
+            BufferSelected->LedCount += StripAt.LedCount;
         }
         
-        UART_DrawAll_Create(&WriteCursor);
+        for (strips_to_data_buffer* At = BuffersNeededHead;
+             At!= 0;
+             At = At->Next)
+        {
+            u32 TotalBufferSize = MessageBaseSize * Assembly.StripCount; // SetChannelBuffer messages
+            TotalBufferSize += MessageBaseSize; // DrawAll message
+            TotalBufferSize += ChannelSettings.ElementsCount * At->LedCount; // pixels * channels per pixel
+            
+            addressed_data_buffer* Buffer = AddressedDataBufferList_Push(Output, TotalBufferSize);
+            gs_const_string ComPort = At->ComPort;
+            AddressedDataBuffer_SetCOMPort(Buffer, ComPort);
+            
+            gs_memory_cursor WriteCursor = CreateMemoryCursor(Buffer->Data);
+            
+            for (u32 i = 0; i < At->StripIndicesCount; i++)
+            {
+                u32 StripIdx = At->StripIndices[i];
+                v2_strip StripAt = Assembly.Strips[StripIdx];
+                
+                ChannelSettings.PixelsCount = StripAt.LedCount;
+                UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
+            }
+            
+            UART_DrawAll_Create(&WriteCursor);
+        }
     }
 }
 

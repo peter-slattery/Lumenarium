@@ -1513,11 +1513,35 @@ ui_EndMousePopup(ui_interface* Interface)
 }
 
 //
+internal void
+ui_BeginLabelRow(ui_interface* Interface, gs_string Label, u32 Count = 2)
+{
+    ui_BeginRow(Interface, Count);
+    ui_Label(Interface, Label);
+}
+
+internal bool
+ui_LabeledToggle(ui_interface* Interface, gs_string Label, bool Value)
+{
+    ui_BeginLabelRow(Interface, Label);
+    bool Result = ui_Toggle(Interface, Label, Value);
+    ui_EndRow(Interface);
+    return Result;
+}
+
+internal u64
+ui_LabeledTextEntryU64(ui_interface* Interface, gs_string Label, u32 Value)
+{
+    ui_BeginLabelRow(Interface, Label);
+    u64 Result = ui_TextEntryU64(Interface, Label, Value);
+    ui_EndRow(Interface);
+    return Result;
+}
+
 internal bool
 ui_BeginLabeledDropdown(ui_interface* Interface, gs_string Label, gs_string DropdownValue)
 {
-    ui_BeginRow(Interface, 2);
-    ui_Label(Interface, Label);
+    ui_BeginLabelRow(Interface, Label);
     return ui_BeginDropdown(Interface, DropdownValue);
 }
 

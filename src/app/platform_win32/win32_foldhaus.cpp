@@ -371,64 +371,56 @@ Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
 }
 
 internal void
-Win32_SendAddressedDataBuffers(gs_thread_context Context, addressed_data_buffer_list OutputData)
+Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* BufferAt)
 {
     DEBUG_TRACK_FUNCTION;
     
     u32 BuffersSent = 0;
     u32 DataSizeSent = 0;
     
-    for (addressed_data_buffer* BufferAt = OutputData.Root;
-         BufferAt != 0;
-         BufferAt = BufferAt->Next)
+    switch(BufferAt->AddressType)
     {
-        switch(BufferAt->AddressType)
+        case AddressType_NetworkIP:
         {
-            case AddressType_NetworkIP:
+            Win32Socket_SendTo(BufferAt->SendSocket,
+                               BufferAt->V4SendAddress,
+                               BufferAt->SendPort,
+                               (const char*)BufferAt->Memory,
+                               BufferAt->MemorySize,
+                               0);
+        }break;
+        
+        case AddressType_ComPort:
+        {
+            if (BufferAt->ComPort.Length > 0)
             {
-                Win32Socket_SendTo(BufferAt->SendSocket,
-                                   BufferAt->V4SendAddress,
-                                   BufferAt->SendPort,
-                                   (const char*)BufferAt->Memory,
-                                   BufferAt->MemorySize,
-                                   0);
-            }break;
-            
-            case AddressType_ComPort:
-            {
-                if (BufferAt->ComPort.Length > 0)
+                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
+                if (SerialPort != INVALID_HANDLE_VALUE)
                 {
-                    HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
-                    if (SerialPort != INVALID_HANDLE_VALUE)
+                    if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
                     {
-                        if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
-                        {
-                            BuffersSent += 1;
-                            DataSizeSent += BufferAt->Data.Size;
-                        }
+                        BuffersSent += 1;
+                        DataSizeSent += BufferAt->Data.Size;
                     }
                 }
-                else
-                {
-                    OutputDebugStringA("Skipping data buffer because its COM Port isn't set");
-                }
-            }break;
-            
-            InvalidDefaultCase;
-        }
+            }
+            else
+            {
+#if 0
+                OutputDebugStringA("Skipping data buffer because its COM Port isn't set");
+#endif
+            }
+        }break;
+        
+        InvalidDefaultCase;
     }
-    
-    gs_string OutputStr = AllocatorAllocString(Context.Allocator, 256);
-    PrintF(&OutputStr, "Buffers Sent: %d | Size Sent: %d\n", BuffersSent, DataSizeSent);
-    NullTerminate(&OutputStr);
-    OutputDebugStringA(OutputStr.Str);
 }
 
 internal void
-Win32_SendAddressedDataBuffers_Job(gs_thread_context Context, gs_data Arg)
+Win32_SendAddressedDataBuffer_Job(gs_thread_context Context, gs_data Arg)
 {
-    addressed_data_buffer_list* OutputData = (addressed_data_buffer_list*)Arg.Memory;
-    Win32_SendAddressedDataBuffers(Context, *OutputData);
+    addressed_data_buffer* OutputData = (addressed_data_buffer*)Arg.Memory;
+    Win32_SendAddressedDataBuffer(Context, OutputData);
 }
 
 #pragma pack(push, 1)
@@ -571,10 +563,15 @@ WinMain (
         
         if (true)
         {
-            gs_data ProcArg = {};
-            ProcArg.Memory = (u8*)&OutputData;
-            ProcArg.Size = sizeof(OutputData);
-            Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffers_Job, ProcArg, ConstString("Send UART Data"));
+            for (addressed_data_buffer* At = OutputData.Root;
+                 At != 0;
+                 At = At->Next)
+            {
+                gs_data ProcArg = {};
+                ProcArg.Memory = (u8*)At;
+                ProcArg.Size = sizeof(addressed_data_buffer);
+                Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
+            }
         }
         
         Mouse_Advance(&Context);
@@ -583,7 +580,7 @@ WinMain (
         SwapBuffers(DeviceContext);
         ReleaseDC(MainWindow.Handle, DeviceContext);
         
-        //Win32DoQueueWorkUntilDone(&WorkQueue, Context.ThreadContext);
+        Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
         
         s64 FinishedWorkTime = GetWallClock();
         r32 SecondsElapsed = GetSecondsElapsed(LastFrameEnd, FinishedWorkTime, PerformanceCountFrequency);

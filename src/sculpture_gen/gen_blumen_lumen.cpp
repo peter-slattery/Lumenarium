@@ -175,7 +175,7 @@ int main(int ArgCount, char** Args)
                           100,
                           v3{0, 0, 0},
                           69,
-                          ComPort);
+                          "");
     
     u32 StemChannels[] = { FSC(2, 1), FSC(2, 2), FSC(2, 3), FSC(2, 4), FSC(2, 5), FSC(2, 6) };
     u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 0) };
@@ -189,23 +189,24 @@ int main(int ArgCount, char** Args)
     F0.BloomInnerChannels = BloomInnerChannels;
     BuildFlower(&OutputBuffer, F0);
     
-    /*
     flower_desc F1 = {};
     F1.Pos = v3{0, 0, 0};
+    F1.ComPort = "\\\\.\\COM9";
     F1.FlowerTagValue = "center";
     F1.StemChannels = StemChannels;
     F1.BloomInnerChannels = BloomInnerChannels;
     F1.BloomOuterChannels = BloomOuterChannels;
     BuildFlower(&OutputBuffer, F1);
     
-    flower_desc F2 = {};
-    F2.Pos = v3{1, 0, 0};
-    F2.FlowerTagValue = "right";
-    F2.StemChannels = StemChannels;
-    F2.BloomInnerChannels = BloomInnerChannels;
-    F2.BloomOuterChannels = BloomOuterChannels;
-    BuildFlower(&OutputBuffer, F2);
-    */
+    /*
+        flower_desc F2 = {};
+        F2.Pos = v3{1, 0, 0};
+        F2.FlowerTagValue = "right";
+        F2.StemChannels = StemChannels;
+        F2.BloomInnerChannels = BloomInnerChannels;
+        F2.BloomOuterChannels = BloomOuterChannels;
+        BuildFlower(&OutputBuffer, F2);
+        */
     
     printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
     

@@ -897,6 +897,8 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
 {
     animation_timeline_state* TimelineState = Panel_GetStateStruct(Panel, animation_timeline_state);
     
+    ui_FillRect(&State->Interface, PanelBounds, v4{.1f,.1f,.1f,1.f});
+    
     rect2 TimelineBounds, InfoBounds;
     RectVSplit(PanelBounds, 300, &InfoBounds, &TimelineBounds);
     

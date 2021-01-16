@@ -81,20 +81,22 @@ LedBlend_GetProc(blend_mode BlendMode)
 }
 
 internal void
-AnimationSystem_RenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer,  assembly Assembly, animation_pattern_array Patterns,  gs_memory_arena* Transient)
+AnimationSystem_RenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer,  assembly Assembly, animation_pattern_array Patterns,  gs_memory_arena* Transient,
+                                       u8* UserData)
 {
     u32 FramesIntoBlock = System->CurrentFrame - Block.Range.Min;
     r32 SecondsIntoBlock = FramesIntoBlock * System->SecondsPerFrame;
     
     animation_pattern Pattern = Patterns_GetPattern(Patterns, Block.AnimationProcHandle);
-    Pattern.Proc(Buffer, Assembly, SecondsIntoBlock, Transient);
+    Pattern.Proc(Buffer, Assembly, SecondsIntoBlock, Transient, UserData);
 }
 
 internal void
 AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Assemblies,
                                    led_system* LedSystem,
                                    animation_pattern_array Patterns,
-                                   gs_memory_arena* Transient)
+                                   gs_memory_arena* Transient,
+                                   u8* UserData)
 {
     s32 CurrentFrame = System->CurrentFrame;
     r32 FrameTime = CurrentFrame * System->SecondsPerFrame;
@@ -148,14 +150,14 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
             {
                 led_buffer TempBuffer = LayerBuffers[Layer].HotBuffer;
                 animation_block Block = LayerFrame.Hot;
-                AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  *Assembly, Patterns, Transient);
+                AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  *Assembly, Patterns, Transient, UserData);
             }
             
             if (LayerFrame.HasNextHot)
             {
                 led_buffer TempBuffer = LayerBuffers[Layer].NextHotBuffer;
                 animation_block Block = LayerFrame.NextHot;
-                AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  *Assembly, Patterns, Transient);
+                AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  *Assembly, Patterns, Transient, UserData);
             }
         }
         

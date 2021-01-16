@@ -28,7 +28,11 @@ WriteAssemblyUARTOpen(gs_string* Buffer, char* Name, u32 Scale, v3 Center, u32 S
     WriteIndented(Buffer, 0, "assembly_center: (%f, %f, %f);\n", Center.x, Center.y, Center.z);
     WriteIndented(Buffer, 0, "led_strip_count: %d;\n", StripCount);
     WriteIndented(Buffer, 0, "output_mode: \"UART\";\n");
-    WriteIndented(Buffer, 0, "com_port: \"%s\";\n", ComPort);
+    
+    if (ComPort)
+    {
+        WriteIndented(Buffer, 0, "com_port: \"%s\";\n", ComPort);
+    }
 }
 
 internal void

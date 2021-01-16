@@ -160,7 +160,6 @@ struct assembly_array
     assembly* Values;
 };
 
-
 internal led_buffer*
 LedSystemGetBuffer(led_system* System, u32 Index)
 {

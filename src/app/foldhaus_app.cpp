@@ -25,6 +25,7 @@ ClearAndPushPatterns(animation_pattern_array* Patterns)
     Patterns_PushPattern(Patterns, Pattern_Spots);
     Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
     Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
+    Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
 }
 
 RELOAD_STATIC_DATA(ReloadStaticData)
@@ -133,16 +134,20 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            State->Assemblies,
                                            &State->LedSystem,
                                            State->Patterns,
-                                           State->Transient);
+                                           State->Transient,
+                                           State->UserData.Memory);
     }
     
+    AssemblyDebug_OverrideOutput(State->AssemblyDebugState,
+                                 State->Assemblies,
+                                 State->LedSystem);
     
     // NOTE(pjs): Building data buffers to be sent out to the sculpture
     // This array is used on the platform side to actually send the information
     assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
     assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
     SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
-    UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem);
+    UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
     
     Editor_Render(State, Context, RenderBuffer);
 }
