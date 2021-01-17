@@ -66,7 +66,7 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         ui_EndRow(&State->Interface);
     }
     ui_EndList(&State->Interface);
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("Hierarchy Layout"));
 }
 
 

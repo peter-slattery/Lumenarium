@@ -254,7 +254,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
     }
     
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("Profiler Layout"));
 }
 
 

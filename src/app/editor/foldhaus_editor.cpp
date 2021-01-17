@@ -108,6 +108,9 @@ Editor_Update(app_state* State, context* Context, input_queue InputQueue)
         State->Interface.HotWidget = {};
     }
     
+    Assert(State->Interface.PerFrameMemory &&
+           (u64)State->Interface.PerFrameMemory != 0x5);
+    
     PanelSystem_UpdateLayout(&State->PanelSystem, State->WindowBounds);
     Editor_HandleInput(State, State->WindowBounds, InputQueue, Context->Mouse, *Context);
 }
@@ -334,7 +337,7 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
         }
     }
     
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("Editor Layout"));
 #endif
     
     // Draw the Interface

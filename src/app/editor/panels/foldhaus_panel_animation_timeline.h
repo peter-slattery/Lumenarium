@@ -600,7 +600,7 @@ DrawAnimationPatternList(rect2 PanelBounds, ui_interface* Interface, u32 Selecte
             AddAnimationBlockAtCurrentTime(PatternHandle, SelectedAnimationLayerHandle, AnimationSystem);
         }
     }
-    ui_PopLayout(Interface);
+    ui_PopLayout(Interface, MakeString("AnimClips Layout"));
 }
 
 internal void
@@ -630,7 +630,7 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
         }
     }
     ui_EndRow(&State->Interface);
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("PlayBar Layout"));
 }
 
 internal void
@@ -881,7 +881,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel
         ui_EndLabeledDropdown(Interface);
     }
     
-    ui_PopLayout(Interface);
+    ui_PopLayout(Interface, MakeString("AnimInfo Layout"));
 }
 
 internal void

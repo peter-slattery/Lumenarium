@@ -121,7 +121,7 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
         }
     }
     
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("FileView Layout"));
 }
 
 

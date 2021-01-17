@@ -20,6 +20,7 @@ InterfaceTest_Render(app_state* State, context* Context, render_command_buffer* 
     
     gs_string A = MakeString("TestRender Layout");
     
+#if 0
     ui_PushLayout(&State->Interface, A);
     {
 #if 1
@@ -87,14 +88,18 @@ InterfaceTest_Render(app_state* State, context* Context, render_command_buffer* 
         ui_PushOverlayLayout(&State->Interface, rect2{25, 25, 400, 200}, LayoutDirection_TopDown, MakeString("t"));
         {
             ui_Label(&State->Interface, PushStringF(State->Interface.PerFrameMemory, 256, "Mouse Pos - %f %f", State->Interface.Mouse.Pos.x, State->Interface.Mouse.Pos.y));
+            Assert(State->Interface.PerFrameMemory->CursorList);
             ui_Label(&State->Interface, PushStringF(State->Interface.PerFrameMemory, 256, "Hot - %lld | Active - %lld",
                                                     State->Interface.HotWidget.Id, State->Interface.ActiveWidget.Id));
+            Assert(State->Interface.PerFrameMemory->CursorList);
             ui_Label(&State->Interface, PushStringF(State->Interface.PerFrameMemory, 256, "Last Active - %lld",
                                                     State->Interface.LastActiveWidget.Id));
+            Assert(State->Interface.PerFrameMemory->CursorList);
         }
         ui_PopLayout(&State->Interface);
     }
     ui_PopLayout(&State->Interface);
+#endif
 }
 
 

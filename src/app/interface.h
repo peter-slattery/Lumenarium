@@ -5,6 +5,8 @@
 //
 #ifndef INTERFACE_H
 
+#define InterfaceAssert(IMemPtr) Assert(IMemPtr && (u64)IMemPtr != 0x5 && (u64)IMemPtr != 0xC)
+
 enum gs_string_alignment
 {
     Align_Left,
@@ -342,6 +344,10 @@ struct ui_widget_retained_state
     v2 ChildrenDrawOffset;
     
     gs_string EditString;
+    
+    // For dropdowns and rows to be able to error check not closing
+    // a layout you open
+    u32 MaxChildren;
 };
 
 struct ui_interface
@@ -392,6 +398,7 @@ ui_InterfaceReset(ui_interface* Interface)
     Interface->DrawOrderHead = 0;
     Interface->DrawOrderRoot = 0;
     ClearArena(Interface->PerFrameMemory);
+    InterfaceAssert(Interface->PerFrameMemory);
     
     for (u32 i = 0; i < Interface->RetainedStateCount; i++)
     {
@@ -521,6 +528,7 @@ ui_GetOrCreateRetainedState(ui_interface* Interface, ui_widget* Widget)
 internal ui_widget*
 ui_CreateWidget(ui_interface* Interface, gs_string String)
 {
+    InterfaceAssert(Interface->PerFrameMemory);
     Assert(Interface->WidgetsCount < Interface->WidgetsCountMax);
     u64 Index = Interface->WidgetsCount++;
     ui_widget* Result = Interface->Widgets + Index;
@@ -546,6 +554,7 @@ ui_CreateWidget(ui_interface* Interface, gs_string String)
     Result->Id.ZIndex = ZIndex;
     
     Result->String = PushStringCopy(Interface->PerFrameMemory, String.ConstString);
+    InterfaceAssert(Interface->PerFrameMemory);
     Result->Alignment = Align_Left;
     Result->Next = 0;
     Result->ChildrenRoot = 0;
@@ -656,6 +665,7 @@ internal void
 ui_WidgetCreateColumns(ui_widget* Widget, u32 ColumnsCount, ui_interface* Interface)
 {
     Widget->Columns = PushArray(Interface->PerFrameMemory, ui_column, ColumnsCount);
+    InterfaceAssert(Interface->PerFrameMemory);
     Widget->ColumnsCount = ColumnsCount;
     Widget->ColumnsFilled = 0;
 }
@@ -799,11 +809,17 @@ ui_ExpandToFitChildren(ui_widget* Parent)
 }
 
 static void
-ui_PopLayout(ui_interface* Interface)
+ui_PopLayout(ui_interface* Interface, gs_string LayoutName)
 {
     Assert(Interface->ActiveLayout != 0);
     
     ui_widget* Layout = Interface->ActiveLayout;
+    
+    // NOTE(pjs): If this isn't true then a layout was opened without being closed
+    // Go check for ui_PushLayout, ui_BeginDropdown, ui_BeginRow, etc that don't have
+    // a corresponding ui_Pop/ui_End*
+    Assert(StringsEqual(Layout->String, LayoutName));
+    
     ui_ExpandToFitChildren(Layout);
     
     Interface->ActiveLayout = Interface->ActiveLayout->Parent;
@@ -916,7 +932,7 @@ ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules
 static void
 ui_EndRow(ui_interface* Interface)
 {
-    ui_PopLayout(Interface);
+    ui_PopLayout(Interface, MakeString("Row"));
 }
 
 static rect2
@@ -1297,7 +1313,7 @@ ui_EvaluateDropdown(ui_interface* Interface, ui_widget* Widget, ui_eval_result E
             };
         }
         
-        ui_widget* Layout = ui_PushOverlayLayout(Interface, MenuBounds, Direction, MakeString("WidgetLayout"));
+        ui_widget* Layout = ui_PushOverlayLayout(Interface, MenuBounds, Direction, MakeString("DropdownLayout"));
         Layout->Margin.y = 0;
         Layout->WidgetReference = Widget->Id;
         ui_WidgetClearFlag(Layout, UIWidgetFlag_DrawOutline);
@@ -1341,7 +1357,7 @@ ui_EndDropdown(ui_interface* Interface)
     {
         if (State->Value)
         {
-            ui_PopLayout(Interface);
+            ui_PopLayout(Interface, MakeString("DropdownLayout"));
         }
     }
 }
@@ -1378,6 +1394,7 @@ ui_CreateRangeSliderWidget(ui_interface* Interface, gs_string Text, r32 Value)
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawHorizontalFill);
     ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
     Widget->String = PushStringF(Interface->PerFrameMemory, 128, "%f", Value);
+    InterfaceAssert(Interface->PerFrameMemory);
     return Widget;
 }
 
@@ -1492,8 +1509,7 @@ internal void
 ui_EndList(ui_interface* Interface)
 {
     // Pop the Viewport Layout
-    ui_PopLayout(Interface);
-    // TODO(pjs): Ensure that the active layout is the row layout we started in begin list
+    ui_PopLayout(Interface, MakeString("Contents"));
     // Pop the actual list layout
     ui_EndRow(Interface);
 }
@@ -1502,14 +1518,14 @@ internal void
 ui_BeginMousePopup(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Text)
 {
     rect2 FollowMouseBounds = Rect2Translate(Bounds, Interface->Mouse.Pos);
-    ui_widget* Layout = ui_PushOverlayLayout(Interface, FollowMouseBounds, FillDir, Text);
+    ui_widget* Layout = ui_PushOverlayLayout(Interface, FollowMouseBounds, FillDir, MakeString("MousePopup"));
     ui_WidgetSetFlag(Layout, UIWidgetFlag_DrawBackground);
 }
 
 internal void
 ui_EndMousePopup(ui_interface* Interface)
 {
-    ui_PopLayout(Interface);
+    ui_PopLayout(Interface, MakeString("MousePopup"));
 }
 
 //
@@ -1577,6 +1593,8 @@ ui_InterfaceCreate(context Context, interface_config Style, gs_memory_arena* Per
     Result.Widgets = PushArray(Permanent, ui_widget, Result.WidgetsCountMax);
     Result.PerFrameMemory = PushStruct(Permanent, gs_memory_arena);
     *Result.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator);
+    InterfaceAssert(Result.PerFrameMemory);
+    
     Result.Permanent = Permanent;
     
     return Result;

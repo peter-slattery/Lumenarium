@@ -43,6 +43,8 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     ui_interface* Interface = &State->Interface;
     ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Assembly Debug Layout"));
     
+    InterfaceAssert(Interface->PerFrameMemory);
+    
     gs_string OverrideStr = MakeString(OverrideTypeStrings[State->AssemblyDebugState.Override]);
     if (ui_BeginLabeledDropdown(Interface, MakeString("Override"), OverrideStr))
     {
@@ -54,6 +56,8 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             }
         }
     }
+    ui_EndLabeledDropdown(Interface);
+    InterfaceAssert(Interface->PerFrameMemory);
     
     if (State->AssemblyDebugState.Override == ADS_Override_TagWhite ||
         State->AssemblyDebugState.Override == ADS_Override_TagStripWhite)
@@ -63,7 +67,6 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         
         if (State->AssemblyDebugState.Override == ADS_Override_TagStripWhite)
         {
-            ui_EndLabeledDropdown(Interface);
             State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
             
             State->AssemblyDebugState.TargetStrip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), State->AssemblyDebugState.TargetStrip);
@@ -80,11 +83,18 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     }
     else
     {
-        ui_EndLabeledDropdown(Interface);
+        InterfaceAssert(Interface->PerFrameMemory);
+        
         State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
         
+        InterfaceAssert(Interface->PerFrameMemory);
+        
         State->AssemblyDebugState.TargetStrip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), State->AssemblyDebugState.TargetStrip);
+        
+        InterfaceAssert(Interface->PerFrameMemory);
     }
+    
+    ui_PopLayout(Interface, MakeString("Assembly Debug Layout"));
 }
 
 #define FOLDHAUS_PANEL_ASSEMBLY_DEBUG_H
