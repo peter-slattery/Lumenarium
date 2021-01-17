@@ -9,6 +9,7 @@
 # pragma GCC diagnostic ignored "-Wunused-value"
 # pragma GCC diagnostic ignored "-Wvarargs"
 # pragma GCC diagnostic ignored "-Wwritable-strings"
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 #if defined(_MSC_VER)

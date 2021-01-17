@@ -1141,7 +1141,7 @@ ui_TextEntrySetFlags(ui_widget* Widget, gs_string EditString)
     ui_WidgetSetFlag(Widget, UIWidgetFlag_Typable);
 }
 
-internal void
+internal bool
 ui_TextEntry(ui_interface* Interface, gs_string Identifier, gs_string* Value)
 {
     ui_widget* Widget = ui_CreateWidget(Interface, Identifier);
@@ -1155,7 +1155,10 @@ ui_TextEntry(ui_interface* Interface, gs_string Identifier, gs_string* Value)
     ui_TextEntrySetFlags(Widget, State->EditString);
     
     ui_eval_result Result = ui_EvaluateWidget(Interface, Widget);
+    bool StringEdited = !StringsEqual(*Value, State->EditString);
     PrintF(Value, "%S", State->EditString);
+    
+    return StringEdited;
 }
 
 internal u64

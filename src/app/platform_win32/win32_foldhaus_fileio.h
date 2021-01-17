@@ -46,6 +46,20 @@ GET_FILE_INFO(Win32GetFileInfo)
         }
         CloseHandle(FileHandle);
     }
+    else
+    {
+        DWORD FileAttr = GetFileAttributes(Path.Str);
+        if (FileAttr != INVALID_FILE_ATTRIBUTES &&
+            (FileAttr & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            Result.Path = Path;
+            Result.IsDirectory = true;
+        }
+        else
+        {
+            // Path is not a file or directory
+        }
+    }
     return Result;
 }
 

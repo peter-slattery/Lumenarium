@@ -225,7 +225,7 @@ AssemblyParser_ReadSequence(parser* Parser, assembly* Assembly)
 internal strip_gen_data
 AssemblyParser_ReadStripGenData(parser* Parser, assembly* Assembly)
 {
-    strip_gen_data Result = {0};
+    strip_gen_data Result = {};
     
     if (Parser_ReadOpenStruct(Parser, AssemblyField_Segment))
     {

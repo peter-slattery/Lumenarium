@@ -900,30 +900,22 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     ui_FillRect(&State->Interface, PanelBounds, v4{.1f,.1f,.1f,1.f});
     
     rect2 TimelineBounds, InfoBounds;
-    RectVSplit(PanelBounds, 300, &InfoBounds, &TimelineBounds);
+    RectVSplitAtDistanceFromLeft(PanelBounds, 300, &InfoBounds, &TimelineBounds);
     
-#if 0
-    rect2 AnimInfoBounds, SelectionInfoBounds;
-    RectHSplitAtPercent(InfoBounds, .65f, &AnimInfoBounds, &SelectionInfoBounds);
-#endif
+    rect2 LayersPanelBounds, TimeRangePanelBounds;
+    RectVSplitAtDistanceFromLeft(TimelineBounds, 200, &LayersPanelBounds, &TimeRangePanelBounds);
     
-    { // Timeline
-        rect2 LayersPanelBounds, TimeRangePanelBounds;
-        RectVSplitAtDistanceFromLeft(TimelineBounds, 200, &LayersPanelBounds, &TimeRangePanelBounds);
-        
-        r32 TitleBarHeight = State->Interface.Style.RowHeight;
-        // These are the actual rects we will draw in
-        rect2 PlayBarBounds, FrameCountBounds;
-        rect2 LayersBounds, TimeRangeBounds;
-        RectHSplitAtDistanceFromTop(LayersPanelBounds, TitleBarHeight, &PlayBarBounds, &LayersBounds);
-        RectHSplitAtDistanceFromTop(TimeRangePanelBounds, TitleBarHeight, &FrameCountBounds, &TimeRangeBounds);
-        
-        PlayBar_Render(TimelineState, PlayBarBounds, Panel, RenderBuffer, State, Context);
-        FrameCount_Render(TimelineState, FrameCountBounds, RenderBuffer, State, Context);
-        LayerList_Render(TimelineState, LayersBounds, Panel, RenderBuffer, State, Context);
-        TimeRange_Render(TimelineState, TimeRangeBounds, RenderBuffer, State, Context);
-    }
+    r32 TitleBarHeight = State->Interface.Style.RowHeight;
+    // These are the actual rects we will draw in
+    rect2 PlayBarBounds, FrameCountBounds;
+    rect2 LayersBounds, TimeRangeBounds;
+    RectHSplitAtDistanceFromTop(LayersPanelBounds, TitleBarHeight, &PlayBarBounds, &LayersBounds);
+    RectHSplitAtDistanceFromTop(TimeRangePanelBounds, TitleBarHeight, &FrameCountBounds, &TimeRangeBounds);
     
+    PlayBar_Render(TimelineState, PlayBarBounds, Panel, RenderBuffer, State, Context);
+    FrameCount_Render(TimelineState, FrameCountBounds, RenderBuffer, State, Context);
+    LayerList_Render(TimelineState, LayersBounds, Panel, RenderBuffer, State, Context);
+    TimeRange_Render(TimelineState, TimeRangeBounds, RenderBuffer, State, Context);
     AnimInfoView_Render(TimelineState, InfoBounds, Panel, RenderBuffer, State, Context);
 }
 

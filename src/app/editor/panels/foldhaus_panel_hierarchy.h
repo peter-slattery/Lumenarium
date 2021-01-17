@@ -60,6 +60,7 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         if (ui_Button(&State->Interface, MakeString("+ Add Assembly")))
         {
             panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            FileView_SetMode(FileBrowser, FileViewMode_Save);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
         
