@@ -95,14 +95,10 @@ EndCurrentOperationMode(app_state* State)
 #include "editor/panels/foldhaus_panel_hierarchy.h"
 #include "editor/panels/foldhaus_panel_assembly_debug.h"
 
-
 #include "editor/panels/foldhaus_panel_types.cpp"
-//#include "generated/foldhaus_panels_generated.h"
 
 #include "editor/foldhaus_interface.cpp"
-
-#include "../meta/gs_meta_include.cpp"
-
+#include "editor/foldhaus_editor_draw.h"
 #include "editor/foldhaus_editor.cpp"
 
 #define FOLDHAUS_APP_H

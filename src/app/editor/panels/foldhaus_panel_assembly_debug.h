@@ -94,6 +94,8 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         InterfaceAssert(Interface->PerFrameMemory);
     }
     
+    ui_RangeSlider(Interface, MakeString("Test"), .5f, 0, 1);
+    
     ui_PopLayout(Interface, MakeString("Assembly Debug Layout"));
 }
 

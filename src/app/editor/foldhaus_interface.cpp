@@ -338,14 +338,16 @@ HandleMousePanelInteraction(panel_system* PanelSystem, rect2 WindowBounds, mouse
 }
 
 internal void
-DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, v4 Color, mouse_state* Mouse, render_command_buffer* RenderBuffer)
+DrawPanelBorder(panel Panel, v2 PanelMin, v2 PanelMax, mouse_state* Mouse, render_command_buffer* RenderBuffer)
 {
     r32 MouseLeftEdgeDistance = Abs(Mouse->Pos.x - PanelMin.x);
     r32 MouseRightEdgeDistance = Abs(Mouse->Pos.x - PanelMax.x);
     r32 MouseTopEdgeDistance = Abs(Mouse->Pos.y - PanelMax.y);
     r32 MouseBottomEdgeDistance = Abs(Mouse->Pos.y - PanelMin.y);
     
+    v4 Color = BlackV4;
     PushRenderBoundingBox2D(RenderBuffer, PanelMin, PanelMax, 1, Color);
+    
     v4 HighlightColor = v4{.3f, .3f, .3f, 1.f};
     r32 HighlightThickness = 1;
     if (MouseLeftEdgeDistance < PANEL_EDGE_CLICK_MAX_DISTANCE)
@@ -428,6 +430,7 @@ RenderPanel(panel* Panel, rect2 PanelBounds, rect2 WindowBounds, render_command_
 internal void
 DrawPanelRecursive(panel* Panel, render_command_buffer* RenderBuffer, mouse_state* Mouse, app_state* State, context Context)
 {
+    rect2 Bounds = Panel->Bounds;
     switch (Panel->SplitDirection)
     {
         case PanelSplit_Horizontal:
@@ -440,11 +443,9 @@ DrawPanelRecursive(panel* Panel, render_command_buffer* RenderBuffer, mouse_stat
         case PanelSplit_NoSplit:
         {
             panel* OverridePanel = Panel_GetModalOverride(Panel);
-            RenderPanel(OverridePanel, OverridePanel->Bounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
-            v4 BorderColor = v4{0, 0, 0, 1};
-            
+            RenderPanel(OverridePanel, Bounds, State->WindowBounds, RenderBuffer, State, Context, *Mouse);
             PushRenderOrthographic(RenderBuffer, State->WindowBounds);
-            DrawPanelBorder(*OverridePanel, OverridePanel->Bounds.Min, OverridePanel->Bounds.Max, BorderColor, Mouse, RenderBuffer);
+            DrawPanelBorder(*OverridePanel, Bounds.Min, Bounds.Max, Mouse, RenderBuffer);
         }break;
         
         InvalidDefaultCase;

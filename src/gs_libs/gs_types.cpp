@@ -1440,7 +1440,12 @@ CharArrayLength (char* CS)
 internal bool
 IsNullTerminated(gs_const_string String)
 {
-    return (String.Str[String.Length] == 0);
+    bool Result = false;
+    if (String.Str)
+    {
+        Result = (String.Str[String.Length] == 0);
+    }
+    return Result;
 }
 internal bool
 IsNullTerminated(gs_string String)

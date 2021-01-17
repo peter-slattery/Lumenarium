@@ -89,38 +89,41 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
 {
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
     ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("FileView Layout"));
-    
-    if (ui_Button(&State->Interface, MakeString("Exit")))
     {
-        FileView_Exit_(Panel, State, Context);
-    }
-    
-    // Header
-    ui_Label(&State->Interface, FileViewState->WorkingDirectory);
-    
-    // File Display
-    for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
-    {
-        gs_file_info File = FileViewState->FileNames.Values[i];
-        
-        u32 LastSlashIndex = FindLast(File.Path, '\\');
-        gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
-        gs_string PathString = PushString(State->Transient, FileName.Length);
-        PrintF(&PathString, "%S", FileName);
-        if (ui_LayoutListButton(&State->Interface, PathString, i))
+        if (ui_Button(&State->Interface, MakeString("Exit")))
         {
-            if (File.IsDirectory)
+            FileView_Exit_(Panel, State, Context);
+        }
+        
+        // Header
+        ui_Label(&State->Interface, FileViewState->WorkingDirectory);
+        
+        // File Display
+        ui_BeginList(&State->Interface, MakeString("Files"), 10, FileViewState->FileNames.Count);
+        for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
+        {
+            gs_file_info File = FileViewState->FileNames.Values[i];
+            
+            u32 LastSlashIndex = FindLast(File.Path, '\\');
+            gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
+            gs_string PathString = PushString(State->Transient, FileName.Length);
+            PrintF(&PathString, "%S", FileName);
+            
+            if (ui_LayoutListButton(&State->Interface, PathString, i))
             {
-                FileViewUpdateWorkingDirectory(File.Path, FileViewState, Context);
-            }
-            else
-            {
-                FileViewState->SelectedFile = File;
-                FileView_Exit_(Panel, State, Context);
+                if (File.IsDirectory)
+                {
+                    FileViewUpdateWorkingDirectory(File.Path, FileViewState, Context);
+                }
+                else
+                {
+                    FileViewState->SelectedFile = File;
+                    FileView_Exit_(Panel, State, Context);
+                }
             }
         }
+        ui_EndList(&State->Interface);
     }
-    
     ui_PopLayout(&State->Interface, MakeString("FileView Layout"));
 }
 
