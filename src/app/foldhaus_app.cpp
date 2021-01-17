@@ -75,6 +75,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->SACN = SACN_Initialize(Context);
     
     State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
+    State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     

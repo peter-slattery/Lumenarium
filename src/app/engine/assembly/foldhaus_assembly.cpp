@@ -256,18 +256,9 @@ AssemblyStripsGetWithTagValue(assembly Assembly, gs_const_string TagName, gs_con
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
         v2_strip StripAt = Assembly.Strips[StripIndex];
-        for (u32 j = 0; j < StripAt.TagsCount; j++)
+        if (AssemblyStrip_HasTagValue(StripAt, NameHash, ValueHash))
         {
-            v2_tag TagAt = StripAt.Tags[j];
-            if (TagAt.NameHash == NameHash)
-            {
-                // NOTE(pjs): We can pass an empty string to the Value parameter,
-                // and it will match all values of Tag
-                if (ValueHash == 0 || ValueHash == TagAt.ValueHash)
-                {
-                    Result.StripIndices[Result.Count++] = StripIndex;
-                }
-            }
+            Result.StripIndices[Result.Count++] = StripIndex;
         }
     }
     

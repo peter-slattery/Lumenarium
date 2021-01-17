@@ -981,10 +981,10 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
         {
             ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
             
-            // TODO(pjs): Backspace?
             for (u32 i = 0; i < Interface->TempInputString.Length; i++)
             {
-                if (Interface->TempInputString.Str[i] == '\b')
+                if (Interface->TempInputString.Str[i] == '\b' &&
+                    State->EditString.Length > 0)
                 {
                     State->EditString.Length -= 1;
                 }
@@ -1528,6 +1528,15 @@ ui_LabeledToggle(ui_interface* Interface, gs_string Label, bool Value)
     ui_EndRow(Interface);
     return Result;
 }
+
+internal void
+ui_LabeledTextEntry(ui_interface* Interface, gs_string Label, gs_string* Value)
+{
+    ui_BeginLabelRow(Interface, Label);
+    ui_TextEntry(Interface, Label, Value);
+    ui_EndRow(Interface);
+}
+
 
 internal u64
 ui_LabeledTextEntryU64(ui_interface* Interface, gs_string Label, u32 Value)

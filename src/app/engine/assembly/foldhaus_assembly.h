@@ -204,5 +204,26 @@ StripGenData_CountLeds(strip_gen_data Data)
     return Result;
 }
 
+internal bool
+AssemblyStrip_HasTagValue(v2_strip Strip, u64 NameHash, u64 ValueHash)
+{
+    bool Result = false;
+    for (u32 i = 0; i < Strip.TagsCount; i++)
+    {
+        v2_tag TagAt = Strip.Tags[i];
+        if (TagAt.NameHash == NameHash)
+        {
+            // NOTE(pjs): We can pass an empty string to the Value parameter,
+            // and it will match all values of Tag
+            if (ValueHash == 0 || ValueHash == TagAt.ValueHash)
+            {
+                Result = true;
+                break;
+            }
+        }
+    }
+    return Result;
+}
+
 #define FOLDHAUS_ASSEMBLY_H
 #endif // FOLDHAUS_ASSEMBLY_H

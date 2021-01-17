@@ -27,14 +27,6 @@ ProfilerView_Cleanup(panel* Panel, app_state* State)
 internal void
 RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Transient)
 {
-    v4 ThreadColors[] = {
-        v4{.73f, .33f, .83f, 1},
-        v4{0,   .50f, .50f, 1},
-        v4{.83f, 0,    0, 1},
-        v4{.33f, .49f, .83f, 1},
-        v4{.74f, .40f, .25f, 1},
-    };
-    
     rect2 Bounds = ui_LayoutRemaining(*Layout);
     r32 Width = Rect2Width(Bounds);
     r32 DepthHeight = 32;
@@ -51,6 +43,14 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
         gs_string String = PushString(Transient, 256);
         
         r32 ThreadScopeMin = Bounds.Max.y;
+        
+        //PrintF(&String, "Thread %d", ThreadCalls.ThreadId);
+        //ui_Label(Interface, String, rect2{ThreadScopeMin);
+        
+        r32 Hue = (r32)(t) / (r32)(VisibleFrame->ThreadCount);
+        Hue += (.5f * (t % 2));
+        v4 ThreadHSV = v4{ 360.0f * Hue, .5f, 1.0f, 1.0f };
+        v4 ThreadRGB = HSVToRGB(ThreadHSV);
         
         for (s32 i = 0; i < ThreadCalls.Count; i++)
         {
@@ -75,7 +75,7 @@ RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, de
             
             if (Rect2Width(ScopeBounds) >= 1)
             {
-                v4 Color = ThreadColors[t];
+                v4 Color = ThreadRGB;
                 if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
                 {
                     Color = GreenV4;
