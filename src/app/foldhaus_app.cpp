@@ -90,10 +90,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
-    State->AnimationSystem = {};
-    State->AnimationSystem.Storage = &State->Permanent;
-    State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
-    State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
+    animation_system_desc AnimSysDesc = {};
+    AnimSysDesc.Storage = &State->Permanent;
+    AnimSysDesc.AnimArrayCount = 32;
+    AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
+    State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
     State->UserData = BlumenLumen_CustomInit(State, Context);
 }

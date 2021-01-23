@@ -1,5 +1,7 @@
 @echo off
 
+ECHO SETUP CL
+
 SET "LIB="
 
 SET VC_PATH=C:\Program Files (x86)\Microsoft Visual Studio 12.0
@@ -35,3 +37,4 @@ IF NOT DEFINED LIB (IF EXIST "%VC_PATH%" (call "%VC_PATH%\VC\Auxiliary\Build\vcv
 SET VC_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional
 IF NOT DEFINED LIB (IF EXIST "%VC_PATH%" (call "%VC_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64))
 
+ECHO SETUP CL COMPLETE
