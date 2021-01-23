@@ -391,5 +391,67 @@ Pattern_GrowAndFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_are
     }
 }
 
+internal void
+Pattern_ColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    r32 FadeBottomBase = 50;
+    r32 FadeTop = 125;
+    
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        
+        r32 FlowerSpread = .8f;
+        r32 FlowerOffset = 0;
+        if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
+        {
+            FlowerOffset = 1;
+        }
+        else if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "right"))
+        {
+            FlowerOffset = 2;
+        }
+        FlowerOffset *= FlowerSpread;
+        
+        r32 PercentCycle = ModR32(Time + FlowerOffset, 10) / 10;
+        
+        r32 FadeBottom = FadeBottomBase + RemapR32(SinR32((PercentCycle * 4) * TauR32), -1, 1, -50, 50);
+        
+        v4 TopRGB = WhiteV4;
+        pixel TopColor = V4ToRGBPixel(TopRGB);
+        
+        for (u32 i = 0; i < Strip.LedCount; i++)
+        {
+            u32 LedIndex = Strip.LedLUT[i];
+            v4 P = Leds->Positions[LedIndex];
+            
+            pixel FinalColor = {};
+            if (P.y > FadeTop)
+            {
+                FinalColor = TopColor;
+            }
+            else
+            {
+                r32 B = RemapR32(SinR32((P.y / 15.f) + (PercentCycle * TauR32)), -1, 1, .5f, 1.f);
+                r32 HNoise = RemapR32(SinR32((P.y / 31.f) + (PercentCycle * TauR32)), -1, 1, -32.f, 32.f);
+                v4 BottomRGB = HSVToRGB(v4{ (PercentCycle * 360) + HNoise, 1, B, 1 });
+                
+                if (P.y < FadeBottom)
+                {
+                    FinalColor = V4ToRGBPixel(BottomRGB);
+                }
+                else if (P.y >= FadeBottom && P.y <= FadeTop)
+                {
+                    r32 FadePct = RemapR32(P.y, FadeBottom, FadeTop, 0, 1);
+                    v4 MixRGB = V4Lerp(FadePct, BottomRGB, TopRGB);
+                    FinalColor = V4ToRGBPixel(MixRGB);
+                }
+            }
+            
+            Leds->Colors[LedIndex] = FinalColor;
+        }
+    }
+}
+
 #define BLUMEN_PATTERNS_H
 #endif // BLUMEN_PATTERNS_H

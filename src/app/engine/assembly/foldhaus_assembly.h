@@ -225,5 +225,13 @@ AssemblyStrip_HasTagValue(v2_strip Strip, u64 NameHash, u64 ValueHash)
     return Result;
 }
 
+internal bool
+AssemblyStrip_HasTagValueSLOW(v2_strip Strip, char* Name, char* Value)
+{
+    u64 NameHash = HashDJB2ToU32(Name);
+    u64 ValueHash = HashDJB2ToU32(Value);
+    return AssemblyStrip_HasTagValue(Strip, NameHash, ValueHash);
+}
+
 #define FOLDHAUS_ASSEMBLY_H
 #endif // FOLDHAUS_ASSEMBLY_H

@@ -172,7 +172,6 @@ int main(int ArgCount, char** Args)
     
     gs_string OutputBuffer = PushString(Ctx.Transient, MB(4));
     
-    char* ComPort = "\\\\.\\COM3";
     WriteAssemblyUARTOpen(&OutputBuffer,
                           "Blumen Lumen - Silver Spring",
                           100,
@@ -181,37 +180,34 @@ int main(int ArgCount, char** Args)
                           "");
     
     u32 StemChannels[] = { FSC(2, 1), FSC(2, 2), FSC(2, 3), FSC(2, 4), FSC(2, 5), FSC(2, 6) };
-    u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 7) };
+    u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 0) };
     u32 BloomInnerChannels[] = { FSC(0, 0), FSC(0, 1), FSC(0, 2), FSC(0, 3), FSC(0, 4), FSC(0, 5) };
     flower_desc F0 = {};
     F0.Pos = v3{-1, 0, 0};
-    F0.ComPort = ComPort;
+    F0.ComPort = "\\\\.\\COM4";
     F0.FlowerTagValue = "left";
     F0.StemChannels = StemChannels;
     F0.BloomOuterChannels = BloomOuterChannels;
     F0.BloomInnerChannels = BloomInnerChannels;
     BuildFlower(&OutputBuffer, F0);
     
-#if 1
     flower_desc F1 = {};
     F1.Pos = v3{0, 0, 0};
-    F1.ComPort = "\\\\.\\COM6";
+    F1.ComPort = "\\\\.\\COM5";
     F1.FlowerTagValue = "center";
     F1.StemChannels = StemChannels;
     F1.BloomInnerChannels = BloomInnerChannels;
     F1.BloomOuterChannels = BloomOuterChannels;
     BuildFlower(&OutputBuffer, F1);
-#endif
     
-    /*
-        flower_desc F2 = {};
-        F2.Pos = v3{1, 0, 0};
-        F2.FlowerTagValue = "right";
-        F2.StemChannels = StemChannels;
-        F2.BloomInnerChannels = BloomInnerChannels;
-        F2.BloomOuterChannels = BloomOuterChannels;
-        BuildFlower(&OutputBuffer, F2);
-        */
+    flower_desc F2 = {};
+    F2.Pos = v3{1, 0, 0};
+    F2.ComPort = "\\\\.\\COM6";
+    F2.FlowerTagValue = "right";
+    F2.StemChannels = StemChannels;
+    F2.BloomInnerChannels = BloomInnerChannels;
+    F2.BloomOuterChannels = BloomOuterChannels;
+    BuildFlower(&OutputBuffer, F2);
     
     printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
     

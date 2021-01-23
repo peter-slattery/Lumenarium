@@ -5,6 +5,10 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
+// TODO(pjs):
+// - need to request opening a network port and getting messages from it pumped into CustomUpdate
+//
+
 struct foo_
 {
     u32 Heyo;
@@ -23,21 +27,35 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     foo_* MyFoo = (foo_*)Result.Memory;
     MyFoo->Heyo = 5;
     
+#if 1
+    gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
+#endif
+    
     { // Animation PLAYGROUND
+        animation Anim0 = {0};
+        Anim0.Name = PushStringF(&State->Permanent, 256, "test_anim_zero");
+        Anim0.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
+        Anim0.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
+        Anim0.PlayableRange.Min = 0;
+        Anim0.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        animation Anim = {0};
-        Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.PlayableRange.Min = 0;
-        Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
+        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
         
-        Animation_AddBlock(&Anim, 0, Anim.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
+        AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
+        animation Anim1 = {0};
+        Anim1.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
+        Anim1.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
+        Anim1.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
+        Anim1.PlayableRange.Min = 0;
+        Anim1.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        Animation_AddLayer(&Anim1, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
+        
+        Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
+        
+        AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
         
         State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground

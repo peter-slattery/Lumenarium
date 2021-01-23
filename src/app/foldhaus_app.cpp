@@ -26,6 +26,7 @@ ClearAndPushPatterns(animation_pattern_array* Patterns)
     Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
     Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
     Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
+    Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
 }
 
 RELOAD_STATIC_DATA(ReloadStaticData)
@@ -52,7 +53,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
-    State->Patterns = Patterns_Create(&State->Permanent, 10);
+    State->Patterns = Patterns_Create(&State->Permanent, 32);
     ClearAndPushPatterns(&State->Patterns);
     
     interface_config IConfig = {0};
@@ -84,11 +85,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     ReloadStaticData(Context, GlobalDebugServices);
-    
-#if 1
-    gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
-#endif
     
     animation_system_desc AnimSysDesc = {};
     AnimSysDesc.Storage = &State->Permanent;

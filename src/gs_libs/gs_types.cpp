@@ -685,34 +685,34 @@ V4Cross(v4 A, v4 B)
 }
 
 internal v2
-V2Lerp(v2 A, v2 B, r32 T)
+V2Lerp(r32 T, v2 A, v2 B)
 {
     v2 Result = v2{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
     };
     return Result;
 }
 
 internal v3
-V3Lerp(v3 A, v3 B, r32 T)
+V3Lerp(r32 T, v3 A, v3 B)
 {
     v3 Result = v3{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
-        LerpR32(A.z, B.z, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
+        LerpR32(T, A.z, B.z),
     };
     return Result;
 }
 
 internal v4
-V4Lerp(v4 A, v4 B, r32 T)
+V4Lerp(r32 T, v4 A, v4 B)
 {
     v4 Result = v4{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
-        LerpR32(A.z, B.z, T),
-        LerpR32(A.w, B.w, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
+        LerpR32(T, A.z, B.z),
+        LerpR32(T, A.w, B.w),
     };
     return Result;
 }
