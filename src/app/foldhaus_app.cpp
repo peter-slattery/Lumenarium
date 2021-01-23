@@ -90,29 +90,12 @@ INITIALIZE_APPLICATION(InitializeApplication)
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
 #endif
     
-    { // Animation PLAYGROUND
-        State->AnimationSystem = {};
-        State->AnimationSystem.Storage = &State->Permanent;
-        State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
-        
-        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        
-        animation Anim = {0};
-        Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.PlayableRange.Min = 0;
-        Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
-        
-        Animation_AddBlock(&Anim, 0, Anim.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
-        
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
-        
-        State->AnimationSystem.TimelineShouldAdvance = true;
-    } // End Animation Playground
+    State->AnimationSystem = {};
+    State->AnimationSystem.Storage = &State->Permanent;
+    State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
+    State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
+    
+    State->UserData = BlumenLumen_CustomInit(State, Context);
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -138,6 +121,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            State->Transient,
                                            State->UserData.Memory);
     }
+    
+    BlumenLumen_CustomUpdate(State->UserData, State, Context);
     
     AssemblyDebug_OverrideOutput(State->AssemblyDebugState,
                                  State->Assemblies,

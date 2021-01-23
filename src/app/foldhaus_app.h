@@ -78,6 +78,7 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 #include "engine/assembly/foldhaus_assembly.cpp"
 
 #include "patterns/blumen_patterns.h"
+#include "blumen_lumen.cpp"
 
 internal void
 EndCurrentOperationMode(app_state* State)
