@@ -484,6 +484,24 @@ ClampFrameToRange(s32 Frame, frame_range Range)
 
 // System
 
+struct animation_system_desc
+{
+    gs_memory_arena* Storage;
+    u32 AnimArrayCount;
+    r32 SecondsPerFrame;
+};
+
+internal animation_system
+AnimationSystem_Init(animation_system_desc Desc)
+{
+    animation_system Result = {};
+    Result.Storage = Desc.Storage;
+    Result.Animations = AnimationArray_Create(Result.Storage, Desc.AnimArrayCount);
+    Result.SecondsPerFrame = Desc.SecondsPerFrame;
+    
+    return Result;
+}
+
 internal animation*
 AnimationSystem_GetActiveAnimation(animation_system* System)
 {

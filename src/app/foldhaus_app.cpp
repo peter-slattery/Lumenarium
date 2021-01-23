@@ -91,11 +91,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
 #endif
     
     { // Animation PLAYGROUND
-        State->AnimationSystem = {};
-        State->AnimationSystem.Storage = &State->Permanent;
-        State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
-        
-        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
+        animation_system_desc AnimSysDesc = {};
+        AnimSysDesc.Storage = &State->Permanent;
+        AnimSysDesc.AnimArrayCount = 32;
+        AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
+        State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
         
         animation Anim = {0};
         Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
@@ -103,6 +103,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
         Anim.PlayableRange.Min = 0;
         Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        
         Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
         Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);

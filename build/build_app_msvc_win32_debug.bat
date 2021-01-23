@@ -2,6 +2,7 @@
 
 SET MyPath=%~dp0
 SET MyPath=%MyPath:~0,-1%
+
 call %MyPath%\_prebuild_win32.bat app debug msvc
 call %MyPath%\setup_cl.bat
 
