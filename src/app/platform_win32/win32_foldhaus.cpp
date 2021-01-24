@@ -493,6 +493,9 @@ WinMain (
     Context.PlatformGetFontInfo = Win32GetFontInfo;
     Context.PlatformDrawFontCodepoint = Win32DrawFontCodepoint;
     
+    Context.ThreadManager = PushStruct(&PlatformPermanent, platform_thread_manager);
+    *Context.ThreadManager = CreatePlatformThreadManager(Win32CreateThread, Win32KillThread);
+    
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
     

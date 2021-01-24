@@ -1005,16 +1005,52 @@ struct gs_thread_context
     gs_memory_arena* Transient;
 };
 
-// Threads & Work Queue
+// Threads
+
+typedef struct platform_thread_handle
+{
+    u32 Index;
+} platform_thread_handle;
+
+typedef struct platform_thread_manager platform_thread_manager;
+
+#define THREAD_PROC_(name) void name(gs_thread_context* Ctx, u8* UserData)
+typedef THREAD_PROC_(thread_proc_);
+
+typedef struct platform_thread
+{
+    u8* PlatformHandle;
+    thread_proc_* Proc;
+    u8* UserData;
+    // TODO(pjs): Some kind of platform thread handle
+} platform_thread;
+
+#define CREATE_THREAD(name) bool name(platform_thread* Thread, thread_proc_* Proc, u8* UserData)
+typedef CREATE_THREAD(platform_create_thread);
+
+#define KILL_THREAD(name) bool name(platform_thread* Thread)
+typedef KILL_THREAD(platform_kill_thread);
+
+#define THREADS_MAX 32
+typedef struct platform_thread_manager
+{
+    b8 ThreadsUsed[THREADS_MAX];
+    platform_thread Threads[THREADS_MAX];
+    
+    platform_create_thread* CreateThreadProc;
+    platform_kill_thread*   KillThreadProc;
+} platform_thread_manager;
+
+// Work Queue
 
 typedef struct gs_work_queue gs_work_queue;
 
-struct gs_worker_thread
+typedef struct gs_worker_thread
 {
     gs_thread_context Context;
     gs_work_queue* Queue;
     b32 ShouldExit;
-};
+} gs_worker_thread;
 
 #define THREAD_PROC(name) void name(gs_thread_context Context, gs_data Data)
 typedef THREAD_PROC(thread_proc);

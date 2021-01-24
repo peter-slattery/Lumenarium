@@ -28,6 +28,8 @@ struct blumen_lumen_state
 {
     packet_ringbuffer MicPacketBuffer;
     temp_job_req JobReq;
+    
+    platform_thread_handle MicListenThread;
 };
 
 

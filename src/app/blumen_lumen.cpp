@@ -5,9 +5,31 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
-// TODO(pjs):
-// - need to request opening a network port and getting messages from it pumped into CustomUpdate
-//
+internal void
+BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
+{
+    packet_ringbuffer* MicPacketBuffer = (packet_ringbuffer*)UserData;
+    
+#if 0
+    platform_socket* ListenSocket = CreateSocketAndConnect(Ctx->SocketManager, "127.0.0.1", "20185");
+    
+    while (true)
+    {
+        gs_data Data = SocketReceive(Ctx->SocketManager, &ListenSocket, Ctx->Transient);
+        if (Data.Size > 0)
+        {
+            OutputDebugStringA("Listened");
+            MicPacketBuffer->Values[MicPacketBuffer->WriteHead++] = Data;
+            if (MicPacketBuffer->WriteHead >= PACKETS_MAX)
+            {
+                MicPacketBuffer->WriteHead = 0;
+            }
+        }
+    }
+    
+    CloseSocket(Ctx->SocketManager, ListenSocket);
+#endif
+}
 
 internal gs_data
 BlumenLumen_CustomInit(app_state* State, context Context)
@@ -21,7 +43,8 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     Result = PushSizeToData(&State->Permanent, sizeof(blumen_lumen_state));
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
-    BLState->JobReq.Memory = (u8*)&BLState->MicPacketBuffer;
+    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicPacketBuffer);
+    
     
 #if 1
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");

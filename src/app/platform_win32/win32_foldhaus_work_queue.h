@@ -163,6 +163,48 @@ WorkerThreadProc (LPVOID InputThreadInfo)
     return 0;
 }
 
+DWORD WINAPI
+Win32ThreadProcWrapper(LPVOID ThreadInfo)
+{
+    platform_thread* Thread = (platform_thread*)ThreadInfo;
+    gs_thread_context Ctx = Win32CreateThreadContext();
+    Thread->Proc(&Ctx, Thread->UserData);
+    
+    // TODO(pjs): Destroy Thread Context
+    // TODO(pjs): How do we notify the thread manager this thread belongs to that it is free?
+    //            Probaby put a pointer to the thread manager in the platform_thread struct
+    //            so we can update the tracking structure?
+    
+    return 0;
+}
+
+CREATE_THREAD(Win32CreateThread)
+{
+    Thread->Proc = Proc;
+    Thread->UserData = UserData;
+    
+    // TODO(pjs): ugh, allocation out in the middle of nowhere
+    HANDLE* ThreadHandle = (HANDLE*)Win32Alloc(sizeof(HANDLE), 0);
+    *ThreadHandle = CreateThread(0, 0, Win32ThreadProcWrapper, (void*)Thread, 0, 0);
+    // TODO(pjs): Error checking on the created thread
+    
+    Thread->PlatformHandle = (u8*)ThreadHandle;
+    
+    return true;
+}
+
+KILL_THREAD(Win32KillThread)
+{
+    HANDLE* ThreadHandle = (HANDLE*)Thread->PlatformHandle;
+    TerminateThread(ThreadHandle, 0);
+    
+    // TODO(pjs): see allocation out in the middle of nowhere in Win32CreateThread
+    Win32Free((void*)Thread->PlatformHandle, sizeof(HANDLE));
+    
+    // TODO(pjs): Error checking
+    return true;
+}
+
 internal void
 Win32WorkQueue_Init(gs_memory_arena* Arena, u32 ThreadCount)
 {

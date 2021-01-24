@@ -3271,6 +3271,80 @@ TimeHandlerGetSecondsElapsed(gs_time_handler TimeHandler, s64 StartCycles, s64 E
     return Result;
 }
 
+//////////////////////////
+//
+// Thread Manager
+
+CREATE_THREAD(CreateThreadStub)
+{
+    return {};
+}
+
+
+KILL_THREAD(KillThreadStub)
+{
+    return false;
+}
+
+internal platform_thread_manager
+CreatePlatformThreadManager(platform_create_thread* CreateThreadProc,
+                            platform_kill_thread* KillThreadProc)
+{
+    platform_thread_manager Result = {};
+    Result.CreateThreadProc = CreateThreadProc;
+    Result.KillThreadProc = KillThreadProc;
+    
+    if (!CreateThreadProc)
+    {
+        Result.CreateThreadProc = CreateThreadStub;
+    }
+    if (!KillThreadProc)
+    {
+        Result.KillThreadProc = KillThreadStub;
+    }
+    
+    return Result;
+}
+
+internal platform_thread_handle
+CreateThread(platform_thread_manager* Manager, thread_proc_* Proc, u8* Arg)
+{
+    platform_thread_handle Result = {};
+    
+    for (u32 i = 1; i < THREADS_MAX; i++)
+    {
+        if (!Manager->ThreadsUsed[i])
+        {
+            Result.Index = i;
+            break;
+        }
+    }
+    Assert(Result.Index != 0);
+    
+    Manager->ThreadsUsed[Result.Index] = true;
+    Manager->CreateThreadProc(&Manager->Threads[Result.Index], Proc, Arg);
+    
+    return Result;
+}
+
+internal bool
+KillThread(platform_thread_manager* Manager, platform_thread_handle Handle)
+{
+    Assert(Manager->ThreadsUsed[Handle.Index]);
+    
+    platform_thread* Thread = &Manager->Threads[Handle.Index];
+    bool Result = Manager->KillThreadProc(Thread);
+    
+    if (Result)
+    {
+        Manager->ThreadsUsed[Handle.Index] = false;
+        Manager->Threads[Handle.Index] = {};
+    }
+    
+    return Result;
+}
+
+
 ///////////////////////////
 //
 // Hashes

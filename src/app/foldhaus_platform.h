@@ -206,6 +206,8 @@ struct context
     update_and_render* UpdateAndRender;
     cleanup_application* CleanupApplication;
     
+    platform_thread_manager* ThreadManager;
+    
     // Platform Services
     gs_work_queue* GeneralWorkQueue;
     

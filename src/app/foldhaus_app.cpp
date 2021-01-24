@@ -8,8 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-////////////////////////////////////////////////////////////////////////
-
 internal void
 ClearAndPushPatterns(animation_pattern_array* Patterns)
 {
