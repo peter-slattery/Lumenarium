@@ -50,7 +50,23 @@ typedef struct context context;
 
 // Application Functions
 
-#define INITIALIZE_APPLICATION(name) void name(context Context)
+// TODO(pjs): TEMP
+typedef void temp_job_req_proc(gs_thread_context* Ctx, u8* Memory);
+struct temp_job_req
+{
+    temp_job_req_proc* Proc;
+    u8* Memory;
+};
+// This isn't necessarily temp but I'm not sure it goes here
+#define PACKETS_MAX 32
+struct packet_ringbuffer
+{
+    gs_data Values[PACKETS_MAX];
+    u32 ReadHead;
+    u32 WriteHead;
+};
+
+#define INITIALIZE_APPLICATION(name) temp_job_req* name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
 #define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
@@ -199,7 +215,6 @@ struct context
     
     platform_get_socket_handle* PlatformGetSocketHandle;
 };
-
 
 #define FOLDHAUS_PLATFORM_H
 #endif // FOLDHAUS_PLATFORM_H

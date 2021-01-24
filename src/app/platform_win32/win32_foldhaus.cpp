@@ -27,6 +27,8 @@
 
 #include "../foldhaus_renderer.cpp"
 
+#include "win32_test_code.cpp"
+
 global b32 Running = false;
 global b32 WindowIsActive = false;
 
@@ -423,26 +425,6 @@ Win32_SendAddressedDataBuffer_Job(gs_thread_context Context, gs_data Arg)
     Win32_SendAddressedDataBuffer(Context, OutputData);
 }
 
-#pragma pack(push, 1)
-struct test_microphone_packet
-{
-    b8 ChangeAnimation;
-    char AnimationFileName[32];
-    b8 SetLayer;
-    char LayerName[32];
-    r32 LayerOpacity;
-    b8 SetLayerParamColor;
-    char LayerParamColor[7];
-    r32 OverrideDuration;
-};
-#pragma pack(pop)
-
-inline u32
-UpackB4(const u8* ptr)
-{
-    return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
-}
-
 internal bool
 ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError)
 {
@@ -524,7 +506,9 @@ WinMain (
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
     
-    Context.InitializeApplication(Context);
+    temp_job_req* Req = Context.InitializeApplication(Context);
+    Req->Proc = BlumenLumen_MicListenJob;
+    Win32_TestCode_SocketReading(ThreadContext, Req);
     
     Running = true;
     Context.WindowIsVisible = true;

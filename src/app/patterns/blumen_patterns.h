@@ -6,6 +6,29 @@
 #ifndef BLUMEN_PATTERNS_H
 
 internal void
+SolidColorPattern(led_buffer* Leds, pixel Color)
+{
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        Leds->Colors[LedIndex] = Color;
+    }
+}
+
+internal void
+Pattern_Blue(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    pixel Blue = pixel{0, 0, 255};
+    SolidColorPattern(Leds, Blue);
+}
+
+internal void
+Pattern_Green(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    pixel Green = pixel{0, 255, 0};
+    SolidColorPattern(Leds, Green);
+}
+
+internal void
 TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     led_strip_list BlumenStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Blumen Lumen"), Transient);

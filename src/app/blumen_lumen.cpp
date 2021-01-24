@@ -9,11 +9,6 @@
 // - need to request opening a network port and getting messages from it pumped into CustomUpdate
 //
 
-struct foo_
-{
-    u32 Heyo;
-};
-
 internal gs_data
 BlumenLumen_CustomInit(app_state* State, context Context)
 {
@@ -23,9 +18,10 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     // the sculpture's CustomUpdate function;
     gs_data Result = {};
     
-    Result = PushSizeToData(&State->Permanent, sizeof(foo_));
-    foo_* MyFoo = (foo_*)Result.Memory;
-    MyFoo->Heyo = 5;
+    Result = PushSizeToData(&State->Permanent, sizeof(blumen_lumen_state));
+    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
+    BLState->JobReq.Memory = (u8*)&BLState->MicPacketBuffer;
     
 #if 1
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
@@ -41,7 +37,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim0.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
+        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(11), 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
@@ -53,9 +49,21 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim1.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim1, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(5), 0);
+        Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(12), 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
+        
+        animation Anim2 = {0};
+        Anim2.Name = PushStringF(&State->Permanent, 256, "i_love_you");
+        Anim2.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
+        Anim2.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
+        Anim2.PlayableRange.Min = 0;
+        Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
+        
+        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(10), 0);
+        
+        AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
         State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
@@ -66,8 +74,42 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
-    foo_* MyFoo = (foo_*)UserData.Memory;
-    Assert(MyFoo->Heyo == 5);
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
+    
+    gs_string BlueString = MakeString("blue");
+    gs_string GreenString = MakeString("green");
+    gs_string ILoveYouString = MakeString("i_love_you");
+    
+    while (BLState->MicPacketBuffer.ReadHead != BLState->MicPacketBuffer.WriteHead)
+    {
+        gs_data PacketData = BLState->MicPacketBuffer.Values[BLState->MicPacketBuffer.ReadHead++];
+        microphone_packet Packet = *(microphone_packet*)PacketData.Memory;
+        
+        u32 NameLen = CStringLength(Packet.AnimationFileName);
+        if (StringEqualsCharArray(BlueString.ConstString, Packet.AnimationFileName, NameLen))
+        {
+            State->AnimationSystem.ActiveAnimationIndex = 0;
+        }
+        else if (StringEqualsCharArray(GreenString.ConstString, Packet.AnimationFileName, NameLen))
+        {
+            State->AnimationSystem.ActiveAnimationIndex = 1;
+        }
+        else if (StringEqualsCharArray(ILoveYouString.ConstString, Packet.AnimationFileName, NameLen))
+        {
+            State->AnimationSystem.ActiveAnimationIndex = 2;
+        }
+        
+        gs_string TempString = PushStringF(State->Transient, 256, "%.*s", 32, Packet.AnimationFileName);
+        NullTerminate(&TempString);
+        
+        OutputDebugStringA("Received\n");
+        OutputDebugStringA(TempString.Str);
+        
+        if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
+        {
+            BLState->MicPacketBuffer.ReadHead = 0;
+        }
+    }
 }
 
 

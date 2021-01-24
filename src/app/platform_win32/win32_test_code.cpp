@@ -5,6 +5,7 @@
 //
 #ifndef WIN32_TEST_CODE_CPP
 
+#if 0
 internal void
 Win32_TestCode_UART(gs_thread_context ThreadContext)
 {
@@ -31,21 +32,45 @@ Win32_TestCode_UART(gs_thread_context ThreadContext)
     uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
     UART_FillFooter(Footer, (u8*)Header);
 }
+#endif
 
-internal void
-Win32_TestCode_SocketReading(gs_thread_context ThreadContext)
+win32_socket ListenSocket;
+
+DWORD WINAPI
+Win32_TestCode_ListenThreadProc(LPVOID ThreadData)
 {
-    win32_socket TestSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
-    test_microphone_packet* Recv = 0;
+    gs_thread_context Ctx = Win32CreateThreadContext();
+    
+    temp_job_req* Req = (temp_job_req*)ThreadData;
+    
     while (true)
     {
-        gs_data Data = Win32Socket_Receive(&TestSocket, ThreadContext.Transient);
-        if (Data.Size > 0)
+        Req->Proc(&Ctx, Req->Memory);
+    }
+}
+
+internal void
+Win32_TestCode_SocketReading(gs_thread_context ThreadContext, temp_job_req* Req)
+{
+    ListenSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
+    u8* Arg = (u8*)Req;
+    HANDLE Handle = CreateThread(0, 0, &Win32_TestCode_ListenThreadProc, Arg, 0, 0);
+}
+
+internal void
+BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
+{
+    packet_ringbuffer* MicPacketBuffer = (packet_ringbuffer*)UserData;
+    
+    gs_data Data = Win32Socket_Receive(&ListenSocket, Ctx->Transient);
+    if (Data.Size > 0)
+    {
+        OutputDebugStringA("Listened");
+        MicPacketBuffer->Values[MicPacketBuffer->WriteHead++] = Data;
+        if (MicPacketBuffer->WriteHead >= PACKETS_MAX)
         {
-            OutputDebugStringA("Received\n");
-            Recv = (test_microphone_packet*)Data.Memory;
+            MicPacketBuffer->WriteHead = 0;
         }
-        ClearArena(ThreadContext.Transient);
     }
 }
 

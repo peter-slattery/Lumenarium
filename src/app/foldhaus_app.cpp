@@ -27,6 +27,8 @@ ClearAndPushPatterns(animation_pattern_array* Patterns)
     Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
     Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
     Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
+    Patterns_PushPattern(Patterns, Pattern_Blue);
+    Patterns_PushPattern(Patterns, Pattern_Green);
 }
 
 RELOAD_STATIC_DATA(ReloadStaticData)
@@ -93,6 +95,10 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
     State->UserData = BlumenLumen_CustomInit(State, Context);
+    
+    // TEMP
+    blumen_lumen_state* BLState = (blumen_lumen_state*)State->UserData.Memory;
+    return (temp_job_req*)&BLState->JobReq;
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)

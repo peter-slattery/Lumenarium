@@ -41,6 +41,8 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_serializer.cpp"
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
+#include "blumen_lumen.h"
+
 struct app_state
 {
     gs_memory_arena Permanent;
