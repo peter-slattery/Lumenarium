@@ -610,7 +610,7 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
     ui_interface* Interface = &State->Interface;
     ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("PlayBar Layout"));
     
-    ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
+    ui_FillRect(Interface, Bounds, Interface->Style.PanelBG);
     ui_BeginRow(&State->Interface, 4);
     {
         if (ui_Button(Interface, MakeString("Pause")))
@@ -645,7 +645,7 @@ FrameCount_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_
     
     s32 VisibleFrameCount = VisibleFrames.Max - VisibleFrames.Min;
     
-    ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
+    ui_FillRect(Interface, Bounds, Interface->Style.PanelBG);
     
     // Frame Ticks
     u32 TickCount = 10;
@@ -692,7 +692,7 @@ LayerList_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* P
     ui_interface* Interface = &State->Interface;
     animation ActiveAnim = *AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     
-    ui_FillRect(Interface, Bounds, Interface->Style.PanelBGColors[0]);
+    ui_FillRect(Interface, Bounds, Interface->Style.PanelBG);
     
     v2 LayerDim = { Rect2Width(Bounds), LAYER_HEIGHT };
     rect2 LayerBounds = {0};
@@ -801,7 +801,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel
     ui_interface* Interface = &State->Interface;
     ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"));
     
-    ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBGColors[0]);
+    ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBG);
     
     if (ui_BeginLabeledDropdown(Interface, MakeString("Active Animation"), ActiveAnim->Name))
     {

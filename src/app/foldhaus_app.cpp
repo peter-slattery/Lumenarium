@@ -58,18 +58,15 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     interface_config IConfig = {0};
     IConfig.FontSize = 14;
-    IConfig.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
-    IConfig.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
-    IConfig.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
-    IConfig.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
+    IConfig.PanelBG              = v4{ .3f,  .3f,  .3f, 1.f };
     IConfig.ButtonColor_Inactive = BlackV4;
-    IConfig.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
-    IConfig.ButtonColor_Selected = v4{.3f, .3f, .3f, 1};
-    IConfig.TextColor = WhiteV4;
-    IConfig.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
-    IConfig.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
-    IConfig.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
-    IConfig.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
+    IConfig.ButtonColor_Active   = v4{ .1f,  .1f,  .1f, 1.f };
+    IConfig.ButtonColor_Selected = v4{ .3f,  .3f,  .3f, 1.f };
+    IConfig.TextColor            = WhiteV4;
+    IConfig.ListBGColors[0]      = v4{ .16f, .16f, .16f, 1.f };
+    IConfig.ListBGColors[1]      = v4{ .18f, .18f, .18f, 1.f };
+    IConfig.ListBGHover          = v4{ .22f, .22f, .22f, 1.f };
+    IConfig.ListBGSelected       = v4{ .44f, .44f, .44f, 1.f };
     IConfig.Margin = v2{5, 5};
     State->Interface = ui_InterfaceCreate(Context, IConfig, &State->Permanent);
     

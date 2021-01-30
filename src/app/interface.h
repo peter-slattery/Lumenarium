@@ -315,7 +315,7 @@ struct ui_eval_result
 
 struct interface_config
 {
-    v4 PanelBGColors[4];
+    v4 PanelBG;
     
     // TODO(pjs): Turn these into _Default, _Hot, _Active
     v4 ButtonColor_Inactive, ButtonColor_Active, ButtonColor_Selected;

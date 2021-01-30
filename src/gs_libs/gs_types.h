@@ -1107,6 +1107,9 @@ typedef CLOSE_SOCKET(platform_close_socket);
 #define SOCKET_RECEIVE(name) gs_data name(platform_socket* Socket, gs_memory_arena* Storage)
 typedef SOCKET_RECEIVE(platform_socket_receive);
 
+#define SOCKET_SEND(name) s32 name(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
+typedef SOCKET_SEND(platform_socket_send);
+
 #define SOCKETS_COUNT_MAX 32
 typedef struct platform_socket_manager
 {
@@ -1116,6 +1119,7 @@ typedef struct platform_socket_manager
     platform_create_socket* CreateSocketProc;
     platform_close_socket* CloseSocketProc;
     platform_socket_receive* SocketRecieveProc;
+    platform_socket_send* SocketSendProc;
 } platform_socket_manager;
 #define GS_TYPES_H
 #endif // GS_TYPES_H

@@ -227,6 +227,34 @@ Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
 }
 
 internal s32
+Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
+{
+    SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
+    
+    sockaddr_in SockAddress = {};
+    SockAddress.sin_family = AF_INET;
+    SockAddress.sin_port = HostToNetU16(Port);
+    SockAddress.sin_addr.s_addr = HostToNetU32(Address);
+    
+    s32 LengthSent = sendto(*Win32Sock, (char*)Data.Memory, Data.Size, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
+    
+    if (LengthSent == SOCKET_ERROR)
+    {
+        s32 Error = WSAGetLastError();
+        if (Error == 10051)
+        {
+        }
+        else
+        {
+            // TODO(Peter): :ErrorLogging
+            InvalidCodePath;
+        }
+    }
+    
+    return LengthSent;
+}
+
+internal s32
 Win32Socket_SetOption(win32_socket* Socket, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength)
 {
     int Error = setsockopt(Socket->Socket, Level, Option, OptionValue, OptionLength);
@@ -323,7 +351,18 @@ Win32Socket_Receive(win32_socket* Socket, gs_memory_arena* Storage)
     {
         // TODO(pjs): Error logging
         s32 Error = WSAGetLastError();
-        InvalidCodePath;
+        if (Error == 10053)
+        {
+            // WSAECONNABORTED - aborted by the software
+        }
+        else if (Error == 10093)
+        {
+            // WSANOTINITIALISED
+        }
+        else
+        {
+            InvalidCodePath;
+        }
     }
     Result.Size = BytesReceived;
     return Result;

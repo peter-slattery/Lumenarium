@@ -10,9 +10,13 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
 {
     mic_listen_job_data* Data = (mic_listen_job_data*)UserData;
     
+    gs_data Msg = {};
+    
     while (true)
     {
-        gs_data Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
+#if 0
+        // TODO(pjs): Make this a peek operation
+        Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
         if (Msg.Size > 0)
         {
             OutputDebugStringA("Listened");
@@ -21,6 +25,23 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             {
                 Data->MicPacketBuffer->WriteHead = 0;
             }
+        }
+#endif
+        
+        while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
+        {
+            u32 ReadIndex = Data->OutgoingMsgQueue->ReadHead++;
+            if (Data->OutgoingMsgQueue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+            {
+                Data->OutgoingMsgQueue->ReadHead = 0;
+            }
+            
+            Msg = Data->OutgoingMsgQueue->Buffers[ReadIndex];
+            u32 Address = 0;
+            u32 Port = 0;
+            s32 Flags = 0;
+            SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
+            OutputDebugStringA("Wrote\n");
         }
     }
     
@@ -41,15 +62,13 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
     BLState->MicListenJobData.SocketManager = Context.SocketManager;
     BLState->MicListenJobData.MicPacketBuffer = &BLState->MicPacketBuffer;
+    BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
     
-    
-#if 1
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
-#endif
     
     { // Animation PLAYGROUND
         animation Anim0 = {0};
@@ -122,16 +141,39 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             State->AnimationSystem.ActiveAnimationIndex = 2;
         }
         
-        gs_string TempString = PushStringF(State->Transient, 256, "%.*s", 32, Packet.AnimationFileName);
-        NullTerminate(&TempString);
-        
-        OutputDebugStringA("Received\n");
-        OutputDebugStringA(TempString.Str);
-        
         if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
         {
             BLState->MicPacketBuffer.ReadHead = 0;
         }
+    }
+    
+    if ((BLState->OutgoingMsgQueue.WriteHead >= BLState->OutgoingMsgQueue.ReadHead) ||
+        (BLState->OutgoingMsgQueue.WriteHead < BLState->OutgoingMsgQueue.ReadHead))
+    {
+        u32 WriteIndex = BLState->OutgoingMsgQueue.WriteHead;
+        if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+        {
+            BLState->OutgoingMsgQueue.WriteHead = 0;
+        }
+        
+        gs_data* Msg = BLState->OutgoingMsgQueue.Buffers + WriteIndex;
+        if (Msg->Size == 0)
+        {
+            *Msg = PushSizeToData(&State->Permanent, sizeof(motor_packet));
+        }
+        motor_packet* Packet = (motor_packet*)Msg->Memory;
+        Packet->FlowerPositions[0] = 5;
+        Packet->FlowerPositions[0] = 4;
+        Packet->FlowerPositions[0] = 9;
+        
+        // NOTE(pjs): We increment the write head AFTER we've written so that
+        // the network thread doesn't think the buffer is ready to send before
+        // the data is set. We want to avoid the case of:
+        //     1. Main Thread increments write head to 1
+        //     2. Network Thread thinks theres a new message to send at 0
+        //     3. Network Thread sends the message at 0
+        //     4. Main Thread sets the message at 0
+        BLState->OutgoingMsgQueue.WriteHead += 1;
     }
 }
 

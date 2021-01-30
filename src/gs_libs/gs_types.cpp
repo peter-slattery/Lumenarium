@@ -3364,16 +3364,22 @@ SOCKET_RECEIVE(PlatformSocketRecieve_Stub)
     return {};
 }
 
+SOCKET_SEND(PlatformSocketSend_Stub)
+{
+    return false;
+}
 
 internal platform_socket_manager
 CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
                             platform_close_socket* CloseSocketProc,
-                            platform_socket_receive* SocketRecieveProc)
+                            platform_socket_receive* SocketRecieveProc,
+                            platform_socket_send* SocketSendProc)
 {
     platform_socket_manager Result = {};
     Result.CreateSocketProc = CreateSocketProc;
     Result.CloseSocketProc = CloseSocketProc;
     Result.SocketRecieveProc = SocketRecieveProc;
+    Result.SocketSendProc = SocketSendProc;
     
     if (!CreateSocketProc)
     {
@@ -3386,6 +3392,10 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
     if (!SocketRecieveProc)
     {
         Result.SocketRecieveProc = PlatformSocketRecieve_Stub;
+    }
+    if (!SocketSendProc)
+    {
+        Result.SocketSendProc = PlatformSocketSend_Stub;
     }
     return Result;
 }
@@ -3435,6 +3445,22 @@ SocketRecieve(platform_socket_manager* Manager, platform_socket_handle_ SocketHa
         if (Socket->PlatformHandle != 0)
         {
             Result = Manager->SocketRecieveProc(Socket, Storage);
+        }
+    }
+    return Result;
+}
+
+internal bool
+SocketSend(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, u32 Address, u32 Port, gs_data Data, s32 Flags)
+{
+    bool Result = false;
+    if (Manager->SocketsUsed[SocketHandle.Index])
+    {
+        platform_socket* Socket = &Manager->Sockets[SocketHandle.Index];
+        if (Socket->PlatformHandle != 0)
+        {
+            s32 SizeSent = Manager->SocketSendProc(Socket, Address, Port, Data, Flags);
+            Result = (SizeSent == Data.Size);
         }
     }
     return Result;

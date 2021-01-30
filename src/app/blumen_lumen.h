@@ -24,17 +24,31 @@ struct microphone_packet
 };
 #pragma pack(pop)
 
+#define BLUMEN_MESSAGE_QUEUE_COUNT 32
+typedef struct blumen_network_msg_queue
+{
+    gs_data Buffers[BLUMEN_MESSAGE_QUEUE_COUNT];
+    u32 WriteHead;
+    u32 ReadHead;
+} blumen_network_msg_queue;
+
+// TODO(pjs): Refactor this -> blumen_network_job_state
 struct mic_listen_job_data
 {
     platform_socket_manager* SocketManager;
     packet_ringbuffer* MicPacketBuffer;
     platform_socket_handle_ ListenSocket;
+    
+    blumen_network_msg_queue* OutgoingMsgQueue;
 };
 
 struct blumen_lumen_state
 {
     packet_ringbuffer MicPacketBuffer;
+    blumen_network_msg_queue OutgoingMsgQueue;
+    
     temp_job_req JobReq;
+    
     
     platform_thread_handle MicListenThread;
     mic_listen_job_data MicListenJobData;

@@ -497,7 +497,7 @@ WinMain (
     *Context.ThreadManager = CreatePlatformThreadManager(Win32CreateThread, Win32KillThread);
     
     Context.SocketManager = PushStruct(&PlatformPermanent, platform_socket_manager);
-    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketReceive);
+    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketReceive, Win32SocketSend);
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
@@ -511,6 +511,8 @@ WinMain (
     render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, Win32Realloc);
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
+    
+    Context.InitializeApplication(Context);
     
     Running = true;
     Context.WindowIsVisible = true;
@@ -588,6 +590,7 @@ WinMain (
     Win32SocketSystem_Cleanup();
     
     Win32WorkQueue_Cleanup();
+    Win32_TestCode_SocketReading_Cleanup();
     
     return 0;
 }

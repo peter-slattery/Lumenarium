@@ -35,6 +35,7 @@ Win32_TestCode_UART(gs_thread_context ThreadContext)
 #endif
 
 win32_socket ListenSocket;
+HANDLE ListenThread;
 
 DWORD WINAPI
 Win32_TestCode_ListenThreadProc(LPVOID ThreadData)
@@ -54,7 +55,7 @@ Win32_TestCode_SocketReading(gs_thread_context ThreadContext, temp_job_req* Req)
 {
     ListenSocket = Win32Socket_ConnectToAddress("127.0.0.1", "20185");
     u8* Arg = (u8*)Req;
-    HANDLE Handle = CreateThread(0, 0, &Win32_TestCode_ListenThreadProc, Arg, 0, 0);
+    ListenThread = CreateThread(0, 0, &Win32_TestCode_ListenThreadProc, Arg, 0, 0);
 }
 
 internal void
@@ -72,6 +73,13 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             MicPacketBuffer->WriteHead = 0;
         }
     }
+}
+
+internal void
+Win32_TestCode_SocketReading_Cleanup()
+{
+    TerminateThread(ListenThread, 0);
+    Win32Socket_Close(&ListenSocket);
 }
 
 #define WIN32_TEST_CODE_CPP
