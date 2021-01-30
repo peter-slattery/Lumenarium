@@ -41,6 +41,7 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_serializer.cpp"
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
+#include "engine/user_space.h"
 #include "blumen_lumen.h"
 
 struct app_state
@@ -70,14 +71,14 @@ struct app_state
     panel_system PanelSystem;
     panel* HotPanel;
     
-    // User Space
-    //
-    gs_data UserData;
+    user_space_desc UserSpaceDesc;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "engine/assembly/foldhaus_assembly.cpp"
+
+#include "engine/user_space.cpp"
 
 #include "patterns/blumen_patterns.h"
 #include "blumen_lumen.cpp"

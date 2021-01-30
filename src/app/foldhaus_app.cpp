@@ -8,27 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-internal void
-ClearAndPushPatterns(animation_pattern_array* Patterns)
-{
-    if (Patterns->CountMax == 0) { return; }
-    
-    Patterns->Count = 0;
-    Patterns_PushPattern(Patterns, TestPatternOne);
-    Patterns_PushPattern(Patterns, TestPatternTwo);
-    Patterns_PushPattern(Patterns, TestPatternThree);
-    Patterns_PushPattern(Patterns, Pattern_AllGreen);
-    Patterns_PushPattern(Patterns, Pattern_HueShift);
-    Patterns_PushPattern(Patterns, Pattern_HueFade);
-    Patterns_PushPattern(Patterns, Pattern_Spots);
-    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
-    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
-    Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
-    Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
-    Patterns_PushPattern(Patterns, Pattern_Blue);
-    Patterns_PushPattern(Patterns, Pattern_Green);
-}
-
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     app_state* State = (app_state*)Context.MemoryBase;
@@ -37,7 +16,7 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     State->PanelSystem.PanelDefs = GlobalPanelDefs;
     State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
     
-    ClearAndPushPatterns(&State->Patterns);
+    US_LoadPatterns(&State->UserSpaceDesc, State, Context);
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -53,8 +32,11 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
-    State->Patterns = Patterns_Create(&State->Permanent, 32);
-    ClearAndPushPatterns(&State->Patterns);
+    animation_system_desc AnimSysDesc = {};
+    AnimSysDesc.Storage = &State->Permanent;
+    AnimSysDesc.AnimArrayCount = 32;
+    AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
+    State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
     interface_config IConfig = {0};
     IConfig.FontSize = 14;
@@ -81,25 +63,18 @@ INITIALIZE_APPLICATION(InitializeApplication)
     PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
+    State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
+    
     ReloadStaticData(Context, GlobalDebugServices);
-    
-    animation_system_desc AnimSysDesc = {};
-    AnimSysDesc.Storage = &State->Permanent;
-    AnimSysDesc.AnimArrayCount = 32;
-    AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
-    State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
-    
-    State->UserData = BlumenLumen_CustomInit(State, Context);
-    
-    // TEMP
-    blumen_lumen_state* BLState = (blumen_lumen_state*)State->UserData.Memory;
-    return (temp_job_req*)&BLState->JobReq;
+    US_CustomInit(&State->UserSpaceDesc, State, Context);
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
     app_state* State = (app_state*)Context->MemoryBase;
+    
+    OutputDebugStringA("Test");
     
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
@@ -117,10 +92,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            &State->LedSystem,
                                            State->Patterns,
                                            State->Transient,
-                                           State->UserData.Memory);
+                                           State->UserSpaceDesc.UserData.Memory);
     }
     
-    BlumenLumen_CustomUpdate(State->UserData, State, Context);
+    US_CustomUpdate(&State->UserSpaceDesc, State, Context);
     
     AssemblyDebug_OverrideOutput(State->AssemblyDebugState,
                                  State->Assemblies,

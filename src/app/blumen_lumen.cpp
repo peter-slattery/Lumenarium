@@ -47,6 +47,31 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     CloseSocket(Data->SocketManager, Data->ListenSocket);
 }
 
+internal void
+BlumenLumen_LoadPatterns(app_state* State)
+{
+    animation_pattern_array* Patterns = &State->Patterns;
+    if (Patterns->CountMax == 0)
+    {
+        *Patterns = Patterns_Create(&State->Permanent, 32);
+    }
+    
+    Patterns->Count = 0;
+    Patterns_PushPattern(Patterns, TestPatternOne);
+    Patterns_PushPattern(Patterns, TestPatternTwo);
+    Patterns_PushPattern(Patterns, TestPatternThree);
+    Patterns_PushPattern(Patterns, Pattern_AllGreen);
+    Patterns_PushPattern(Patterns, Pattern_HueShift);
+    Patterns_PushPattern(Patterns, Pattern_HueFade);
+    Patterns_PushPattern(Patterns, Pattern_Spots);
+    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
+    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
+    Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
+    Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
+    Patterns_PushPattern(Patterns, Pattern_Blue);
+    Patterns_PushPattern(Patterns, Pattern_Green);
+}
+
 internal gs_data
 BlumenLumen_CustomInit(app_state* State, context Context)
 {
@@ -176,6 +201,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
 }
 
+internal user_space_desc
+BlumenLumen_UserSpaceCreate()
+{
+    user_space_desc Result = {};
+    Result.LoadPatterns = BlumenLumen_LoadPatterns;
+    Result.CustomInit = BlumenLumen_CustomInit;
+    Result.CustomUpdate = BlumenLumen_CustomUpdate;
+    return Result;
+}
 
 #define BLUMEN_LUMEN_CPP
 #endif // BLUMEN_LUMEN_CPP

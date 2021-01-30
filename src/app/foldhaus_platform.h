@@ -5,9 +5,9 @@
 //
 #ifndef FOLDHAUS_PLATFORM_H
 
+// TODO Remove
+#include <math.h>
 #include <windows.h>
-
-#include <math.h> // TODO Remove
 
 #include "..\gs_libs\gs_types.h"
 #include "..\gs_libs\gs_types.cpp"
@@ -66,7 +66,7 @@ struct packet_ringbuffer
     u32 WriteHead;
 };
 
-#define INITIALIZE_APPLICATION(name) temp_job_req* name(context Context)
+#define INITIALIZE_APPLICATION(name) void name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
 #define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
