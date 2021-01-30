@@ -24,12 +24,20 @@ struct microphone_packet
 };
 #pragma pack(pop)
 
+struct mic_listen_job_data
+{
+    platform_socket_manager* SocketManager;
+    packet_ringbuffer* MicPacketBuffer;
+    platform_socket_handle_ ListenSocket;
+};
+
 struct blumen_lumen_state
 {
     packet_ringbuffer MicPacketBuffer;
     temp_job_req JobReq;
     
     platform_thread_handle MicListenThread;
+    mic_listen_job_data MicListenJobData;
 };
 
 

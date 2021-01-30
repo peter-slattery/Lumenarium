@@ -496,6 +496,9 @@ WinMain (
     Context.ThreadManager = PushStruct(&PlatformPermanent, platform_thread_manager);
     *Context.ThreadManager = CreatePlatformThreadManager(Win32CreateThread, Win32KillThread);
     
+    Context.SocketManager = PushStruct(&PlatformPermanent, platform_socket_manager);
+    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketReceive);
+    
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
     
@@ -508,10 +511,6 @@ WinMain (
     render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, Win32Realloc);
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
-    
-    temp_job_req* Req = Context.InitializeApplication(Context);
-    Req->Proc = BlumenLumen_MicListenJob;
-    Win32_TestCode_SocketReading(ThreadContext, Req);
     
     Running = true;
     Context.WindowIsVisible = true;

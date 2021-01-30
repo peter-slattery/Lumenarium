@@ -131,6 +131,101 @@ Win32Socket_ConnectToAddress(char* Address, char* DefaultPort)
     return Result;
 }
 
+internal bool
+Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
+{
+    bool Result = false;
+    
+    addrinfo Hints = {0};
+    Hints.ai_family = AF_UNSPEC;
+    Hints.ai_socktype = SOCK_STREAM;
+    Hints.ai_protocol = IPPROTO_TCP;
+    
+    addrinfo* PotentialConnections;
+    s32 Error = getaddrinfo(Address, DefaultPort, &Hints, &PotentialConnections);
+    if (Error == 0)
+    {
+        for (addrinfo* InfoAt = PotentialConnections; InfoAt != NULL; InfoAt = InfoAt->ai_next)
+        {
+            SOCKET SocketHandle = socket(InfoAt->ai_family, InfoAt->ai_socktype, InfoAt->ai_protocol);
+            if (SocketHandle == INVALID_SOCKET)
+            {
+                Error = WSAGetLastError();
+                InvalidCodePath;
+            }
+            
+            Error = connect(SocketHandle, InfoAt->ai_addr, (int)InfoAt->ai_addrlen);
+            if (Error == SOCKET_ERROR)
+            {
+                closesocket(SocketHandle);
+                continue;
+            }
+            else
+            {
+                Socket->PlatformHandle = (u8*)Win32Alloc(sizeof(SOCKET), 0);
+                *(SOCKET*)Socket->PlatformHandle = SocketHandle;
+                Result = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        Error = WSAGetLastError();
+        InvalidCodePath;
+    }
+    
+    if (!Result)
+    {
+        Assert(Socket->PlatformHandle == 0);
+    }
+    
+    freeaddrinfo(PotentialConnections);
+    return Result;
+}
+
+internal bool
+Win32CloseSocket(platform_socket* Socket)
+{
+    SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
+    closesocket(*Win32Sock);
+    Win32Free((u8*)Socket->PlatformHandle, sizeof(SOCKET));
+    *Socket = {};
+    return true;
+}
+
+internal gs_data
+Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
+{
+    // TODO(pjs): Test this first code path when you have data running - it should
+    // get the actual size of the data packet being sent
+#if 0
+    gs_data Result = {};
+    s32 BytesQueued = Win32Socket_PeekGetTotalSize(Socket);
+    if (BytesQueued > 0)
+    {
+        Result = PushSizeToData(Storage, BytesQueued);
+        s32 Flags = 0;
+        s32 BytesReceived = recv(Socket->Socket, (char*)Result.Memory, Result.Size, Flags);
+        Assert(BytesReceived == BytesQueued);
+    }
+    return Result;
+#else
+    gs_data Result = PushSizeToData(Storage, 1024);
+    s32 Flags = 0;
+    SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
+    s32 BytesReceived = recv(*Win32Sock, (char*)Result.Memory, Result.Size, Flags);
+    if (BytesReceived == SOCKET_ERROR)
+    {
+        // TODO(pjs): Error logging
+        s32 Error = WSAGetLastError();
+        InvalidCodePath;
+    }
+    Result.Size = BytesReceived;
+    return Result;
+#endif
+}
+
 internal s32
 Win32Socket_SetOption(win32_socket* Socket, s32 Level, s32 Option, const char* OptionValue, s32 OptionLength)
 {

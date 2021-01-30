@@ -1086,5 +1086,36 @@ struct gs_work_queue
     complete_queue_work* CompleteQueueWork;
 };
 
+// Sockets
+
+typedef struct platform_socket_handle_
+{
+    u32 Index;
+} platform_socket_handle_;
+
+typedef struct platform_socket
+{
+    u8* PlatformHandle;
+} platform_socket;
+
+#define CREATE_SOCKET(name) bool name(platform_socket* Socket, char* Addr, char* DefaultPort)
+typedef CREATE_SOCKET(platform_create_socket);
+
+#define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
+typedef CLOSE_SOCKET(platform_close_socket);
+
+#define SOCKET_RECEIVE(name) gs_data name(platform_socket* Socket, gs_memory_arena* Storage)
+typedef SOCKET_RECEIVE(platform_socket_receive);
+
+#define SOCKETS_COUNT_MAX 32
+typedef struct platform_socket_manager
+{
+    b8 SocketsUsed[SOCKETS_COUNT_MAX];
+    platform_socket Sockets[SOCKETS_COUNT_MAX];
+    
+    platform_create_socket* CreateSocketProc;
+    platform_close_socket* CloseSocketProc;
+    platform_socket_receive* SocketRecieveProc;
+} platform_socket_manager;
 #define GS_TYPES_H
 #endif // GS_TYPES_H

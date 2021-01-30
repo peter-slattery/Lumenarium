@@ -207,6 +207,7 @@ struct context
     cleanup_application* CleanupApplication;
     
     platform_thread_manager* ThreadManager;
+    platform_socket_manager* SocketManager;
     
     // Platform Services
     gs_work_queue* GeneralWorkQueue;

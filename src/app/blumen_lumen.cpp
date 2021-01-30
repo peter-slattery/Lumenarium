@@ -8,27 +8,23 @@
 internal void
 BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
 {
-    packet_ringbuffer* MicPacketBuffer = (packet_ringbuffer*)UserData;
-    
-#if 0
-    platform_socket* ListenSocket = CreateSocketAndConnect(Ctx->SocketManager, "127.0.0.1", "20185");
+    mic_listen_job_data* Data = (mic_listen_job_data*)UserData;
     
     while (true)
     {
-        gs_data Data = SocketReceive(Ctx->SocketManager, &ListenSocket, Ctx->Transient);
-        if (Data.Size > 0)
+        gs_data Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
+        if (Msg.Size > 0)
         {
             OutputDebugStringA("Listened");
-            MicPacketBuffer->Values[MicPacketBuffer->WriteHead++] = Data;
-            if (MicPacketBuffer->WriteHead >= PACKETS_MAX)
+            Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
+            if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
             {
-                MicPacketBuffer->WriteHead = 0;
+                Data->MicPacketBuffer->WriteHead = 0;
             }
         }
     }
     
-    CloseSocket(Ctx->SocketManager, ListenSocket);
-#endif
+    CloseSocket(Data->SocketManager, Data->ListenSocket);
 }
 
 internal gs_data
@@ -43,7 +39,11 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     Result = PushSizeToData(&State->Permanent, sizeof(blumen_lumen_state));
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
-    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicPacketBuffer);
+    BLState->MicListenJobData.SocketManager = Context.SocketManager;
+    BLState->MicListenJobData.MicPacketBuffer = &BLState->MicPacketBuffer;
+    BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
+    
+    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
     
     
 #if 1

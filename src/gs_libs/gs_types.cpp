@@ -3345,6 +3345,101 @@ KillThread(platform_thread_manager* Manager, platform_thread_handle Handle)
 }
 
 
+//////////////////////////
+//
+// Socket Manager
+
+CREATE_SOCKET(PlatformCreateSocket_Stub)
+{
+    return false;
+}
+
+CLOSE_SOCKET(PlatformCloseSocket_Stub)
+{
+    return false;
+}
+
+SOCKET_RECEIVE(PlatformSocketRecieve_Stub)
+{
+    return {};
+}
+
+
+internal platform_socket_manager
+CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
+                            platform_close_socket* CloseSocketProc,
+                            platform_socket_receive* SocketRecieveProc)
+{
+    platform_socket_manager Result = {};
+    Result.CreateSocketProc = CreateSocketProc;
+    Result.CloseSocketProc = CloseSocketProc;
+    Result.SocketRecieveProc = SocketRecieveProc;
+    
+    if (!CreateSocketProc)
+    {
+        Result.CreateSocketProc = PlatformCreateSocket_Stub;
+    }
+    if (!CloseSocketProc)
+    {
+        Result.CloseSocketProc = PlatformCloseSocket_Stub;
+    }
+    if (!SocketRecieveProc)
+    {
+        Result.SocketRecieveProc = PlatformSocketRecieve_Stub;
+    }
+    return Result;
+}
+
+internal platform_socket_handle_
+CreateSocket(platform_socket_manager* Manager, char* Addr, char* Port)
+{
+    platform_socket_handle_ Result = {};
+    for (u32 i = 1; i < SOCKETS_COUNT_MAX; i++)
+    {
+        if (!Manager->SocketsUsed[i])
+        {
+            Result.Index = i;
+            Manager->SocketsUsed[i] = true;
+            break;
+        }
+    }
+    
+    Assert(Result.Index != 0);
+    platform_socket* Socket = &Manager->Sockets[Result.Index];
+    Manager->CreateSocketProc(Socket, Addr, Port);
+    
+    return Result;
+}
+
+internal bool
+CloseSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    bool Result = false;
+    platform_socket* Socket = &Manager->Sockets[Handle.Index];
+    if (Manager->CloseSocketProc(Socket))
+    {
+        Manager->SocketsUsed[Handle.Index] = false;
+        *Socket = {};
+        Result = true;
+    }
+    return Result;
+}
+
+internal gs_data
+SocketRecieve(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, gs_memory_arena* Storage)
+{
+    gs_data Result = {};
+    if (Manager->SocketsUsed[SocketHandle.Index])
+    {
+        platform_socket* Socket = &Manager->Sockets[SocketHandle.Index];
+        if (Socket->PlatformHandle != 0)
+        {
+            Result = Manager->SocketRecieveProc(Socket, Storage);
+        }
+    }
+    return Result;
+}
+
 ///////////////////////////
 //
 // Hashes
