@@ -151,10 +151,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         (BLState->OutgoingMsgQueue.WriteHead < BLState->OutgoingMsgQueue.ReadHead))
     {
         u32 WriteIndex = BLState->OutgoingMsgQueue.WriteHead;
-        if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
-        {
-            BLState->OutgoingMsgQueue.WriteHead = 0;
-        }
         
         gs_data* Msg = BLState->OutgoingMsgQueue.Buffers + WriteIndex;
         if (Msg->Size == 0)
@@ -174,6 +170,10 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         //     3. Network Thread sends the message at 0
         //     4. Main Thread sets the message at 0
         BLState->OutgoingMsgQueue.WriteHead += 1;
+        if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+        {
+            BLState->OutgoingMsgQueue.WriteHead = 0;
+        }
     }
 }
 
