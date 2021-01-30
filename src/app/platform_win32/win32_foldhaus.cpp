@@ -497,7 +497,7 @@ WinMain (
     *Context.ThreadManager = CreatePlatformThreadManager(Win32CreateThread, Win32KillThread);
     
     Context.SocketManager = PushStruct(&PlatformPermanent, platform_socket_manager);
-    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketReceive, Win32SocketSend);
+    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketPeek, Win32SocketReceive, Win32SocketSend);
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }

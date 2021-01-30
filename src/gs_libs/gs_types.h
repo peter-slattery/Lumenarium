@@ -1104,6 +1104,13 @@ typedef CREATE_SOCKET(platform_create_socket);
 #define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
 typedef CLOSE_SOCKET(platform_close_socket);
 
+#define SOCKET_PEEK(name) u32 name(platform_socket* Socket)
+typedef SOCKET_PEEK(platform_socket_peek);
+
+// TODO(pjs): allow for a size parameter that can be zero
+// if provided, that is how big the message it expects to be
+// if it equals zero, the proc will peek at the message first to determine
+//    the needed size
 #define SOCKET_RECEIVE(name) gs_data name(platform_socket* Socket, gs_memory_arena* Storage)
 typedef SOCKET_RECEIVE(platform_socket_receive);
 
@@ -1118,8 +1125,10 @@ typedef struct platform_socket_manager
     
     platform_create_socket* CreateSocketProc;
     platform_close_socket* CloseSocketProc;
+    platform_socket_peek* SocketPeekProc;
     platform_socket_receive* SocketRecieveProc;
     platform_socket_send* SocketSendProc;
 } platform_socket_manager;
+
 #define GS_TYPES_H
 #endif // GS_TYPES_H

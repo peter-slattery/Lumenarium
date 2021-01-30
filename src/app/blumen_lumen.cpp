@@ -14,19 +14,19 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     
     while (true)
     {
-#if 0
-        // TODO(pjs): Make this a peek operation
-        Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
-        if (Msg.Size > 0)
+        if (SocketPeek(Data->SocketManager, Data->ListenSocket))
         {
-            OutputDebugStringA("Listened");
-            Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
-            if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
+            // TODO(pjs): Make this a peek operation
+            Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
+            if (Msg.Size > 0)
             {
-                Data->MicPacketBuffer->WriteHead = 0;
+                Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
+                if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
+                {
+                    Data->MicPacketBuffer->WriteHead = 0;
+                }
             }
         }
-#endif
         
         while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
         {
@@ -41,7 +41,6 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             u32 Port = 0;
             s32 Flags = 0;
             SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
-            OutputDebugStringA("Wrote\n");
         }
     }
     

@@ -3359,6 +3359,11 @@ CLOSE_SOCKET(PlatformCloseSocket_Stub)
     return false;
 }
 
+SOCKET_PEEK(PlatformSocketPeek_Stub)
+{
+    return 0;
+}
+
 SOCKET_RECEIVE(PlatformSocketRecieve_Stub)
 {
     return {};
@@ -3372,12 +3377,14 @@ SOCKET_SEND(PlatformSocketSend_Stub)
 internal platform_socket_manager
 CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
                             platform_close_socket* CloseSocketProc,
+                            platform_socket_peek* SocketPeekProc,
                             platform_socket_receive* SocketRecieveProc,
                             platform_socket_send* SocketSendProc)
 {
     platform_socket_manager Result = {};
     Result.CreateSocketProc = CreateSocketProc;
     Result.CloseSocketProc = CloseSocketProc;
+    Result.SocketPeekProc = SocketPeekProc;
     Result.SocketRecieveProc = SocketRecieveProc;
     Result.SocketSendProc = SocketSendProc;
     
@@ -3388,6 +3395,10 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
     if (!CloseSocketProc)
     {
         Result.CloseSocketProc = PlatformCloseSocket_Stub;
+    }
+    if (!SocketPeekProc)
+    {
+        Result.SocketPeekProc = PlatformSocketPeek_Stub;
     }
     if (!SocketRecieveProc)
     {
@@ -3421,16 +3432,46 @@ CreateSocket(platform_socket_manager* Manager, char* Addr, char* Port)
     return Result;
 }
 
+internal platform_socket*
+SocketManagerGetSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    platform_socket* Result = 0;
+    if (Manager->SocketsUsed[Handle.Index])
+    {
+        platform_socket* Socket = &Manager->Sockets[Handle.Index];
+        if (Socket->PlatformHandle != 0)
+        {
+            Result = Socket;
+        }
+    }
+    return Result;
+}
+
 internal bool
 CloseSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
 {
     bool Result = false;
-    platform_socket* Socket = &Manager->Sockets[Handle.Index];
-    if (Manager->CloseSocketProc(Socket))
+    platform_socket* Socket = SocketManagerGetSocket(Manager, Handle);
+    if (Socket)
     {
-        Manager->SocketsUsed[Handle.Index] = false;
-        *Socket = {};
-        Result = true;
+        if (Manager->CloseSocketProc(Socket))
+        {
+            Manager->SocketsUsed[Handle.Index] = false;
+            *Socket = {};
+            Result = true;
+        }
+    }
+    return Result;
+}
+
+internal u32
+SocketPeek(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle)
+{
+    u32 Result = 0;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        Result = Manager->SocketPeekProc(Socket);
     }
     return Result;
 }
@@ -3439,13 +3480,10 @@ internal gs_data
 SocketRecieve(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, gs_memory_arena* Storage)
 {
     gs_data Result = {};
-    if (Manager->SocketsUsed[SocketHandle.Index])
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
     {
-        platform_socket* Socket = &Manager->Sockets[SocketHandle.Index];
-        if (Socket->PlatformHandle != 0)
-        {
-            Result = Manager->SocketRecieveProc(Socket, Storage);
-        }
+        Result = Manager->SocketRecieveProc(Socket, Storage);
     }
     return Result;
 }
@@ -3454,14 +3492,11 @@ internal bool
 SocketSend(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, u32 Address, u32 Port, gs_data Data, s32 Flags)
 {
     bool Result = false;
-    if (Manager->SocketsUsed[SocketHandle.Index])
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
     {
-        platform_socket* Socket = &Manager->Sockets[SocketHandle.Index];
-        if (Socket->PlatformHandle != 0)
-        {
-            s32 SizeSent = Manager->SocketSendProc(Socket, Address, Port, Data, Flags);
-            Result = (SizeSent == Data.Size);
-        }
+        s32 SizeSent = Manager->SocketSendProc(Socket, Address, Port, Data, Flags);
+        Result = (SizeSent == Data.Size);
     }
     return Result;
 }

@@ -194,6 +194,29 @@ Win32CloseSocket(platform_socket* Socket)
     return true;
 }
 
+internal u32
+Win32SocketPeek(platform_socket* Socket)
+{
+    u32 Result = 0;
+    s32 Flags = MSG_PEEK;
+    SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
+    char Temp[4];
+    u32 TempSize = 4;
+    
+    s32 BytesQueued = recv(*Win32Sock, Temp, TempSize, Flags);
+    if (BytesQueued != SOCKET_ERROR)
+    {
+        Result = (u32)BytesQueued;
+    }
+    else
+    {
+        // TODO(pjs): Error handling
+        s32 Error = WSAGetLastError();
+        InvalidCodePath;
+    }
+    return Result;
+}
+
 internal gs_data
 Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
 {
@@ -211,6 +234,8 @@ Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
     }
     return Result;
 #else
+    
+    
     gs_data Result = PushSizeToData(Storage, 1024);
     s32 Flags = 0;
     SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
