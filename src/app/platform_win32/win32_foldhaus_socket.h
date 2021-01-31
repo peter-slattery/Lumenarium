@@ -234,8 +234,6 @@ Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
     }
     return Result;
 #else
-    
-    
     gs_data Result = PushSizeToData(Storage, 1024);
     s32 Flags = 0;
     SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
@@ -268,6 +266,11 @@ Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s3
         s32 Error = WSAGetLastError();
         if (Error == 10051)
         {
+        }
+        if (Error == 10053)
+        {
+            // TODO(pjs): WSAECONNABORTED
+            InvalidCodePath;
         }
         else
         {

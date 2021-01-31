@@ -6,7 +6,8 @@
 #ifndef BLUMEN_PATTERNS_H
 
 #define FLOWER_COLORS_COUNT 12
-pixel FlowerColors[FLOWER_COLORS_COUNT] = {
+
+pixel FlowerAColors[FLOWER_COLORS_COUNT] = {
     { 232,219,88 },
     { 232,219,88 },
     { 232,219,88 },
@@ -19,6 +20,34 @@ pixel FlowerColors[FLOWER_COLORS_COUNT] = {
     { 226,200,17 },
     { 116,126,39 },
     { 61,62,31 }
+};
+pixel FlowerBColors[FLOWER_COLORS_COUNT] = {
+    { 62,56,139 },
+    { 93,87,164 },
+    { 93,87,164 },
+    { 93,87,164 },
+    { 155,140,184 },
+    { 191,201,204 },
+    { 45,31,116 },
+    { 201,196,156 },
+    { 191,175,109 },
+    { 186,176,107 },
+    { 89,77,17 },
+    { 47,49,18 },
+};
+pixel FlowerCColors[FLOWER_COLORS_COUNT] = {
+    { 220,217,210 },
+    { 220,217,210 },
+    { 220,217,210 },
+    { 225,193,110 },
+    { 225,193,110 },
+    { 227,221,214 },
+    { 227,221,214 },
+    { 230,218,187 },
+    { 230,218,187 },
+    { 172,190,211 },
+    { 172,190,211 },
+    { 172,190,211 },
 };
 
 internal pixel
@@ -80,8 +109,8 @@ Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
     r32 CycleTime = 10;
     r32 CyclePercent = ModR32(Time, CycleTime) / CycleTime;
     
-    pixel CA = GetColor(FlowerColors, FLOWER_COLORS_COUNT, CyclePercent);
-    pixel CB = GetColor(FlowerColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
+    pixel CA = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, CyclePercent);
+    pixel CB = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
     
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
@@ -209,6 +238,54 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
         Leds->Colors[LedIndex].B = Green;
         Leds->Colors[LedIndex].G = Green;
     }
+}
+
+v4 RGBToHSV(v4 In)
+{
+    v4 Result = {};
+    
+    r32 Min = Min(In.r, Min(In.g, In.b));
+    r32 Max = Max(In.r, Max(In.g, In.b));
+    
+    
+    r32 V = Max;
+    r32 Delta = Max - Min;
+    r32 S = 0;
+    r32 H = 0;
+    if( Max != 0 )
+    {
+        S = Delta / Max;
+        
+        if( In.r == Max )
+        {
+            H = ( In.g - In.b ) / Delta;      // between yellow & magenta
+        }
+        else if( In.g == Max )
+        {
+            H = 2 + ( In.b - In.r ) / Delta;  // between cyan & yellow
+        }
+        else
+        {
+            H = 4 + ( In.r - In.g ) / Delta;  // between magenta & cyan
+        }
+        H *= 60;                // degrees
+        if( H < 0 )
+            H += 360;
+        Assert(H);
+        //if ( isNaN(h) )
+        //H = 0;
+        Result = v4{H, S, V, 1};
+    }
+    else
+    {
+        // r = g = b = 0
+        // s = 0, v is undefined
+        S = 0;
+        H = -1;
+        Result = v4{H, S, 1, 1};
+    }
+    
+    return Result;
 }
 
 v4 HSVToRGB (v4 In)
@@ -551,6 +628,9 @@ Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_mem
     {
         v2_strip Strip = Assembly.Strips[StripIndex];
         
+#if 0
+        // All flowers same flower type
+        pixel* Colors = &FlowerAColors[0];
         r32 FlowerSpread = .8f;
         r32 FlowerOffset = 0;
         if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
@@ -562,13 +642,22 @@ Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_mem
             FlowerOffset = 2;
         }
         FlowerOffset *= FlowerSpread;
-        
+#else
+        // Each flower different
+        pixel* Colors = &FlowerAColors[0];
+        r32 FlowerOffset = 0;
+        if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
+        {
+            Colors = &FlowerBColors[0];
+        }
+        else if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "right"))
+        {
+            Colors = &FlowerCColors[0];
+        }
+#endif
         r32 PercentCycle = ModR32(Time + FlowerOffset, 10) / 10;
         
         r32 FadeBottom = FadeBottomBase + RemapR32(SinR32((PercentCycle * 4) * TauR32), -1, 1, -50, 50);
-        
-        v4 TopRGB = WhiteV4;
-        pixel TopColor = V4ToRGBPixel(TopRGB);
         
         for (u32 i = 0; i < Strip.LedCount; i++)
         {
@@ -576,32 +665,63 @@ Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_mem
             v4 P = Leds->Positions[LedIndex];
             
             pixel FinalColor = {};
-            if (P.y > FadeTop)
-            {
-                FinalColor = TopColor;
-            }
-            else
-            {
-                r32 B = RemapR32(SinR32((P.y / 15.f) + (PercentCycle * TauR32)), -1, 1, .5f, 1.f);
-                r32 HNoise = RemapR32(SinR32((P.y / 31.f) + (PercentCycle * TauR32)), -1, 1, 0.f, 1.f);
-                
-                pixel BottomColor = GetColor(FlowerColors, FLOWER_COLORS_COUNT, (PercentCycle + HNoise) / 2);
-                
-                if (P.y < FadeBottom)
-                {
-                    FinalColor = BottomColor;
-                }
-                else if (P.y >= FadeBottom && P.y <= FadeTop)
-                {
-                    r32 FadePct = RemapR32(P.y, FadeBottom, FadeTop, 0, 1);
-                    FinalColor = PixelMix(FadePct, BottomColor, TopColor);
-                }
-            }
+            r32 B = RemapR32(SinR32((P.y / 15.f) + (PercentCycle * TauR32)), -1, 1, .5f, 1.f);
+            r32 HNoise = RemapR32(SinR32((P.y / 31.f) + (PercentCycle * TauR32)), -1, 1, 0.f, 1.f);
+            
+            pixel BottomColor = GetColor(Colors, FLOWER_COLORS_COUNT, (PercentCycle + HNoise) / 2);
+            
+            FinalColor = BottomColor;
             
             Leds->Colors[LedIndex] = FinalColor;
         }
     }
 }
 
+r32 TLastFrame = 0;
+pixel* FAC = &FlowerAColors[0];
+pixel* FBC = &FlowerBColors[0];
+pixel* FCC = &FlowerCColors[0];
+
+internal void
+Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    if (TLastFrame > Time)
+    {
+        pixel* Temp = FAC;
+        FAC = FBC;
+        FBC = FCC;
+        FCC = Temp;
+    }
+    TLastFrame = Time;
+    
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        
+        // Each flower different
+        pixel* Colors = FAC;
+        if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
+        {
+            Colors = FBC;
+        }
+        else if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "right"))
+        {
+            Colors = FCC;
+        }
+        
+        r32 CycleT = ModR32(Time, 10) * 20;
+        
+        for (u32 i = 0; i < Strip.LedCount; i++)
+        {
+            u32 LedIndex = Strip.LedLUT[i];
+            v4 P = Leds->Positions[LedIndex];
+            
+            r32 T = ModR32(P.y + CycleT, 200) / 200.f;
+            T = Clamp01(T);
+            
+            Leds->Colors[LedIndex] = GetColor(Colors, FLOWER_COLORS_COUNT, T);
+        }
+    }
+}
 #define BLUMEN_PATTERNS_H
 #endif // BLUMEN_PATTERNS_H

@@ -12,8 +12,19 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     
     gs_data Msg = {};
     
+    u8 WeathermanIPAddr[4] = {};
+    WeathermanIPAddr[0] = 127;
+    WeathermanIPAddr[1] = 0;
+    WeathermanIPAddr[2] = 0;
+    WeathermanIPAddr[3] = 1;
+    
+    u32 WeathermanIPV4 = (u32)UpackB4(WeathermanIPAddr);
+    u32 WeathermanPort = 20185;
+    
     while (true)
     {
+#if 0
+        // TODO(pjs): Removing this block for now - nothing is wrong with it except that SocketPeek is still blocking for some reason
         if (SocketPeek(Data->SocketManager, Data->ListenSocket))
         {
             // TODO(pjs): Make this a peek operation
@@ -27,6 +38,7 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                 }
             }
         }
+#endif
         
         while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
         {
@@ -37,8 +49,8 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             }
             
             Msg = Data->OutgoingMsgQueue->Buffers[ReadIndex];
-            u32 Address = 0;
-            u32 Port = 0;
+            u32 Address = WeathermanIPV4;
+            u32 Port = WeathermanPort;
             s32 Flags = 0;
             SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
         }
@@ -72,6 +84,20 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_Green);
     Patterns_PushPattern(Patterns, Pattern_FlowerColors);
     Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
+    Patterns_PushPattern(Patterns, Pattern_BasicFlowers);
+}
+
+internal pixel
+TEMP_Saturate(pixel P)
+{
+    v4 CRGB = v4{ (r32)P.R / 255.f, (r32)P.G / 255.f, (r32)P.B / 255.f, 1.f };
+    v4 CHSV = RGBToHSV(CRGB);
+    if (CHSV.g > .3f)
+    {
+        CHSV.g = 1;
+        CRGB = HSVToRGB(CHSV);
+    }
+    return V4ToRGBPixel(CRGB);
 }
 
 internal gs_data
@@ -91,7 +117,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
-    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
+    //BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
     
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
@@ -105,7 +131,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim0.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(11), 0);
+        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(15), 0);
         
         AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
@@ -136,8 +162,17 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
     
+    for (u32 i = 0; i < FLOWER_COLORS_COUNT; i++)
+    {
+        FlowerAColors[i] = TEMP_Saturate(FlowerAColors[i]);
+        FlowerBColors[i] = TEMP_Saturate(FlowerBColors[i]);
+        FlowerCColors[i] = TEMP_Saturate(FlowerCColors[i]);
+    }
+    
     return Result;
 }
+
+u8 temp = 0;
 
 internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
@@ -184,9 +219,10 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             *Msg = PushSizeToData(&State->Permanent, sizeof(motor_packet));
         }
         motor_packet* Packet = (motor_packet*)Msg->Memory;
-        Packet->FlowerPositions[0] = 5;
-        Packet->FlowerPositions[0] = 4;
-        Packet->FlowerPositions[0] = 9;
+        Packet->FlowerPositions[0] = temp;
+        Packet->FlowerPositions[1] = temp + 1;
+        Packet->FlowerPositions[2] = temp + 2;
+        temp++;
         
         // NOTE(pjs): We increment the write head AFTER we've written so that
         // the network thread doesn't think the buffer is ready to send before
