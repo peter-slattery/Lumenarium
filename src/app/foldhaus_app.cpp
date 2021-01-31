@@ -74,8 +74,6 @@ UPDATE_AND_RENDER(UpdateAndRender)
     DEBUG_TRACK_FUNCTION;
     app_state* State = (app_state*)Context->MemoryBase;
     
-    OutputDebugStringA("Test");
-    
     // NOTE(Peter): We do this at the beginning because all the render commands are stored in Transient,
     // and need to persist beyond the end of the UpdateAndRender call. In the release version, we won't
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically

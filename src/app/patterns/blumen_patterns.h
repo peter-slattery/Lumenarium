@@ -5,6 +5,52 @@
 //
 #ifndef BLUMEN_PATTERNS_H
 
+#define FLOWER_COLORS_COUNT 12
+pixel FlowerColors[FLOWER_COLORS_COUNT] = {
+    { 232,219,88 },
+    { 232,219,88 },
+    { 232,219,88 },
+    { 147,75,176 },
+    { 193,187,197 },
+    { 223,190,49 },
+    { 198,76,65 },
+    { 198,76,65 },
+    { 198,76,65 },
+    { 226,200,17 },
+    { 116,126,39 },
+    { 61,62,31 }
+};
+
+internal pixel
+PixelMix(r32 T, pixel A, pixel B)
+{
+    pixel Result = {
+        LerpU8(T, A.R, B.R),
+        LerpU8(T, A.G, B.G),
+        LerpU8(T, A.B, B.B),
+    };
+    return Result;
+}
+
+internal pixel
+GetColor(pixel* Colors, u32 ColorsCount, r32 Percent)
+{
+    Percent = Clamp01(Percent);
+    
+    u32 LowerIndex = Percent * ColorsCount;
+    
+    u32 HigherIndex = LowerIndex + 1;
+    if (HigherIndex >= ColorsCount) HigherIndex = 0;
+    
+    r32 LowerPercent = (r32)LowerIndex / (r32)ColorsCount;
+    r32 StepPercent = 1.f / (r32)ColorsCount;
+    r32 PercentLower = (Percent - LowerPercent) / StepPercent;
+    
+    pixel Result = PixelMix(PercentLower, Colors[LowerIndex], Colors[HigherIndex]);
+    
+    return Result;
+}
+
 internal void
 SolidColorPattern(led_buffer* Leds, pixel Color)
 {
@@ -26,6 +72,25 @@ Pattern_Green(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
 {
     pixel Green = pixel{0, 255, 0};
     SolidColorPattern(Leds, Green);
+}
+
+internal void
+Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    r32 CycleTime = 10;
+    r32 CyclePercent = ModR32(Time, CycleTime) / CycleTime;
+    
+    pixel CA = GetColor(FlowerColors, FLOWER_COLORS_COUNT, CyclePercent);
+    pixel CB = GetColor(FlowerColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
+    
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 Pct = (Abs(ModR32(P.y, 150) / 150) + CycleTime) * PiR32;
+        
+        r32 APct = RemapR32(SinR32(Pct), -1, 1, 0, 1);
+        Leds->Colors[LedIndex] = PixelMix(APct, CA, CB);
+    }
 }
 
 internal void
@@ -468,6 +533,68 @@ Pattern_ColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
                     r32 FadePct = RemapR32(P.y, FadeBottom, FadeTop, 0, 1);
                     v4 MixRGB = V4Lerp(FadePct, BottomRGB, TopRGB);
                     FinalColor = V4ToRGBPixel(MixRGB);
+                }
+            }
+            
+            Leds->Colors[LedIndex] = FinalColor;
+        }
+    }
+}
+
+internal void
+Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    r32 FadeBottomBase = 50;
+    r32 FadeTop = 125;
+    
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        
+        r32 FlowerSpread = .8f;
+        r32 FlowerOffset = 0;
+        if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
+        {
+            FlowerOffset = 1;
+        }
+        else if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "right"))
+        {
+            FlowerOffset = 2;
+        }
+        FlowerOffset *= FlowerSpread;
+        
+        r32 PercentCycle = ModR32(Time + FlowerOffset, 10) / 10;
+        
+        r32 FadeBottom = FadeBottomBase + RemapR32(SinR32((PercentCycle * 4) * TauR32), -1, 1, -50, 50);
+        
+        v4 TopRGB = WhiteV4;
+        pixel TopColor = V4ToRGBPixel(TopRGB);
+        
+        for (u32 i = 0; i < Strip.LedCount; i++)
+        {
+            u32 LedIndex = Strip.LedLUT[i];
+            v4 P = Leds->Positions[LedIndex];
+            
+            pixel FinalColor = {};
+            if (P.y > FadeTop)
+            {
+                FinalColor = TopColor;
+            }
+            else
+            {
+                r32 B = RemapR32(SinR32((P.y / 15.f) + (PercentCycle * TauR32)), -1, 1, .5f, 1.f);
+                r32 HNoise = RemapR32(SinR32((P.y / 31.f) + (PercentCycle * TauR32)), -1, 1, 0.f, 1.f);
+                
+                pixel BottomColor = GetColor(FlowerColors, FLOWER_COLORS_COUNT, (PercentCycle + HNoise) / 2);
+                
+                if (P.y < FadeBottom)
+                {
+                    FinalColor = BottomColor;
+                }
+                else if (P.y >= FadeBottom && P.y <= FadeTop)
+                {
+                    r32 FadePct = RemapR32(P.y, FadeBottom, FadeTop, 0, 1);
+                    FinalColor = PixelMix(FadePct, BottomColor, TopColor);
                 }
             }
             

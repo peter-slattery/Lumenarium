@@ -70,6 +70,8 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
     Patterns_PushPattern(Patterns, Pattern_Blue);
     Patterns_PushPattern(Patterns, Pattern_Green);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColors);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
 }
 
 internal gs_data
