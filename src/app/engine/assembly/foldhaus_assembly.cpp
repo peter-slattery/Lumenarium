@@ -208,7 +208,8 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         assembly* NewAssembly = AssemblyArray_Take(Assemblies);
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
         
-        if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
+        parser AssemblyParser = ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch);
+        if (AssemblyParser.Success)
         {
             ConstructAssemblyFromDefinition(NewAssembly, LedSystem);
         }
@@ -217,6 +218,14 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
             FreeMemoryArena(&NewAssembly->Arena);
             Assemblies->Count -= 1;
         }
+        
+        for (parser_error* ErrorAt = AssemblyParser.ErrorsRoot;
+             ErrorAt != 0;
+             ErrorAt = ErrorAt->Next)
+        {
+            OutputDebugString(ErrorAt->Message.Str);
+        }
+        
     }
     else
     {

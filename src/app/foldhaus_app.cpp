@@ -56,6 +56,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
     State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
+    State->AssemblyDebugState.Override = ADS_Override_AllRed;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
@@ -99,14 +100,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                  State->Assemblies,
                                  State->LedSystem);
     
+    Editor_Render(State, Context, RenderBuffer);
+    
     // NOTE(pjs): Building data buffers to be sent out to the sculpture
     // This array is used on the platform side to actually send the information
     assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
     assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
     SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
     UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
-    
-    Editor_Render(State, Context, RenderBuffer);
 }
 
 CLEANUP_APPLICATION(CleanupApplication)

@@ -99,7 +99,7 @@ typedef struct
     u32* BloomInnerChannels;
 } flower_desc;
 
-internal void
+internal u32
 BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
 {
     
@@ -149,6 +149,11 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
     BuildLoop(OutputBuffer, FlowerStem);
 #endif
     
+    u32 StripsCount = BloomStemInner.SegmentsCount;
+    StripsCount += BloomStemOuter.SegmentsCount;
+    StripsCount += FlowerStem.SegmentsCount;
+    
+    return StripsCount;
 }
 
 // Just for brevity, no real function provided
@@ -176,8 +181,10 @@ int main(int ArgCount, char** Args)
                           "Blumen Lumen - Silver Spring",
                           100,
                           v3{0, 0, 0},
-                          69,
+                          63,
                           "");
+    
+    u32 StripCount = 0;
     
     u32 StemChannels[] = { FSC(2, 1), FSC(2, 2), FSC(2, 3), FSC(2, 4), FSC(2, 5), FSC(2, 6) };
     u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 0) };
@@ -189,7 +196,7 @@ int main(int ArgCount, char** Args)
     F0.StemChannels = StemChannels;
     F0.BloomOuterChannels = BloomOuterChannels;
     F0.BloomInnerChannels = BloomInnerChannels;
-    BuildFlower(&OutputBuffer, F0);
+    StripCount += BuildFlower(&OutputBuffer, F0);
     
     flower_desc F1 = {};
     F1.Pos = v3{0, 0, 0};
@@ -198,7 +205,7 @@ int main(int ArgCount, char** Args)
     F1.StemChannels = StemChannels;
     F1.BloomInnerChannels = BloomInnerChannels;
     F1.BloomOuterChannels = BloomOuterChannels;
-    BuildFlower(&OutputBuffer, F1);
+    StripCount += BuildFlower(&OutputBuffer, F1);
     
     flower_desc F2 = {};
     F2.Pos = v3{1, 0, 0};
@@ -207,9 +214,10 @@ int main(int ArgCount, char** Args)
     F2.StemChannels = StemChannels;
     F2.BloomInnerChannels = BloomInnerChannels;
     F2.BloomOuterChannels = BloomOuterChannels;
-    BuildFlower(&OutputBuffer, F2);
+    StripCount += BuildFlower(&OutputBuffer, F2);
     
-    printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
+    //printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
+    printf("%d\n", StripCount);
     
     return 0;
 }

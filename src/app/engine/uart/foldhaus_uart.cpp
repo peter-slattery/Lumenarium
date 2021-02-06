@@ -6,7 +6,7 @@
 #ifndef FOLDHAUS_UART_CPP
 
 
-internal void
+internal uart_header*
 UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel ChannelSettings, v2_strip Strip, led_buffer LedBuffer)
 {
     // NOTE(pjs): This is just here because the information is duplicated and I want to be sure
@@ -27,10 +27,15 @@ UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel Channel
         u8* OutputPixel = PushArrayOnCursor(WriteCursor, u8, 3);
         
         // TODO(pjs): Use the Output mask
+#if 1
         OutputPixel[0] = Color.R;
         OutputPixel[1] = Color.G;
         OutputPixel[2] = Color.B;
-        
+#else
+        OutputPixel[0] = 255;
+        OutputPixel[1] = 255;
+        OutputPixel[2] = 255;
+#endif
         if (Channel->ElementsCount == 4)
         {
             // TODO(pjs): Calculate white from the RGB components?
@@ -43,6 +48,8 @@ UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel Channel
     
     uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
     UART_FillFooter(Footer, (u8*)Header);
+    
+    return Header;
 }
 
 internal void
@@ -64,7 +71,7 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
     
     // NOTE(pjs): This is the minimum size of every UART message. SetChannelBuffer messages will
     // be bigger than this, but their size is based on the number of pixels in each channel
-    u32 MessageBaseSize = sizeof(uart_header) + sizeof(uart_channel) + sizeof(uart_footer);
+    u32 MessageBaseSize = UART_MESSAGE_MIN_SIZE;
     
     for (u32 AssemblyIdx = 0; AssemblyIdx < Assemblies.Count; AssemblyIdx++)
     {
@@ -74,15 +81,19 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
         struct strips_to_data_buffer
         {
             gs_const_string ComPort;
+            
             u32* StripIndices;
             u32 StripIndicesCount;
             u32 StripIndicesCountMax;
             
             u64 LedCount;
             
+            u8** ChannelsStart;
+            
             strips_to_data_buffer* Next;
         };
         
+        u32 BuffersNeededCount = 0;
         strips_to_data_buffer* BuffersNeededHead = 0;
         strips_to_data_buffer* BuffersNeededTail = 0;
         
@@ -120,6 +131,12 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
                 BufferSelected->Next = 0;
                 
                 SLLPushOrInit(BuffersNeededHead, BuffersNeededTail, BufferSelected);
+                BuffersNeededCount += 1;
+                
+                gs_string Temp = PushStringF(Transient, 256, "Found Com Port: %S\n\tStrip: %d\n", StripAt.UARTAddr.ComPort.ConstString,
+                                             StripIdx);
+                NullTerminate(&Temp);
+                OutputDebugString(Temp.Str);
             }
             
             Assert(BufferSelected->StripIndicesCount < BufferSelected->StripIndicesCountMax);
@@ -136,6 +153,8 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
             TotalBufferSize += MessageBaseSize; // DrawAll message
             TotalBufferSize += ChannelSettings.ElementsCount * At->LedCount; // pixels * channels per pixel
             
+            At->ChannelsStart = PushArray(Transient, u8*, At->StripIndicesCount);
+            
             addressed_data_buffer* Buffer = AddressedDataBufferList_Push(Output, TotalBufferSize);
             gs_const_string ComPort = At->ComPort;
             AddressedDataBuffer_SetCOMPort(Buffer, ComPort);
@@ -148,7 +167,9 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
                 v2_strip StripAt = Assembly.Strips[StripIdx];
                 
                 ChannelSettings.PixelsCount = StripAt.LedCount;
-                UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
+                uart_header* Header = UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
+                
+                //At->Header[i] = Header;
             }
             
             UART_DrawAll_Create(&WriteCursor);

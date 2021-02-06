@@ -380,13 +380,16 @@ Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     r32 CycleProgress = FractR32(Time / CycleLength);
     r32 CycleBlend = (SinR32(Time) * .5f) + .5f;
     
+    v4 HSV = { CycleProgress * 360, 1, 1, 1 };
+    v4 RGB = HSVToRGB(HSV);
+    
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
         v4 Pos = Leds->Positions[LedIndex];
         r32 Dist = Pos.y - Height;
         
-        v4 HSV = { (ModR32(Dist, 25) / 25) * 360, 1, 1, 1 };
-        v4 RGB = HSVToRGB(HSV);
+        //v4 HSV = { (ModR32(Dist, 25) / 25) * 360, 1, 1, 1 };
+        //v4 RGB = HSVToRGB(HSV);
         
         u8 R = (u8)(RGB.x * 255);
         u8 G = (u8)(RGB.y * 255);

@@ -546,10 +546,8 @@ WinMain (
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        RenderCommandBuffer(RenderBuffer);
-        ClearRenderBuffer(&RenderBuffer);
-        
-        if (true)
+        bool Multithread = true;
+        if (Multithread)
         {
             for (addressed_data_buffer* At = OutputData.Root;
                  At != 0;
@@ -561,6 +559,21 @@ WinMain (
                 Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
             }
         }
+        else
+        {
+            for (addressed_data_buffer* At = OutputData.Root;
+                 At != 0;
+                 At = At->Next)
+            {
+                gs_data ProcArg = {};
+                ProcArg.Memory = (u8*)At;
+                ProcArg.Size = sizeof(addressed_data_buffer);
+                Win32_SendAddressedDataBuffer_Job(ThreadContext, ProcArg);
+            }
+        }
+        
+        RenderCommandBuffer(RenderBuffer);
+        ClearRenderBuffer(&RenderBuffer);
         
         Mouse_Advance(&Context);
         
