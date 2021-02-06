@@ -847,6 +847,7 @@ enum ui_column_size_rule
     UIColumnSize_Fixed,
     UIColumnSize_Percent,
     UIColumnSize_Fill,
+    UIColumnSize_MaxWidth,
 };
 
 struct ui_column_spec
@@ -893,6 +894,20 @@ ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules
             {
                 FillColumnsCount += 1;
             }break;
+            
+            case UIColumnSize_MaxWidth:
+            {
+                if (RemainingSpace >= Spec.Width)
+                {
+                    Column->XMax = Spec.Width;
+                }
+                else
+                {
+                    Column->XMax = RemainingSpace;
+                }
+                RemainingSpace -= Column->XMax;
+            }break;
+            
             InvalidDefaultCase;
         }
     }
@@ -911,6 +926,7 @@ ui_BeginRow(ui_interface* Interface, u32 ColumnsMax, ui_column_spec* ColumnRules
         {
             case UIColumnSize_Fixed:
             case UIColumnSize_Percent:
+            case UIColumnSize_MaxWidth:
             {
                 ColumnWidth = Column->XMax;
             }break;

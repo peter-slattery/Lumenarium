@@ -6,7 +6,7 @@
 #ifndef FOLDHAUS_UART_CPP
 
 
-internal uart_header*
+internal void
 UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel ChannelSettings, v2_strip Strip, led_buffer LedBuffer)
 {
     // NOTE(pjs): This is just here because the information is duplicated and I want to be sure
@@ -48,8 +48,6 @@ UART_SetChannelBuffer_Create(gs_memory_cursor* WriteCursor, uart_channel Channel
     
     uart_footer* Footer = PushStructOnCursor(WriteCursor, uart_footer);
     UART_FillFooter(Footer, (u8*)Header);
-    
-    return Header;
 }
 
 internal void
@@ -167,9 +165,7 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
                 v2_strip StripAt = Assembly.Strips[StripIdx];
                 
                 ChannelSettings.PixelsCount = StripAt.LedCount;
-                uart_header* Header = UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
-                
-                //At->Header[i] = Header;
+                UART_SetChannelBuffer_Create(&WriteCursor, ChannelSettings, StripAt, *LedBuffer);
             }
             
             UART_DrawAll_Create(&WriteCursor);

@@ -43,9 +43,14 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Hierarchy Layout"));
     ui_BeginList(&State->Interface, MakeString("Hierarchy List"), 10, State->Assemblies.Count + 1);
     {
-        ui_BeginRow(&State->Interface, 2);
+        ui_column_spec Cols[2] = {
+            ui_column_spec{ UIColumnSize_Fill, 0 },
+            ui_column_spec{ UIColumnSize_MaxWidth, 128 }
+        };
         for (u32 i = 0; i < State->Assemblies.Count; i++)
         {
+            ui_BeginRow(&State->Interface, 2, &Cols[0]);
+            
             assembly Assembly = State->Assemblies.Values[i];
             PrintF(&TempString, "%S", Assembly.Name);
             
@@ -54,8 +59,12 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             {
                 UnloadAssembly(i, State, Context);
             }
+            
+            ui_EndRow(&State->Interface);
         }
         
+        
+        ui_BeginRow(&State->Interface, 2, &Cols[0]);
         ui_Label(&State->Interface, MakeString(" "));
         if (ui_Button(&State->Interface, MakeString("+ Add Assembly")))
         {
@@ -63,7 +72,6 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             FileView_SetMode(FileBrowser, FileViewMode_Save);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
-        
         ui_EndRow(&State->Interface);
     }
     ui_EndList(&State->Interface);
