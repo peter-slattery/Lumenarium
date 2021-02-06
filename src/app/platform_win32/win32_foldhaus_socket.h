@@ -154,19 +154,53 @@ Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
                 InvalidCodePath;
             }
             
+            // If iMode == 0, blocking is enabled
+            // if iMode != 0, non-blocking mode is enabled
+            u_long iMode = 1;
+            Error = ioctlsocket(SocketHandle, FIONBIO, &iMode);
+            if (Error != NO_ERROR)
+            {
+                InvalidCodePath;
+            }
+            
             Error = connect(SocketHandle, InfoAt->ai_addr, (int)InfoAt->ai_addrlen);
             if (Error == SOCKET_ERROR)
             {
-                closesocket(SocketHandle);
-                continue;
+                u32 Status = WSAGetLastError();
+                if (Status == WSAEWOULDBLOCK)
+                {
+#if 0
+                    TIMEVAL Timeout = { 0, 500 };
+                    fd_set SocketSet = {};
+                    FD_ZERO(&SocketSet);
+                    FD_SET(SocketHandle, &SocketSet);
+                    Assert(FD_ISSET(SocketHandle, &SocketSet));
+                    Status = select(0, &SocketSet, 0, 0, {});
+                    if (Status == SOCKET_ERROR)
+                    {
+                        
+                    }
+                    else if (Status == 0)
+                    {
+                    }
+                    else
+                    {
+                        
+                    }
+#endif
+                }
+                else
+                {
+                    closesocket(SocketHandle);
+                    continue;
+                }
             }
-            else
-            {
-                Socket->PlatformHandle = (u8*)Win32Alloc(sizeof(SOCKET), 0);
-                *(SOCKET*)Socket->PlatformHandle = SocketHandle;
-                Result = true;
-                break;
-            }
+            
+            
+            Socket->PlatformHandle = (u8*)Win32Alloc(sizeof(SOCKET), 0);
+            *(SOCKET*)Socket->PlatformHandle = SocketHandle;
+            Result = true;
+            break;
         }
     }
     else
@@ -212,7 +246,14 @@ Win32SocketPeek(platform_socket* Socket)
     {
         // TODO(pjs): Error handling
         s32 Error = WSAGetLastError();
-        InvalidCodePath;
+        if (Error == WSAEWOULDBLOCK)
+        {
+            // NOTE(pjs):
+        }
+        else
+        {
+            InvalidCodePath;
+        }
     }
     return Result;
 }

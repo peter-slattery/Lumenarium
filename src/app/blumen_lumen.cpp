@@ -23,7 +23,7 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     
     while (true)
     {
-#if 0
+#if 1
         // TODO(pjs): Removing this block for now - nothing is wrong with it except that SocketPeek is still blocking for some reason
         if (SocketPeek(Data->SocketManager, Data->ListenSocket))
         {
@@ -117,7 +117,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
-    //BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
+    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
     
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
@@ -172,12 +172,12 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     return Result;
 }
 
-u8 temp = 0;
-
 internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
+    
+    MotorTimeElapsed += Context->DeltaTime;
     
     gs_string BlueString = MakeString("blue");
     gs_string GreenString = MakeString("green");
@@ -208,33 +208,47 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    if ((BLState->OutgoingMsgQueue.WriteHead >= BLState->OutgoingMsgQueue.ReadHead) ||
-        (BLState->OutgoingMsgQueue.WriteHead < BLState->OutgoingMsgQueue.ReadHead))
+    if (MotorTimeElapsed > OpenClosePeriod)
     {
-        u32 WriteIndex = BLState->OutgoingMsgQueue.WriteHead;
-        
-        gs_data* Msg = BLState->OutgoingMsgQueue.Buffers + WriteIndex;
-        if (Msg->Size == 0)
+        // NOTE(pjs):
+        MotorTimeElapsed = 0;
+        u8 Position = LastPosition;
+        if (LastPosition == 2)
         {
-            *Msg = PushSizeToData(&State->Permanent, sizeof(motor_packet));
+            LastPosition = ClosedValue;
         }
-        motor_packet* Packet = (motor_packet*)Msg->Memory;
-        Packet->FlowerPositions[0] = temp;
-        Packet->FlowerPositions[1] = temp + 1;
-        Packet->FlowerPositions[2] = temp + 2;
-        temp++;
-        
-        // NOTE(pjs): We increment the write head AFTER we've written so that
-        // the network thread doesn't think the buffer is ready to send before
-        // the data is set. We want to avoid the case of:
-        //     1. Main Thread increments write head to 1
-        //     2. Network Thread thinks theres a new message to send at 0
-        //     3. Network Thread sends the message at 0
-        //     4. Main Thread sets the message at 0
-        BLState->OutgoingMsgQueue.WriteHead += 1;
-        if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+        else
         {
-            BLState->OutgoingMsgQueue.WriteHead = 0;
+            LastPosition = OpenValue;
+        }
+        
+        if ((BLState->OutgoingMsgQueue.WriteHead >= BLState->OutgoingMsgQueue.ReadHead) ||
+            (BLState->OutgoingMsgQueue.WriteHead < BLState->OutgoingMsgQueue.ReadHead))
+        {
+            u32 WriteIndex = BLState->OutgoingMsgQueue.WriteHead;
+            
+            gs_data* Msg = BLState->OutgoingMsgQueue.Buffers + WriteIndex;
+            if (Msg->Size == 0)
+            {
+                *Msg = PushSizeToData(&State->Permanent, sizeof(motor_packet));
+            }
+            motor_packet* Packet = (motor_packet*)Msg->Memory;
+            Packet->FlowerPositions[0] = Position;
+            Packet->FlowerPositions[1] = Position;
+            Packet->FlowerPositions[2] = Position;
+            
+            // NOTE(pjs): We increment the write head AFTER we've written so that
+            // the network thread doesn't think the buffer is ready to send before
+            // the data is set. We want to avoid the case of:
+            //     1. Main Thread increments write head to 1
+            //     2. Network Thread thinks theres a new message to send at 0
+            //     3. Network Thread sends the message at 0
+            //     4. Main Thread sets the message at 0
+            BLState->OutgoingMsgQueue.WriteHead += 1;
+            if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+            {
+                BLState->OutgoingMsgQueue.WriteHead = 0;
+            }
         }
     }
 }

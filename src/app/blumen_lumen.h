@@ -55,5 +55,61 @@ struct blumen_lumen_state
 };
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// If you change anything, exit lumenarium if its running
+// then in this application hit f1 to compile then
+// go to remedybg (the debugger) and hit f5
+
+
+// don't touch this
+u8 LastPosition = 1;
+
+u8 ClosedValue = 1;
+u8 OpenValue = 2;
+
+
+r64 MotorTimeElapsed = 0;
+r64 OpenClosePeriod = 15.0f;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define BLUMEN_LUMEN_H
 #endif // BLUMEN_LUMEN_H
