@@ -61,7 +61,27 @@ INITIALIZE_APPLICATION(InitializeApplication)
     GlobalDebugServices->Interface.RenderSculpture = true;
     
     PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
-    PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
+    {
+        panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
+        SplitPanel(RootPanel, .25f, PanelSplit_Horizontal, &State->PanelSystem, State, Context);
+        
+        panel* AnimPanel = RootPanel->Bottom;
+        Panel_SetType(AnimPanel, &State->PanelSystem, PanelType_AnimationTimeline, State, Context);
+        
+        panel* TopPanel = RootPanel->Top;
+        SplitPanel(TopPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        
+        panel* LeftPanel = TopPanel->Left;
+        SplitPanel(LeftPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        
+        panel* Profiler = LeftPanel->Right;
+        Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, Context);
+        
+        panel* Hierarchy = LeftPanel->Left;
+        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_HierarchyView, State, Context);
+        
+    }
+    
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
     State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();

@@ -10,7 +10,6 @@ enum panel_type {
     PanelType_AnimationTimeline,
     PanelType_DMXView,
     PanelType_HierarchyView,
-    PanelType_NodeGraph,
     PanelType_ProfilerView,
     PanelType_AssemblyDebug,
 };
