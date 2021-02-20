@@ -35,6 +35,8 @@ typedef struct blumen_network_msg_queue
 // TODO(pjs): Refactor this -> blumen_network_job_state
 struct mic_listen_job_data
 {
+    bool* Running;
+    
     platform_socket_manager* SocketManager;
     packet_ringbuffer* MicPacketBuffer;
     platform_socket_handle_ ListenSocket;
@@ -44,6 +46,8 @@ struct mic_listen_job_data
 
 struct blumen_lumen_state
 {
+    bool Running;
+    
     packet_ringbuffer MicPacketBuffer;
     blumen_network_msg_queue OutgoingMsgQueue;
     

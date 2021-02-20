@@ -236,9 +236,15 @@ Win32WorkQueue_Init(gs_memory_arena* Arena, u32 ThreadCount)
 internal void
 Win32WorkQueue_Cleanup()
 {
+    u32 Error = 0;
     for (u32 Thread = 0; Thread < Win32WorkQueue.ThreadCount; Thread++)
     {
-        TerminateThread(Win32WorkQueue.Threads[Thread].Handle, 0);
+        u32 Success = TerminateThread(Win32WorkQueue.Threads[Thread].Handle, 0);
+        if (!Success)
+        {
+            Error = GetLastError();
+            InvalidCodePath;
+        }
     }
 }
 

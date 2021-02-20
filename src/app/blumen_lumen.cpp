@@ -21,38 +21,41 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     u32 WeathermanIPV4 = (u32)UpackB4(WeathermanIPAddr);
     u32 WeathermanPort = 20185;
     
-    while (true)
+    while (*Data->Running)
     {
 #if 1
-        // TODO(pjs): Removing this block for now - nothing is wrong with it except that SocketPeek is still blocking for some reason
-        if (SocketPeek(Data->SocketManager, Data->ListenSocket))
+        if (SocketQueryStatus(Data->SocketManager, Data->ListenSocket))
         {
-            // TODO(pjs): Make this a peek operation
-            Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
-            if (Msg.Size > 0)
+            // TODO(pjs): Removing this block for now - nothing is wrong with it except that SocketPeek is still blocking for some reason
+            if (SocketPeek(Data->SocketManager, Data->ListenSocket))
             {
-                Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
-                if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
+                // TODO(pjs): Make this a peek operation
+                Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
+                if (Msg.Size > 0)
                 {
-                    Data->MicPacketBuffer->WriteHead = 0;
+                    Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
+                    if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
+                    {
+                        Data->MicPacketBuffer->WriteHead = 0;
+                    }
                 }
             }
-        }
 #endif
-        
-        while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
-        {
-            u32 ReadIndex = Data->OutgoingMsgQueue->ReadHead++;
-            if (Data->OutgoingMsgQueue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
-            {
-                Data->OutgoingMsgQueue->ReadHead = 0;
-            }
             
-            Msg = Data->OutgoingMsgQueue->Buffers[ReadIndex];
-            u32 Address = WeathermanIPV4;
-            u32 Port = WeathermanPort;
-            s32 Flags = 0;
-            SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
+            while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
+            {
+                u32 ReadIndex = Data->OutgoingMsgQueue->ReadHead++;
+                if (Data->OutgoingMsgQueue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+                {
+                    Data->OutgoingMsgQueue->ReadHead = 0;
+                }
+                
+                Msg = Data->OutgoingMsgQueue->Buffers[ReadIndex];
+                u32 Address = WeathermanIPV4;
+                u32 Port = WeathermanPort;
+                s32 Flags = 0;
+                SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
+            }
         }
     }
     
@@ -112,6 +115,9 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     Result = PushSizeToData(&State->Permanent, sizeof(blumen_lumen_state));
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
+    BLState->Running = true;
+    
+    BLState->MicListenJobData.Running = &BLState->Running;
     BLState->MicListenJobData.SocketManager = Context.SocketManager;
     BLState->MicListenJobData.MicPacketBuffer = &BLState->MicPacketBuffer;
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
@@ -208,18 +214,18 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    if (MotorTimeElapsed > OpenClosePeriod)
+    if (MotorTimeElapsed > 60)
     {
         // NOTE(pjs):
         MotorTimeElapsed = 0;
         u8 Position = LastPosition;
         if (LastPosition == 2)
         {
-            LastPosition = ClosedValue;
+            LastPosition = 1;
         }
         else
         {
-            LastPosition = OpenValue;
+            LastPosition = 2;
         }
         
         if ((BLState->OutgoingMsgQueue.WriteHead >= BLState->OutgoingMsgQueue.ReadHead) ||
@@ -253,6 +259,12 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
 }
 
+US_CUSTOM_CLEANUP(BlumenLumen_CustomCleanup)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
+    BLState->Running = false;
+}
+
 internal user_space_desc
 BlumenLumen_UserSpaceCreate()
 {
@@ -260,6 +272,7 @@ BlumenLumen_UserSpaceCreate()
     Result.LoadPatterns = BlumenLumen_LoadPatterns;
     Result.CustomInit = BlumenLumen_CustomInit;
     Result.CustomUpdate = BlumenLumen_CustomUpdate;
+    Result.CustomCleanup = BlumenLumen_CustomCleanup;
     return Result;
 }
 

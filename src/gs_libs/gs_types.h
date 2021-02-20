@@ -1104,6 +1104,9 @@ typedef CREATE_SOCKET(platform_create_socket);
 #define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
 typedef CLOSE_SOCKET(platform_close_socket);
 
+#define SOCKET_QUERY_STATUS(name) bool name(platform_socket* Socket)
+typedef SOCKET_QUERY_STATUS(platform_socket_query_status);
+
 #define SOCKET_PEEK(name) u32 name(platform_socket* Socket)
 typedef SOCKET_PEEK(platform_socket_peek);
 
@@ -1125,6 +1128,7 @@ typedef struct platform_socket_manager
     
     platform_create_socket* CreateSocketProc;
     platform_close_socket* CloseSocketProc;
+    platform_socket_query_status* SocketQueryStatusProc;
     platform_socket_peek* SocketPeekProc;
     platform_socket_receive* SocketRecieveProc;
     platform_socket_send* SocketSendProc;

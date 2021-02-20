@@ -228,6 +228,14 @@ Win32CloseSocket(platform_socket* Socket)
     return true;
 }
 
+internal bool
+Win32SocketQueryStatus(platform_socket* Socket)
+{
+    SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
+    bool Result = (*Win32Sock != INVALID_SOCKET);
+    return Result;
+}
+
 internal u32
 Win32SocketPeek(platform_socket* Socket)
 {
@@ -246,13 +254,14 @@ Win32SocketPeek(platform_socket* Socket)
     {
         // TODO(pjs): Error handling
         s32 Error = WSAGetLastError();
-        if (Error == WSAEWOULDBLOCK)
+        switch (Error)
         {
-            // NOTE(pjs):
-        }
-        else
-        {
-            InvalidCodePath;
+            case WSAEWOULDBLOCK:
+            case WSAENOTCONN:
+            {
+            }break;
+            
+            InvalidDefaultCase;
         }
     }
     return Result;

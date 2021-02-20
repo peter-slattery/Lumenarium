@@ -3359,6 +3359,11 @@ CLOSE_SOCKET(PlatformCloseSocket_Stub)
     return false;
 }
 
+SOCKET_QUERY_STATUS(PlatformSocketQueryStatus_Stub)
+{
+    return false;
+}
+
 SOCKET_PEEK(PlatformSocketPeek_Stub)
 {
     return 0;
@@ -3377,6 +3382,7 @@ SOCKET_SEND(PlatformSocketSend_Stub)
 internal platform_socket_manager
 CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
                             platform_close_socket* CloseSocketProc,
+                            platform_socket_query_status* SocketQueryStatusProc,
                             platform_socket_peek* SocketPeekProc,
                             platform_socket_receive* SocketRecieveProc,
                             platform_socket_send* SocketSendProc)
@@ -3384,6 +3390,7 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
     platform_socket_manager Result = {};
     Result.CreateSocketProc = CreateSocketProc;
     Result.CloseSocketProc = CloseSocketProc;
+    Result.SocketQueryStatusProc = SocketQueryStatusProc;
     Result.SocketPeekProc = SocketPeekProc;
     Result.SocketRecieveProc = SocketRecieveProc;
     Result.SocketSendProc = SocketSendProc;
@@ -3395,6 +3402,10 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
     if (!CloseSocketProc)
     {
         Result.CloseSocketProc = PlatformCloseSocket_Stub;
+    }
+    if (!SocketQueryStatusProc)
+    {
+        Result.SocketQueryStatusProc = PlatformSocketQueryStatus_Stub;
     }
     if (!SocketPeekProc)
     {
@@ -3460,6 +3471,20 @@ CloseSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
             *Socket = {};
             Result = true;
         }
+    }
+    return Result;
+}
+
+// NOTE(pjs): returns true if the socket is connected
+// TODO(pjs): make this more descriptive?
+internal bool
+SocketQueryStatus(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        Result = Manager->SocketQueryStatusProc(Socket);
     }
     return Result;
 }

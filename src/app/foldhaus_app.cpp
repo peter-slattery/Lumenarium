@@ -113,6 +113,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
 CLEANUP_APPLICATION(CleanupApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
+    US_CustomCleanup(&State->UserSpaceDesc, State, Context);
     SACN_Cleanup(&State->SACN, Context);
 }
 

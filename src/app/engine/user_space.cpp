@@ -32,5 +32,15 @@ US_CustomUpdate(user_space_desc* Desc, app_state* State, context* Context)
     }
 }
 
+internal void
+US_CustomCleanup(user_space_desc* Desc, app_state* State, context Context)
+{
+    if (Desc->CustomCleanup)
+    {
+        Desc->CustomCleanup(Desc->UserData, State, Context);
+    }
+}
+
+
 #define USERSPACE_CPP
 #endif // USERSPACE_CPP
