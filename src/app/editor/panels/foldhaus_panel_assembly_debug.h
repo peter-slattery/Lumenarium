@@ -59,39 +59,52 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     ui_EndLabeledDropdown(Interface);
     InterfaceAssert(Interface->PerFrameMemory);
     
-    if (State->AssemblyDebugState.Override == ADS_Override_TagWhite ||
-        State->AssemblyDebugState.Override == ADS_Override_TagStripWhite)
+    switch (State->AssemblyDebugState.Override)
     {
-        ui_LabeledTextEntry(Interface, MakeString("Tag Name"), &State->AssemblyDebugState.TagName);
-        ui_LabeledTextEntry(Interface, MakeString("Tag Value"), &State->AssemblyDebugState.TagValue);
-        
-        if (State->AssemblyDebugState.Override == ADS_Override_TagStripWhite)
+        case ADS_Override_TagWhite:
+        case ADS_Override_TagStripWhite:
         {
+            ui_LabeledTextEntry(Interface, MakeString("Tag Name"), &State->AssemblyDebugState.TagName);
+            ui_LabeledTextEntry(Interface, MakeString("Tag Value"), &State->AssemblyDebugState.TagValue);
+            
+            if (State->AssemblyDebugState.Override == ADS_Override_TagStripWhite)
+            {
+                State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
+                
+                State->AssemblyDebugState.TargetStrip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), State->AssemblyDebugState.TargetStrip);
+            }
+        }break;
+        
+        case ADS_Override_ChannelWhite:
+        {
+            u64 Board = 0;
+            u64 Strip = 0;
+            Board = ui_LabeledTextEntryU64(Interface, MakeString("Board"), Board);
+            Strip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), Strip);
+            
+            State->AssemblyDebugState.TargetChannel = FSC(Board, Strip);
+        }break;
+        
+        case ADS_Override_AllRed:
+        case ADS_Override_AllGreen:
+        case ADS_Override_AllBlue:
+        case ADS_Override_AllWhite:
+        {
+            State->AssemblyDebugState.Brightness = (u8)ui_LabeledRangeSlider(Interface, MakeString("Brightness"), (r32)State->AssemblyDebugState.Brightness, 0, 255);
+        }break;
+        
+        default:
+        {
+            InterfaceAssert(Interface->PerFrameMemory);
+            
             State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
             
+            InterfaceAssert(Interface->PerFrameMemory);
+            
             State->AssemblyDebugState.TargetStrip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), State->AssemblyDebugState.TargetStrip);
-        }
-    }
-    else if (State->AssemblyDebugState.Override == ADS_Override_ChannelWhite)
-    {
-        u64 Board = 0;
-        u64 Strip = 0;
-        Board = ui_LabeledTextEntryU64(Interface, MakeString("Board"), Board);
-        Strip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), Strip);
-        
-        State->AssemblyDebugState.TargetChannel = FSC(Board, Strip);
-    }
-    else
-    {
-        InterfaceAssert(Interface->PerFrameMemory);
-        
-        State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
-        
-        InterfaceAssert(Interface->PerFrameMemory);
-        
-        State->AssemblyDebugState.TargetStrip = ui_LabeledTextEntryU64(Interface, MakeString("Strip"), State->AssemblyDebugState.TargetStrip);
-        
-        InterfaceAssert(Interface->PerFrameMemory);
+            
+            InterfaceAssert(Interface->PerFrameMemory);
+        }break;
     }
     
     ui_RangeSlider(Interface, MakeString("Test"), .5f, 0, 1);

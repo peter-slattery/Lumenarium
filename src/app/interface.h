@@ -1564,6 +1564,15 @@ ui_LabeledToggle(ui_interface* Interface, gs_string Label, bool Value)
     return Result;
 }
 
+internal r32
+ui_LabeledRangeSlider(ui_interface* Interface, gs_string Label, r32 Value, r32 ValueMin, r32 ValueMax)
+{
+    ui_BeginLabelRow(Interface, Label);
+    r32 Result = ui_RangeSlider(Interface, Label, Value, ValueMin, ValueMax);
+    ui_EndRow(Interface);
+    return Result;
+}
+
 internal void
 ui_LabeledTextEntry(ui_interface* Interface, gs_string Label, gs_string* Value)
 {
