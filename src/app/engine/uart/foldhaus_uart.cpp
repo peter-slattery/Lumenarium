@@ -130,11 +130,6 @@ UART_BuildOutputData(addressed_data_buffer_list* Output, assembly_array Assembli
                 
                 SLLPushOrInit(BuffersNeededHead, BuffersNeededTail, BufferSelected);
                 BuffersNeededCount += 1;
-                
-                gs_string Temp = PushStringF(Transient, 256, "Found Com Port: %S\n\tStrip: %d\n", StripAt.UARTAddr.ComPort.ConstString,
-                                             StripIdx);
-                NullTerminate(&Temp);
-                OutputDebugString(Temp.Str);
             }
             
             Assert(BufferSelected->StripIndicesCount < BufferSelected->StripIndicesCountMax);

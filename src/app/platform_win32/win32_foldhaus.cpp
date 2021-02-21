@@ -404,6 +404,10 @@ Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* 
                         BuffersSent += 1;
                         DataSizeSent += BufferAt->Data.Size;
                     }
+                    else
+                    {
+                        Win32SerialArray_Close(BufferAt->ComPort);
+                    }
                 }
             }
             else
@@ -497,7 +501,7 @@ WinMain (
     *Context.ThreadManager = CreatePlatformThreadManager(Win32CreateThread, Win32KillThread);
     
     Context.SocketManager = PushStruct(&PlatformPermanent, platform_socket_manager);
-    *Context.SocketManager = CreatePlatformSocketManager(Win32CreateSocket, Win32CloseSocket, Win32SocketQueryStatus, Win32SocketPeek, Win32SocketReceive, Win32SocketSend);
+    *Context.SocketManager = CreatePlatformSocketManager(Win32ConnectSocket, Win32CloseSocket, Win32SocketQueryStatus, Win32SocketPeek, Win32SocketReceive, Win32SocketSend);
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
     if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
@@ -546,7 +550,7 @@ WinMain (
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        bool Multithread = true;
+        bool Multithread = false;
         if (Multithread)
         {
             for (addressed_data_buffer* At = OutputData.Root;

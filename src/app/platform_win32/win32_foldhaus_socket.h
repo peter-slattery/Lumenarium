@@ -132,7 +132,7 @@ Win32Socket_ConnectToAddress(char* Address, char* DefaultPort)
 }
 
 internal bool
-Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
+Win32ConnectSocket(platform_socket* Socket)
 {
     bool Result = false;
     
@@ -142,7 +142,7 @@ Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
     Hints.ai_protocol = IPPROTO_TCP;
     
     addrinfo* PotentialConnections;
-    s32 Error = getaddrinfo(Address, DefaultPort, &Hints, &PotentialConnections);
+    s32 Error = getaddrinfo(Socket->Addr, Socket->Port, &Hints, &PotentialConnections);
     if (Error == 0)
     {
         for (addrinfo* InfoAt = PotentialConnections; InfoAt != NULL; InfoAt = InfoAt->ai_next)
@@ -175,7 +175,7 @@ Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
                     FD_ZERO(&SocketSet);
                     FD_SET(SocketHandle, &SocketSet);
                     Assert(FD_ISSET(SocketHandle, &SocketSet));
-                    Status = select(0, &SocketSet, 0, 0, {});
+                    Status = select(0, &SocketSet, 0, 0, (const TIMEVAL*)&Timeout);
                     if (Status == SOCKET_ERROR)
                     {
                         
@@ -195,7 +195,6 @@ Win32CreateSocket(platform_socket* Socket, char* Address, char* DefaultPort)
                     continue;
                 }
             }
-            
             
             Socket->PlatformHandle = (u8*)Win32Alloc(sizeof(SOCKET), 0);
             *(SOCKET*)Socket->PlatformHandle = SocketHandle;
@@ -429,17 +428,17 @@ Win32Socket_Receive(win32_socket* Socket, gs_memory_arena* Storage)
     {
         // TODO(pjs): Error logging
         s32 Error = WSAGetLastError();
-        if (Error == 10053)
+        switch (Error)
         {
-            // WSAECONNABORTED - aborted by the software
-        }
-        else if (Error == 10093)
-        {
-            // WSANOTINITIALISED
-        }
-        else
-        {
-            InvalidCodePath;
+            case WSAECONNABORTED:
+            case WSANOTINITIALISED:
+            break;
+            
+            case WSAENOTCONN:
+            {
+                
+            }break;
+            InvalidDefaultCase;
         }
     }
     Result.Size = BytesReceived;

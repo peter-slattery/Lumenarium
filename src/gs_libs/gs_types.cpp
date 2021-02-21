@@ -3349,7 +3349,7 @@ KillThread(platform_thread_manager* Manager, platform_thread_handle Handle)
 //
 // Socket Manager
 
-CREATE_SOCKET(PlatformCreateSocket_Stub)
+CONNECT_SOCKET(PlatformConnectSocket_Stub)
 {
     return false;
 }
@@ -3380,7 +3380,7 @@ SOCKET_SEND(PlatformSocketSend_Stub)
 }
 
 internal platform_socket_manager
-CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
+CreatePlatformSocketManager(platform_connect_socket* ConnectSocketProc,
                             platform_close_socket* CloseSocketProc,
                             platform_socket_query_status* SocketQueryStatusProc,
                             platform_socket_peek* SocketPeekProc,
@@ -3388,16 +3388,16 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
                             platform_socket_send* SocketSendProc)
 {
     platform_socket_manager Result = {};
-    Result.CreateSocketProc = CreateSocketProc;
+    Result.ConnectSocketProc = ConnectSocketProc;
     Result.CloseSocketProc = CloseSocketProc;
     Result.SocketQueryStatusProc = SocketQueryStatusProc;
     Result.SocketPeekProc = SocketPeekProc;
     Result.SocketRecieveProc = SocketRecieveProc;
     Result.SocketSendProc = SocketSendProc;
     
-    if (!CreateSocketProc)
+    if (!ConnectSocketProc)
     {
-        Result.CreateSocketProc = PlatformCreateSocket_Stub;
+        Result.ConnectSocketProc = PlatformConnectSocket_Stub;
     }
     if (!CloseSocketProc)
     {
@@ -3422,6 +3422,33 @@ CreatePlatformSocketManager(platform_create_socket* CreateSocketProc,
     return Result;
 }
 
+internal platform_socket*
+SocketManagerGetSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    platform_socket* Result = 0;
+    if (Manager->SocketsUsed[Handle.Index])
+    {
+        platform_socket* Socket = &Manager->Sockets[Handle.Index];
+        if (Socket->PlatformHandle != 0)
+        {
+            Result = Socket;
+        }
+    }
+    return Result;
+}
+
+internal bool
+ConnectSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, Handle);
+    if (Socket)
+    {
+        Result = Manager->ConnectSocketProc(Socket);
+    }
+    return Result;
+}
+
 internal platform_socket_handle_
 CreateSocket(platform_socket_manager* Manager, char* Addr, char* Port)
 {
@@ -3438,23 +3465,12 @@ CreateSocket(platform_socket_manager* Manager, char* Addr, char* Port)
     
     Assert(Result.Index != 0);
     platform_socket* Socket = &Manager->Sockets[Result.Index];
-    Manager->CreateSocketProc(Socket, Addr, Port);
+    CopyArray(Addr, Socket->Addr, char, CStringLength(Addr) + 1);
+    CopyArray(Port, Socket->Port, char, CStringLength(Port) + 1);
     
-    return Result;
-}
-
-internal platform_socket*
-SocketManagerGetSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
-{
-    platform_socket* Result = 0;
-    if (Manager->SocketsUsed[Handle.Index])
-    {
-        platform_socket* Socket = &Manager->Sockets[Handle.Index];
-        if (Socket->PlatformHandle != 0)
-        {
-            Result = Socket;
-        }
-    }
+    bool Success = Manager->ConnectSocketProc(Socket);
+    Assert(Success);
+    
     return Result;
 }
 

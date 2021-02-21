@@ -6,9 +6,9 @@
 #ifndef WIN32_SERIAL_H
 
 global u32        Win32SerialHandlesCountMax;
-global u32        Win32SerialHandlesCount;
 global HANDLE*    Win32SerialHandles;
 global gs_string* Win32SerialPortNames;
+global s32*       Win32SerialPortFilled;
 
 DCB
 Win32SerialPort_GetState(HANDLE ComPortHandle)
@@ -137,7 +137,18 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
     {
         OutputDebugStringA("Error: Unable to write to port\n");
         s32 Error = GetLastError();
-        //InvalidCodePath;
+        switch (Error)
+        {
+            case ERROR_OPERATION_ABORTED:
+            case ERROR_GEN_FAILURE:
+            {
+                // NOTE(pjs): Probably means that the serial port became invalid
+                // ie. the usb stick was removed
+            }break;
+            
+            case ERROR_INVALID_HANDLE:
+            InvalidDefaultCase;
+        }
     }
     
     return Success;
@@ -183,12 +194,15 @@ Win32SerialArray_Create(gs_thread_context Context)
     DEBUG_TRACK_FUNCTION;
     
     Win32SerialHandlesCountMax = 32;
-    Win32SerialHandlesCount = 0;
+    
     Win32SerialHandles = AllocatorAllocArray(Context.Allocator, HANDLE, Win32SerialHandlesCountMax);
     Win32SerialPortNames = AllocatorAllocArray(Context.Allocator, gs_string, Win32SerialHandlesCountMax);
+    Win32SerialPortFilled = AllocatorAllocArray(Context.Allocator, s32, Win32SerialHandlesCountMax);
+    
     for (u32 i = 0; i < Win32SerialHandlesCountMax; i++)
     {
         Win32SerialPortNames[i] = AllocatorAllocString(Context.Allocator, 256);
+        Win32SerialPortFilled[i] = 0;
     }
 }
 
@@ -197,10 +211,28 @@ Win32SerialArray_Push(HANDLE SerialHandle, gs_const_string PortName)
 {
     DEBUG_TRACK_FUNCTION;
     
-    Assert(Win32SerialHandlesCount < Win32SerialHandlesCountMax);
-    u32 Index = Win32SerialHandlesCount++;
-    Win32SerialHandles[Index] = SerialHandle;
-    PrintF(&Win32SerialPortNames[Index], "%S", PortName);
+    bool Found = false;
+    for (u32 i = 0; i < Win32SerialHandlesCountMax; i++)
+    {
+        bool WasFilled = InterlockedCompareExchange((LONG volatile*)Win32SerialPortFilled + i, 1, 0);
+        if (!WasFilled)
+        {
+            Win32SerialHandles[i] = SerialHandle;
+            PrintF(&Win32SerialPortNames[i], "%S", PortName);
+            Found = true;
+            break;
+        }
+    }
+    Assert(Found);
+}
+
+void
+Win32SerialArray_Pop(u32 Index)
+{
+    bool WasFilled = InterlockedCompareExchange((LONG volatile*)Win32SerialPortFilled + Index, 0, 1);
+    Assert(WasFilled);
+    Win32SerialPortFilled[Index] = false;
+    Win32SerialHandles[Index] = INVALID_HANDLE_VALUE;
 }
 
 HANDLE
@@ -209,9 +241,10 @@ Win32SerialArray_Get(gs_const_string PortName)
     DEBUG_TRACK_FUNCTION;
     
     HANDLE PortHandle = INVALID_HANDLE_VALUE;
-    for (u32 i = 0; i < Win32SerialHandlesCount; i++)
+    for (u32 i = 0; i < Win32SerialHandlesCountMax; i++)
     {
-        if (StringsEqual(Win32SerialPortNames[i].ConstString, PortName))
+        if (Win32SerialPortFilled[i] &&
+            StringsEqual(Win32SerialPortNames[i].ConstString, PortName))
         {
             PortHandle = Win32SerialHandles[i];
             break;
@@ -237,6 +270,20 @@ Win32SerialArray_GetOrOpen(gs_const_string PortName, u32 BaudRate, u8 ByteSize, 
         }
     }
     return PortHandle;
+}
+
+void
+Win32SerialArray_Close(gs_const_string PortName)
+{
+    for (u32 i = 0; i < Win32SerialHandlesCountMax; i++)
+    {
+        if (Win32SerialPortFilled[i] && StringsEqual(Win32SerialPortNames[i].ConstString, PortName))
+        {
+            Win32SerialPort_Close(Win32SerialHandles[i]);
+            Win32SerialArray_Pop(i);
+            break;
+        }
+    }
 }
 
 #define WIN32_SERIAL_H

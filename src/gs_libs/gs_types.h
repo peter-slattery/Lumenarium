@@ -575,7 +575,8 @@ CStringLength(char* Str)
 {
     char* At = Str;
     while (*At) { At++; }
-    return PointerDifference(At, Str);
+    u64 Result = PointerDifference(At, Str);
+    return Result;
 }
 
 #define StringExpand(str) (int)(str).Length, (str).Str
@@ -1095,11 +1096,13 @@ typedef struct platform_socket_handle_
 
 typedef struct platform_socket
 {
+    char Addr[128];
+    char Port[32];
     u8* PlatformHandle;
 } platform_socket;
 
-#define CREATE_SOCKET(name) bool name(platform_socket* Socket, char* Addr, char* DefaultPort)
-typedef CREATE_SOCKET(platform_create_socket);
+#define CONNECT_SOCKET(name) bool name(platform_socket* Socket)
+typedef CONNECT_SOCKET(platform_connect_socket);
 
 #define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
 typedef CLOSE_SOCKET(platform_close_socket);
@@ -1126,7 +1129,7 @@ typedef struct platform_socket_manager
     b8 SocketsUsed[SOCKETS_COUNT_MAX];
     platform_socket Sockets[SOCKETS_COUNT_MAX];
     
-    platform_create_socket* CreateSocketProc;
+    platform_connect_socket* ConnectSocketProc;
     platform_close_socket* CloseSocketProc;
     platform_socket_query_status* SocketQueryStatusProc;
     platform_socket_peek* SocketPeekProc;

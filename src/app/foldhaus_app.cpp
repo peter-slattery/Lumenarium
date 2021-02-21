@@ -56,6 +56,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
     State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
+    State->AssemblyDebugState.Brightness = 255;
     State->AssemblyDebugState.Override = ADS_Override_AllRed;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
