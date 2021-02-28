@@ -57,12 +57,13 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
     State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
     State->AssemblyDebugState.Brightness = 255;
-    State->AssemblyDebugState.Override = ADS_Override_AllRed;
+    State->AssemblyDebugState.Override = ADS_Override_AllBlue;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
     PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
     {
+        // NOTE(pjs): This just sets up the default panel layout
         panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
         SplitPanel(RootPanel, .25f, PanelSplit_Horizontal, &State->PanelSystem, State, Context);
         

@@ -201,11 +201,6 @@ AssemblyDebug_OverrideOutput(assembly_debug_state State, assembly_array Assembli
         
         InvalidDefaultCase;
     }
-    
-    if (State.Override )
-    {
-        
-    }
 }
 
 

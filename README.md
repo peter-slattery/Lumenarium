@@ -13,7 +13,7 @@ Windows - Debug
 1. Just run `win32_msvc\debug\win32_foldhaus.exe`
 
 ## Debug Lumenarium
-###Windows
+### Windows
 Building in debug mode outputs pdb file info that can be read by Visual Studio or RemedyBG (preferred debugging solution, but ymmv). You can just open the exe in either application and it'll find the pdb file in the same directory
 
 ## What Is Lumenarium?
