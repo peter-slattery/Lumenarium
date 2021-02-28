@@ -5,8 +5,16 @@
 //
 #ifndef FOLDHAUS_PANEL_FILE_VIEW_H
 
+enum file_view_mode
+{
+    FileViewMode_Load,
+    FileViewMode_Save,
+};
+
 struct file_view_state
 {
+    file_view_mode Mode;
+    
     gs_string WorkingDirectory;
     gs_memory_arena FileNamesArena;
     gs_file_info_array FileNames;
@@ -15,8 +23,17 @@ struct file_view_state
 };
 
 internal void
+FileView_SetMode(panel* Panel, file_view_mode Mode)
+{
+    file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
+    FileViewState->Mode = Mode;
+}
+
+internal void
 FileView_Exit_(panel* FileViewPanel, app_state* State, context Context)
 {
+    // TODO(pjs): Free State->FileNamesArena
+    
     Assert(FileViewPanel->IsModalOverrideFor != 0);
     panel* ReturnTo = FileViewPanel->IsModalOverrideFor;
     if (ReturnTo->ModalOverrideCB)
@@ -30,7 +47,7 @@ global input_command* FileView_Commands = 0;
 s32 FileView_CommandsCount = 0;
 
 internal void
-FileViewUpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state* State, context Context)
+FileView_UpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state* State, context Context)
 {
     ClearArena(&State->FileNamesArena);
     
@@ -43,23 +60,20 @@ FileViewUpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_state
         u32 SecondLastSlashIndex = FindLast(SanitizedDirectory, LastSlashIndex - 1, '\\');
         SanitizedDirectory = Substring(SanitizedDirectory, 0, SecondLastSlashIndex);
     }
-    else if (StringsEqual(LastDir, ConstString(".")))
+    else if (StringsEqual(LastDir, ConstString(".")) && LastDir.Length > 1)
     {
         SanitizedDirectory = Substring(SanitizedDirectory, 0, LastSlashIndex);
     }
     
-    State->WorkingDirectory = PushString(&State->FileNamesArena, WorkingDirectory.Length + 2);
-    PrintF(&State->WorkingDirectory, "%S", SanitizedDirectory);
-    if (State->WorkingDirectory.Str[State->WorkingDirectory.Length - 1] != '\\')
+    gs_file_info NewWorkingDirectory = GetFileInfo(Context.ThreadContext.FileHandler, SanitizedDirectory);
+    if (NewWorkingDirectory.IsDirectory)
     {
-        AppendPrintF(&State->WorkingDirectory, "\\");
+        // NOTE(pjs): we might be printing from State->WorkingDirectory to State->WorkingDirectory
+        // in some cases. Shouldn't be a problem but it is unnecessary
+        PrintF(&State->WorkingDirectory, "%S", WorkingDirectory);
+        
+        State->FileNames = EnumerateDirectory(Context.ThreadContext.FileHandler, &State->FileNamesArena, State->WorkingDirectory.ConstString, EnumerateDirectory_IncludeDirectories);
     }
-    if (State->WorkingDirectory.Str[State->WorkingDirectory.Length - 1] != '*')
-    {
-        AppendPrintF(&State->WorkingDirectory, "*");
-    }
-    
-    State->FileNames = EnumerateDirectory(Context.ThreadContext.FileHandler, &State->FileNamesArena, State->WorkingDirectory.ConstString, EnumerateDirectory_IncludeDirectories);
 }
 
 GSMetaTag(panel_init);
@@ -71,7 +85,10 @@ FileView_Init(panel* Panel, app_state* State, context Context)
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
     Panel->StateMemory = StructToData(FileViewState, file_view_state);
     FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
-    FileViewUpdateWorkingDirectory(ConstString("."), FileViewState, Context);
+    
+    // TODO(pjs): this shouldn't be stored in permanent
+    FileViewState->WorkingDirectory = PushString(&State->Permanent, 256);
+    FileView_UpdateWorkingDirectory(ConstString("."), FileViewState, Context);
 }
 
 GSMetaTag(panel_cleanup);
@@ -88,43 +105,60 @@ internal void
 FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     file_view_state* FileViewState = Panel_GetStateStruct(Panel, file_view_state);
-    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    Assert(FileViewState->Mode == FileViewMode_Save);
     
-    if (ui_Button(&State->Interface, MakeString("Exit")))
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("FileView Layout"));
     {
-        FileView_Exit_(Panel, State, Context);
-    }
-    
-    // Header
-    ui_DrawString(&State->Interface, FileViewState->WorkingDirectory);
-    
-    // File Display
-    for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
-    {
-        gs_file_info File = FileViewState->FileNames.Values[i];
-        
-        u32 LastSlashIndex = FindLast(File.Path, '\\');
-        gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
-        gs_string PathString = PushString(State->Transient, FileName.Length);
-        PrintF(&PathString, "%S", FileName);
-        if (ui_LayoutListButton(&State->Interface, &Layout, PathString, i))
+        if (ui_Button(&State->Interface, MakeString("Exit")))
         {
-            if (File.IsDirectory)
+            FileView_Exit_(Panel, State, Context);
+        }
+        
+        // Header
+        if (ui_TextEntry(&State->Interface, MakeString("pwd"), &FileViewState->WorkingDirectory))
+        {
+            // if last character is a slash, update pwd, and clear the filter string
+            // otherwise update the filter string
+            gs_string Pwd = FileViewState->WorkingDirectory;
+            char LastChar = Pwd.Str[Pwd.Length - 1];
+            if (LastChar == '\\' || LastChar == '/')
             {
-                FileViewUpdateWorkingDirectory(File.Path, FileViewState, Context);
+                FileView_UpdateWorkingDirectory(Pwd.ConstString, FileViewState, Context);
             }
             else
             {
-                FileViewState->SelectedFile = File;
-                FileView_Exit_(Panel, State, Context);
+                
             }
         }
+        
+        // File Display
+        ui_BeginList(&State->Interface, MakeString("Files"), 10, FileViewState->FileNames.Count);
+        for (u32 i = 0; i < FileViewState->FileNames.Count; i++)
+        {
+            gs_file_info File = FileViewState->FileNames.Values[i];
+            
+            u32 LastSlashIndex = FindLast(File.Path, '\\');
+            gs_const_string FileName = Substring(File.Path, LastSlashIndex + 1, File.Path.Length);
+            gs_string PathString = PushString(State->Transient, FileName.Length);
+            PrintF(&PathString, "%S", FileName);
+            
+            if (ui_LayoutListButton(&State->Interface, PathString, i))
+            {
+                if (File.IsDirectory)
+                {
+                    FileView_UpdateWorkingDirectory(File.Path, FileViewState, Context);
+                }
+                else
+                {
+                    FileViewState->SelectedFile = File;
+                    FileView_Exit_(Panel, State, Context);
+                }
+            }
+        }
+        ui_EndList(&State->Interface);
     }
-    
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("FileView Layout"));
 }
-
 
 
 #define FOLDHAUS_PANEL_FILE_VIEW_H

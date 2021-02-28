@@ -38,50 +38,44 @@ GSMetaTag(panel_type_hierarchy);
 internal void
 HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
-    ui_layout Layout = ui_CreateLayout(&State->Interface, PanelBounds);
-    ui_PushLayout(&State->Interface, Layout);
-    
     gs_string TempString = PushString(State->Transient, 256);
-    u32 LineCount = (u32)(Rect2Height(PanelBounds) / Layout.RowHeight) + 1;
-    u32 AssembliesToDraw = Min(LineCount, State->Assemblies.Count);
-    rect2* LineBounds = PushArray(State->Transient, rect2, LineCount);
     
-    // Fill in alternating color rows for the backgrounds
-    for (u32 Line = 0; Line < LineCount; Line++)
+    ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Hierarchy Layout"));
+    ui_BeginList(&State->Interface, MakeString("Hierarchy List"), 10, State->Assemblies.Count + 1);
     {
-        LineBounds[Line] = ui_ReserveElementBounds(&Layout);
-        v4 ListItemBGColor = ui_GetListItemBGColor(State->Interface.Style, Line);
-        ui_FillRect(&State->Interface, LineBounds[Line], ListItemBGColor);
-    }
-    
-    for (u32 AssemblyIndex = 0; AssemblyIndex < AssembliesToDraw; AssemblyIndex++)
-    {
-        assembly Assembly = State->Assemblies.Values[AssemblyIndex];
-        PrintF(&TempString, "%S", Assembly.Name);
-        
-        ui_StartRow(&State->Interface, 2);
+        ui_column_spec Cols[2] = {
+            ui_column_spec{ UIColumnSize_Fill, 0 },
+            ui_column_spec{ UIColumnSize_MaxWidth, 128 }
+        };
+        for (u32 i = 0; i < State->Assemblies.Count; i++)
         {
-            ui_DrawString(&State->Interface, TempString);
-            if (ui_LayoutListButton(&State->Interface, &Layout, MakeString("X"), AssemblyIndex))
+            ui_BeginRow(&State->Interface, 2, &Cols[0]);
+            
+            assembly Assembly = State->Assemblies.Values[i];
+            PrintF(&TempString, "%S", Assembly.Name);
+            
+            ui_Label(&State->Interface, TempString);
+            if (ui_Button(&State->Interface, MakeString("X")))
             {
-                UnloadAssembly(AssemblyIndex, State, Context);
+                UnloadAssembly(i, State, Context);
             }
+            
+            ui_EndRow(&State->Interface);
+        }
+        
+        
+        ui_BeginRow(&State->Interface, 2, &Cols[0]);
+        ui_Label(&State->Interface, MakeString(" "));
+        if (ui_Button(&State->Interface, MakeString("+ Add Assembly")))
+        {
+            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+            FileView_SetMode(FileBrowser, FileViewMode_Save);
+            Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
         ui_EndRow(&State->Interface);
     }
-    
-    if (AssembliesToDraw < LineCount)
-    {
-        // NOTE(Peter): Add assembly button
-        PrintF(&TempString, "+ Add Assembly");
-        if (ui_ListButton(&State->Interface, TempString, LineBounds[AssembliesToDraw], AssembliesToDraw))
-        {
-            panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
-            Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
-        }
-    }
-    
-    ui_PopLayout(&State->Interface);
+    ui_EndList(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("Hierarchy Layout"));
 }
 
 

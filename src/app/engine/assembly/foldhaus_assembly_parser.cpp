@@ -225,7 +225,7 @@ AssemblyParser_ReadSequence(parser* Parser, assembly* Assembly)
 internal strip_gen_data
 AssemblyParser_ReadStripGenData(parser* Parser, assembly* Assembly)
 {
-    strip_gen_data Result = {0};
+    strip_gen_data Result = {};
     
     if (Parser_ReadOpenStruct(Parser, AssemblyField_Segment))
     {
@@ -258,12 +258,13 @@ AssemblyParser_ReadStripGenData(parser* Parser, assembly* Assembly)
     return Result;
 }
 
-internal bool
+internal parser
 ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileText, gs_memory_arena* Transient)
 {
     Assembly->LedCountTotal = 0;
     
     parser Parser = {0};
+    Parser.FileName = FileName;
     Parser.String = FileText;
     Parser.Identifiers = &AssemblyFieldIdentifiers[0];
     Parser.IdentifiersCount = AssemblyField_Count;
@@ -271,6 +272,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     Parser.LineStart = Parser.At;
     Parser.Arena = &Assembly->Arena;
     Parser.Transient = Transient;
+    Parser.Success = true;
     
     Assembly->Name = Parser_ReadStringValue(&Parser, AssemblyField_AssemblyName);
     Assembly->Scale = Parser_ReadR32Value(&Parser, AssemblyField_AssemblyScale);
@@ -298,6 +300,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     else
     {
         Parser_PushErrorF(&Parser, "Invalid output mode specified for assembly.");
+        Parser.Success = false;
     }
     
     for (u32 i = 0; i < Assembly->StripCount; i++)
@@ -316,16 +319,17 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
             if (!Parser_ReadCloseStruct(&Parser))
             {
                 Parser_PushErrorF(&Parser, "Strip struct doesn't close where expected");
+                Parser.Success = false;
             }
         }
         else
         {
             Parser_PushErrorF(&Parser, "Expected a strip struct but none was found");
+            Parser.Success = false;
         }
     }
     
-    // TODO(pjs): invalidate the file if its incorrect
-    return true; //Tokenizer.ParsingIsValid;
+    return Parser;
 }
 
 #define FOLDHAUS_ASSEMBLY_PARSER_CPP

@@ -160,7 +160,6 @@ struct assembly_array
     assembly* Values;
 };
 
-
 internal led_buffer*
 LedSystemGetBuffer(led_system* System, u32 Index)
 {
@@ -203,6 +202,35 @@ StripGenData_CountLeds(strip_gen_data Data)
     }
     
     return Result;
+}
+
+internal bool
+AssemblyStrip_HasTagValue(v2_strip Strip, u64 NameHash, u64 ValueHash)
+{
+    bool Result = false;
+    for (u32 i = 0; i < Strip.TagsCount; i++)
+    {
+        v2_tag TagAt = Strip.Tags[i];
+        if (TagAt.NameHash == NameHash)
+        {
+            // NOTE(pjs): We can pass an empty string to the Value parameter,
+            // and it will match all values of Tag
+            if (ValueHash == 0 || ValueHash == TagAt.ValueHash)
+            {
+                Result = true;
+                break;
+            }
+        }
+    }
+    return Result;
+}
+
+internal bool
+AssemblyStrip_HasTagValueSLOW(v2_strip Strip, char* Name, char* Value)
+{
+    u64 NameHash = HashDJB2ToU32(Name);
+    u64 ValueHash = HashDJB2ToU32(Value);
+    return AssemblyStrip_HasTagValue(Strip, NameHash, ValueHash);
 }
 
 #define FOLDHAUS_ASSEMBLY_H

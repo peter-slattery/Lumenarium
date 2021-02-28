@@ -46,6 +46,20 @@ GET_FILE_INFO(Win32GetFileInfo)
         }
         CloseHandle(FileHandle);
     }
+    else
+    {
+        DWORD FileAttr = GetFileAttributes(Path.Str);
+        if (FileAttr != INVALID_FILE_ATTRIBUTES &&
+            (FileAttr & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            Result.Path = Path;
+            Result.IsDirectory = true;
+        }
+        else
+        {
+            // Path is not a file or directory
+        }
+    }
     return Result;
 }
 
@@ -183,7 +197,8 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
 {
     u32 FilesCount = 0;
     
-    u32 IndexOfLastSlash = FindLastFromSet(Path, "\\/");
+    s64 IndexOfLastSlash = FindLastFromSet(Path, "\\/");
+    Assert(IndexOfLastSlash >= 0);
     gs_const_string SearchPath = Substring(Path, 0, IndexOfLastSlash + 1);
     
     WIN32_FIND_DATA FindFileData;

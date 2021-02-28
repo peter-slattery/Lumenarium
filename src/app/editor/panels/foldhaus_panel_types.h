@@ -10,8 +10,8 @@ enum panel_type {
     PanelType_AnimationTimeline,
     PanelType_DMXView,
     PanelType_HierarchyView,
-    PanelType_NodeGraph,
     PanelType_ProfilerView,
+    PanelType_AssemblyDebug,
 };
 #define FOLDHAUS_PANEL_TYPES_H
 #endif // FOLDHAUS_PANEL_TYPES_H

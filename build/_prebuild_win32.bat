@@ -1,6 +1,6 @@
 @echo off
 
-REM This file takes two arguments
+REM This file takes three arguments
 REM 1 = "app" or "meta"
 REM 2 = "debug" or "release"
 REM 3 = "msvc" or "clang"
@@ -22,7 +22,9 @@ set StatsFile=%1_win32_%3_%2_build_time.ctm
 IF NOT EXIST %BuildPath% mkdir %BuildPath%
 IF NOT EXIST %StatsPath% mkdir %StatsPath%
 
-C:\apps\ctime\ctime.exe -begin %StatsPath%\%StatsFile%
+set CTimePath=C:\apps\ctime
+IF EXIST %CTIMEPATH% ( call C:\apps\ctime\ctime.exe -begin %StatsPath%\%StatsFile% )
+
 echo.
 echo BUILDING TO %BuildPath%
 echo STATS IN %StatsPath%\%StatsFile%

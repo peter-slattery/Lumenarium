@@ -9,6 +9,7 @@
 # pragma GCC diagnostic ignored "-Wunused-value"
 # pragma GCC diagnostic ignored "-Wvarargs"
 # pragma GCC diagnostic ignored "-Wwritable-strings"
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 #if defined(_MSC_VER)
@@ -574,7 +575,8 @@ CStringLength(char* Str)
 {
     char* At = Str;
     while (*At) { At++; }
-    return PointerDifference(At, Str);
+    u64 Result = PointerDifference(At, Str);
+    return Result;
 }
 
 #define StringExpand(str) (int)(str).Length, (str).Str
@@ -1004,16 +1006,52 @@ struct gs_thread_context
     gs_memory_arena* Transient;
 };
 
-// Threads & Work Queue
+// Threads
+
+typedef struct platform_thread_handle
+{
+    u32 Index;
+} platform_thread_handle;
+
+typedef struct platform_thread_manager platform_thread_manager;
+
+#define THREAD_PROC_(name) void name(gs_thread_context* Ctx, u8* UserData)
+typedef THREAD_PROC_(thread_proc_);
+
+typedef struct platform_thread
+{
+    u8* PlatformHandle;
+    thread_proc_* Proc;
+    u8* UserData;
+    // TODO(pjs): Some kind of platform thread handle
+} platform_thread;
+
+#define CREATE_THREAD(name) bool name(platform_thread* Thread, thread_proc_* Proc, u8* UserData)
+typedef CREATE_THREAD(platform_create_thread);
+
+#define KILL_THREAD(name) bool name(platform_thread* Thread)
+typedef KILL_THREAD(platform_kill_thread);
+
+#define THREADS_MAX 32
+typedef struct platform_thread_manager
+{
+    b8 ThreadsUsed[THREADS_MAX];
+    platform_thread Threads[THREADS_MAX];
+    
+    platform_create_thread* CreateThreadProc;
+    platform_kill_thread*   KillThreadProc;
+} platform_thread_manager;
+
+// Work Queue
 
 typedef struct gs_work_queue gs_work_queue;
 
-struct gs_worker_thread
+typedef struct gs_worker_thread
 {
     gs_thread_context Context;
     gs_work_queue* Queue;
     b32 ShouldExit;
-};
+} gs_worker_thread;
 
 #define THREAD_PROC(name) void name(gs_thread_context Context, gs_data Data)
 typedef THREAD_PROC(thread_proc);
@@ -1047,8 +1085,57 @@ struct gs_work_queue
     // Work Queue
     push_work_on_queue* PushWorkOnQueue;
     complete_queue_work* CompleteQueueWork;
-    reset_work_queue* ResetWorkQueue;
 };
+
+// Sockets
+
+typedef struct platform_socket_handle_
+{
+    u32 Index;
+} platform_socket_handle_;
+
+typedef struct platform_socket
+{
+    char Addr[128];
+    char Port[32];
+    u8* PlatformHandle;
+} platform_socket;
+
+#define CONNECT_SOCKET(name) bool name(platform_socket* Socket)
+typedef CONNECT_SOCKET(platform_connect_socket);
+
+#define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
+typedef CLOSE_SOCKET(platform_close_socket);
+
+#define SOCKET_QUERY_STATUS(name) bool name(platform_socket* Socket)
+typedef SOCKET_QUERY_STATUS(platform_socket_query_status);
+
+#define SOCKET_PEEK(name) u32 name(platform_socket* Socket)
+typedef SOCKET_PEEK(platform_socket_peek);
+
+// TODO(pjs): allow for a size parameter that can be zero
+// if provided, that is how big the message it expects to be
+// if it equals zero, the proc will peek at the message first to determine
+//    the needed size
+#define SOCKET_RECEIVE(name) gs_data name(platform_socket* Socket, gs_memory_arena* Storage)
+typedef SOCKET_RECEIVE(platform_socket_receive);
+
+#define SOCKET_SEND(name) s32 name(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
+typedef SOCKET_SEND(platform_socket_send);
+
+#define SOCKETS_COUNT_MAX 32
+typedef struct platform_socket_manager
+{
+    b8 SocketsUsed[SOCKETS_COUNT_MAX];
+    platform_socket Sockets[SOCKETS_COUNT_MAX];
+    
+    platform_connect_socket* ConnectSocketProc;
+    platform_close_socket* CloseSocketProc;
+    platform_socket_query_status* SocketQueryStatusProc;
+    platform_socket_peek* SocketPeekProc;
+    platform_socket_receive* SocketRecieveProc;
+    platform_socket_send* SocketSendProc;
+} platform_socket_manager;
 
 #define GS_TYPES_H
 #endif // GS_TYPES_H

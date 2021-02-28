@@ -15,6 +15,14 @@ AllocateRenderCommandBuffer (u8* Memory, s32 Size, renderer_realloc* Realloc)
     Result.Realloc = Realloc;
     return Result;
 }
+internal render_command_buffer
+AllocateRenderCommandBuffer(u32 MemorySize,
+                            gs_memory_arena* Arena,
+                            renderer_realloc* Realloc)
+{
+    u8* Memory = PushSize(Arena, MemorySize);
+    return AllocateRenderCommandBuffer(Memory, MemorySize, Realloc);
+}
 
 internal void
 Render3DQuadBatch (u8* CommandData, s32 TriCount)

@@ -25,86 +25,117 @@ ProfilerView_Cleanup(panel* Panel, app_state* State)
 }
 
 internal void
-RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_layout Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
+RenderProfiler_ScopeVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Transient)
 {
-    v4 ThreadColors[] = {
-        v4{.73f, .33f, .83f, 1},
-        v4{0,   .50f, .50f, 1},
-        v4{.83f, 0,    0, 1},
-        v4{.33f, .49f, .83f, 1},
-        v4{.74f, .40f, .25f, 1},
-    };
-    
-    rect2 Bounds = ui_LayoutRemaining(Layout);
+    rect2 Bounds = ui_LayoutRemaining(*Layout);
     r32 Width = Rect2Width(Bounds);
-    r32 DepthHeight = 64;
+    r32 DepthHeight = 32;
     
     s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
-    s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
+    r32 FrameTotalCycles = (r32)(VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles);
     
-    debug_scope_record_list* ThreadScopeCalls = GetScopeListForThreadInFrame(GlobalDebugServices,
-                                                                             VisibleFrame);
+    r32 NextThreadTop = Bounds.Max.y;
     
-    scope_record* HotRecord = 0;
-    scope_name* HotRecordName = 0;
-    
-    char Backbuffer[256];
-    gs_string String = MakeString(Backbuffer, 0, 256);
-    for (s32 i = 0; i < ThreadScopeCalls->Count; i++)
+    for (s32 t = 0; t < VisibleFrame->ThreadCount; t++)
     {
-        scope_record* Record = ThreadScopeCalls->Calls + i;
-        scope_name* Name = GetOrAddNameHashEntry(VisibleFrame, Record->NameHash);
-        r32 PercentStart = (r32)(Record->StartCycles - FrameStartCycles) / (r32)FrameTotalCycles;
-        r32 PercentEnd = (r32)(Record->EndCycles - FrameStartCycles) / (r32)FrameTotalCycles;
+        debug_scope_record_list ThreadCalls = VisibleFrame->ThreadCalls[t];
         
-        r32 PixelStart = Bounds.Min.x + (Width * PercentStart);
-        r32 PixelEnd = Bounds.Min.x + (Width * PercentEnd);
-        r32 MinY = Bounds.Max.y - ((Record->CallDepth + 1) * DepthHeight);
-        rect2 ScopeBounds = {
-            v2{ PixelStart, MinY },
-            v2{ PixelEnd, MinY + (DepthHeight - 4) }
-        };
-        if (Rect2Width(ScopeBounds) >= 1)
+        gs_string String = PushString(Transient, 256);
+        
+        r32 ThreadScopeMin = Bounds.Max.y;
+        
+        //PrintF(&String, "Thread %d", ThreadCalls.ThreadId);
+        //ui_Label(Interface, String, rect2{ThreadScopeMin);
+        
+        r32 Hue = (r32)(t) / (r32)(VisibleFrame->ThreadCount);
+        Hue += (.5f * (t % 2));
+        v4 ThreadHSV = v4{ 360.0f * Hue, .5f, 1.0f, 1.0f };
+        v4 ThreadRGB = HSVToRGB(ThreadHSV);
+        
+        for (s32 i = 0; i < ThreadCalls.Count; i++)
         {
-            v4 Color = ThreadColors[0];
-            if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
-            {
-                Color = GreenV4;
-                HotRecord = Record;
-                HotRecordName = Name;
-            }
+            scope_record* Record = ThreadCalls.Calls + i;
+            scope_name* Name = GetOrAddNameHashEntry(VisibleFrame, Record->NameHash);
+            s64 OffsetStart = Record->StartCycles - FrameStartCycles;
+            s64 OffsetEnd = Record->EndCycles - FrameStartCycles;
+            r32 PercentStart = (r32)(OffsetStart) / FrameTotalCycles;
+            r32 PercentEnd = (r32)(OffsetEnd) / FrameTotalCycles;
+            r32 PercentWidth = PercentEnd - PercentStart;
             
-            ui_FillRect(Interface, ScopeBounds, Color);
-            ui_OutlineRect(Interface, ScopeBounds, 1, BlackV4);
+            rect2 ScopeBounds = {
+                v2{0, 0},
+                v2{PercentWidth * Width, DepthHeight - 4},
+            };
+            v2 Offset = {
+                Bounds.Min.x + (PercentStart * Width),
+                NextThreadTop - ((Record->CallDepth + 1) * DepthHeight)
+            };
+            ScopeBounds = Rect2Translate(ScopeBounds, Offset);
+            ThreadScopeMin = Min(ScopeBounds.Min.y, ThreadScopeMin);
+            
+            if (Rect2Width(ScopeBounds) >= 1)
+            {
+                v4 Color = ThreadRGB;
+                if (PointIsInRect(ScopeBounds, Interface->Mouse.Pos))
+                {
+                    Color = GreenV4;
+                    
+                    ui_BeginMousePopup(Interface, rect2{ 25, 25, 300, 57 }, LayoutDirection_TopDown, MakeString("Hover"));
+                    {
+                        s64 Cycles = (Record->EndCycles - Record->StartCycles);
+                        r32 PercentFrame = (r32)(Cycles) / FrameTotalCycles;
+                        PrintF(&String, "%S : %.2f%% frame | %dcy",
+                               Name->Name,
+                               PercentFrame,
+                               Cycles);
+                        ui_Label(Interface, String);
+                    }
+                    ui_EndMousePopup(Interface);
+                }
+                
+                ui_FillRect(Interface, ScopeBounds, Color);
+                ui_OutlineRect(Interface, ScopeBounds, 1, BlackV4);
+            }
         }
-    }
-    
-    if (HotRecord != 0)
-    {
-        PrintF(&String, "%S : %d - %d", HotRecordName->Name, HotRecord->StartCycles, HotRecord->EndCycles);
         
-        rect2 TextBounds = MakeRect2MinDim(Interface->Mouse.Pos, v2{256, 32});
-        ui_DrawString(Interface, String, TextBounds);
+        NextThreadTop = ThreadScopeMin;
     }
 }
 
 internal void
-RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
+RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, debug_frame* VisibleFrame, gs_memory_arena* Memory)
 {
     char Backbuffer[256];
     gs_string String = MakeString(Backbuffer, 0, 256);
     
-    r32 ColumnWidths[] = {256, 128, 128, 128, 128};
-    ui_StartRow(Interface, 5, &ColumnWidths[0]);
+    ui_column_spec ColumnWidths[] = {
+        { UIColumnSize_Fixed, 256 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 },
+        { UIColumnSize_Fixed, 128 }};
+    ui_BeginRow(Interface, 5, &ColumnWidths[0]);
     {
-        ui_DrawString(Interface, MakeString("Procedure"));
-        ui_DrawString(Interface, MakeString("% Frame"));
-        ui_DrawString(Interface, MakeString("Seconds"));
-        ui_DrawString(Interface, MakeString("Cycles"));
-        ui_DrawString(Interface, MakeString("Calls"));
+        ui_Label(Interface, MakeString("Procedure"));
+        ui_Label(Interface, MakeString("% Frame"));
+        ui_Label(Interface, MakeString("Seconds"));
+        ui_Label(Interface, MakeString("Cycles"));
+        ui_Label(Interface, MakeString("Calls"));
     }
     ui_EndRow(Interface);
     
+    s32 CountedScopes = 0;
+    for (s32 n = 0; n < VisibleFrame->ScopeNamesMax; n++)
+    {
+        scope_name NameEntry = VisibleFrame->ScopeNamesHash[n];
+        if (NameEntry.Hash != 0)
+        {
+            CountedScopes += 1;
+        }
+    }
+    
+    ui_BeginList(Interface, MakeString("Scope List"), 10, CountedScopes);
+    ui_BeginRow(Interface, 5, &ColumnWidths[0]);
     for (s32 n = 0; n < VisibleFrame->ScopeNamesMax; n++)
     {
         scope_name NameEntry = VisibleFrame->ScopeNamesHash[n];
@@ -112,26 +143,24 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_layout Layout, debu
         {
             collated_scope_record* CollatedRecord = VisibleFrame->CollatedScopes + n;
             
-            ui_StartRow(Interface, 5, &ColumnWidths[0]);
-            {
-                PrintF(&String, "%S", NameEntry.Name);
-                ui_DrawString(Interface, String);
-                
-                PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
-                ui_DrawString(Interface, String);
-                
-                PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
-                ui_DrawString(Interface, String);
-                
-                PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
-                ui_DrawString(Interface, String);
-                
-                PrintF(&String, "%d", CollatedRecord->CallCount);
-                ui_DrawString(Interface, String);
-            }
-            ui_EndRow(Interface);
+            PrintF(&String, "%S", NameEntry.Name);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%f%%", CollatedRecord->PercentFrameTime);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%fs", CollatedRecord->TotalSeconds);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%dcy", CollatedRecord->TotalCycles);
+            ui_Label(Interface, String);
+            
+            PrintF(&String, "%d", CollatedRecord->CallCount);
+            ui_Label(Interface, String);
         }
     }
+    ui_EndRow(Interface);
+    ui_EndList(Interface);
 }
 
 GSMetaTag(panel_render);
@@ -179,23 +208,22 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
-    ui_layout Layout = ui_CreateLayout(&State->Interface, ProcListBounds);
-    ui_PushLayout(&State->Interface, Layout);
+    ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown, MakeString("Profiler Layout"));
     
-    ui_StartRow(&State->Interface, 4);
+    ui_BeginRow(&State->Interface, 4);
     {
         s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
         s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
         u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
         PrintF(&String, "Frame %d", CurrentDebugFrame);
-        ui_DrawString(&State->Interface, String);
+        ui_Label(&State->Interface, String);
         
         PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
-        ui_DrawString(&State->Interface, String);
+        ui_Label(&State->Interface, String);
         
         // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
         // be removed, or used for something else
-        ui_ReserveElementBounds(&Layout);
+        ui_ReserveBounds(&State->Interface, Layout, true);
         
         if (ui_Button(&State->Interface, MakeString("Resume Recording")))
         {
@@ -204,7 +232,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     }
     ui_EndRow(&State->Interface);
     
-    ui_StartRow(&State->Interface, 8);
+    ui_BeginRow(&State->Interface, 8);
     {
         if (ui_Button(&State->Interface, MakeString("Scope View")))
         {
@@ -226,7 +254,7 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
         RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
     }
     
-    ui_PopLayout(&State->Interface);
+    ui_PopLayout(&State->Interface, MakeString("Profiler Layout"));
 }
 
 

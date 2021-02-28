@@ -18,6 +18,16 @@ struct worker_thread_info
     gs_work_queue* Queue;
 };
 
+struct win32_work_queue
+{
+    u32 ThreadCount;
+    worker_thread_info* Threads;
+    gs_work_queue WorkQueue;
+};
+
+worker_thread_info* WorkerThreads;
+win32_work_queue Win32WorkQueue;
+
 internal s32
 Win32GetThreadId()
 {
@@ -45,6 +55,8 @@ Win32CreateThreadContext(gs_memory_arena* Transient = 0)
                                            Win32WriteEntireFile,
                                            Win32EnumerateDirectory,
                                            Result.Transient);
+    
+    Result.DebugOutput.Print = Win32DebugPrint;
     
     return Result;
 }
@@ -149,6 +161,91 @@ WorkerThreadProc (LPVOID InputThreadInfo)
     }
     
     return 0;
+}
+
+DWORD WINAPI
+Win32ThreadProcWrapper(LPVOID ThreadInfo)
+{
+    platform_thread* Thread = (platform_thread*)ThreadInfo;
+    gs_thread_context Ctx = Win32CreateThreadContext();
+    Thread->Proc(&Ctx, Thread->UserData);
+    
+    // TODO(pjs): Destroy Thread Context
+    // TODO(pjs): How do we notify the thread manager this thread belongs to that it is free?
+    //            Probaby put a pointer to the thread manager in the platform_thread struct
+    //            so we can update the tracking structure?
+    
+    return 0;
+}
+
+CREATE_THREAD(Win32CreateThread)
+{
+    Thread->Proc = Proc;
+    Thread->UserData = UserData;
+    
+    // TODO(pjs): ugh, allocation out in the middle of nowhere
+    HANDLE* ThreadHandle = (HANDLE*)Win32Alloc(sizeof(HANDLE), 0);
+    *ThreadHandle = CreateThread(0, 0, Win32ThreadProcWrapper, (void*)Thread, 0, 0);
+    // TODO(pjs): Error checking on the created thread
+    
+    Thread->PlatformHandle = (u8*)ThreadHandle;
+    
+    return true;
+}
+
+KILL_THREAD(Win32KillThread)
+{
+    HANDLE* ThreadHandle = (HANDLE*)Thread->PlatformHandle;
+    TerminateThread(ThreadHandle, 0);
+    
+    // TODO(pjs): see allocation out in the middle of nowhere in Win32CreateThread
+    Win32Free((void*)Thread->PlatformHandle, sizeof(HANDLE));
+    
+    // TODO(pjs): Error checking
+    return true;
+}
+
+internal void
+Win32WorkQueue_Init(gs_memory_arena* Arena, u32 ThreadCount)
+{
+    if (ThreadCount > 0)
+    {
+        Win32WorkQueue.ThreadCount = ThreadCount;
+        Win32WorkQueue.Threads = PushArray(Arena, worker_thread_info, ThreadCount);
+    }
+    
+    gs_work_queue WQ = {};
+    WQ.SemaphoreHandle = CreateSemaphoreEx(0, 0, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);;
+    WQ.JobsMax = 512;
+    WQ.Jobs = PushArray(Arena, gs_threaded_job, WQ.JobsMax);
+    WQ.NextJobIndex = 0;
+    WQ.PushWorkOnQueue = Win32PushWorkOnQueue;
+    WQ.CompleteQueueWork = Win32DoQueueWorkUntilDone;
+    
+    Win32WorkQueue.WorkQueue = WQ;
+    
+    // ID = 0 is reserved for this thread
+    for (u32 i = 0; i < ThreadCount; i++)
+    {
+        worker_thread_info* T = Win32WorkQueue.Threads + i;
+        T->Queue = &Win32WorkQueue.WorkQueue;
+        T->Handle = CreateThread(0, 0, &WorkerThreadProc, (void*)T, 0, 0);
+    }
+}
+
+internal void
+Win32WorkQueue_Cleanup()
+{
+    u32 Error = 0;
+    for (u32 Thread = 0; Thread < Win32WorkQueue.ThreadCount; Thread++)
+    {
+        u32 Success = TerminateThread(Win32WorkQueue.Threads[Thread].Handle, 0);
+        if (!Success)
+        {
+            Error = GetLastError();
+            InvalidCodePath;
+        }
+    }
 }
 
 #define WIN32_FOLDHAUS_WORK_QUEUE_H

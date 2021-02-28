@@ -590,6 +590,21 @@ PushRenderQuad2D (render_command_buffer* Buffer, v2 Min, v2 Max, v4 Color)
 }
 
 internal void
+PushRenderQuad2D (render_command_buffer* Buffer, rect2 Rect, v4 Color)
+{
+    render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);
+    PushQuad2DOnBatch(&Batch, Rect.Min, Rect.Max, Color);
+}
+
+internal void
+PushRenderQuad2DClipped (render_command_buffer* Buffer, rect2 Rect, rect2 ClippingBox, v4 Color)
+{
+    rect2 Clipped = Rect2Union(Rect, ClippingBox);
+    render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);
+    PushQuad2DOnBatch(&Batch, Clipped.Min, Clipped.Max, Color);
+}
+
+internal void
 PushRenderQuad2D(render_command_buffer* Buffer, v2 P0, v2 P1, v2 P2, v2 P3, v4 Color)
 {
     render_quad_batch_constructor Batch = PushRenderQuad2DBatch(Buffer, 1);

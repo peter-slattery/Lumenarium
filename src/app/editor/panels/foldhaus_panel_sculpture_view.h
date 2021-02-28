@@ -5,6 +5,12 @@
 //
 #ifndef FOLDHAUS_PANEL_SCULPTURE_VIEW_H
 
+// Definitions
+
+#define PIXEL_TO_WORLD_SCALE 0.01f
+
+//
+
 struct sculpture_view_panel_state
 {
     camera Camera;
@@ -24,8 +30,8 @@ OPERATION_RENDER_PROC(Update3DViewMouseRotate)
     
     v2 TotalDeltaPos = Mouse.Pos - Mouse.DownPos;
     
-    m44 XRotation = M44RotationX(-TotalDeltaPos.y * State->PixelsToWorldScale);
-    m44 YRotation = M44RotationY(TotalDeltaPos.x * State->PixelsToWorldScale);
+    m44 XRotation = M44RotationX(-TotalDeltaPos.y * PIXEL_TO_WORLD_SCALE);
+    m44 YRotation = M44RotationY(TotalDeltaPos.x * PIXEL_TO_WORLD_SCALE);
     m44 Combined = XRotation * YRotation;
     
     OpState->Camera->Position = (Combined * OpState->CameraStartPos).xyz;
@@ -226,14 +232,10 @@ SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         v2 LedOnScreenPosition = SculptureView_WorldToScreenPosition(LedPosition, PanelState->Camera, PanelBounds);
         
         gs_string Tempgs_string = PushString(State->Transient, 256);
-        PrintF(&Tempgs_string, "%f %f", LedOnScreenPosition.x, LedOnScreenPosition.y);
+        PrintF(&Tempgs_string, "Hot Id: %u, ZIndex: %u | Active Id: %u", State->Interface.HotWidget.Id,
+               State->Interface.HotWidget.ZIndex,State->Interface.ActiveWidget.Id);
         DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4);
         
-        
-        v2 BoxHalfDim = v2{ 25, 25 };
-        v2 BoxMin = LedOnScreenPosition - BoxHalfDim;
-        v2 BoxMax = LedOnScreenPosition + BoxHalfDim;
-        PushRenderBoundingBox2D(RenderBuffer, BoxMin, BoxMax, 2.0f, TealV4);
     }
     Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
 }

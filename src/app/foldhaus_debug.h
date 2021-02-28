@@ -54,6 +54,7 @@ struct debug_frame
     s64 FrameEndCycles;
     
     s32 ScopeNamesMax;
+    s32 ScopeNamesCount;
     scope_name* ScopeNamesHash;
     
     s32 ThreadCount;
@@ -302,6 +303,7 @@ EndDebugFrame (debug_services* Services)
         CollateThreadScopeCalls(ClosingFrame->ThreadCalls + t, ClosingFrame);
     }
     
+    s32 ScopeNamesCount = 0;
     for (s32 n = 0; n < ClosingFrame->ScopeNamesMax; n++)
     {
         if (ClosingFrame->ScopeNamesHash[n].Hash != 0)
@@ -310,8 +312,10 @@ EndDebugFrame (debug_services* Services)
             CollatedRecord->TotalSeconds = (r32)CollatedRecord->TotalCycles / (r32)Services->PerformanceCountFrequency;
             CollatedRecord->PercentFrameTime = (r32)CollatedRecord->TotalCycles / (r32)FrameTotalCycles;
             CollatedRecord->AverageSecondsPerCall = CollatedRecord->TotalSeconds / CollatedRecord->CallCount;
+            ScopeNamesCount += 1;
         }
     }
+    ClosingFrame->ScopeNamesCount = ScopeNamesCount;
     
     Services->CurrentDebugFrame = (Services->CurrentDebugFrame + 1) % DEBUG_FRAME_COUNT;
     StartDebugFrame(&Services->Frames[Services->CurrentDebugFrame], Services);

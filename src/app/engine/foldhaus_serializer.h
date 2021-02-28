@@ -135,7 +135,7 @@ struct parser_error
 {
     gs_string Message;
     
-    gs_string FileName;
+    gs_const_string FileName;
     u32 LineNumber;
     
     parser_error* Next;
@@ -143,7 +143,7 @@ struct parser_error
 
 struct parser
 {
-    gs_string FileName;
+    gs_const_string FileName;
     
     gs_string String;
     
@@ -160,6 +160,8 @@ struct parser
     
     parser_error* ErrorsRoot;
     parser_error* ErrorsHead;
+    
+    bool Success;
 };
 
 internal void
@@ -170,12 +172,16 @@ Parser_PushErrorF(parser* Parser, char* Format, ...)
     Error->LineNumber = Parser->Line;
     
     Error->Message = PushString(Parser->Transient, 1024);
-    PrintF(&Error->Message, "File: %S Line: %d - ", Error->FileName, Error->LineNumber);
+    PrintF(&Error->Message, "Error:\n");
     
     va_list Args;
     va_start(Args, Format);
     PrintFArgsList(&Error->Message, Format, Args);
     va_end(Args);
+    
+    AppendPrintF(&Error->Message, "\n\tFile: %S\n\tLine: %d\n",
+                 Error->FileName, Error->LineNumber);
+    NullTerminate(&Error->Message);
     
     SLLPushOrInit(Parser->ErrorsRoot, Parser->ErrorsHead, Error);
 }
@@ -202,8 +208,27 @@ Parser_AdvanceChar(parser* P)
     {
         P->Line += 1;
         P->LineStart = P->At + 1;
+        
+        if ((P->At[0] == '\n' && P->At[1] == '\r') ||
+            (P->At[0] == '\r' && P->At[1] == '\n'))
+        {
+            P->At++;
+            P->At++;
+        }
+        else if (P->At[0] == '\n')
+        {
+            P->At++;
+        }
+        else
+        {
+            // TODO(pjs): Not sure this is actually invalid
+            InvalidCodePath;
+        }
     }
-    P->At++;
+    else
+    {
+        P->At++;
+    }
 }
 
 internal void

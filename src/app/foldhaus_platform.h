@@ -5,9 +5,9 @@
 //
 #ifndef FOLDHAUS_PLATFORM_H
 
+// TODO Remove
+#include <math.h>
 #include <windows.h>
-
-#include <math.h> // TODO Remove
 
 #include "..\gs_libs\gs_types.h"
 #include "..\gs_libs\gs_types.cpp"
@@ -49,6 +49,22 @@ typedef s32 platform_network_address_handle;
 typedef struct context context;
 
 // Application Functions
+
+// TODO(pjs): TEMP
+typedef void temp_job_req_proc(gs_thread_context* Ctx, u8* Memory);
+struct temp_job_req
+{
+    temp_job_req_proc* Proc;
+    u8* Memory;
+};
+// This isn't necessarily temp but I'm not sure it goes here
+#define PACKETS_MAX 32
+struct packet_ringbuffer
+{
+    gs_data Values[PACKETS_MAX];
+    u32 ReadHead;
+    u32 WriteHead;
+};
 
 #define INITIALIZE_APPLICATION(name) void name(context Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
@@ -148,7 +164,7 @@ typedef DRAW_FONT_CODEPOINT(platform_draw_font_codepoint);
 
 // Worker Threads
 
-#define PLATFORM_THREAD_COUNT 0
+#define PLATFORM_THREAD_COUNT 3
 
 RESET_WORK_QUEUE(ResetWorkQueue)
 {
@@ -190,6 +206,9 @@ struct context
     update_and_render* UpdateAndRender;
     cleanup_application* CleanupApplication;
     
+    platform_thread_manager* ThreadManager;
+    platform_socket_manager* SocketManager;
+    
     // Platform Services
     gs_work_queue* GeneralWorkQueue;
     
@@ -199,7 +218,6 @@ struct context
     
     platform_get_socket_handle* PlatformGetSocketHandle;
 };
-
 
 #define FOLDHAUS_PLATFORM_H
 #endif // FOLDHAUS_PLATFORM_H

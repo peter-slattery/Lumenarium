@@ -5,8 +5,6 @@
 //
 #ifndef GS_FONT_H
 
-#ifndef GS_FONT_H
-
 struct codepoint_bitmap
 {
     s32 XOffset, YOffset;
@@ -36,20 +34,6 @@ struct bitmap_font
     u32 BitmapStride;
     s32 BitmapTextureHandle;
 };
-
-internal bitmap_font
-InitializeTextFont (s32 CodepointCount, u8* CodepointMemory, s32 CodepointMemorySize)
-{
-    bitmap_font Result = {};
-    
-    Result.CodepointDictionarySize = CodepointCount;
-    Result.CodepointDictionaryCount = 0;
-    Assert(CodepointMemorySize >= (sizeof(char) + sizeof(codepoint_bitmap)) * CodepointCount);
-    Result.CodepointKeys = (char*)CodepointMemory;
-    Result.CodepointValues = (codepoint_bitmap*)(CodepointMemory + (sizeof(char) * CodepointCount));
-    
-    return Result;
-}
 
 #define GLYPH_SKIRT 1
 internal void
@@ -126,8 +110,58 @@ NewLineYOffset (bitmap_font Font)
     return Result;
 }
 
-#define GS_FONT_H
-#endif
+
+internal bitmap_font
+TextFont_Create(gs_file FontFile, u32 BitmapDim, u32 FontSize, context Context, gs_memory_arena* Arena)
+{
+    bitmap_font Result = {};
+    Assert(FileNoError(FontFile));
+    
+    Result.BitmapWidth = BitmapDim;
+    Result.BitmapHeight = BitmapDim;
+    Result.BitmapBytesPerPixel = 4;
+    Result.BitmapStride = Result.BitmapWidth * Result.BitmapBytesPerPixel;
+    u32 BitmapSize = Result.BitmapWidth * Result.BitmapHeight * Result.BitmapBytesPerPixel;
+    Result.BitmapMemory = PushArray(Arena, u8, BitmapSize);
+    ZeroMemoryBlock(Result.BitmapMemory, BitmapSize);
+    
+    platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize, FontWeight_Normal, false, false, false);
+    Result.PixelHeight = FontInfo.PixelHeight;
+    Result.Ascent = FontInfo.Ascent;
+    Result.Descent = FontInfo.Descent;
+    Result.Leading = FontInfo.Leading;
+    Result.MaxCharWidth = FontInfo.MaxCharWidth;
+    
+    Result.CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
+    Result.CodepointDictionaryCount = 0;
+    Result.CodepointKeys = PushArray(Arena, char, Result.CodepointDictionarySize);
+    Result.CodepointValues = PushArray(Arena, codepoint_bitmap, Result.CodepointDictionarySize);
+    
+    for (s32 Codepoint = FontInfo.CodepointStart;
+         Codepoint < FontInfo.CodepointOnePastLast;
+         Codepoint++)
+    {
+        
+        u32 CodepointX, CodepointY;
+        GetNextCodepointOffset(&Result, &CodepointX, &CodepointY);
+        
+        u32 CodepointW, CodepointH;
+        Context.PlatformDrawFontCodepoint(
+                                          Result.BitmapMemory,
+                                          Result.BitmapWidth,
+                                          Result.BitmapHeight,
+                                          CodepointX, CodepointY,
+                                          Codepoint, FontInfo,
+                                          &CodepointW, &CodepointH);
+        
+        AddCodepointToFont(&Result, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
+    }
+    
+    Result.BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Result.BitmapMemory,
+                                                                     Result.BitmapWidth, Result.BitmapHeight);
+    
+    return Result;
+}
 
 #define GS_FONT_H
 #endif // GS_FONT_H

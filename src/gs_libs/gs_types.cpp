@@ -442,6 +442,21 @@ SqrtU32(u32 V)
 }
 
 internal r32
+ModR32(r32 Value, r32 Int)
+{
+    r32 Div = Value / Int;
+    r32 Fract = Abs(FractR32(Div));
+    return Int * Fract;
+}
+internal r64
+ModR64(r64 Value, r64 Int)
+{
+    r64 Div = Value / Int;
+    r64 Fract = Abs(FractR64(Div));
+    return Int * Fract;
+}
+
+internal r32
 SinR32(r32 Rad)
 {
     return sinf(Rad);
@@ -670,34 +685,34 @@ V4Cross(v4 A, v4 B)
 }
 
 internal v2
-V2Lerp(v2 A, v2 B, r32 T)
+V2Lerp(r32 T, v2 A, v2 B)
 {
     v2 Result = v2{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
     };
     return Result;
 }
 
 internal v3
-V3Lerp(v3 A, v3 B, r32 T)
+V3Lerp(r32 T, v3 A, v3 B)
 {
     v3 Result = v3{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
-        LerpR32(A.z, B.z, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
+        LerpR32(T, A.z, B.z),
     };
     return Result;
 }
 
 internal v4
-V4Lerp(v4 A, v4 B, r32 T)
+V4Lerp(r32 T, v4 A, v4 B)
 {
     v4 Result = v4{
-        LerpR32(A.x, B.x, T),
-        LerpR32(A.y, B.y, T),
-        LerpR32(A.z, B.z, T),
-        LerpR32(A.w, B.w, T),
+        LerpR32(T, A.x, B.x),
+        LerpR32(T, A.y, B.y),
+        LerpR32(T, A.z, B.z),
+        LerpR32(T, A.w, B.w),
     };
     return Result;
 }
@@ -927,6 +942,10 @@ Range2Union(range2 A, range2 B)
     Result.Min.y = Max(A.Min.y, B.Min.y);
     Result.Max.x = Min(A.Max.x, B.Max.x);
     Result.Max.y = Min(A.Max.y, B.Max.y);
+    
+    if (Rect2Width(Result) < 0) { Result.Min.x = Result.Max.x; }
+    if (Rect2Height(Result) < 0) { Result.Min.y = Result.Max.y; }
+    
     return Result;
 }
 internal range3
@@ -946,6 +965,41 @@ internal v2
 Rect2GetRectLocalPoint(rect2 Rect, v2 Point)
 {
     v2 Result = Point - Rect.Min;
+    return Result;
+}
+
+internal r32
+Rect2Area(rect2 Rect)
+{
+    r32 Result = Rect2Width(Rect) * Rect2Height(Rect);
+    return Result;
+}
+
+internal v2
+Rect2BottomLeft(rect2 Rect)
+{
+    v2 Result = Rect.Min;
+    return Result;
+}
+
+internal v2
+Rect2BottomRight(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Max.x, Rect.Min.y };
+    return Result;
+}
+
+internal v2
+Rect2TopRight(rect2 Rect)
+{
+    v2 Result = Rect.Max;
+    return Result;
+}
+
+internal v2
+Rect2TopLeft(rect2 Rect)
+{
+    v2 Result = v2{ Rect.Min.x, Rect.Max.y };
     return Result;
 }
 
@@ -1386,7 +1440,12 @@ CharArrayLength (char* CS)
 internal bool
 IsNullTerminated(gs_const_string String)
 {
-    return (String.Str[String.Length] == 0);
+    bool Result = false;
+    if (String.Str)
+    {
+        Result = (String.Str[String.Length] == 0);
+    }
+    return Result;
 }
 internal bool
 IsNullTerminated(gs_string String)
@@ -1514,12 +1573,12 @@ FindFirstFromSet(gs_const_string String, char* SetArray)
     return Result;
 }
 
-internal u64
+internal s64
 FindLastFromSet(gs_const_string String, char* SetArray)
 {
     gs_const_string Set = ConstString(SetArray);
-    u64 Result = String.Length - 1;
-    for(s64 At = Result; At >= 0; At--)
+    s64 Result = -1;
+    for(s64 At = String.Length - 1; At >= 0; At--)
     {
         char CharAt = String.Str[At];
         for (u64 SetAt = 0; SetAt < Set.Length; SetAt++)
@@ -1535,6 +1594,21 @@ FindLastFromSet(gs_const_string String, char* SetArray)
         }
     }
     find_first_from_set_complete:
+    return Result;
+}
+
+internal bool
+StringContains(gs_const_string Str, char C)
+{
+    bool Result = false;
+    for (u32 i = 0; i < Str.Length; i++)
+    {
+        if (Str.Str[i] == C)
+        {
+            Result = true;
+            break;
+        }
+    }
     return Result;
 }
 
@@ -1641,29 +1715,65 @@ CharToUInt(char C, u64 Base)
     return CharToUInt(C, GetCharSetForBase(Base));
 }
 
-internal u64
-ParseUInt(gs_const_string String, u64 Base = 10, u64* ParsedLength = 0)
+struct parse_uint_result
 {
-    u64 Result = 0;
+    b8 Success;
+    u64 Value;
+    u32 ParsedLength;
+};
+
+internal parse_uint_result
+ValidateAndParseUInt(gs_const_string String, u64 Base = 10)
+{
+    parse_uint_result Result = {0};
+    
     gs_const_string CharSet = GetCharSetForBase(Base);
-    u64 i = 0;
-    for (; i < String.Length; i++)
+    
+    bool StringIsValid = true;
+    for (u32 i = 0; i < String.Length; i++)
     {
-        u64 CharIndex = FindFirst(CharSet, String.Str[i]);
-        if (CharIndex  < CharSet.Length)
+        if (!StringContains(CharSet, String.Str[i]))
         {
-            Result = CharToUInt(String.Str[i], CharSet) + (Result * Base);
-        }
-        else
-        {
+            StringIsValid = false;
             break;
         }
     }
-    if (ParsedLength != 0)
+    
+    if (StringIsValid)
     {
-        *ParsedLength = i;
+        u64 Acc = 0;
+        u64 i = 0;
+        for (; i < String.Length; i++)
+        {
+            u64 CharIndex = FindFirst(CharSet, String.Str[i]);
+            if (CharIndex  < CharSet.Length)
+            {
+                Acc = CharToUInt(String.Str[i], CharSet) + (Acc * Base);
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        Result.Success = true;
+        Result.Value = Acc;
+        Result.ParsedLength = i;
     }
+    
     return Result;
+}
+
+internal u64
+ParseUInt(gs_const_string String, u64 Base = 10, u64* ParsedLength = 0)
+{
+    parse_uint_result ParseResult = ValidateAndParseUInt(String, Base);
+    Assert(ParseResult.Success);
+    if (ParsedLength)
+    {
+        *ParsedLength = ParseResult.ParsedLength;
+    }
+    return ParseResult.Value;
 }
 internal u64
 ParseUInt(u64 Length, char* String, u64 Base = 10, u64* ParsedLength = 0)
@@ -1702,39 +1812,75 @@ ParseInt(char* String, u64 Base = 10, u64* ParsedLength = 0)
     return ParseInt(LitString(String), Base, ParsedLength);
 }
 
+struct parse_float_result
+{
+    b8 Success;
+    r64 Value;
+    u64 ParsedLength;
+};
+
+internal parse_float_result
+ValidateAndParseFloat(gs_const_string String)
+{
+    parse_float_result Result = {0};
+    Result.Success = false;
+    
+    // Validate
+    bool StringIsValid = true;
+    for (u64 i = 0; i < String.Length; i++)
+    {
+        if (!IsNumericDecimal(String.Str[i]) && String.Str[i] != '-')
+        {
+            StringIsValid = false;
+            break;
+        }
+    }
+    
+    if (StringIsValid)
+    {
+        u64 DecimalIndex = FindFirst(String, '.');
+        u64 TempParsedLength = 0;
+        u64 PlacesAfterPoint = 0;
+        
+        gs_const_string IntegerString = GetStringBefore(String, DecimalIndex);
+        gs_const_string DecimalString = GetStringAfter(String, DecimalIndex + 1);
+        
+        r32 Polarity = 1;
+        if (IntegerString.Str[0] == '-')
+        {
+            IntegerString = GetStringAfter(IntegerString, 1);
+            Polarity = -1;
+        }
+        
+        Result.Value = (r64)ParseInt(IntegerString, 10, &TempParsedLength);
+        
+        if (TempParsedLength == IntegerString.Length)
+        {
+            r64 AfterPoint = (r64)ParseUInt(DecimalString, 10, &PlacesAfterPoint);
+            r64 Decimal = (AfterPoint / PowR64(10, PlacesAfterPoint));
+            Result.Value = Result.Value + Decimal;
+            Result.Value *= Polarity;
+        }
+        
+        Result.ParsedLength = TempParsedLength + PlacesAfterPoint;
+        if (DecimalIndex < String.Length) { Result.ParsedLength += 1; }
+        
+        Result.Success = true;
+    }
+    
+    return Result;
+}
+
 internal r64
 ParseFloat(gs_const_string String, u64* ParsedLength = 0)
 {
-    
-    u64 DecimalIndex = FindFirst(String, '.');
-    u64 TempParsedLength = 0;
-    u64 PlacesAfterPoint = 0;
-    
-    gs_const_string IntegerString = GetStringBefore(String, DecimalIndex);
-    gs_const_string DecimalString = GetStringAfter(String, DecimalIndex + 1);
-    
-    r32 Polarity = 1;
-    if (IntegerString.Str[0] == '-')
-    {
-        IntegerString = GetStringAfter(IntegerString, 1);
-        Polarity = -1;
-    }
-    r64 Result = (r64)ParseInt(IntegerString, 10, &TempParsedLength);
-    
-    if (TempParsedLength == IntegerString.Length)
-    {
-        r64 AfterPoint = (r64)ParseUInt(DecimalString, 10, &PlacesAfterPoint);
-        r64 Decimal = (AfterPoint / PowR64(10, PlacesAfterPoint));
-        Result = Result + Decimal;
-        Result *= Polarity;
-    }
-    
+    parse_float_result Result = ValidateAndParseFloat(String);
+    Assert(Result.Success);
     if (ParsedLength != 0)
     {
-        *ParsedLength = TempParsedLength + PlacesAfterPoint;
-        if (DecimalIndex < String.Length) { *ParsedLength += 1; }
+        *ParsedLength = Result.ParsedLength;
     }
-    return Result;
+    return Result.Value;
 }
 internal r64
 ParseFloat(char* String, u64* ParsedLength = 0)
@@ -1956,11 +2102,16 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
                 FormatAt++;
                 if (IsBase10(FormatAt[0]))
                 {
-                    
                     PrecisionSpecified = true;
+                    
+                    gs_const_string PrecisionStr = {};
+                    PrecisionStr.Str = FormatAt;
+                    for (char* C = FormatAt; *FormatAt && IsBase10(*C); C++)
+                    {
+                        PrecisionStr.Length++;
+                    }
                     u64 Parsed = 0;
-                    AssertMessage("ParseInt assumes whole string is an integer");
-                    Precision = (s32)ParseInt(FormatAt, 10, &Parsed);
+                    Precision = (s32)ParseInt(PrecisionStr, 10, &Parsed);
                     FormatAt += Parsed;
                 }
                 else if (FormatAt[0] == '*')
@@ -1979,31 +2130,31 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             if (FormatAt[0] == 'h' && FormatAt[1] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 1;
+                Length = 1;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'h')
             {
                 LengthSpecified = true;
-                LengthSpecified = 2;
+                Length = 2;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'l' && FormatAt[1] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt += 2;
             }
             else if (FormatAt[0] == 'l')
             {
                 LengthSpecified = true;
-                LengthSpecified = 4;
+                Length = 4;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'j')
             {
                 LengthSpecified = true;
-                LengthSpecified = 8;
+                Length = 8;
                 FormatAt++;
             }
             else if (FormatAt[0] == 'z')
@@ -2034,7 +2185,7 @@ PrintFArgsList (gs_string* String, char* Format, va_list Args)
             }
             else if (FormatAt[0] == 'u')
             {
-                u32 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
+                u64 UnsignedInt = ReadVarArgsUnsignedInteger(Length, &Args);
                 U64ToASCII(&StringRemaining, UnsignedInt, 10, Base10Chars);
             }
             else if (FormatAt[0] == 'o')
@@ -2472,6 +2623,19 @@ PushStringF(gs_memory_arena* Arena, u32 MaxLength, char* Format, ...)
     PrintFArgsList(&Result, Format, Args);
     va_end(Args);
     
+    return Result;
+}
+
+internal gs_string
+PushStringCopy(gs_memory_arena* Arena, gs_const_string String)
+{
+    gs_string Result = PushString(Arena, String.Length);
+    Result.Size = String.Length;
+    Result.Length = String.Length;
+    for (u32 i = 0; i < String.Length; i++)
+    {
+        Result.Str[i] = String.Str[i];
+    }
     return Result;
 }
 
@@ -3107,9 +3271,298 @@ TimeHandlerGetSecondsElapsed(gs_time_handler TimeHandler, s64 StartCycles, s64 E
     return Result;
 }
 
+//////////////////////////
+//
+// Thread Manager
+
+CREATE_THREAD(CreateThreadStub)
+{
+    return {};
+}
+
+
+KILL_THREAD(KillThreadStub)
+{
+    return false;
+}
+
+internal platform_thread_manager
+CreatePlatformThreadManager(platform_create_thread* CreateThreadProc,
+                            platform_kill_thread* KillThreadProc)
+{
+    platform_thread_manager Result = {};
+    Result.CreateThreadProc = CreateThreadProc;
+    Result.KillThreadProc = KillThreadProc;
+    
+    if (!CreateThreadProc)
+    {
+        Result.CreateThreadProc = CreateThreadStub;
+    }
+    if (!KillThreadProc)
+    {
+        Result.KillThreadProc = KillThreadStub;
+    }
+    
+    return Result;
+}
+
+internal platform_thread_handle
+CreateThread(platform_thread_manager* Manager, thread_proc_* Proc, u8* Arg)
+{
+    platform_thread_handle Result = {};
+    
+    for (u32 i = 1; i < THREADS_MAX; i++)
+    {
+        if (!Manager->ThreadsUsed[i])
+        {
+            Result.Index = i;
+            break;
+        }
+    }
+    Assert(Result.Index != 0);
+    
+    Manager->ThreadsUsed[Result.Index] = true;
+    Manager->CreateThreadProc(&Manager->Threads[Result.Index], Proc, Arg);
+    
+    return Result;
+}
+
+internal bool
+KillThread(platform_thread_manager* Manager, platform_thread_handle Handle)
+{
+    Assert(Manager->ThreadsUsed[Handle.Index]);
+    
+    platform_thread* Thread = &Manager->Threads[Handle.Index];
+    bool Result = Manager->KillThreadProc(Thread);
+    
+    if (Result)
+    {
+        Manager->ThreadsUsed[Handle.Index] = false;
+        Manager->Threads[Handle.Index] = {};
+    }
+    
+    return Result;
+}
+
+
+//////////////////////////
+//
+// Socket Manager
+
+CONNECT_SOCKET(PlatformConnectSocket_Stub)
+{
+    return false;
+}
+
+CLOSE_SOCKET(PlatformCloseSocket_Stub)
+{
+    return false;
+}
+
+SOCKET_QUERY_STATUS(PlatformSocketQueryStatus_Stub)
+{
+    return false;
+}
+
+SOCKET_PEEK(PlatformSocketPeek_Stub)
+{
+    return 0;
+}
+
+SOCKET_RECEIVE(PlatformSocketRecieve_Stub)
+{
+    return {};
+}
+
+SOCKET_SEND(PlatformSocketSend_Stub)
+{
+    return false;
+}
+
+internal platform_socket_manager
+CreatePlatformSocketManager(platform_connect_socket* ConnectSocketProc,
+                            platform_close_socket* CloseSocketProc,
+                            platform_socket_query_status* SocketQueryStatusProc,
+                            platform_socket_peek* SocketPeekProc,
+                            platform_socket_receive* SocketRecieveProc,
+                            platform_socket_send* SocketSendProc)
+{
+    platform_socket_manager Result = {};
+    Result.ConnectSocketProc = ConnectSocketProc;
+    Result.CloseSocketProc = CloseSocketProc;
+    Result.SocketQueryStatusProc = SocketQueryStatusProc;
+    Result.SocketPeekProc = SocketPeekProc;
+    Result.SocketRecieveProc = SocketRecieveProc;
+    Result.SocketSendProc = SocketSendProc;
+    
+    if (!ConnectSocketProc)
+    {
+        Result.ConnectSocketProc = PlatformConnectSocket_Stub;
+    }
+    if (!CloseSocketProc)
+    {
+        Result.CloseSocketProc = PlatformCloseSocket_Stub;
+    }
+    if (!SocketQueryStatusProc)
+    {
+        Result.SocketQueryStatusProc = PlatformSocketQueryStatus_Stub;
+    }
+    if (!SocketPeekProc)
+    {
+        Result.SocketPeekProc = PlatformSocketPeek_Stub;
+    }
+    if (!SocketRecieveProc)
+    {
+        Result.SocketRecieveProc = PlatformSocketRecieve_Stub;
+    }
+    if (!SocketSendProc)
+    {
+        Result.SocketSendProc = PlatformSocketSend_Stub;
+    }
+    return Result;
+}
+
+internal platform_socket*
+SocketManagerGetSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    platform_socket* Result = 0;
+    if (Manager->SocketsUsed[Handle.Index])
+    {
+        platform_socket* Socket = &Manager->Sockets[Handle.Index];
+        if (Socket->PlatformHandle != 0)
+        {
+            Result = Socket;
+        }
+    }
+    return Result;
+}
+
+internal bool
+ConnectSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, Handle);
+    if (Socket)
+    {
+        Result = Manager->ConnectSocketProc(Socket);
+    }
+    return Result;
+}
+
+internal platform_socket_handle_
+CreateSocket(platform_socket_manager* Manager, char* Addr, char* Port)
+{
+    platform_socket_handle_ Result = {};
+    for (u32 i = 1; i < SOCKETS_COUNT_MAX; i++)
+    {
+        if (!Manager->SocketsUsed[i])
+        {
+            Result.Index = i;
+            Manager->SocketsUsed[i] = true;
+            break;
+        }
+    }
+    
+    Assert(Result.Index != 0);
+    platform_socket* Socket = &Manager->Sockets[Result.Index];
+    CopyArray(Addr, Socket->Addr, char, CStringLength(Addr) + 1);
+    CopyArray(Port, Socket->Port, char, CStringLength(Port) + 1);
+    
+    bool Success = Manager->ConnectSocketProc(Socket);
+    Assert(Success);
+    
+    return Result;
+}
+
+internal bool
+CloseSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, Handle);
+    if (Socket)
+    {
+        if (Manager->CloseSocketProc(Socket))
+        {
+            Manager->SocketsUsed[Handle.Index] = false;
+            *Socket = {};
+            Result = true;
+        }
+    }
+    return Result;
+}
+
+// NOTE(pjs): returns true if the socket is connected
+// TODO(pjs): make this more descriptive?
+internal bool
+SocketQueryStatus(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        Result = Manager->SocketQueryStatusProc(Socket);
+    }
+    return Result;
+}
+
+internal u32
+SocketPeek(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle)
+{
+    u32 Result = 0;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        Result = Manager->SocketPeekProc(Socket);
+    }
+    return Result;
+}
+
+internal gs_data
+SocketRecieve(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, gs_memory_arena* Storage)
+{
+    gs_data Result = {};
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        Result = Manager->SocketRecieveProc(Socket, Storage);
+    }
+    return Result;
+}
+
+internal bool
+SocketSend(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle, u32 Address, u32 Port, gs_data Data, s32 Flags)
+{
+    bool Result = false;
+    platform_socket* Socket = SocketManagerGetSocket(Manager, SocketHandle);
+    if (Socket)
+    {
+        s32 SizeSent = Manager->SocketSendProc(Socket, Address, Port, Data, Flags);
+        Result = (SizeSent == Data.Size);
+    }
+    return Result;
+}
+
 ///////////////////////////
 //
 // Hashes
+
+internal u32
+HashAppendDJB2ToU32(u32 Hash, u8 Byte)
+{
+    u32 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
+
+internal u64
+HashAppendDJB2ToU32(u64 Hash, u8 Byte)
+{
+    u64 Result = Hash;
+    if (Result == 0) { Result = 5381; }
+    Result = ((Result << 5) + Result) + Byte;
+    return Result;
+}
 
 internal u32
 HashDJB2ToU32(char* String)

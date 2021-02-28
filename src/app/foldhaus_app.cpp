@@ -8,8 +8,6 @@
 #include "foldhaus_platform.h"
 #include "foldhaus_app.h"
 
-////////////////////////////////////////////////////////////////////////
-
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     app_state* State = (app_state*)Context.MemoryBase;
@@ -17,6 +15,8 @@ RELOAD_STATIC_DATA(ReloadStaticData)
     GlobalDebugServices = DebugServices;
     State->PanelSystem.PanelDefs = GlobalPanelDefs;
     State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
+    
+    US_LoadPatterns(&State->UserSpaceDesc, State, Context);
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -26,133 +26,69 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
     State->Transient = Context.ThreadContext.Transient;
-    
     State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
     
-    State->GlobalLog = PushStruct(State->Transient, event_log);
-    *State->GlobalLog = {0};
+    State->GlobalLog = PushStruct(&State->Permanent, event_log);
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
-    // TODO(Peter): put in InitializeInterface?
-    r32 FontSize = 14;
-    {
-        gs_file FontFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/Anonymous Pro.ttf"));
-        if (FileNoError(FontFile))
-        {
-            bitmap_font* Font = PushStruct(&State->Permanent, bitmap_font);
-            
-            Font->BitmapWidth = 512;
-            Font->BitmapHeight = 512;
-            Font->BitmapBytesPerPixel = 4;
-            Font->BitmapMemory = PushArray(&State->Permanent, u8, Font->BitmapWidth * Font->BitmapHeight * Font->BitmapBytesPerPixel);
-            Font->BitmapStride = Font->BitmapWidth * Font->BitmapBytesPerPixel;
-            ZeroMemoryBlock(Font->BitmapMemory, Font->BitmapStride * Font->BitmapHeight);
-            
-            platform_font_info FontInfo = Context.PlatformGetFontInfo("Anonymous Pro", FontSize, FontWeight_Normal, false, false, false);
-            Font->PixelHeight = FontInfo.PixelHeight;
-            Font->Ascent = FontInfo.Ascent;
-            Font->Descent = FontInfo.Descent;
-            Font->Leading = FontInfo.Leading;
-            Font->MaxCharWidth = FontInfo.MaxCharWidth;
-            
-            Font->CodepointDictionarySize = (FontInfo.CodepointOnePastLast - FontInfo.CodepointStart);
-            Font->CodepointDictionaryCount = 0;
-            Font->CodepointKeys = PushArray(&State->Permanent, char, Font->CodepointDictionarySize);
-            Font->CodepointValues = PushArray(&State->Permanent, codepoint_bitmap, Font->CodepointDictionarySize);
-            
-            for (s32 Codepoint = FontInfo.CodepointStart;
-                 Codepoint < FontInfo.CodepointOnePastLast;
-                 Codepoint++)
-            {
-                
-                u32 CodepointX, CodepointY;
-                GetNextCodepointOffset(Font, &CodepointX, &CodepointY);
-                
-                u32 CodepointW, CodepointH;
-                Context.PlatformDrawFontCodepoint(
-                                                  Font->BitmapMemory,
-                                                  Font->BitmapWidth,
-                                                  Font->BitmapHeight,
-                                                  CodepointX, CodepointY,
-                                                  Codepoint, FontInfo,
-                                                  &CodepointW, &CodepointH);
-                
-                AddCodepointToFont(Font, Codepoint, 0, 0, CodepointW, CodepointH, CodepointX, CodepointY);
-            }
-            
-            State->Interface.Style.Font = Font;
-            
-            Font->BitmapTextureHandle = Context.PlatformGetGPUTextureHandle(Font->BitmapMemory,
-                                                                            Font->BitmapWidth, Font->BitmapHeight);
-        }
-        else
-        {
-            LogError(State->GlobalLog, "Unable to load font");
-        }
-    }
+    animation_system_desc AnimSysDesc = {};
+    AnimSysDesc.Storage = &State->Permanent;
+    AnimSysDesc.AnimArrayCount = 32;
+    AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
+    State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
-    State->Interface.Style.FontSize = FontSize;
-    State->Interface.Style.PanelBGColors[0] = v4{.3f, .3f, .3f, 1};
-    State->Interface.Style.PanelBGColors[1] = v4{.4f, .4f, .4f, 1};
-    State->Interface.Style.PanelBGColors[2] = v4{.5f, .5f, .5f, 1};
-    State->Interface.Style.PanelBGColors[3] = v4{.6f, .6f, .6f, 1};
-    State->Interface.Style.ButtonColor_Inactive = BlackV4;
-    State->Interface.Style.ButtonColor_Active = v4{.1f, .1f, .1f, 1};
-    State->Interface.Style.ButtonColor_Selected = v4{.3f, .3f, .3f, 1};
-    State->Interface.Style.TextColor = WhiteV4;
-    State->Interface.Style.ListBGColors[0] = v4{ .16f, .16f, .16f, 1.f };
-    State->Interface.Style.ListBGColors[1] = v4{ .18f, .18f, .18f, 1.f };
-    State->Interface.Style.ListBGHover = v4{ .22f, .22f, .22f, 1.f };
-    State->Interface.Style.ListBGSelected = v4{.44f, .44f, .44f, 1.f };
-    State->Interface.Style.Margin = v2{5, 5};
-    State->Interface.Style.RowHeight = ui_GetTextLineHeight(State->Interface);
-    
-    State->Interface.WidgetsCountMax = 4096;
-    State->Interface.Widgets = PushArray(&State->Permanent, ui_widget, State->Interface.WidgetsCountMax);
+    interface_config IConfig = {0};
+    IConfig.FontSize = 14;
+    IConfig.PanelBG              = v4{ .3f,  .3f,  .3f, 1.f };
+    IConfig.ButtonColor_Inactive = BlackV4;
+    IConfig.ButtonColor_Active   = v4{ .1f,  .1f,  .1f, 1.f };
+    IConfig.ButtonColor_Selected = v4{ .3f,  .3f,  .3f, 1.f };
+    IConfig.TextColor            = WhiteV4;
+    IConfig.ListBGColors[0]      = v4{ .16f, .16f, .16f, 1.f };
+    IConfig.ListBGColors[1]      = v4{ .18f, .18f, .18f, 1.f };
+    IConfig.ListBGHover          = v4{ .22f, .22f, .22f, 1.f };
+    IConfig.ListBGSelected       = v4{ .44f, .44f, .44f, 1.f };
+    IConfig.Margin = v2{5, 5};
+    State->Interface = ui_InterfaceCreate(Context, IConfig, &State->Permanent);
     
     State->SACN = SACN_Initialize(Context);
     
-    State->LedSystem = LedSystemInitialize(Context.ThreadContext.Allocator, 128);
-    
-#if 1
-    gs_const_string SculpturePath = ConstString("data/blumen_lumen_silver_spring.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
-#endif
-    
-    State->PixelsToWorldScale = .01f;
+    State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
+    State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
+    State->AssemblyDebugState.Brightness = 255;
+    State->AssemblyDebugState.Override = ADS_Override_AllRed;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    ReloadStaticData(Context, GlobalDebugServices);
+    PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
+    {
+        panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
+        SplitPanel(RootPanel, .25f, PanelSplit_Horizontal, &State->PanelSystem, State, Context);
+        
+        panel* AnimPanel = RootPanel->Bottom;
+        Panel_SetType(AnimPanel, &State->PanelSystem, PanelType_AnimationTimeline, State, Context);
+        
+        panel* TopPanel = RootPanel->Top;
+        SplitPanel(TopPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        
+        panel* LeftPanel = TopPanel->Left;
+        SplitPanel(LeftPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        
+        panel* Profiler = LeftPanel->Right;
+        Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, Context);
+        
+        panel* Hierarchy = LeftPanel->Left;
+        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_HierarchyView, State, Context);
+        
+    }
     
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
-    { // Animation PLAYGROUND
-        State->AnimationSystem = {};
-        State->AnimationSystem.Storage = &State->Permanent;
-        State->AnimationSystem.Animations = AnimationArray_Create(State->AnimationSystem.Storage, 32);
-        
-        State->AnimationSystem.SecondsPerFrame = 1.f / 24.f;
-        
-        animation Anim = {0};
-        Anim.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim.PlayableRange.Min = 0;
-        Anim.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Color Layer"), BlendMode_Multiply, &State->AnimationSystem);
-        Animation_AddLayer(&Anim, MakeString("Sparkles"), BlendMode_Add, &State->AnimationSystem);
-        
-        Animation_AddBlock(&Anim, 22, 123, 2, 0);
-        
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim);
-    } // End Animation Playground
+    State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
     
-    
-    PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
-    PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
+    ReloadStaticData(Context, GlobalDebugServices);
+    US_CustomInit(&State->UserSpaceDesc, State, Context);
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -171,42 +107,34 @@ UPDATE_AND_RENDER(UpdateAndRender)
     AnimationSystem_Update(&State->AnimationSystem);
     if (AnimationSystem_NeedsRender(State->AnimationSystem))
     {
-        State->AnimationSystem.LastUpdatedFrame = State->AnimationSystem.CurrentFrame;
         AnimationSystem_RenderToLedBuffers(&State->AnimationSystem,
                                            State->Assemblies,
                                            &State->LedSystem,
-                                           GlobalAnimationPatterns,
-                                           State->Transient);
+                                           State->Patterns,
+                                           State->Transient,
+                                           State->UserSpaceDesc.UserData.Memory);
     }
     
-    {
-        // NOTE(pjs): Building data buffers to be sent out to the sculpture
-        // This array is used on the platform side to actually send the information
-        assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
-        assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
-        SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
-        UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem);
-    }
+    US_CustomUpdate(&State->UserSpaceDesc, State, Context);
+    
+    AssemblyDebug_OverrideOutput(State->AssemblyDebugState,
+                                 State->Assemblies,
+                                 State->LedSystem);
     
     Editor_Render(State, Context, RenderBuffer);
     
-    // Checking for overflows
-#if 0
-    {
-        DEBUG_TRACK_SCOPE(OverflowChecks);
-        AssertAllocationsNoOverflow(State->Permanent);
-        for (u32 i = 0; i < State->Assemblies.Count; i++)
-        {
-            assembly* Assembly = &State->Assemblies.Values[i];
-            AssertAllocationsNoOverflow(Assembly->Arena);
-        }
-    }
-#endif
+    // NOTE(pjs): Building data buffers to be sent out to the sculpture
+    // This array is used on the platform side to actually send the information
+    assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
+    assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
+    SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
+    UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
 }
 
 CLEANUP_APPLICATION(CleanupApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
+    US_CustomCleanup(&State->UserSpaceDesc, State, Context);
     SACN_Cleanup(&State->SACN, Context);
 }
 

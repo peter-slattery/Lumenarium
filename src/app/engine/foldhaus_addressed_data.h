@@ -95,5 +95,14 @@ AddressedDataBuffer_SetCOMPort(addressed_data_buffer* Buffer, gs_const_string Co
     Buffer->ComPort = ComPort;
 }
 
+internal addressed_data_buffer_list
+AddressedDataBufferList_Create(gs_thread_context TC)
+{
+    addressed_data_buffer_list Result = {};
+    Result.Arena = AllocatorAllocStruct(TC.Allocator, gs_memory_arena);
+    *Result.Arena = CreateMemoryArena(TC.Allocator);
+    return Result;
+}
+
 #define FOLDHAUS_ADDRESSED_DATA_H
 #endif // FOLDHAUS_ADDRESSED_DATA_H

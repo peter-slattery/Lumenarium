@@ -19,6 +19,7 @@
 
 #include "engine/assembly/foldhaus_assembly.h"
 #include "engine/assembly/foldhaus_assembly_parser.cpp"
+#include "engine/assembly/foldhaus_assembly_debug.h"
 
 #include "engine/sacn/foldhaus_sacn.h"
 #include "engine/uart/foldhaus_uart.h"
@@ -40,6 +41,9 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_serializer.cpp"
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
+#include "engine/user_space.h"
+#include "blumen_lumen.h"
+
 struct app_state
 {
     gs_memory_arena Permanent;
@@ -51,8 +55,10 @@ struct app_state
     streaming_acn SACN;
     led_system LedSystem;
     assembly_array Assemblies;
+    assembly_debug_state AssemblyDebugState;
     animation_system AnimationSystem;
     event_log* GlobalLog;
+    animation_pattern_array Patterns;
     
     // Interface
     //
@@ -65,169 +71,23 @@ struct app_state
     panel_system PanelSystem;
     panel* HotPanel;
     
-    r32 PixelsToWorldScale;
+    user_space_desc UserSpaceDesc;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "engine/assembly/foldhaus_assembly.cpp"
 
-// BEGIN TEMPORARY PATTERNS
-internal void
-TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
-{
-    led_strip_list BlumenStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Blumen Lumen"), Transient);
-    led_strip_list RadiaStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Radialumia"), Transient);
-    
-    for (u32 i = 0; i < BlumenStrips.Count; i++)
-    {
-        u32 StripIndex = BlumenStrips.StripIndices[i];
-        v2_strip StripAt = Assembly.Strips[StripIndex];
-        
-        for (u32 j = 0; j < StripAt.LedCount; j++)
-        {
-            u32 LedIndex = StripAt.LedLUT[j];
-            Leds->Colors[LedIndex] = { 255, 0, 0 };
-            
-        }
-    }
-    
-    for (u32 i = 0; i < RadiaStrips.Count; i++)
-    {
-        u32 StripIndex = RadiaStrips.StripIndices[i];
-        v2_strip StripAt = Assembly.Strips[StripIndex];
-        
-        for (u32 j = 0; j < StripAt.LedCount; j++)
-        {
-            u32 LedIndex = StripAt.LedLUT[j];
-            Leds->Colors[LedIndex] = { 0, 255, 0 };
-        }
-    }
-#if 0
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        v4 LedPosition = Leds->Positions[LedIndex];
-        float PercentX = RemapClampedR32(LedPosition.x, -150.0f, 150.0f, 0.0f, 1.0f);
-        float PercentY = RemapClampedR32(LedPosition.y, -150.0f, 150.0f, 0.0f, 1.0f);
-        Leds->Colors[LedIndex].R = (u8)(PercentX * 255);
-        Leds->Colors[LedIndex].G = (u8)(PercentY * 255);
-    }
-#endif
-    
-}
+#include "engine/user_space.cpp"
 
-internal void
-TestPatternTwo(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
-{
-    r32 PeriodicTime = (Time / PiR32) * 2;
-    
-    r32 ZeroOneSin = (SinR32(PeriodicTime) * .5f) + .5f;
-    r32 ZeroOneCos = (CosR32(PeriodicTime) * .5f) + .5f;
-    pixel Color = { (u8)(ZeroOneSin * 255), 0, (u8)(ZeroOneCos * 255) };
-    
-    v4 Center = v4{0, 0, 0, 1};
-    r32 ThetaZ = Time / 2;
-    v4 Normal = v4{CosR32(ThetaZ), 0, SinR32(ThetaZ), 0}; // NOTE(Peter): dont' need to normalize. Should always be 1
-    v4 Right = V4Cross(Normal, v4{0, 1, 0, 0});
-    
-    v4 FrontCenter = Center + (Normal * 25);
-    v4 BackCenter = Center - (Normal * 25);
-    
-    r32 OuterRadiusSquared = 1000000;
-    r32 InnerRadiusSquared = 0;
-    
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        v4 Position = Leds->Positions[LedIndex];
-        
-        v4 ToFront = Position + FrontCenter;
-        v4 ToBack = Position + BackCenter;
-        
-        r32 ToFrontDotNormal = V4Dot(ToFront, Normal);
-        r32 ToBackDotNormal = V4Dot(ToBack, Normal);
-        
-        ToFrontDotNormal = Clamp01(ToFrontDotNormal * 1000);
-        ToBackDotNormal = Clamp01(ToBackDotNormal * 1000);
-        
-        r32 SqDistToCenter = V4MagSquared(Position);
-        if (SqDistToCenter < OuterRadiusSquared && SqDistToCenter > InnerRadiusSquared)
-        {
-            if (XOR(ToFrontDotNormal > 0, ToBackDotNormal > 0))
-            {
-                Leds->Colors[LedIndex] = Color;
-            }
-            else
-            {
-                //Leds->Colors[LedIndex] = {};
-            }
-        }
-        else
-        {
-            //Leds->Colors[LedIndex] = {};
-        }
-    }
-}
-
-internal void
-TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
-{
-    v4 GreenCenter = v4{0, 0, 150, 1};
-    r32 GreenRadius = Abs(SinR32(Time)) * 200;
-    
-    v4 TealCenter = v4{0, 0, 150, 1};
-    r32 TealRadius = Abs(SinR32(Time + 1.5)) * 200;
-    
-    r32 FadeDist = 35;
-    
-    
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        v4 LedPosition = Leds->Positions[LedIndex];
-        u8 Red = 0;
-        u8 Green = 0;
-        u8 Blue = 0;
-        
-        r32 GreenDist = Abs(V4Mag(LedPosition - GreenCenter) - GreenRadius);
-        r32 GreenBrightness = Clamp(0.f, FadeDist - Abs(GreenDist), FadeDist);
-        Green = (u8)(GreenBrightness * 255);
-        
-        r32 TealDist = Abs(V4Mag(LedPosition - TealCenter) - TealRadius);
-        r32 TealBrightness = Clamp(0.f, FadeDist - Abs(TealDist), FadeDist);
-        Red = (u8)(TealBrightness * 255);
-        Blue = (u8)(TealBrightness * 255);
-        
-        Leds->Colors[LedIndex].R = Red;
-        Leds->Colors[LedIndex].B = Green;
-        Leds->Colors[LedIndex].G = Green;
-    }
-}
-
-internal void
-Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
-{
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        Leds->Colors[LedIndex].R = 0;
-        Leds->Colors[LedIndex].B = 255;
-        Leds->Colors[LedIndex].G = 255;
-    }
-}
-
-// END TEMPORARY PATTERNS
+#include "patterns/blumen_patterns.h"
+#include "blumen_lumen.cpp"
 
 internal void
 EndCurrentOperationMode(app_state* State)
 {
     DeactivateCurrentOperationMode(&State->Modes);
 }
-
-s32 GlobalAnimationPatternsCount = 4;
-animation_pattern GlobalAnimationPatterns[] = {
-    { "Test Pattern One", 16, TestPatternOne  },
-    { "Test Pattern Two", 16, TestPatternTwo },
-    { "Test Pattern Three", 18, TestPatternThree },
-    { "Pattern_AllGreen", 16, Pattern_AllGreen },
-};
 
 #include "editor/panels/foldhaus_panel_types.h"
 
@@ -237,15 +97,12 @@ animation_pattern GlobalAnimationPatterns[] = {
 #include "editor/panels/foldhaus_panel_dmx_view.h"
 #include "editor/panels/foldhaus_panel_animation_timeline.h"
 #include "editor/panels/foldhaus_panel_hierarchy.h"
-
+#include "editor/panels/foldhaus_panel_assembly_debug.h"
 
 #include "editor/panels/foldhaus_panel_types.cpp"
-//#include "generated/foldhaus_panels_generated.h"
 
 #include "editor/foldhaus_interface.cpp"
-
-#include "../meta/gs_meta_include.cpp"
-
+#include "editor/foldhaus_editor_draw.h"
 #include "editor/foldhaus_editor.cpp"
 
 #define FOLDHAUS_APP_H

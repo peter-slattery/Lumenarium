@@ -5,13 +5,18 @@
 //
 #ifndef FOLDHAUS_ANIMATION
 
-#define ANIMATION_PROC(name) void name(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient)
+#define ANIMATION_PROC(name) void name(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 typedef ANIMATION_PROC(animation_proc);
 
 struct frame_range
 {
     s32 Min;
     s32 Max;
+};
+
+struct animation_pattern_handle
+{
+    s32 IndexPlusOne;
 };
 
 // NOTE(pjs): An animation block is a time range paired with an
@@ -21,7 +26,7 @@ struct frame_range
 struct animation_block
 {
     frame_range Range;
-    u32 AnimationProcHandle;
+    animation_pattern_handle AnimationProcHandle;
     u32 Layer;
 };
 
@@ -76,6 +81,9 @@ struct animation
     animation_block_array Blocks_;
     
     frame_range PlayableRange;
+    
+    // The information / path to the file where this animation is to be saved / where it is loaded from
+    gs_file_info FileInfo;
 };
 
 struct animation_array
@@ -132,6 +140,13 @@ struct animation_pattern
     animation_proc* Proc;
 };
 
+struct animation_pattern_array
+{
+    animation_pattern* Values;
+    u32 Count;
+    u32 CountMax;
+};
+
 // Serialization
 
 enum animation_field
@@ -184,6 +199,55 @@ global gs_const_string AnimationFieldStrings[] = {
     ConstString("layer_index"),// AnimField_BlockLayerIndex
     ConstString("animation_name"),// AnimField_BlockAnimName
 };
+
+
+//////////////////////////
+//
+// Patterns List
+
+internal animation_pattern_array
+Patterns_Create(gs_memory_arena* Arena, s32 CountMax)
+{
+    animation_pattern_array Result = {0};
+    Result.CountMax = CountMax;
+    Result.Values = PushArray(Arena, animation_pattern, Result.CountMax);
+    return Result;
+}
+
+#define Patterns_PushPattern(array, proc) Patterns_PushPattern_((array), (proc), Stringify(proc), sizeof(Stringify(proc)))
+internal void
+Patterns_PushPattern_(animation_pattern_array* Array, animation_proc* Proc, char* Name, u32 NameLength)
+{
+    Assert(Array->Count < Array->CountMax);
+    
+    animation_pattern Pattern = {0};
+    Pattern.Name = Name;
+    Pattern.NameLength = NameLength;
+    Pattern.Proc = Proc;
+    
+    Array->Values[Array->Count++] = Pattern;
+}
+
+internal animation_pattern_handle
+Patterns_IndexToHandle(s32 Index)
+{
+    animation_pattern_handle Result = {};
+    Result.IndexPlusOne = Index + 1;
+    return Result;
+}
+
+internal animation_pattern
+Patterns_GetPattern(animation_pattern_array Patterns, animation_pattern_handle Handle)
+{
+    animation_pattern Result = {0};
+    if (Handle.IndexPlusOne > 0)
+    {
+        u32 Index = Handle.IndexPlusOne - 1;
+        Assert(Index < Patterns.Count);
+        Result = Patterns.Values[Index];
+    }
+    return Result;
+}
 
 //////////////////////////
 //
@@ -291,7 +355,7 @@ AnimationArray_Push(animation_array* Array, animation Value)
 // Animation
 
 internal handle
-Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, u32 AnimationProcHandle, u32 LayerIndex)
+Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, animation_pattern_handle AnimationProcHandle, u32 LayerIndex)
 {
     Assert(LayerIndex < Animation->Layers.Count);
     
@@ -419,6 +483,24 @@ ClampFrameToRange(s32 Frame, frame_range Range)
 // Layers
 
 // System
+
+struct animation_system_desc
+{
+    gs_memory_arena* Storage;
+    u32 AnimArrayCount;
+    r32 SecondsPerFrame;
+};
+
+internal animation_system
+AnimationSystem_Init(animation_system_desc Desc)
+{
+    animation_system Result = {};
+    Result.Storage = Desc.Storage;
+    Result.Animations = AnimationArray_Create(Result.Storage, Desc.AnimArrayCount);
+    Result.SecondsPerFrame = Desc.SecondsPerFrame;
+    
+    return Result;
+}
 
 internal animation*
 AnimationSystem_GetActiveAnimation(animation_system* System)

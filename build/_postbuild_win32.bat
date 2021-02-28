@@ -2,8 +2,8 @@
 
 IF NOT "%PrebuildCalled%"=="1" GOTO error
 
-C:\apps\ctime\ctime.exe -end %StatsPath%\%StatsFile% %LastError%
-C:\apps\ctime\ctime.exe -stats %StatsPath%\%StatsFile%
+IF EXIST %CTIMEPATH% ( call C:\apps\ctime\ctime.exe -end %StatsPath%\%StatsFile% %LastError% )
+IF EXIST %CTIMEPATH% ( call C:\apps\ctime\ctime.exe -stats %StatsPath%\%StatsFile% )
 set PrebuildCalled=0
 GOTO:eof
 

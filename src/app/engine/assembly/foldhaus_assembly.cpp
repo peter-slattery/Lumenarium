@@ -72,7 +72,7 @@ AssemblyArray_Filter(assembly_array Array, assembly_array_filter_proc* Filter, g
 ///////////////////////////
 
 internal led_system
-LedSystemInitialize(gs_allocator PlatformMemory, u32 BuffersMax)
+LedSystem_Create(gs_allocator PlatformMemory, u32 BuffersMax)
 {
     led_system Result = {};
     Result.PlatformMemory = PlatformMemory;
@@ -136,7 +136,7 @@ LedBufferSetLed(led_buffer* Buffer, u32 Led, v4 Position)
 }
 
 internal u32
-Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* StripAt, strip_gen_data GenData, v4 RootPosition, u32 LedStartIndex)
+Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* StripAt, strip_gen_data GenData, v4 RootPosition, u32 LedStartIndex, u32 LedLUTStartIndex)
 {
     u32 LedsAdded = 0;
     
@@ -154,7 +154,7 @@ Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* Str
                 s32 LedIndex = LedStartIndex + LedsAdded++;
                 v4 LedPosition = WS_StripStart + (SingleStep * Step);
                 LedBufferSetLed(LedBuffer, LedIndex, LedPosition);
-                StripAt->LedLUT[Step] = LedIndex;
+                StripAt->LedLUT[Step + LedLUTStartIndex] = LedIndex;
             }
         }break;
         
@@ -164,7 +164,7 @@ Assembly_ConstructStrip(assembly* Assembly, led_buffer* LedBuffer, v2_strip* Str
             for (u32 i = 0; i < Sequence.ElementsCount; i++)
             {
                 strip_gen_data SegmentGenData = Sequence.Elements[i];
-                LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded);
+                LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, SegmentGenData, RootPosition, LedStartIndex + LedsAdded, LedsAdded);
             }
         }break;
         
@@ -190,7 +190,7 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
         StripAt->LedLUT = PushArray(&Assembly->Arena, u32, StripAt->LedCount);
         
         strip_gen_data GenData = StripAt->GenerationData;
-        LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, GenData, RootPosition, LedsAdded);
+        LedsAdded += Assembly_ConstructStrip(Assembly, LedBuffer, StripAt, GenData, RootPosition, LedsAdded, 0);
     }
 }
 
@@ -208,7 +208,8 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         assembly* NewAssembly = AssemblyArray_Take(Assemblies);
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
         
-        if (ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch))
+        parser AssemblyParser = ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch);
+        if (AssemblyParser.Success)
         {
             ConstructAssemblyFromDefinition(NewAssembly, LedSystem);
         }
@@ -217,6 +218,14 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
             FreeMemoryArena(&NewAssembly->Arena);
             Assemblies->Count -= 1;
         }
+        
+        for (parser_error* ErrorAt = AssemblyParser.ErrorsRoot;
+             ErrorAt != 0;
+             ErrorAt = ErrorAt->Next)
+        {
+            OutputDebugString(ErrorAt->Message.Str);
+        }
+        
     }
     else
     {
@@ -256,18 +265,9 @@ AssemblyStripsGetWithTagValue(assembly Assembly, gs_const_string TagName, gs_con
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
         v2_strip StripAt = Assembly.Strips[StripIndex];
-        for (u32 j = 0; j < StripAt.TagsCount; j++)
+        if (AssemblyStrip_HasTagValue(StripAt, NameHash, ValueHash))
         {
-            v2_tag TagAt = StripAt.Tags[j];
-            if (TagAt.NameHash == NameHash)
-            {
-                // NOTE(pjs): We can pass an empty string to the Value parameter,
-                // and it will match all values of Tag
-                if (ValueHash == 0 || ValueHash == TagAt.ValueHash)
-                {
-                    Result.StripIndices[Result.Count++] = StripIndex;
-                }
-            }
+            Result.StripIndices[Result.Count++] = StripIndex;
         }
     }
     
