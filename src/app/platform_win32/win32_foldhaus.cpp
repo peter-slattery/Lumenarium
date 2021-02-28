@@ -446,6 +446,83 @@ ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQu
     return Success;
 }
 
+internal gs_const_string
+GetExePath(HINSTANCE HInstance, gs_thread_context ThreadContext)
+{
+    gs_const_string Result = {};
+    
+    u32 Error = 0;
+    u32 PathSize = MAX_PATH;
+    char* Path = PushArray(ThreadContext.Transient, char, PathSize);
+    DWORD Length = GetModuleFileNameA(HInstance, Path, PathSize);
+    
+    if (Length)
+    {
+        Error = GetLastError();
+        if (Error == ERROR_INSUFFICIENT_BUFFER) {
+            // PathSize wasn't long enough
+            // TODO(pjs): handle this case
+            InvalidCodePath;
+        }
+        
+        Result.Str = Path;
+        Result.Length = (u64)Length;
+    }
+    else
+    {
+        Error = GetLastError();
+        InvalidCodePath;
+    }
+    
+    return Result;
+}
+
+internal bool
+SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
+{
+    bool Result = false;
+    
+    gs_const_string ExePath = GetExePath(HInstance, ThreadContext);
+    gs_string ScratchPath = PushString(ThreadContext.Transient, ExePath.Length + 128);
+    gs_string WorkingDirectory = PushString(ThreadContext.Transient, ExePath.Length + 128);
+    
+    while (WorkingDirectory.Length == 0)
+    {
+        s64 LastSlash = FindLastFromSet(ExePath, "\\/");
+        if (LastSlash < 0) break;
+        
+        ExePath = Substring(ExePath, 0, LastSlash);
+        PrintF(&ScratchPath, "%S\\data", ExePath);
+        NullTerminate(&ScratchPath);
+        
+        gs_file_info PathInfo = GetFileInfo(ThreadContext.FileHandler, ScratchPath.ConstString);
+        if (PathInfo.Path.Length > 0 &&
+            PathInfo.IsDirectory) {
+            PrintF(&WorkingDirectory, "%S", ExePath);
+            NullTerminate(&WorkingDirectory);
+        }
+    }
+    
+    if (WorkingDirectory.Length > 0)
+    {
+        OutputDebugStringA("Setting Working Directory\n");
+        OutputDebugStringA(WorkingDirectory.Str);
+        
+        Result = SetCurrentDirectory(WorkingDirectory.Str);
+        if (!Result)
+        {
+            u32 Error = GetLastError();
+            InvalidCodePath;
+        }
+    }
+    else
+    {
+        OutputDebugStringA("Error, no data folder found\n");
+    }
+    
+    return Result;
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -455,6 +532,8 @@ WinMain (
          )
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
+    
+    if (!SetWorkingDirectory(HInstance, ThreadContext)) return 1;
     
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);

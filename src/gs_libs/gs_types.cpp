@@ -1573,12 +1573,12 @@ FindFirstFromSet(gs_const_string String, char* SetArray)
     return Result;
 }
 
-internal u64
+internal s64
 FindLastFromSet(gs_const_string String, char* SetArray)
 {
     gs_const_string Set = ConstString(SetArray);
-    u64 Result = String.Length - 1;
-    for(s64 At = Result; At >= 0; At--)
+    s64 Result = -1;
+    for(s64 At = String.Length - 1; At >= 0; At--)
     {
         char CharAt = String.Str[At];
         for (u64 SetAt = 0; SetAt < Set.Length; SetAt++)

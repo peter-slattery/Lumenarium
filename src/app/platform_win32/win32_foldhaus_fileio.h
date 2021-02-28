@@ -197,7 +197,8 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
 {
     u32 FilesCount = 0;
     
-    u32 IndexOfLastSlash = FindLastFromSet(Path, "\\/");
+    s64 IndexOfLastSlash = FindLastFromSet(Path, "\\/");
+    Assert(IndexOfLastSlash >= 0);
     gs_const_string SearchPath = Substring(Path, 0, IndexOfLastSlash + 1);
     
     WIN32_FIND_DATA FindFileData;
