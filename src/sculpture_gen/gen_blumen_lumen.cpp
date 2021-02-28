@@ -216,8 +216,8 @@ int main(int ArgCount, char** Args)
     F2.BloomOuterChannels = BloomOuterChannels;
     StripCount += BuildFlower(&OutputBuffer, F2);
     
-    //printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
-    printf("%d\n", StripCount);
+    printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
+    //printf("%d\n", StripCount);
     
     return 0;
 }

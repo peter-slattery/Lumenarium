@@ -2,10 +2,13 @@
 ![Lumenarium Banner](./docs/images/splash.png)
 
 ## Build Lumenarium
-Building Lumenarium requires having MSVC installed (sorry, Windows only for now!). At the moment, there are bunch of errors from the meta program but the program will still compile
-1. Run build_meta.bat
-2. Run build.bat
-3. Launch win32_foldhaus.exe (locaated in the build folder)
+Building Lumenarium requires having MSVC installed (sorry, Windows only for now!).
+1. clone the repo onto your computer
+2. Run the appropriate build batch file
+	- for Windows: use `build\build_app_msvc_win32_debug.bat`
+	- other platforms coming soon
+3. `cd <repo location>/app_run_tree`
+4. `win32_msvc\debug\win32_foldhaus.exe`
 
 ## What Is Lumenarium?
 Lumenarium is our custom build light and motion control software. It allows us to design light and motion patterns for our sculptures, visualize the output long before the sculpture is built, and iterate in real time to achieve the best visual results quickly.
@@ -26,7 +29,7 @@ The following features are under active development for integration in Lumenariu
 
 ***
 ### Sculpture File Format
-Sculptures are specified via a structured text file so that it is easy to represent new sculptures, simply as strips of LEDs. 
+Sculptures are specified via a structured text file so that it is easy to represent new sculptures, simply as strips of LEDs.
 
 Documentation coming soon.
 
@@ -36,13 +39,13 @@ Lumenarium supports SACN output, and ArtNet is in development, via a DMX system 
 
 ***
 ### Live Visualization
-We don't always have access to our physical sculptures while working on the lights and motion for them. Having a visualization of the sculpture lets us see what the patterns we develop will look like when running on the actual sculpture. 
+We don't always have access to our physical sculptures while working on the lights and motion for them. Having a visualization of the sculpture lets us see what the patterns we develop will look like when running on the actual sculpture.
 
 The visualization runs in real time, and mirrors the DMX output the sculptures will receive, so any changes made in the software are immediately reflected, both in the visualization and in the data sent over the network.
 
 ***
 ### Animation Timeline
-One goal of Lumenarium is to enable fine-grained control over procedural light and motion patterns. Patterns can be arranged on a timeline for manual sequencing. 
+One goal of Lumenarium is to enable fine-grained control over procedural light and motion patterns. Patterns can be arranged on a timeline for manual sequencing.
 
 Coming Soon
 * Pattern Fading/Cross fading
@@ -58,6 +61,6 @@ Coming Soon
 
 ***
 ### Live Compilation Reload
-One of the most fulfilling parts of working on these sculptures is getting to iterate live on the lights and motion in front of the physical sculpture while on active display. While Lumenarium is designed to enable everyone to shape the visual identity of our sculptures, it also allows for low-level, fine grained control over the visual output as well. The software is split into a platform layer (currently Windows only, though there are plans to support Mac, and possibly Raspberry Pi), and an application library. The application library can be recompiled and hot loaded while the software is running to facilitate the fastest possible iteration time. 
+One of the most fulfilling parts of working on these sculptures is getting to iterate live on the lights and motion in front of the physical sculpture while on active display. While Lumenarium is designed to enable everyone to shape the visual identity of our sculptures, it also allows for low-level, fine grained control over the visual output as well. The software is split into a platform layer (currently Windows only, though there are plans to support Mac, and possibly Raspberry Pi), and an application library. The application library can be recompiled and hot loaded while the software is running to facilitate the fastest possible iteration time.
 
 To see how this works in detail see [Handmade Hero](https://guide.handmadehero.org/code/day022/)
