@@ -7,8 +7,14 @@ Building Lumenarium requires having MSVC installed (sorry, Windows only for now!
 2. Run the appropriate build batch file
 	- for Windows: use `build\build_app_msvc_win32_debug.bat`
 	- other platforms coming soon
-3. `cd <repo location>/app_run_tree`
-4. `win32_msvc\debug\win32_foldhaus.exe`
+
+## Run Lumenarium
+Windows - Debug
+1. Just run `win32_msvc\debug\win32_foldhaus.exe`
+
+## Debug Lumenarium
+###Windows
+Building in debug mode outputs pdb file info that can be read by Visual Studio or RemedyBG (preferred debugging solution, but ymmv). You can just open the exe in either application and it'll find the pdb file in the same directory
 
 ## What Is Lumenarium?
 Lumenarium is our custom build light and motion control software. It allows us to design light and motion patterns for our sculptures, visualize the output long before the sculpture is built, and iterate in real time to achieve the best visual results quickly.
