@@ -56,6 +56,8 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                 u32 Port = WeathermanPort;
                 s32 Flags = 0;
                 SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
+                
+                OutputDebugString("Sending Motor Packet\n");
             }
         }
     }
@@ -124,7 +126,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
-    //BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
+    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
     
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
@@ -214,31 +216,45 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     State->AnimationSystem.ActiveAnimationIndex = 2;
                 }
                 
-                if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
-                {
-                    BLState->MicPacketBuffer.ReadHead = 0;
-                }
-                
-                OutputDebugStringA("Received Pattern Packet");
+                OutputDebugStringA("Received Pattern Packet\n");
             }break;
             
             case PacketType_MotorState:
             {
                 motor_packet Packet = *(motor_packet*)(PacketData.Memory + 1);
-                OutputDebugStringA("Received Motor Packet");
+                BLState->LastKnownMotorState = Packet;
+                
+                gs_string Temp = PushStringF(State->Transient, 256, "Received Motor States: %d %d %d\n",
+                                             Packet.FlowerPositions[0],
+                                             Packet.FlowerPositions[1],
+                                             Packet.FlowerPositions[2]);
+                NullTerminate(&Temp);
+                
+                OutputDebugStringA(Temp.Str);
             }break;
             
             case PacketType_Temperature:
             {
                 temp_packet Packet = *(temp_packet*)(PacketData.Memory + 1);
-                OutputDebugStringA("Received Temperature Packet");
+                
+                gs_string Temp = PushStringF(State->Transient, 256, "Temperature: %d\n",
+                                             Packet.Temperature);
+                NullTerminate(&Temp);
+                
+                OutputDebugStringA(Temp.Str);
             }break;
             
             InvalidDefaultCase;
         }
+        
+        
+        if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
+        {
+            BLState->MicPacketBuffer.ReadHead = 0;
+        }
     }
     
-    if (MotorTimeElapsed > 60)
+    if (false && MotorTimeElapsed > 0)
     {
         // NOTE(pjs):
         MotorTimeElapsed = 0;

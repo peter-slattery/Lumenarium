@@ -66,9 +66,10 @@ struct blumen_lumen_state
     
     temp_job_req JobReq;
     
-    
     platform_thread_handle MicListenThread;
     mic_listen_job_data MicListenJobData;
+    
+    motor_packet LastKnownMotorState;
 };
 
 
