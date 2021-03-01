@@ -5,13 +5,21 @@
 //
 #ifndef BLUMEN_LUMEN_H
 
+enum bl_python_packet_type
+{
+    PacketType_Invalid = 0,
+    PacketType_PatternCommand = 1,
+    PacketType_MotorState = 2,
+    PacketType_Temperature = 3,
+};
+
+#pragma pack(push, 1)
 typedef struct motor_packet
 {
     u8 FlowerPositions[3];
 } motor_packet;
 
-#pragma pack(push, 1)
-struct microphone_packet
+typedef struct microphone_packet
 {
     b8 ChangeAnimation;
     char AnimationFileName[32];
@@ -21,7 +29,12 @@ struct microphone_packet
     b8 SetLayerParamColor;
     char LayerParamColor[7];
     r32 OverrideDuration;
-};
+} microphone_packet;
+
+typedef struct temp_packet
+{
+    s8 Temperature;
+} temp_packet;
 #pragma pack(pop)
 
 #define BLUMEN_MESSAGE_QUEUE_COUNT 32

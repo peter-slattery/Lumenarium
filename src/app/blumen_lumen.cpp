@@ -5,6 +5,7 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
+
 internal void
 BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
 {
@@ -192,25 +193,48 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     while (BLState->MicPacketBuffer.ReadHead != BLState->MicPacketBuffer.WriteHead)
     {
         gs_data PacketData = BLState->MicPacketBuffer.Values[BLState->MicPacketBuffer.ReadHead++];
-        microphone_packet Packet = *(microphone_packet*)PacketData.Memory;
         
-        u32 NameLen = CStringLength(Packet.AnimationFileName);
-        if (StringEqualsCharArray(BlueString.ConstString, Packet.AnimationFileName, NameLen))
-        {
-            State->AnimationSystem.ActiveAnimationIndex = 0;
-        }
-        else if (StringEqualsCharArray(GreenString.ConstString, Packet.AnimationFileName, NameLen))
-        {
-            State->AnimationSystem.ActiveAnimationIndex = 1;
-        }
-        else if (StringEqualsCharArray(ILoveYouString.ConstString, Packet.AnimationFileName, NameLen))
-        {
-            State->AnimationSystem.ActiveAnimationIndex = 2;
-        }
-        
-        if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
-        {
-            BLState->MicPacketBuffer.ReadHead = 0;
+        u8 PacketType = PacketData.Memory[0];
+        switch (PacketType) {
+            case PacketType_PatternCommand:
+            {
+                microphone_packet Packet = *(microphone_packet*)(PacketData.Memory + 1);
+                
+                u32 NameLen = CStringLength(Packet.AnimationFileName);
+                if (StringEqualsCharArray(BlueString.ConstString, Packet.AnimationFileName, NameLen))
+                {
+                    State->AnimationSystem.ActiveAnimationIndex = 0;
+                }
+                else if (StringEqualsCharArray(GreenString.ConstString, Packet.AnimationFileName, NameLen))
+                {
+                    State->AnimationSystem.ActiveAnimationIndex = 1;
+                }
+                else if (StringEqualsCharArray(ILoveYouString.ConstString, Packet.AnimationFileName, NameLen))
+                {
+                    State->AnimationSystem.ActiveAnimationIndex = 2;
+                }
+                
+                if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
+                {
+                    BLState->MicPacketBuffer.ReadHead = 0;
+                }
+                
+                OutputDebugStringA("Received Pattern Packet");
+            }break;
+            
+            case PacketType_MotorState:
+            {
+                motor_packet Packet = *(motor_packet*)(PacketData.Memory + 1);
+                OutputDebugStringA("Received Motor Packet");
+            }break;
+            
+            case PacketType_Temperature:
+            {
+                temp_packet Packet = *(temp_packet*)(PacketData.Memory + 1);
+                OutputDebugStringA("Received Temperature Packet");
+            }break;
+            
+            InvalidDefaultCase;
         }
     }
     
