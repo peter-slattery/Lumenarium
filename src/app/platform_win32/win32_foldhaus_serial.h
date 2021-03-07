@@ -146,6 +146,11 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
                 // ie. the usb stick was removed
             }break;
             
+            case ERROR_ACCESS_DENIED:
+            {
+                // ??
+            }break;
+            
             case ERROR_INVALID_HANDLE:
             InvalidDefaultCase;
         }

@@ -126,7 +126,9 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
+#if 0
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
+#endif
     
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);

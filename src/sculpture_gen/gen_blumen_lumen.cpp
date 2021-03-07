@@ -191,7 +191,7 @@ int main(int ArgCount, char** Args)
     u32 BloomInnerChannels[] = { FSC(0, 0), FSC(0, 1), FSC(0, 2), FSC(0, 3), FSC(0, 4), FSC(0, 5) };
     flower_desc F0 = {};
     F0.Pos = v3{-1, 0, 0};
-    F0.ComPort = "\\\\.\\COM4";
+    F0.ComPort = "\\\\.\\COM11";
     F0.FlowerTagValue = "left";
     F0.StemChannels = StemChannels;
     F0.BloomOuterChannels = BloomOuterChannels;
@@ -200,7 +200,7 @@ int main(int ArgCount, char** Args)
     
     flower_desc F1 = {};
     F1.Pos = v3{0, 0, 0};
-    F1.ComPort = "\\\\.\\COM5";
+    F1.ComPort = "\\\\.\\COM12";
     F1.FlowerTagValue = "center";
     F1.StemChannels = StemChannels;
     F1.BloomInnerChannels = BloomInnerChannels;
