@@ -793,6 +793,29 @@ TimeRange_Render(animation_timeline_state* TimelineState, rect2 Bounds, render_c
 }
 
 internal void
+AnimInfoView_SaveAnimFile (gs_const_string Path, app_state* State, context Context)
+{
+    u32 ActiveAnimIndex = State->AnimationSystem.ActiveAnimationIndex;
+    animation ActiveAnimation = State->AnimationSystem.Animations.Values[ActiveAnimIndex];
+    
+    gs_string FileText = AnimSerializer_Serialize(ActiveAnimation, State->Patterns, State->Transient);
+    
+    if (!WriteEntireFile(Context.ThreadContext.FileHandler, Path, StringToData(FileText)))
+    {
+        InvalidCodePath;
+    }
+}
+
+PANEL_MODAL_OVERRIDE_CALLBACK(AnimInfoView_SaveAnimFileCallback)
+{
+    Assert(ReturningFrom->TypeIndex == PanelType_FileView);
+    file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
+    gs_file_info FileInfo = FileViewState->SelectedFile;
+    
+    AnimInfoView_SaveAnimFile(FileInfo.Path, State, Context);
+}
+
+internal void
 AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
     animation_system* AnimSystem = &State->AnimationSystem;
@@ -833,10 +856,14 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel
             // need to use the file browser to create a file
             u32 ActiveAnimIndex = State->AnimationSystem.ActiveAnimationIndex;
             animation ActiveAnimation = State->AnimationSystem.Animations.Values[ActiveAnimIndex];
-            gs_string FileText = AnimSerializer_Serialize(ActiveAnimation, State->Patterns, State->Transient);
-            if (WriteEntireFile(Context.ThreadContext.FileHandler, ActiveAnimation.FileInfo.Path, StringToData(FileText)))
+            
+            if (!ActiveAnimation.FileInfo.Path.Str)
             {
-                InvalidCodePath;
+                panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
+                FileView_SetMode(FileBrowser, FileViewMode_Save);
+                Panel_PushModalOverride(Panel, FileBrowser, AnimInfoView_SaveAnimFileCallback);
+            } else {
+                AnimInfoView_SaveAnimFile(ActiveAnimation.FileInfo.Path, State, Context);
             }
         }
         if (ui_Button(Interface, MakeString("Load")))

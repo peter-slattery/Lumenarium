@@ -57,7 +57,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
     State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
     State->AssemblyDebugState.Brightness = 255;
-    State->AssemblyDebugState.Override = ADS_Override_AllBlue;
+    State->AssemblyDebugState.Override = ADS_Override_None;
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
@@ -80,7 +80,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, Context);
         
         panel* Hierarchy = LeftPanel->Left;
-        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_HierarchyView, State, Context);
+        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, Context);
         
     }
     

@@ -11,6 +11,7 @@
 
 #include "..\gs_libs\gs_types.h"
 #include "..\gs_libs\gs_types.cpp"
+#include "..\gs_libs\gs_path.h"
 
 struct handle
 {

@@ -178,28 +178,39 @@ Win32SetFileInfoFromFindFileData(gs_file_info* Info, WIN32_FIND_DATA FindFileDat
 {
     u32 FileNameLength = CharArrayLength(FindFileData.cFileName);
     
-    // NOTE(Peter): String Storage
-    // Storing the string in the final storage means we don't have to copy the string later, and all
-    // strings will be continguous in memory at the calling site, though they will be before the array
-    gs_string FileName = PushString(Storage, SearchPath.Length + FileNameLength + 1);
-    PrintF(&FileName, "%S%.*s", SearchPath, FileName.Size, FindFileData.cFileName);
-    NullTerminate(&FileName);
-    
     Info->FileSize = Win32HighLowToU64(FindFileData.nFileSizeLow, FindFileData.nFileSizeHigh);
     Info->CreationTime = Win32FileTimeToU64(FindFileData.ftCreationTime);
     Info->LastWriteTime = Win32FileTimeToU64(FindFileData.ftLastWriteTime);
-    Info->Path = FileName.ConstString;
     Info->IsDirectory = HasFlag(FindFileData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY);
+    
+    // NOTE(Peter): String Storage
+    // Storing the string in the final storage means we don't have to copy the string later, and all
+    // strings will be continguous in memory at the calling site, though they will be before the array
+    gs_string FileName = PushString(Storage, SearchPath.Length + FileNameLength + 2);
+    PrintF(&FileName, "%S%.*s", SearchPath, FileName.Size, FindFileData.cFileName);
+    if (Info->IsDirectory)
+    {
+        AppendPrintF(&FileName, "\\");
+    }
+    NullTerminate(&FileName);
+    
+    Info->Path = FileName.ConstString;
 }
 
 internal u32
 Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list* TempList, gs_const_string Path, gs_memory_arena* Storage, b32 Flags)
 {
     u32 FilesCount = 0;
+    Assert(Path.Str[Path.Length - 1] != '\\' &&
+           Path.Str[Path.Length - 1] != '/');
+    gs_const_string SearchPath = Path;
     
-    s64 IndexOfLastSlash = FindLastFromSet(Path, "\\/");
-    Assert(IndexOfLastSlash >= 0);
-    gs_const_string SearchPath = Substring(Path, 0, IndexOfLastSlash + 1);
+    gs_const_string SearchPathDir = SearchPath;
+    s64 LastSlash = FindLastFromSet(SearchPath, "\\/");
+    if (LastSlash >= 0)
+    {
+        SearchPathDir = Substring(SearchPath, 0, LastSlash + 1);
+    }
     
     WIN32_FIND_DATA FindFileData;
     HANDLE SearchHandle = FindFirstFile(Path.Str, &FindFileData);
@@ -211,15 +222,18 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
             
             if (HasFlag(FindFileData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY))
             {
+                gs_const_string SubDirName = ConstString(FindFileData.cFileName);
+                bool IsNav = (StringsEqual(SubDirName, ConstString(".")) ||
+                              StringsEqual(SubDirName, ConstString("..")));
+                
                 if (HasFlag(Flags, EnumerateDirectory_Recurse))
                 {
-                    gs_const_string SubDirName = ConstString(FindFileData.cFileName);
-                    if (!StringsEqual(SubDirName, ConstString(".")) &&
-                        !StringsEqual(SubDirName, ConstString("..")))
+                    if (!IsNav)
                     {
                         gs_string SubDirectoryPath = PushString(FileHandler.Transient, SearchPath.Length + SubDirName.Length + 3);
                         PrintF(&SubDirectoryPath, "%S%S/*\0", SearchPath, SubDirName);
-                        FilesCount += Win32EnumerateDirectoryIntoTempList(FileHandler, TempList, SubDirectoryPath.ConstString, Storage, Flags);
+                        FilesCount += Win32EnumerateDirectoryIntoTempList(FileHandler, TempList, SubDirectoryPath.ConstString,
+                                                                          Storage, Flags);
                     }
                 }
                 
@@ -230,7 +244,7 @@ Win32EnumerateDirectoryIntoTempList(gs_file_handler FileHandler, temp_file_list*
             {
                 temp_file_list_entry* File = PushStruct(FileHandler.Transient, temp_file_list_entry);
                 *File = {0};
-                Win32SetFileInfoFromFindFileData(&File->Info, FindFileData, SearchPath, Storage);
+                Win32SetFileInfoFromFindFileData(&File->Info, FindFileData, SearchPathDir, Storage);
                 SLLPushOrInit(TempList->First, TempList->Last, File);
                 FilesCount += 1;
             }

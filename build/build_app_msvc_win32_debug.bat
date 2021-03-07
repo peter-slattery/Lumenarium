@@ -34,6 +34,11 @@ cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial
 
 cl %CommonCompilerFlags% %ProjectDevPath%\src\sculpture_gen\gen_blumen_lumen.cpp /Fegen_blumen_lumen.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
 
+REM COMPILE AND RUN TESTS
+cl %CommonCompilerFlags% %ProjectDevPath%\src\tests\sanity_tests.cpp /Fesanity_tests.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
+
+sanity_tests.exe
+
 popd
 
 call %MyPath%\_postbuild_win32.bat

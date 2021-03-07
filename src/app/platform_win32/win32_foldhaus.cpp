@@ -523,6 +523,8 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
     return Result;
 }
 
+#include "../../gs_libs/gs_path.h"
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -532,6 +534,11 @@ WinMain (
          )
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
+    
+    gs_file_info A = GetFileInfo(ThreadContext.FileHandler, ConstString("C:\\projects\\Lumenarium"));
+    
+    gs_file_info B = GetFileInfo(ThreadContext.FileHandler, ConstString("C:\\projects\\Lumenarium\\"));
+    
     
     if (!SetWorkingDirectory(HInstance, ThreadContext)) return 1;
     
@@ -629,7 +636,7 @@ WinMain (
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        bool Multithread = false;
+        bool Multithread = true;
         if (Multithread)
         {
             for (addressed_data_buffer* At = OutputData.Root;
