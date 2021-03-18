@@ -191,6 +191,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
     
     MotorTimeElapsed += Context->DeltaTime;
+#if 0
     BLState->TimeElapsed += Context->DeltaTime;
     
     if (BLState->TimeElapsed > 5)
@@ -200,6 +201,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup, Next, 5);
         BLState->TimeElapsed = 0;
     }
+#endif
     
     gs_string BlueString = MakeString("blue");
     gs_string GreenString = MakeString("green");

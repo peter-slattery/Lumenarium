@@ -47,11 +47,11 @@ enum blend_mode
 };
 
 // TODO(pjs): This really doesn't belong here
-global gs_const_string BlendModeStrings[] = {
-    ConstString("Overwrite"),
-    ConstString("Add"),
-    ConstString("Multiply"),
-    ConstString("Count"),
+global gs_string BlendModeStrings[] = {
+    MakeString("Overwrite"),
+    MakeString("Add"),
+    MakeString("Multiply"),
+    MakeString("Count"),
 };
 
 struct anim_layer

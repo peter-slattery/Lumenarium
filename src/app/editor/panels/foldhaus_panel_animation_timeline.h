@@ -602,6 +602,28 @@ FrameCount_Render(animation_timeline_state* TimelineState, animation* ActiveAnim
     }
 }
 
+internal bool
+LayerList_DrawLayerButton (ui_interface* Interface, gs_string Name, rect2 Bounds, bool Selected)
+{
+    bool Result = ui_MouseClickedRect(*Interface, Bounds);
+    v2 TextPos = { Bounds.Min.x + 6, Bounds.Max.y - 16};
+    
+    v4 BoxColor = WhiteV4;
+    bool DrawBox = Selected;
+    if (PointIsInRect(Bounds, Interface->Mouse.Pos))
+    {
+        DrawBox = true;
+        BoxColor = PinkV4;
+    }
+    
+    if (DrawBox)
+    {
+        PushRenderBoundingBox2D(Interface->RenderBuffer, Bounds.Min, Bounds.Max, 1, BoxColor);
+    }
+    DrawString(Interface->RenderBuffer, Name, Interface->Style.Font, TextPos, WhiteV4);
+    return Result;
+}
+
 internal void
 LayerList_Render(animation_timeline_state* TimelineState, animation* ActiveAnim, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
@@ -616,23 +638,22 @@ LayerList_Render(animation_timeline_state* TimelineState, animation* ActiveAnim,
     
     if (ActiveAnim)
     {
+        v2 LayerTextPos = {};
         for (u32 i = 0; i < ActiveAnim->Layers.Count; i++)
         {
             anim_layer* Layer = ActiveAnim->Layers.Values + i;
             
-            if (ui_MouseClickedRect(*Interface, LayerBounds))
+            bool Selected = (TimelineState->SelectedAnimationLayer == i);
+            if (LayerList_DrawLayerButton(Interface, Layer->Name, LayerBounds, Selected))
             {
                 TimelineState->SelectedAnimationLayer = i;
             }
-            
-            v2 LayerTextPos = { LayerBounds.Min.x + 6, LayerBounds.Max.y - 16};
-            if (TimelineState->SelectedAnimationLayer == i)
-            {
-                PushRenderBoundingBox2D(Interface->RenderBuffer, LayerBounds.Min, LayerBounds.Max, 1, WhiteV4);
-            }
-            DrawString(Interface->RenderBuffer, Layer->Name, Interface->Style.Font, LayerTextPos, WhiteV4);
-            
             LayerBounds = Rect2TranslateY(LayerBounds, LayerDim.y);
+        }
+        
+        if (LayerList_DrawLayerButton(Interface, MakeString("+ Add Layer"), LayerBounds, false))
+        {
+            u32 NewLayer = Animation_AddLayer(ActiveAnim, MakeString("[New Layer]"), BlendMode_Add, &State->AnimationSystem);
         }
     }
 }
@@ -829,6 +850,21 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             
         }
         ui_EndRow(Interface);
+        
+        u32 LayerIndex = TimelineState->SelectedAnimationLayer;
+        anim_layer* SelectedLayer = ActiveAnim->Layers.Values + LayerIndex;
+        gs_string BlendStr = BlendModeStrings[SelectedLayer->BlendMode];
+        if (ui_BeginLabeledDropdown(Interface, MakeString("Blend Mode"), BlendStr))
+        {
+            for (u32 i = 0; i < BlendMode_Count; i++)
+            {
+                if (ui_Button(Interface, BlendModeStrings[i]))
+                {
+                    SelectedLayer->BlendMode = (blend_mode)i;
+                }
+            }
+        }
+        ui_EndLabeledDropdown(Interface);
         
         animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, TimelineState->SelectedBlockHandle);
         if (SelectedBlock)

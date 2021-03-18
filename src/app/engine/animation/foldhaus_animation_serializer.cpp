@@ -32,7 +32,7 @@ AnimSerializer_Serialize(animation Anim, animation_pattern_array Patterns, gs_me
         Serializer_OpenStruct(&Serializer, AnimField_Layer);
         {
             Serializer_WriteStringValue(&Serializer, AnimField_LayerName, LayerAt.Name.ConstString);
-            Serializer_WriteStringValue(&Serializer, AnimField_LayerBlendMode, BlendModeStrings[LayerAt.BlendMode]);
+            Serializer_WriteStringValue(&Serializer, AnimField_LayerBlendMode, BlendModeStrings[LayerAt.BlendMode].ConstString);
         }
         Serializer_CloseStruct(&Serializer);
     }
@@ -116,7 +116,7 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
                     gs_string BlendModeName = Parser_ReadStringValue(&Parser, AnimField_LayerBlendMode);
                     for (u32 i = 0; i < BlendMode_Count; i++)
                     {
-                        if (StringsEqual(BlendModeName.ConstString, BlendModeStrings[i]))
+                        if (StringsEqual(BlendModeName, BlendModeStrings[i]))
                         {
                             Layer.BlendMode = (blend_mode)i;
                             break;
