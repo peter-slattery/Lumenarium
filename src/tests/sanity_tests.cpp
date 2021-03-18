@@ -76,14 +76,16 @@ int main (int ArgCount, char** Args)
         TestResult(ParseUInt(ConstString("532")) == 532);
         TestResult(ParseInt(ConstString("-1234567890")) == -1234567890);
         TestResult(ParseFloat(ConstString("-12345.6789")) == -12345.6789);
+        TestResult(ParseFloat(ConstString("-1")) == -1);
+        TestResult(ParseFloat(ConstString("-.035")) == -.035);
         
         TestString.Length = 0;
         U64ToASCII(&TestString, 53298, 10);
         TestResult(StringTest(TestString.ConstString, ConstString("53298")));
         
         TestString.Length = 0;
-        R64ToASCII(&TestString, 145732.321, 2);
-        TestResult(StringTest(TestString.ConstString, ConstString("145732.32")));
+        R64ToASCII(&TestString, -145732.321, 2);
+        TestResult(StringTest(TestString.ConstString, ConstString("-145732.32")));
     }
     
     Test("gs_path.h")

@@ -1885,12 +1885,16 @@ ValidateAndParseFloat(gs_const_string String)
     
     if (StringIsValid)
     {
-        u64 DecimalIndex = FindFirst(String, '.');
+        s64 DecimalIndex = FindFirst(String, '.');
         u64 TempParsedLength = 0;
         u64 PlacesAfterPoint = 0;
         
         gs_const_string IntegerString = GetStringBefore(String, DecimalIndex);
-        gs_const_string DecimalString = GetStringAfter(String, DecimalIndex + 1);
+        gs_const_string DecimalString = {};
+        if (DecimalIndex >= 0)
+        {
+            DecimalString = GetStringAfter(String, DecimalIndex + 1);
+        }
         
         r32 Polarity = 1;
         if (IntegerString.Str[0] == '-')
@@ -1910,7 +1914,7 @@ ValidateAndParseFloat(gs_const_string String)
         }
         
         Result.ParsedLength = TempParsedLength + PlacesAfterPoint;
-        if (DecimalIndex < String.Length) { Result.ParsedLength += 1; }
+        if (DecimalIndex < (s64)String.Length) { Result.ParsedLength += 1; }
         
         Result.Success = true;
     }
