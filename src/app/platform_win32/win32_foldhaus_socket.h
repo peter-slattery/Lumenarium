@@ -260,6 +260,10 @@ Win32SocketPeek(platform_socket* Socket)
             {
             }break;
             
+            case WSAECONNRESET:
+            {
+            }break;
+            
             InvalidDefaultCase;
         }
     }

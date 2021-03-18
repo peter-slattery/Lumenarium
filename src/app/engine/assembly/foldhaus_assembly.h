@@ -160,6 +160,8 @@ struct assembly_array
     assembly* Values;
 };
 
+typedef pixel led_blend_proc(pixel A, pixel B, u8* UserData);
+
 internal led_buffer*
 LedSystemGetBuffer(led_system* System, u32 Index)
 {
@@ -176,6 +178,44 @@ LedBuffer_ClearToBlack(led_buffer* Buffer)
         Buffer->Colors[i].G = 0;
         Buffer->Colors[i].B = 0;
     }
+}
+
+internal void
+LedBuffer_Copy(led_buffer From, led_buffer* To)
+{
+    Assert(From.LedCount == To->LedCount);
+    u32 LedCount = To->LedCount;
+    for (u32 i = 0; i < LedCount; i++)
+    {
+        To->Colors[i] = From.Colors[i];
+    }
+}
+
+internal void
+LedBuffer_Blend(led_buffer A, led_buffer B, led_buffer* Dest, led_blend_proc* BlendProc, u8* UserData)
+{
+    Assert(A.LedCount == B.LedCount);
+    Assert(Dest->LedCount == A.LedCount);
+    Assert(BlendProc);
+    
+    u32 LedCount = Dest->LedCount;
+    for (u32 i = 0; i < LedCount; i++)
+    {
+        pixel PA = A.Colors[i];
+        pixel PB = B.Colors[i];
+        Dest->Colors[i] = BlendProc(PA, PB, UserData);
+    }
+}
+
+internal led_buffer
+LedBuffer_CreateCopyCleared (led_buffer Buffer, gs_memory_arena* Arena)
+{
+    led_buffer Result = {};
+    Result.LedCount = Buffer.LedCount;
+    Result.Positions = Buffer.Positions;
+    Result.Colors = PushArray(Arena, pixel, Buffer.LedCount);
+    LedBuffer_ClearToBlack(&Result);
+    return Result;
 }
 
 internal u32

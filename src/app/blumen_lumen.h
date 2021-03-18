@@ -70,6 +70,11 @@ struct blumen_lumen_state
     mic_listen_job_data MicListenJobData;
     
     motor_packet LastKnownMotorState;
+    
+    r64 TimeElapsed;
+    
+    animation_handle AnimHandles[3];
+    u32 CurrAnim;
 };
 
 

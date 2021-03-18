@@ -46,9 +46,7 @@ enum blend_mode
     BlendMode_Count,
 };
 
-// TODO(pjs): Add Opacity to this
-typedef pixel led_blend_proc(pixel PixelA, pixel PixelB);
-
+// TODO(pjs): This really doesn't belong here
 global gs_const_string BlendModeStrings[] = {
     ConstString("Overwrite"),
     ConstString("Add"),
@@ -86,6 +84,18 @@ struct animation
     gs_file_info FileInfo;
 };
 
+struct animation_handle
+{
+    s32 Index;
+};
+
+internal bool IsValid (animation_handle H) { return H.Index >= 0; }
+internal void Clear (animation_handle* H) { H->Index = -1; }
+internal bool AnimHandlesAreEqual (animation_handle A, animation_handle B)
+{
+    return A.Index == B.Index;
+}
+
 struct animation_array
 {
     animation* Values;
@@ -101,7 +111,9 @@ struct animation_layer_frame
     animation_block NextHot;
     bool HasNextHot;
     
-    r32 HotOpacity;
+    r32 NextHotOpacity;
+    
+    blend_mode BlendMode;
 };
 
 // NOTE(pjs): This is an evaluated frame - across all layers in an
@@ -112,6 +124,27 @@ struct animation_frame
     u32 LayersCount;
 };
 
+enum animation_repeat_mode
+{
+    AnimationRepeat_Single,
+    AnimationRepeat_Loop,
+    AnimationRepeat_Invalid,
+};
+
+global gs_const_string AnimationRepeatModeStrings[] = {
+    ConstString("Repeat Single"),
+    ConstString("Loop"),
+    ConstString("Invalid"),
+};
+
+struct animation_fade_group
+{
+    animation_handle From;
+    animation_handle To;
+    r32 FadeElapsed;
+    r32 FadeDuration;
+};
+
 #define ANIMATION_SYSTEM_LAYERS_MAX 128
 #define ANIMATION_SYSTEM_BLOCKS_MAX 128
 struct animation_system
@@ -119,10 +152,14 @@ struct animation_system
     gs_memory_arena* Storage;
     animation_array Animations;
     
+    animation_repeat_mode RepeatMode;
+    
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
     // panel
-    u32 ActiveAnimationIndex;
+    animation_handle ActiveAnimationHandle_;
+    animation_fade_group ActiveFadeGroup;
+    
     s32 CurrentFrame;
     s32 LastUpdatedFrame;
     r32 SecondsPerFrame;
@@ -214,7 +251,7 @@ Patterns_Create(gs_memory_arena* Arena, s32 CountMax)
     return Result;
 }
 
-#define Patterns_PushPattern(array, proc) Patterns_PushPattern_((array), (proc), Stringify(proc), sizeof(Stringify(proc)))
+#define Patterns_PushPattern(array, proc) Patterns_PushPattern_((array), (proc), Stringify(proc), sizeof(Stringify(proc)) - 1)
 internal void
 Patterns_PushPattern_(animation_pattern_array* Array, animation_proc* Proc, char* Name, u32 NameLength)
 {
@@ -341,13 +378,33 @@ AnimationArray_Create(gs_memory_arena* Storage, u32 CountMax)
     return Result;
 }
 
-internal u32
+internal animation_handle
 AnimationArray_Push(animation_array* Array, animation Value)
 {
     Assert(Array->Count < Array->CountMax);
-    u32 Index = Array->Count++;
-    Array->Values[Index] = Value;
-    return Index;
+    animation_handle Result = {0};
+    Result.Index = Array->Count++;
+    Array->Values[Result.Index] = Value;
+    return Result;
+}
+
+internal animation*
+AnimationArray_Get(animation_array Array, animation_handle Handle)
+{
+    animation* Result = 0;
+    if (IsValid(Handle) && Handle.Index < (s32)Array.Count)
+    {
+        Result = Array.Values + Handle.Index;
+    }
+    return Result;
+}
+
+internal animation*
+AnimationArray_GetSafe(animation_array Array, animation_handle Handle)
+{
+    Assert(IsValid(Handle));
+    Assert(Handle.Index < (s32)Array.Count);
+    return AnimationArray_Get(Array, Handle);
 }
 
 //////////////////////////
@@ -482,6 +539,49 @@ ClampFrameToRange(s32 Frame, frame_range Range)
 
 // Layers
 
+// Fade Group
+
+internal bool
+AnimationFadeGroup_ShouldRender (animation_fade_group FadeGroup)
+{
+    return IsValid(FadeGroup.From);
+}
+
+internal void
+AnimationFadeGroup_Advance(animation_fade_group* Group)
+{
+    Group->From = Group->To;
+    Clear(&Group->To);
+    Group->FadeElapsed = 0;
+    Group->FadeDuration = 0;
+}
+
+internal void
+AnimationFadeGroup_Update(animation_fade_group* Group, r32 DeltaTime)
+{
+    if (IsValid(Group->To))
+    {
+        Group->FadeElapsed += DeltaTime;
+        if (Group->FadeElapsed >= Group->FadeDuration)
+        {
+            AnimationFadeGroup_Advance(Group);
+        }
+    }
+}
+
+internal void
+AnimationFadeGroup_FadeTo(animation_fade_group* Group, animation_handle To, r32 Duration)
+{
+    // complete current fade if there is one in progress
+    if (IsValid(Group->To))
+    {
+        AnimationFadeGroup_Advance(Group);
+    }
+    
+    Group->To = To;
+    Group->FadeDuration = Duration;
+}
+
 // System
 
 struct animation_system_desc
@@ -499,29 +599,38 @@ AnimationSystem_Init(animation_system_desc Desc)
     Result.Animations = AnimationArray_Create(Result.Storage, Desc.AnimArrayCount);
     Result.SecondsPerFrame = Desc.SecondsPerFrame;
     
+    Clear(&Result.ActiveFadeGroup.From);
+    Clear(&Result.ActiveFadeGroup.To);
+    Result.ActiveFadeGroup.FadeElapsed = 0;
+    
     return Result;
 }
 
 internal animation*
 AnimationSystem_GetActiveAnimation(animation_system* System)
 {
-    // TODO(pjs): need a way to specify the active animation
-    return System->Animations.Values + System->ActiveAnimationIndex;
+    return AnimationArray_Get(System->Animations, System->ActiveFadeGroup.From);
 }
 
 internal animation_frame
-AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_arena* Arena)
+AnimationSystem_CalculateAnimationFrame(animation_system* System,
+                                        animation* Animation,
+                                        gs_memory_arena* Arena)
 {
-    animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
-    
     animation_frame Result = {0};
-    Result.LayersCount = ActiveAnim->Layers.Count;
+    Result.LayersCount = Animation->Layers.Count;
     Result.Layers = PushArray(Arena, animation_layer_frame, Result.LayersCount);
     ZeroArray(Result.Layers, animation_layer_frame, Result.LayersCount);
     
-    for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
+    for (u32 l = 0; l < Animation->Layers.Count; l++)
     {
-        animation_block Block = ActiveAnim->Blocks_.Values[i];
+        animation_layer_frame* Layer = Result.Layers + l;
+        Layer->BlendMode = Animation->Layers.Values[l].BlendMode;
+    }
+    
+    for (u32 i = 0; i < Animation->Blocks_.Count; i++)
+    {
+        animation_block Block = Animation->Blocks_.Values[i];
         
         if (FrameIsInRange(Block.Range, System->CurrentFrame))
         {
@@ -548,12 +657,12 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
                 frame_range BlendRange = {};
                 BlendRange.Min = Layer->NextHot.Range.Min;
                 BlendRange.Max = Layer->Hot.Range.Max;
-                Layer->HotOpacity = 1.0f - FrameToPercentRange(System->CurrentFrame, BlendRange);
+                Layer->NextHotOpacity = FrameToPercentRange(System->CurrentFrame, BlendRange);
             }
             else
             {
                 Layer->Hot = Block;
-                Layer->HotOpacity = 1.0f;
+                Layer->NextHotOpacity = 0.0f;
                 Layer->HasHot = true;
             }
         }
@@ -563,18 +672,34 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System, gs_memory_aren
 }
 
 internal void
-AnimationSystem_Update(animation_system* System)
+AnimationSystem_Update(animation_system* System, r32 DeltaTime)
 {
+    if (!System->TimelineShouldAdvance) { return; }
+    if (!AnimationFadeGroup_ShouldRender(System->ActiveFadeGroup)) { return; }
+    
+    AnimationFadeGroup_Update(&System->ActiveFadeGroup, DeltaTime);
+    
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
-    if (System->TimelineShouldAdvance) {
-        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-        System->CurrentFrame += 1;
-        
-        // Loop back to the beginning
-        if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
+    // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+    // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+    System->CurrentFrame += 1;
+    
+    // Loop back to the beginning
+    if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
+    {
+        switch (System->RepeatMode)
         {
-            System->CurrentFrame = 0;
+            case AnimationRepeat_Single:
+            {
+                System->CurrentFrame = 0;
+            }break;
+            
+            case AnimationRepeat_Loop:
+            {
+                // TODO(pjs):
+            }break;
+            
+            InvalidDefaultCase;
         }
     }
 }

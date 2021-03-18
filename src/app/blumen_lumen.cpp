@@ -144,7 +144,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         
         Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(15), 0);
         
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
+        BLState->AnimHandles[0] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
         animation Anim1 = {0};
         Anim1.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
@@ -156,7 +156,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         
         Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(12), 0);
         
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
+        BLState->AnimHandles[1] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
         
         animation Anim2 = {0};
         Anim2.Name = PushStringF(&State->Permanent, 256, "i_love_you");
@@ -166,10 +166,12 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(10), 0);
+        Animation_AddBlock(&Anim2, 0, 100, Patterns_IndexToHandle(5), 0);
+        Animation_AddBlock(&Anim2, 50, Anim0.PlayableRange.Max, Patterns_IndexToHandle(10), 0);
         
-        AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
+        BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
+        State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
         State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
     
@@ -189,6 +191,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
     
     MotorTimeElapsed += Context->DeltaTime;
+    BLState->TimeElapsed += Context->DeltaTime;
+    
+    if (BLState->TimeElapsed > 5)
+    {
+        u32 NextIndex = ++BLState->CurrAnim % 3;
+        animation_handle Next = BLState->AnimHandles[NextIndex];
+        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup, Next, 5);
+        BLState->TimeElapsed = 0;
+    }
     
     gs_string BlueString = MakeString("blue");
     gs_string GreenString = MakeString("green");
@@ -207,15 +218,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 u32 NameLen = CStringLength(Packet.AnimationFileName);
                 if (StringEqualsCharArray(BlueString.ConstString, Packet.AnimationFileName, NameLen))
                 {
-                    State->AnimationSystem.ActiveAnimationIndex = 0;
+                    State->AnimationSystem.ActiveFadeGroup.From.Index = 0;
                 }
                 else if (StringEqualsCharArray(GreenString.ConstString, Packet.AnimationFileName, NameLen))
                 {
-                    State->AnimationSystem.ActiveAnimationIndex = 1;
+                    State->AnimationSystem.ActiveFadeGroup.From.Index = 1;
                 }
                 else if (StringEqualsCharArray(ILoveYouString.ConstString, Packet.AnimationFileName, NameLen))
                 {
-                    State->AnimationSystem.ActiveAnimationIndex = 2;
+                    State->AnimationSystem.ActiveFadeGroup.From.Index = 2;
                 }
                 
                 OutputDebugStringA("Received Pattern Packet\n");

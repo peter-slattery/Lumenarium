@@ -62,6 +62,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     GlobalDebugServices->Interface.RenderSculpture = true;
     
     PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
+    
+    State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
+    
+    State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
+    
+    ReloadStaticData(Context, GlobalDebugServices);
+    US_CustomInit(&State->UserSpaceDesc, State, Context);
+    
     {
         // NOTE(pjs): This just sets up the default panel layout
         panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
@@ -83,13 +91,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, Context);
         
     }
-    
-    State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
-    
-    State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
-    
-    ReloadStaticData(Context, GlobalDebugServices);
-    US_CustomInit(&State->UserSpaceDesc, State, Context);
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -105,7 +106,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     Editor_Update(State, Context, InputQueue);
     
-    AnimationSystem_Update(&State->AnimationSystem);
+    AnimationSystem_Update(&State->AnimationSystem, Context->DeltaTime);
     if (AnimationSystem_NeedsRender(State->AnimationSystem))
     {
         AnimationSystem_RenderToLedBuffers(&State->AnimationSystem,

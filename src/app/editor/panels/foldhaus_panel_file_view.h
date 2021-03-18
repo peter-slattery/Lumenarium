@@ -16,6 +16,8 @@ struct file_view_state
     file_view_mode Mode;
     
     gs_string WorkingDirectory;
+    gs_string DisplayDirectory;
+    
     gs_memory_arena FileNamesArena;
     gs_file_info_array FileNames;
     
@@ -55,12 +57,15 @@ FileView_UpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_stat
     Assert(LastChar == '\\' || LastChar == '/');
     ClearArena(&State->FileNamesArena);
     
+    
     gs_string SanitizedDir = PushString(Context.ThreadContext.Transient, WorkingDirectory.Length + 2);
     SanitizePath(WorkingDirectory, &SanitizedDir, Context.ThreadContext.Transient);
     if (SanitizedDir.Str[SanitizedDir.Length - 1] != '\\')
     {
         AppendPrintF(&SanitizedDir, "\\");
     }
+    
+    gs_const_string SanitizedDisplayDir = SanitizedDir.ConstString;
     
     gs_file_info NewWorkingDir = GetFileInfo(Context.ThreadContext.FileHandler, SanitizedDir.ConstString);
     if (NewWorkingDir.IsDirectory)
@@ -73,7 +78,7 @@ FileView_UpdateWorkingDirectory(gs_const_string WorkingDirectory, file_view_stat
         // NOTE(pjs): we might be printing from State->WorkingDirectory to State->WorkingDirectory
         // in some cases. Shouldn't be a problem but it is unnecessary
         PrintF(&State->WorkingDirectory, "%S", SanitizedDir.ConstString);
-        
+        PrintF(&State->DisplayDirectory, "%S", SanitizedDisplayDir);
     }
 }
 
@@ -88,7 +93,9 @@ FileView_Init(panel* Panel, app_state* State, context Context)
     FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
     
     // TODO(pjs): this shouldn't be stored in permanent
-    FileViewState->WorkingDirectory = PushString(&State->Permanent, 256);
+    FileViewState->DisplayDirectory = PushString(&State->Permanent, 1024);
+    FileViewState->WorkingDirectory = PushString(&State->Permanent, 1024);
+    
     FileView_UpdateWorkingDirectory(ConstString(".\\"), FileViewState, Context);
 }
 
@@ -109,13 +116,17 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
     
     ui_PushLayout(&State->Interface, PanelBounds, LayoutDirection_TopDown, MakeString("FileView Layout"));
     {
-        
         ui_BeginRow(&State->Interface, 3);
         {
             if (FileViewState->Mode == FileViewMode_Save)
             {
                 if (ui_Button(&State->Interface, MakeString("Save")))
                 {
+                    if (!FileViewState->SelectedFile.Path.Str)
+                    {
+                        FileViewState->SelectedFile.Path = FileViewState->DisplayDirectory.ConstString;
+                    }
+                    
                     FileView_Exit_(Panel, State, Context);
                 }
             }
@@ -128,11 +139,11 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
         ui_EndRow(&State->Interface);
         
         // Header
-        if (ui_TextEntry(&State->Interface, MakeString("pwd"), &FileViewState->WorkingDirectory))
+        if (ui_TextEntry(&State->Interface, MakeString("pwd"), &FileViewState->DisplayDirectory))
         {
             // if last character is a slash, update pwd, and clear the filter string
             // otherwise update the filter string
-            gs_string Pwd = FileViewState->WorkingDirectory;
+            gs_string Pwd = FileViewState->DisplayDirectory;
             char LastChar = Pwd.Str[Pwd.Length - 1];
             if (LastChar == '\\' || LastChar == '/')
             {
@@ -163,9 +174,9 @@ FileView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBu
                 }
                 else
                 {
+                    FileViewState->SelectedFile = File;
                     switch (FileViewState->Mode)
                     {
-                        FileViewState->SelectedFile = File;
                         case FileViewMode_Load:
                         {
                             FileView_Exit_(Panel, State, Context);
