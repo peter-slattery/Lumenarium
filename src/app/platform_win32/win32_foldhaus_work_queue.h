@@ -48,7 +48,7 @@ Win32CreateThreadContext(gs_memory_arena* Transient = 0)
     else
     {
         Result.Transient = (gs_memory_arena*)AllocatorAlloc(Result.Allocator, sizeof(gs_memory_arena)).Memory;
-        *Result.Transient = CreateMemoryArena(Result.Allocator);
+        *Result.Transient = CreateMemoryArena(Result.Allocator, "Tctx Transient");
     }
     Result.FileHandler = CreateFileHandler(Win32GetFileInfo,
                                            Win32ReadEntireFile,

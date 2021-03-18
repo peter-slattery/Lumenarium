@@ -204,9 +204,13 @@ Win32SerialArray_Create(gs_thread_context Context)
     Win32SerialPortNames = AllocatorAllocArray(Context.Allocator, gs_string, Win32SerialHandlesCountMax);
     Win32SerialPortFilled = AllocatorAllocArray(Context.Allocator, s32, Win32SerialHandlesCountMax);
     
+    u64 PortNameSize = 256;
+    u64 PortNameBufferSize = PortNameSize * Win32SerialHandlesCountMax;
+    char* PortNameBuffer = AllocatorAllocArray(Context.Allocator, char, PortNameBufferSize);
     for (u32 i = 0; i < Win32SerialHandlesCountMax; i++)
     {
-        Win32SerialPortNames[i] = AllocatorAllocString(Context.Allocator, 256);
+        char* NameBase = PortNameBuffer + (PortNameSize * i);
+        Win32SerialPortNames[i] = MakeString(NameBase, 0, PortNameSize);
         Win32SerialPortFilled[i] = 0;
     }
 }

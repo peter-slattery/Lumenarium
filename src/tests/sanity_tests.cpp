@@ -31,7 +31,7 @@ bool PathTest (char* In, char* Out) {
 
 int main (int ArgCount, char** Args)
 {
-    Scratch = CreateMemoryArena(CreateAllocator(Alloc, Free));
+    Scratch = CreateMemoryArena(CreateAllocator(Alloc, Free), "Scratch");
     
     Test("gs_string")
     {

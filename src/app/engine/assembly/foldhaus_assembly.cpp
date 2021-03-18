@@ -206,7 +206,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         gs_const_string FileName = Substring(Path, IndexOfLastSlash + 1, Path.Length);
         
         assembly* NewAssembly = AssemblyArray_Take(Assemblies);
-        NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator);
+        NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator, "Assembly Arena");
         
         parser AssemblyParser = ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch);
         if (AssemblyParser.Success)

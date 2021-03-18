@@ -77,12 +77,11 @@ Editor_GetWidgetFillBounds(ui_widget Widget)
     return Result;
 }
 
+internal void Editor_DrawWidgetList(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds);
+
 internal void
-Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds)
+Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 WidgetParentUnion)
 {
-    rect2 WidgetParentUnion = Widget.Bounds;
-    WidgetParentUnion = Rect2Union(Widget.Bounds, ParentClipBounds);
-    
     bool IsActiveWidget = ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget);
     ;
     if (!Widget.Parent || (Rect2Area(WidgetParentUnion) > 0))
@@ -146,18 +145,27 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
             PushRenderBoundingBox2D(RenderBuffer, WidgetParentUnion.Min, WidgetParentUnion.Max, Thickness, Color);
         }
     }
-    
-    if (Widget.ChildrenRoot)
-    {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot, WidgetParentUnion);
-    }
-    
-    if (Widget.Next)
-    {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next, ParentClipBounds);
-    }
 }
 
+
+internal void Editor_DrawWidgetList(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget* Widget, rect2 ParentClipBounds)
+{
+    ui_widget* WidgetAt = Widget;
+    while (WidgetAt)
+    {
+        rect2 WidgetParentUnion = WidgetAt->Bounds;
+        WidgetParentUnion = Rect2Union(WidgetAt->Bounds, ParentClipBounds);
+        
+        Editor_DrawWidget(State, Context, RenderBuffer, *WidgetAt, WidgetParentUnion);
+        
+        if (WidgetAt->ChildrenRoot)
+        {
+            Editor_DrawWidgetList(State, Context, RenderBuffer, WidgetAt->ChildrenRoot, WidgetParentUnion);
+        }
+        
+        WidgetAt = WidgetAt->Next;
+    }
+}
 
 #define FOLDHAUS_EDITOR_DRAW_H
 #endif // FOLDHAUS_EDITOR_DRAW_H

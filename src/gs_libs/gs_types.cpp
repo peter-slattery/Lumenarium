@@ -2424,12 +2424,37 @@ CreateAllocator_(allocator_allocate* Alloc, allocator_free* Free)
 }
 #define CreateAllocator(a, f) CreateAllocator_((allocator_allocate*)(a), (allocator_free*)(f))
 
+internal void
+AllocatorDebug_PushAlloc(gs_allocator_debug* Debug, u64 Size, char* Location)
+{
+    // NOTE(pjs): I don't want this debug procedure to be the reason the
+    // application crashes.
+    if (Debug->AllocationsCount < Debug->AllocationsCountMax)
+    {
+        gs_debug_allocation Allocation = {};
+        
+        gs_const_string L = ConstString(Location);
+        
+        s64 LastSlash = FindLastFromSet(L, "\\/");
+        if (LastSlash < 0) LastSlash = 0;
+        Allocation.Location = GetStringAfter(L, LastSlash);
+        Allocation.Size = Size;
+        
+        Debug->Allocations[Debug->AllocationsCount++] = Allocation;
+    }
+    Debug->TotalAllocSize += Size;
+}
+
 internal gs_data
 AllocatorAlloc_(gs_allocator Allocator, u64 Size, char* Location)
 {
     // TODO(Peter): Memory Profiling with Location
     u64 SizeResult = 0;
     void* Memory = Allocator.Alloc(Size, &SizeResult);
+    if (Allocator.Debug)
+    {
+        AllocatorDebug_PushAlloc(Allocator.Debug, Size, Location);
+    }
     return CreateData((u8*)Memory, SizeResult);
 }
 internal void
@@ -2439,6 +2464,13 @@ AllocatorFree_(gs_allocator Allocator, void* Base, u64 Size, char* Location)
     if (Base != 0 && Size != 0)
     {
         Allocator.Free(Base, Size);
+        if (Allocator.Debug)
+        {
+            // NOTE(pjs): There's no reason we should be going negative
+            // ie. Freeing more memory than we allocated
+            Assert(Allocator.Debug->TotalAllocSize >= Size);
+            Allocator.Debug->TotalAllocSize -= Size;
+        }
     }
 }
 
@@ -2526,30 +2558,37 @@ FreeCursorListEntry(gs_allocator Allocator, gs_memory_cursor_list* CursorEntry)
 }
 
 internal gs_memory_arena
-CreateMemoryArena_(arena_type ArenaType, gs_allocator Allocator, u64 ChunkSize, u64 Alignment, gs_memory_arena* ParentArena)
+CreateMemoryArena_(arena_type ArenaType, gs_allocator Allocator, u64 ChunkSize, u64 Alignment, gs_memory_arena* ParentArena, char* Name)
 {
     // we only want a parent arena if the type is Arena_SubArena
     Assert(((ArenaType == Arena_BaseArena) && (ParentArena == 0)) ||
            ((ArenaType == Arena_SubArena) && (ParentArena != 0)));
     
     gs_memory_arena Arena = {};
+    Arena.ArenaName = Name;
     Arena.Type = ArenaType;
     Arena.Allocator = Allocator;
     Arena.Parent = ParentArena;
+    
+#if MEMORY_CURSOR_STATIC_ARRAY
+    Arena.CursorsCountMax = 4096;
+    Arena.Cursors = AllocatorAllocArray(Allocator, gs_memory_cursor_list, Arena.CursorsCountMax);
+#endif
+    
     Arena.MemoryChunkSize = ChunkSize;
     Arena.MemoryAlignment = Alignment;
     return Arena;
 }
 
 internal gs_memory_arena
-CreateMemoryArena(gs_allocator Allocator, u64 ChunkSize = KB(32), u64 Alignment = Bytes(8))
+CreateMemoryArena(gs_allocator Allocator, char* Name, u64 ChunkSize = KB(32), u64 Alignment = Bytes(8))
 {
-    return CreateMemoryArena_(Arena_BaseArena, Allocator, ChunkSize, Alignment, 0);
+    return CreateMemoryArena_(Arena_BaseArena, Allocator, ChunkSize, Alignment, 0, Name);
 }
 internal gs_memory_arena
-CreateMemorySubArena(gs_memory_arena* Parent, u64 ChunkSize = KB(32), u64 Alignment = Bytes(8))
+CreateMemorySubArena(gs_memory_arena* Parent, char* Name, u64 ChunkSize = KB(32), u64 Alignment = Bytes(8))
 {
-    return CreateMemoryArena_(Arena_SubArena, Parent->Allocator, ChunkSize, Alignment, Parent);
+    return CreateMemoryArena_(Arena_SubArena, Parent->Allocator, ChunkSize, Alignment, Parent, Name);
 }
 
 internal gs_data PushSize_(gs_memory_arena* Arena, u64 Size, char* Location);
@@ -2557,6 +2596,7 @@ internal gs_data PushSize_(gs_memory_arena* Arena, u64 Size, char* Location);
 internal void
 FreeCursorList(gs_memory_cursor_list* List, gs_allocator Allocator)
 {
+#if !MEMORY_CURSOR_STATIC_ARRAY
     gs_memory_cursor_list* CursorAt = List;
     while (CursorAt != 0)
     {
@@ -2564,13 +2604,18 @@ FreeCursorList(gs_memory_cursor_list* List, gs_allocator Allocator)
         FreeCursorListEntry(Allocator, CursorAt);
         CursorAt = Prev;
     }
+#endif
 }
 
 internal gs_memory_cursor_list*
 MemoryArenaNewCursor(gs_memory_arena* Arena, u64 MinSize, char* Location)
 {
+#if MEMORY_CURSOR_STATIC_ARRAY
+    u64 AllocSize = Max(MinSize, Arena->MemoryChunkSize);
+#else
     // Allocate enough spcae for the minimum size needed + sizeo for the cursor list
     u64 AllocSize = Max(MinSize, Arena->MemoryChunkSize) + sizeof(gs_memory_cursor_list);
+#endif
     
     gs_data Data = {0};
     switch (Arena->Type)
@@ -2588,6 +2633,11 @@ MemoryArenaNewCursor(gs_memory_arena* Arena, u64 MinSize, char* Location)
         InvalidDefaultCase;
     }
     
+#if MEMORY_CURSOR_STATIC_ARRAY
+    Assert(Arena->CursorsCount < Arena->CursorsCountMax);
+    gs_memory_cursor_list* Result = Arena->Cursors + Arena->CursorsCount++;
+    Result->Cursor = CreateMemoryCursor(Data.Memory, Data.Size);
+#else
     // Fit the memory cursor into the region allocated
     Assert(MinSize + sizeof(gs_memory_cursor_list) <= Data.Size);
     gs_memory_cursor_list* Result = (gs_memory_cursor_list*)Data.Memory;
@@ -2599,9 +2649,14 @@ MemoryArenaNewCursor(gs_memory_arena* Arena, u64 MinSize, char* Location)
     Result->Next = 0;
     if (Arena->CursorList != 0)
     {
+        if (Arena->CursorList->Next != 0)
+        {
+            Result->Next = Arena->CursorList->Next;
+        }
         Arena->CursorList->Next = Result;
     }
     Arena->CursorList = Result;
+#endif
     return Result;
 }
 
@@ -2611,6 +2666,27 @@ PushSize_(gs_memory_arena* Arena, u64 Size, char* Location)
     gs_data Result = {0};
     if (Size > 0)
     {
+#if MEMORY_CURSOR_STATIC_ARRAY
+        gs_memory_cursor_list* CursorEntry = 0;
+        for (u64 i = 0;
+             i < Arena->CursorsCount;
+             i++)
+        {
+            gs_memory_cursor_list* At = Arena->Cursors + i;
+            if (CursorHasRoom(At->Cursor, Size))
+            {
+                CursorEntry = At;
+                break;
+            }
+        }
+        if (!CursorEntry)
+        {
+            CursorEntry = MemoryArenaNewCursor(Arena, Size, Location);
+        }
+        Assert(CursorEntry);
+        Assert(CursorHasRoom(CursorEntry->Cursor, Size));
+#else
+        
         gs_memory_cursor_list* CursorEntry = Arena->CursorList;
         if (CursorEntry == 0)
         {
@@ -2627,6 +2703,7 @@ PushSize_(gs_memory_arena* Arena, u64 Size, char* Location)
                 CursorEntry = MemoryArenaNewCursor(Arena, Size, Location);
             }
         }
+#endif
         Assert(CursorEntry != 0);
         Result = PushSizeOnCursor_(&CursorEntry->Cursor, Size, Location);
         Assert(Result.Memory != 0);
@@ -2652,43 +2729,18 @@ PushSize_(gs_memory_arena* Arena, u64 Size, char* Location)
 }
 
 internal void
-PopSize(gs_memory_arena* Arena, u64 Size)
-{
-    gs_allocator Allocator = Arena->Allocator;
-    gs_memory_cursor_list* CursorEntry = Arena->CursorList;
-    for (gs_memory_cursor_list* Prev = 0;
-         CursorEntry != 0 && Size != 0;
-         CursorEntry = Prev)
-    {
-        Prev = CursorEntry->Prev;
-        if (Size >= CursorEntry->Cursor.Position)
-        {
-            Size -= CursorEntry->Cursor.Position;
-            FreeCursorListEntry(Allocator, CursorEntry);
-        }
-        else
-        {
-            PopSizeOnCursor(&CursorEntry->Cursor, Size);
-            break;
-        }
-    }
-    Arena->CursorList = CursorEntry;
-}
-internal void
 FreeMemoryArena(gs_memory_arena* Arena)
 {
-    gs_allocator Allocator = Arena->Allocator;
-    gs_memory_cursor_list* CursorEntry = Arena->CursorList;
-    for (gs_memory_cursor_list* Prev = 0;
-         CursorEntry != 0;
-         CursorEntry = Prev)
+#if MEMORY_CURSOR_STATIC_ARRAY
+    for (u32 i = 0; i < Arena->CursorsCount; i++)
     {
-        Prev = CursorEntry->Prev;
-        if (CursorEntry != 0)
-        {
-            FreeCursorListEntry(Allocator, CursorEntry);
-        }
+        gs_memory_cursor_list E = Arena->Cursors[i];
+        AllocatorFree(Arena->Allocator, E.Cursor.Data.Memory, E.Cursor.Data.Size);
     }
+    AllocatorFreeArray(Arena->Allocator, Arena->Cursors, gs_memory_cursor_list, Arena->CursorsCountMax);
+#else
+    FreeCursorList(Arena->CursorList, Arena->Allocator);
+#endif
 }
 
 #define PushSizeToData(arena, size) PushSize_((arena), (size), FileNameAndLineNumberString)
@@ -2726,6 +2778,12 @@ PushStringCopy(gs_memory_arena* Arena, gs_const_string String)
 internal void
 ClearArena(gs_memory_arena* Arena)
 {
+#if MEMORY_CURSOR_STATIC_ARRAY
+    for (u32 i = 0; i < Arena->CursorsCount; i++)
+    {
+        Arena->Cursors[i].Cursor.Position = 0;
+    }
+#else
     gs_memory_cursor_list* First = 0;
     for (gs_memory_cursor_list* CursorEntry = Arena->CursorList;
          CursorEntry != 0;
@@ -2735,12 +2793,13 @@ ClearArena(gs_memory_arena* Arena)
         CursorEntry->Cursor.Position = 0;
     }
     Arena->CursorList = First;
+#endif
 }
 
 internal void
 FreeArena(gs_memory_arena* Arena)
 {
-    FreeCursorList(Arena->CursorList, Arena->Allocator);
+    FreeMemoryArena(Arena);
 }
 
 ///////////////////////////
@@ -2789,14 +2848,14 @@ CreateDynarrayWithStorage(gs_memory_arena Storage, u32 ElementSize, u32 Elements
 internal gs_dynarray
 CreateDynarray_(gs_allocator Allocator, u32 ElementSize, u32 ElementsPerBuffer)
 {
-    gs_memory_arena Storage = CreateMemoryArena(Allocator, ElementSize * ElementsPerBuffer);
+    gs_memory_arena Storage = CreateMemoryArena(Allocator, "Dynarray Arena", ElementSize * ElementsPerBuffer);
     return CreateDynarrayWithStorage(Storage, ElementSize, ElementsPerBuffer);
 };
 
 internal gs_dynarray
 CreateDynarray_(gs_memory_arena* Arena, u32 ElementSize, u32 ElementsPerBuffer)
 {
-    gs_memory_arena Storage = CreateMemorySubArena(Arena, ElementSize * ElementsPerBuffer);
+    gs_memory_arena Storage = CreateMemorySubArena(Arena, "Dynarray Sub Arena", ElementSize * ElementsPerBuffer);
     return CreateDynarrayWithStorage(Storage, ElementSize, ElementsPerBuffer);
 };
 

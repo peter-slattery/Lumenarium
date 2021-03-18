@@ -90,7 +90,7 @@ FileView_Init(panel* Panel, app_state* State, context Context)
     // TODO: :FreePanelMemory
     file_view_state* FileViewState = PushStruct(&State->Permanent, file_view_state);
     Panel->StateMemory = StructToData(FileViewState, file_view_state);
-    FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator);
+    FileViewState->FileNamesArena = CreateMemoryArena(Context.ThreadContext.Allocator, "File View - File Names Arena");
     
     // TODO(pjs): this shouldn't be stored in permanent
     FileViewState->DisplayDirectory = PushString(&State->Permanent, 1024);

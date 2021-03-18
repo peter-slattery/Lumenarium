@@ -100,7 +100,7 @@ AddressedDataBufferList_Create(gs_thread_context TC)
 {
     addressed_data_buffer_list Result = {};
     Result.Arena = AllocatorAllocStruct(TC.Allocator, gs_memory_arena);
-    *Result.Arena = CreateMemoryArena(TC.Allocator);
+    *Result.Arena = CreateMemoryArena(TC.Allocator, "Addressed Data Buffer List Arena");
     return Result;
 }
 

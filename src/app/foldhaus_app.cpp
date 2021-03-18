@@ -24,7 +24,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     app_state* State = (app_state*)Context.MemoryBase;
     *State = {};
     
-    State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator, "Permanent");
     State->Transient = Context.ThreadContext.Transient;
     State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
     
@@ -91,6 +91,8 @@ INITIALIZE_APPLICATION(InitializeApplication)
         Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, Context);
         
     }
+    
+    State->RunEditor = true;
 }
 
 UPDATE_AND_RENDER(UpdateAndRender)
@@ -104,7 +106,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
     
-    Editor_Update(State, Context, InputQueue);
+    if (State->RunEditor)
+    {
+        Editor_Update(State, Context, InputQueue);
+    }
     
     AnimationSystem_Update(&State->AnimationSystem, Context->DeltaTime);
     if (AnimationSystem_NeedsRender(State->AnimationSystem))
@@ -123,7 +128,10 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                  State->Assemblies,
                                  State->LedSystem);
     
-    Editor_Render(State, Context, RenderBuffer);
+    if (State->RunEditor)
+    {
+        Editor_Render(State, Context, RenderBuffer);
+    }
     
     // NOTE(pjs): Building data buffers to be sent out to the sculpture
     // This array is used on the platform side to actually send the information

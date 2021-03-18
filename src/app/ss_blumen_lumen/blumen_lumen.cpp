@@ -24,10 +24,8 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     
     while (*Data->Running)
     {
-#if 1
         if (SocketQueryStatus(Data->SocketManager, Data->ListenSocket))
         {
-            // TODO(pjs): Removing this block for now - nothing is wrong with it except that SocketPeek is still blocking for some reason
             if (SocketPeek(Data->SocketManager, Data->ListenSocket))
             {
                 // TODO(pjs): Make this a peek operation
@@ -41,7 +39,6 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                     }
                 }
             }
-#endif
             
             while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
             {

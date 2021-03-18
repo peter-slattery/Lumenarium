@@ -144,8 +144,8 @@ Editor_Render(app_state* State, context* Context, render_command_buffer* RenderB
     // Draw the Interface
     if (State->Interface.DrawOrderRoot != 0)
     {
-        ui_widget Widget = *State->Interface.DrawOrderRoot;
-        Editor_DrawWidget(State, Context, RenderBuffer, Widget, Context->WindowBounds);
+        ui_widget* Widget = State->Interface.DrawOrderRoot;
+        Editor_DrawWidgetList(State, Context, RenderBuffer, Widget, Context->WindowBounds);
     }
     
     Context->GeneralWorkQueue->CompleteQueueWork(Context->GeneralWorkQueue, Context->ThreadContext);

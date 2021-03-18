@@ -13,7 +13,7 @@
 #include "../gs_libs/gs_font.h"
 #include "foldhaus_log.h"
 
-#include "interface.h"
+#include "editor/interface.h"
 
 #include "engine/foldhaus_network_ordering.h"
 
@@ -42,7 +42,7 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
 #include "engine/user_space.h"
-#include "blumen_lumen.h"
+#include "ss_blumen_lumen/blumen_lumen.h"
 
 struct app_state
 {
@@ -72,6 +72,8 @@ struct app_state
     panel* HotPanel;
     
     user_space_desc UserSpaceDesc;
+    
+    bool RunEditor;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
@@ -81,7 +83,7 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 #include "engine/user_space.cpp"
 
 #include "patterns/blumen_patterns.h"
-#include "blumen_lumen.cpp"
+#include "ss_blumen_lumen/blumen_lumen.cpp"
 
 internal void
 EndCurrentOperationMode(app_state* State)

@@ -535,6 +535,12 @@ WinMain (
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
+    gs_allocator_debug AllocDebug = {};
+    AllocDebug.AllocationsCountMax = 4096;
+    AllocDebug.Allocations = (gs_debug_allocation*)Win32Alloc(sizeof(gs_debug_allocation) * AllocDebug.AllocationsCountMax, 0);
+    
+    ThreadContext.Allocator.Debug = &AllocDebug;
+    
     gs_file_info A = GetFileInfo(ThreadContext.FileHandler, ConstString("C:\\projects\\Lumenarium"));
     
     gs_file_info B = GetFileInfo(ThreadContext.FileHandler, ConstString("C:\\projects\\Lumenarium\\"));
@@ -556,7 +562,7 @@ WinMain (
     Context.MemorySize = MB(64);
     Context.MemoryBase = (u8*)Win32Alloc(Context.MemorySize, 0);
     
-    gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator, "Platform Memory");
     
     s64 PerformanceCountFrequency = GetPerformanceFrequency();
     s64 LastFrameEnd = GetWallClock();

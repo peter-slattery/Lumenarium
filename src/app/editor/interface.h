@@ -1582,7 +1582,7 @@ ui_InterfaceCreate(context Context, interface_config Style, gs_memory_arena* Per
     Result.WidgetsCountMax = 4096;
     Result.Widgets = PushArray(Permanent, ui_widget, Result.WidgetsCountMax);
     Result.PerFrameMemory = PushStruct(Permanent, gs_memory_arena);
-    *Result.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator);
+    *Result.PerFrameMemory = CreateMemoryArena(Context.ThreadContext.Allocator, "Interface Per Frame Memory Arena", KB(32));
     InterfaceAssert(Result.PerFrameMemory);
     
     Result.Permanent = Permanent;

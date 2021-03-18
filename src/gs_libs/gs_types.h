@@ -247,7 +247,7 @@ enum { \
 #define DontCompile ImAfraidICantDoThat
 
 #define LineNumberString Stringify(__LINE__)
-#define FileNameAndLineNumberString_ __FILE__ ":" LineNumberString ":"
+#define FileNameAndLineNumberString_ __FILE__ ":" LineNumberString ":" __FUNCTION__
 #define FileNameAndLineNumberString (char*)FileNameAndLineNumberString_
 
 //
@@ -633,10 +633,27 @@ typedef ALLOCATOR_ALLOC(allocator_allocate);
 #define ALLOCATOR_FREE(name) void name(void* Ptr, u64 Size)
 typedef ALLOCATOR_FREE(allocator_free);
 
+struct gs_debug_allocation
+{
+    gs_const_string Location;
+    u64 Size;
+};
+
+struct gs_allocator_debug
+{
+    u64 TotalAllocSize;
+    
+    u64 AllocationsCount;
+    u64 AllocationsCountMax;
+    gs_debug_allocation* Allocations;
+};
+
 struct gs_allocator
 {
     allocator_allocate* Alloc;
     allocator_free* Free;
+    
+    gs_allocator_debug* Debug;
 };
 
 struct gs_memory_cursor
@@ -645,11 +662,26 @@ struct gs_memory_cursor
     u64 Position;
 };
 
+/* TODO(pjs): Setting MEMORY_CURSOR_STATIC_ARRAY will still compile,
+ However, it introduces a bug that I haven't fully diagnosed.
+The problem seems to occur when trying to push to a cleared memory arena
+Where the FirstCursor doesn't have enough room for the allocation, but
+also FirstCursor->Next points to a valid cursor. The new cursor is put
+in the middle however we seem to continually keep allocating new
+cursors forever and losing old ones.
+The problem in Lumenarium is found in the OutputData structure
+
+Leaving this in a simplified state for now
+*/
+#define MEMORY_CURSOR_STATIC_ARRAY 1
+
 struct gs_memory_cursor_list
 {
     gs_memory_cursor  Cursor;
+#if !MEMORY_CURSOR_STATIC_ARRAY
     gs_memory_cursor_list* Next;
     gs_memory_cursor_list* Prev;
+#endif
 };
 
 enum arena_type
@@ -664,9 +696,18 @@ struct gs_memory_arena
     gs_allocator Allocator;
     gs_memory_arena* Parent;
     
+#if MEMORY_CURSOR_STATIC_ARRAY
+    gs_memory_cursor_list* Cursors;
+    u64 CursorsCount;
+    u64 CursorsCountMax;
+#else
     gs_memory_cursor_list* CursorList;
+#endif
+    
     u64 MemoryChunkSize;
     u64 MemoryAlignment;
+    
+    char* ArenaName;
 };
 
 struct gs_memory_arena_array

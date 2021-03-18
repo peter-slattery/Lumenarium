@@ -64,8 +64,14 @@ struct debug_frame
     collated_scope_record* CollatedScopes;
 };
 
-#define FRAME_VIEW_PROFILER 0
-#define FRAME_VIEW_SCOPE_LIST 1
+enum debug_ui_view
+{
+    DebugUI_Profiler,
+    DebugUI_ScopeList,
+    DebugUI_MemoryView,
+    
+    DebugUI_Count,
+};
 
 struct debug_interface
 {

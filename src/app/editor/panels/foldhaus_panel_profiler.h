@@ -163,6 +163,44 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
     ui_EndList(Interface);
 }
 
+internal void
+RenderProfiler_MemoryView(ui_interface* Interface, ui_widget* Layout, app_state* State, context Context, gs_memory_arena* Memory)
+{
+    gs_allocator_debug Debug = *Context.ThreadContext.Allocator.Debug;
+    gs_string TempString = PushString(State->Transient, 256);
+    
+    u64 MemFootprint = Debug.TotalAllocSize;
+    u64 AllocCount = Debug.AllocationsCount;
+    PrintF(&TempString, "Total Memory Size: %lld | Allocations: %lld", MemFootprint, AllocCount);
+    ui_Label(Interface, TempString);
+    
+    ui_column_spec ColumnWidths[] = {
+        { UIColumnSize_Fill, 0 },
+        { UIColumnSize_Fixed,256 },
+    };
+    ui_BeginRow(Interface, 2, &ColumnWidths[0]);
+    {
+        ui_Label(Interface, MakeString("Location"));
+        ui_Label(Interface, MakeString("Alloc Size"));
+    }
+    ui_EndRow(Interface);
+    
+    ui_BeginList(Interface, MakeString("Alloc List"), 10, Debug.AllocationsCount);
+    ui_BeginRow(Interface, 2, &ColumnWidths[0]);
+    for (s32 n = 0; n < Debug.AllocationsCount; n++)
+    {
+        gs_debug_allocation A = Debug.Allocations[n];
+        
+        PrintF(&TempString, "%S", A.Location);
+        ui_Label(Interface, TempString);
+        
+        PrintF(&TempString, "%lld bytes", A.Size);
+        ui_Label(Interface, TempString);
+    }
+    ui_EndRow(Interface);
+    ui_EndList(Interface);
+}
+
 GSMetaTag(panel_render);
 GSMetaTag(panel_type_profiler);
 internal void
@@ -234,24 +272,39 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     
     ui_BeginRow(&State->Interface, 8);
     {
-        if (ui_Button(&State->Interface, MakeString("Scope View")))
+        if (ui_Button(&State->Interface, MakeString("Profiler")))
         {
-            GlobalDebugServices->Interface.FrameView = FRAME_VIEW_PROFILER;
+            GlobalDebugServices->Interface.FrameView = DebugUI_Profiler;
         }
         if (ui_Button(&State->Interface, MakeString("List View")))
         {
-            GlobalDebugServices->Interface.FrameView = FRAME_VIEW_SCOPE_LIST;
+            GlobalDebugServices->Interface.FrameView = DebugUI_ScopeList;
+        }
+        if (ui_Button(&State->Interface, MakeString("Memory")))
+        {
+            GlobalDebugServices->Interface.FrameView = DebugUI_MemoryView;
         }
     }
     ui_EndRow(&State->Interface);
     
-    if (GlobalDebugServices->Interface.FrameView == FRAME_VIEW_PROFILER)
+    switch (GlobalDebugServices->Interface.FrameView)
     {
-        RenderProfiler_ScopeVisualization(&State->Interface, Layout, VisibleFrame, Memory);
-    }
-    else
-    {
-        RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+        case DebugUI_Profiler:
+        {
+            RenderProfiler_ScopeVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+        }break;
+        
+        case DebugUI_ScopeList:
+        {
+            RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+        }break;
+        
+        case DebugUI_MemoryView:
+        {
+            RenderProfiler_MemoryView(&State->Interface, Layout, State, Context, Memory);
+        }break;
+        
+        InvalidDefaultCase;
     }
     
     ui_PopLayout(&State->Interface, MakeString("Profiler Layout"));
