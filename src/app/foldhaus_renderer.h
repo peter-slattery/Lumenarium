@@ -488,6 +488,13 @@ PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, v2 Min, v2 Max, v
 }
 
 internal void
+PushQuad2DOnBatch (render_quad_batch_constructor* Constructor, rect2 Rect, v4 Color)
+{
+    PushQuad2DOnBatch(Constructor, v2{Rect.Min.x, Rect.Min.y}, v2{Rect.Max.x, Rect.Min.y}, v2{Rect.Max.x, Rect.Max.y}, v2{Rect.Min.x, Rect.Max.y},
+                      v2{0, 0}, v2{1, 1}, Color);
+}
+
+internal void
 PushLine2DOnBatch (render_quad_batch_constructor* Constructor, v2 P0, v2 P1, r32 Thickness, v4 Color)
 {
     r32 HalfThickness = Thickness / 2.0f;

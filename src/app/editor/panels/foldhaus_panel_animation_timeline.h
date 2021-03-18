@@ -335,7 +335,7 @@ DrawFrameBar (animation_system* AnimationSystem, ui_interface Interface, frame_r
         r32 FramePercent = FrameToPercentRange(Frame, VisibleFrames);
         r32 FrameX = LerpR32(FramePercent, BarBounds.Min.x, BarBounds.Max.x);
         v2 FrameTextPos = v2{FrameX, BarBounds.Min.y + 2};
-        DrawString(Interface.RenderBuffer, TempString, Interface.Style.Font, FrameTextPos, WhiteV4);
+        DrawString(Interface.RenderBuffer, TempString, Interface.Style.Font, FrameTextPos, WhiteV4, -1, GreenV4);
     }
     
     // Time Slider
@@ -352,7 +352,7 @@ DrawFrameBar (animation_system* AnimationSystem, ui_interface Interface, frame_r
         v2 HeadMin = v2{SliderX - SliderHalfWidth, BarBounds.Min.y};
         v2 HeadMax = v2{SliderX + SliderHalfWidth, BarBounds.Max.y};
         PushRenderQuad2D(Interface.RenderBuffer, HeadMin, HeadMax, TimeSliderColor);
-        DrawString(Interface.RenderBuffer, TempString, Interface.Style.Font, HeadMin + v2{6, 4}, WhiteV4);
+        DrawString(Interface.RenderBuffer, TempString, Interface.Style.Font, HeadMin + v2{6, 4}, WhiteV4, -1, GreenV4);
     }
 }
 
@@ -465,7 +465,7 @@ DrawLayerMenu(animation_system* AnimationSystem, animation ActiveAnim, ui_interf
         {
             PushRenderBoundingBox2D(Interface.RenderBuffer, LayerBounds.Min, LayerBounds.Max, 1, WhiteV4);
         }
-        DrawString(Interface.RenderBuffer, Layer->Name, Interface.Style.Font, LayerTextPos, WhiteV4);
+        DrawString(Interface.RenderBuffer, Layer->Name, Interface.Style.Font, LayerTextPos, WhiteV4, -1, GreenV4);
     }
 }
 
@@ -573,7 +573,7 @@ FrameCount_Render(animation_timeline_state* TimelineState, animation* ActiveAnim
         r32 FramePercent = FrameToPercentRange(Frame, VisibleFrames);
         r32 FrameX = LerpR32(FramePercent, Bounds.Min.x, Bounds.Max.x);
         v2 FrameTextPos = v2{FrameX, Bounds.Min.y + 2};
-        DrawString(Interface->RenderBuffer, TempString, Interface->Style.Font, FrameTextPos, WhiteV4);
+        DrawString(Interface->RenderBuffer, TempString, Interface->Style.Font, FrameTextPos, WhiteV4, -1, GreenV4);
     }
     
     // Time Slider
@@ -591,7 +591,7 @@ FrameCount_Render(animation_timeline_state* TimelineState, animation* ActiveAnim
         v2 HeadMin = v2{SliderX - SliderHalfWidth, Bounds.Min.y};
         v2 HeadMax = v2{SliderX + SliderHalfWidth, Bounds.Max.y};
         PushRenderQuad2D(Interface->RenderBuffer, HeadMin, HeadMax, TimeSliderColor);
-        DrawString(Interface->RenderBuffer, TempString, Interface->Style.Font, HeadMin + v2{6, 4}, WhiteV4);
+        DrawString(Interface->RenderBuffer, TempString, Interface->Style.Font, HeadMin + v2{6, 4}, WhiteV4, -1, GreenV4);
     }
     
     // Interaction
@@ -620,7 +620,7 @@ LayerList_DrawLayerButton (ui_interface* Interface, gs_string Name, rect2 Bounds
     {
         PushRenderBoundingBox2D(Interface->RenderBuffer, Bounds.Min, Bounds.Max, 1, BoxColor);
     }
-    DrawString(Interface->RenderBuffer, Name, Interface->Style.Font, TextPos, WhiteV4);
+    DrawString(Interface->RenderBuffer, Name, Interface->Style.Font, TextPos, WhiteV4, -1, GreenV4);
     return Result;
 }
 

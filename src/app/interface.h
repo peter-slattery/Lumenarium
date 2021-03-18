@@ -99,16 +99,34 @@ DrawCharacterRightAligned (render_quad_batch_constructor* BatchConstructor, char
     return PointAfterCharacter;
 }
 
+internal void
+DrawCursor (render_command_buffer* RenderBuffer, v2 RegisterPosition, bitmap_font* Font, v4 Color)
+{
+    rect2 CursorRect = {};
+    CursorRect.Min = RegisterPosition;
+    CursorRect.Max = CursorRect.Min + v2{5, (r32)Font->Ascent};
+    PushRenderQuad2D(RenderBuffer, CursorRect, Color);
+}
+
 internal v2
-DrawStringLeftAligned (render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, rect2 ClippingBox, v4 Color)
+DrawStringLeftAligned (render_command_buffer* RenderBuffer, render_quad_batch_constructor* BatchConstructor, s32 Length, char* gs_string, v2 InitialRegisterPosition, bitmap_font* Font, rect2 ClippingBox, v4 Color, s32 CursorBeforeIndex, v4 CursorColor)
 {
     v2 RegisterPosition = InitialRegisterPosition;
     char* C = gs_string;
     for (s32 i = 0; i < Length; i++)
     {
+        if (i == CursorBeforeIndex)
+        {
+            DrawCursor(RenderBuffer, RegisterPosition, Font, CursorColor);
+        }
+        
         v2 PositionAfterCharacter = DrawCharacterLeftAligned(BatchConstructor, *C, *Font, RegisterPosition, ClippingBox, Color);
         RegisterPosition.x = PositionAfterCharacter.x;
         C++;
+    }
+    if (CursorBeforeIndex == Length)
+    {
+        DrawCursor(RenderBuffer, RegisterPosition, Font, CursorColor);
     }
     return RegisterPosition;
 }
@@ -128,12 +146,12 @@ DrawStringRightAligned (render_quad_batch_constructor* BatchConstructor, s32 Len
 }
 
 internal v2
-DrawString(render_command_buffer* RenderBuffer, gs_string String, bitmap_font* Font, v2 Position, v4 Color, gs_string_alignment Alignment = Align_Left)
+DrawString(render_command_buffer* RenderBuffer, gs_string String, bitmap_font* Font, v2 Position, v4 Color, s32 CursorPosition, v4 CursorColor, gs_string_alignment Alignment = Align_Left)
 {
     DEBUG_TRACK_FUNCTION;
     v2 LowerRight = Position;
     
-    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer, String.Length,
+    render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer, String.Length + 1,
                                                                               Font->BitmapMemory,
                                                                               Font->BitmapTextureHandle,
                                                                               Font->BitmapWidth,
@@ -152,7 +170,7 @@ DrawString(render_command_buffer* RenderBuffer, gs_string String, bitmap_font* F
     v2 RegisterPosition = Position;
     if (Alignment == Align_Left)
     {
-        RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(String), RegisterPosition, Font, InfiniteClipBox, Color);
+        RegisterPosition = DrawStringLeftAligned(RenderBuffer, &BatchConstructor, StringExpand(String), RegisterPosition, Font, InfiniteClipBox, Color, CursorPosition, CursorColor);
     }
     else if (Alignment == Align_Right)
     {
@@ -359,6 +377,7 @@ struct ui_interface
     
     // A per-frame string of the characters which have been typed
     gs_const_string TempInputString;
+    u64 CursorPosition;
     
     render_command_buffer* RenderBuffer;
     
@@ -980,6 +999,11 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
             {
                 Result.Clicked = true;
                 Interface->ActiveWidget = Widget->Id;
+                
+                if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Typable))
+                {
+                    Interface->CursorPosition = Widget->String.Length;
+                }
             }
         }
         
@@ -1013,11 +1037,12 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
         {
             ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
             
+            Interface->CursorPosition = Clamp(0, Interface->CursorPosition, State->EditString.Length);
             for (u32 i = 0; i < Interface->TempInputString.Length; i++)
             {
                 if (Interface->TempInputString.Str[i] == '\b')
                 {
-                    if (State->EditString.Length > 0)
+                    if (Interface->CursorPosition > 0)
                     {
                         State->EditString.Length -= 1;
                     }
@@ -1029,71 +1054,6 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
             }
         }
     }
-    
-#if 0
-    // if you can click it
-    if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Clickable))
-    {
-        // updating hot widget, and handling mouse clicks
-        if (PointIsInRect(Widget->Parent->Bounds, Interface->Mouse.Pos) &&
-            PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
-        {
-            if (ui_WidgetIdsEqual(Interface->HotWidget, Widget->Id) && MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState))
-            {
-                Result.Clicked = true;
-                Interface->ActiveWidget = Widget->Id;
-            }
-            
-            Interface->HotWidget = Widget->Id;
-        }
-        
-        // click and drag
-        if (MouseButtonHeldDown(Interface->Mouse.LeftButtonState) &&
-            PointIsInRect(Widget->Bounds, Interface->Mouse.DownPos))
-        {
-            Result.Held = true;
-            Result.DragDelta = Interface->Mouse.Pos - Interface->Mouse.DownPos;
-        }
-        
-        // if this is the active widget (its been clicked)
-        if (ui_WidgetIdsEqual(Interface->ActiveWidget, Widget->Id))
-        {
-            // if you can select it
-            if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Selectable))
-            {
-                //
-                if (MouseButtonTransitionedDown(Interface->Mouse.LeftButtonState) &&
-                    !PointIsInRect(Widget->Bounds, Interface->Mouse.Pos))
-                {
-                    Interface->ActiveWidget = {};
-                }
-                
-                if (ui_WidgetIsFlagSet(*Widget, UIWidgetFlag_Typable) &&
-                    Interface->TempInputString.Length > 0)
-                {
-                    ui_widget_retained_state* State = ui_GetRetainedState(Interface, Widget->Id);
-                    
-                    // TODO(pjs): Backspace?
-                    for (u32 i = 0; i < Interface->TempInputString.Length; i++)
-                    {
-                        if (Interface->TempInputString.Str[i] == '\b')
-                        {
-                            State->EditString.Length -= 1;
-                        }
-                        else
-                        {
-                            OutChar(&State->EditString, Interface->TempInputString.Str[i]);
-                        }
-                    }
-                }
-            }
-            else if (MouseButtonTransitionedUp(Interface->Mouse.LeftButtonState))
-            {
-                Interface->ActiveWidget = {};
-            }
-        }
-    }
-#endif
     
     Assert(Widget->Parent != 0);
     return Result;

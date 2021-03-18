@@ -234,7 +234,7 @@ SculptureView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         gs_string Tempgs_string = PushString(State->Transient, 256);
         PrintF(&Tempgs_string, "Hot Id: %u, ZIndex: %u | Active Id: %u", State->Interface.HotWidget.Id,
                State->Interface.HotWidget.ZIndex,State->Interface.ActiveWidget.Id);
-        DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4);
+        DrawString(RenderBuffer, Tempgs_string, State->Interface.Style.Font, v2{PanelBounds.Min.x + 100, PanelBounds.Max.y - 200}, WhiteV4, -1, GreenV4);
         
     }
     Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);

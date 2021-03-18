@@ -1522,54 +1522,91 @@ Substring(gs_const_string String, u64 First, u64 Last)
     Result.Length = Min(Last - First, String.Length);
     return Result;
 }
-internal u64
+internal gs_const_string
+Substring(gs_string String, u64 First, u64 Last)
+{
+    return Substring(String.ConstString, First, Last);
+}
+
+internal s64
 FindFirst(gs_const_string String, u64 StartIndex, char C)
 {
-    u64 Result = StartIndex;
-    for(; Result < String.Length && C != String.Str[Result]; Result++);
+    s64 Result = -1;
+    for(u64 i = StartIndex; i < String.Length; i++)
+    {
+        if (String.Str[i] == C) {
+            Result = (s64)i;
+            break;
+        }
+    }
     return Result;
 }
-internal u64
+internal s64
 FindFirst(gs_const_string String, char C)
 {
     return FindFirst(String, 0, C);
 }
-
-internal u64
-FindLast(gs_const_string String, u64 StartIndex, char C)
+internal s64
+FindFirst(gs_string String, u64 StartIndex, char C)
 {
-    s64 Result = StartIndex;
-    for(; Result >= 0 && C != String.Str[Result]; Result--);
-    return (u64)Result;
+    return FindFirst(String.ConstString, StartIndex, C);
+}
+internal s64
+FindFirst(gs_string String, char C)
+{
+    return FindFirst(String.ConstString, 0, C);
 }
 
-internal u64
+internal s64
+FindLast(gs_const_string String, u64 StartIndex, char C)
+{
+    s64 Result = -1;
+    for(s64 i= StartIndex; i >= 0; i--)
+    {
+        if (String.Str[i] == C) {
+            Result = i;
+            break;
+        }
+    }
+    return (u64)Result;
+}
+internal s64
 FindLast(gs_const_string String, char C)
 {
     return FindLast(String, String.Length - 1, C);
 }
+internal s64
+FindLast(gs_string String, u64 StartIndex, char C)
+{
+    return FindLast(String.ConstString, StartIndex, C);
+}
+internal s64
+FindLast(gs_string String, char C)
+{
+    return FindLast(String.ConstString, String.Length - 1, C);
+}
 
-internal u64
+internal s64
 FindFirstFromSet(gs_const_string String, char* SetArray)
 {
     gs_const_string Set = ConstString(SetArray);
-    u64 Result = String.Length - 1;
-    for(u64 At = 0; At < String.Length; At++)
+    s64 Result = -1;
+    
+    s64 CurrMin = String.Length;
+    for (u64 SetAt = 0; SetAt < Set.Length; SetAt++)
     {
-        char CharAt = String.Str[At];
-        for (u64 SetAt = 0; SetAt < Set.Length; SetAt++)
+        s64 Index = FindFirst(String, Set.Str[SetAt]);
+        if (Index >= 0 && Index < CurrMin)
         {
-            if (CharAt == Set.Str[SetAt])
-            {
-                Result = At;
-                // NOTE(Peter): The alternative to this goto is a break in the inner loop
-                // followed by an if check in the outer loop, that must be evaluated
-                // every character you check. This is more efficient
-                goto find_last_from_set_complete;
-            }
+            CurrMin = Index;
         }
     }
-    find_last_from_set_complete:
+    
+    if (CurrMin < (s64)String.Length)
+    {
+        Result = CurrMin;
+    }
+    
     return Result;
 }
 
@@ -1648,6 +1685,12 @@ StringEqualsCharArray(gs_const_string A, char* B, u64 Length)
     return StringsEqual(A, BStr);
 }
 internal bool
+StringEqualsCharArray(gs_const_string A, char* B)
+{
+    u64 Length = CStringLength(B);
+    return StringEqualsCharArray(A, B, Length);
+}
+internal bool
 StringsEqualUpToLength(gs_string A, gs_string B, u64 Length)
 {
     return StringsEqualUpToLength(A.ConstString, B.ConstString, Length);
@@ -1660,8 +1703,12 @@ StringsEqual(gs_string A, gs_string B)
 internal bool
 StringEqualsCharArray(gs_string A, char* B, u64 Length)
 {
-    gs_string BStr = MakeString(B, Length);
-    return StringsEqual(A, BStr);
+    return StringEqualsCharArray(A.ConstString, B, Length);
+}
+internal bool
+StringEqualsCharArray(gs_string A, char* B)
+{
+    return StringEqualsCharArray(A.ConstString, B);
 }
 
 internal u64
@@ -1907,6 +1954,39 @@ AppendString(gs_string* Base, gs_string Appendix)
 {
     return AppendString(Base, Appendix.ConstString);
 }
+
+internal void
+InsertAt(gs_string* Str, u64 Index, char C)
+{
+    if (Str->Length > Index)
+    {
+        for (u64 i = Str->Length; i > Index; i--)
+        {
+            Str->Str[i] = Str->Str[i - 1];
+        }
+    }
+    
+    if (Index < Str->Size)
+    {
+        Str->Str[Index] = C;
+        Str->Length += 1;
+        Assert(Str->Length < Str->Size);
+    }
+}
+
+internal void
+RemoveAt(gs_string* Str, u64 Index)
+{
+    if (Str->Length > 0 && Index < Str->Length)
+    {
+        for (u64 i = Index; i < Str->Length - 1; i++)
+        {
+            Str->Str[i] = Str->Str[i + 1];
+        }
+        Str->Length -= 1;
+    }
+}
+
 internal void
 NullTerminate(gs_string* String)
 {
