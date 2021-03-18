@@ -851,8 +851,12 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
         }
         ui_EndRow(Interface);
         
+        ui_Label(Interface, MakeString("Layer"));
+        
         u32 LayerIndex = TimelineState->SelectedAnimationLayer;
         anim_layer* SelectedLayer = ActiveAnim->Layers.Values + LayerIndex;
+        
+        ui_TextEntry(Interface, MakeString("Layer Name"), &SelectedLayer->Name);
         gs_string BlendStr = BlendModeStrings[SelectedLayer->BlendMode];
         if (ui_BeginLabeledDropdown(Interface, MakeString("Blend Mode"), BlendStr))
         {
@@ -865,6 +869,8 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             }
         }
         ui_EndLabeledDropdown(Interface);
+        
+        ui_Label(Interface, MakeString("Pattern"));
         
         animation_block* SelectedBlock = Animation_GetBlockFromHandle(ActiveAnim, TimelineState->SelectedBlockHandle);
         if (SelectedBlock)

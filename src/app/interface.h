@@ -1015,10 +1015,12 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
             
             for (u32 i = 0; i < Interface->TempInputString.Length; i++)
             {
-                if (Interface->TempInputString.Str[i] == '\b' &&
-                    State->EditString.Length > 0)
+                if (Interface->TempInputString.Str[i] == '\b')
                 {
-                    State->EditString.Length -= 1;
+                    if (State->EditString.Length > 0)
+                    {
+                        State->EditString.Length -= 1;
+                    }
                 }
                 else
                 {
