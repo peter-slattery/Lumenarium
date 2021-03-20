@@ -11,6 +11,7 @@ enum bl_python_packet_type
     PacketType_PatternCommand = 1,
     PacketType_MotorState = 2,
     PacketType_Temperature = 3,
+    PacketType_LumenariumStatus = 4,
 };
 
 #pragma pack(push, 1)
@@ -35,6 +36,32 @@ typedef struct temp_packet
 {
     s8 Temperature;
 } temp_packet;
+
+enum motor_event_type
+{
+    MotorEvent_Close = 0,
+    MotorEvent_Open = 1,
+};
+
+typedef struct status_packet
+{
+    u8 NextMotorEventType;
+    u32 NextEventTime;
+    char AnimFileName[32];
+} status_packet;
+
+typedef struct blumen_packet
+{
+    bl_python_packet_type Type;
+    union
+    {
+        motor_packet MotorPacket;
+        microphone_packet MicPacket;
+        temp_packet TempPacket;
+        status_packet StatusPacket;
+    };
+} blumen_packet;
+
 #pragma pack(pop)
 
 #define BLUMEN_MESSAGE_QUEUE_COUNT 32
@@ -51,17 +78,41 @@ struct mic_listen_job_data
     bool* Running;
     
     platform_socket_manager* SocketManager;
-    packet_ringbuffer* MicPacketBuffer;
+    blumen_network_msg_queue* IncomingMsgQueue;
     platform_socket_handle_ ListenSocket;
     
     blumen_network_msg_queue* OutgoingMsgQueue;
 };
 
+typedef struct time_range
+{
+    s32 StartHour;
+    s32 StartMinute;
+    
+    s32 EndHour;
+    s32 EndMinute;
+} time_range;
+
+internal bool
+SystemTimeIsInTimeRange(system_time SysTime, time_range Range)
+{
+    bool Result = (SysTime.Hour >= Range.StartHour &&
+                   SysTime.Minute >= Range.StartMinute &&
+                   SysTime.Hour <= Range.EndHour &&
+                   SysTime.Minute <= Range.EndMinute);
+    return Result;
+}
+
+global time_range MotorOpenTimes[] = {
+    { 14, 28, 14, 29 }
+};
+global u32 MotorOpenTimesCount = 1;
+
 struct blumen_lumen_state
 {
     bool Running;
     
-    packet_ringbuffer MicPacketBuffer;
+    blumen_network_msg_queue IncomingMsgQueue;
     blumen_network_msg_queue OutgoingMsgQueue;
     
     temp_job_req JobReq;
@@ -75,6 +126,11 @@ struct blumen_lumen_state
     
     animation_handle AnimHandles[3];
     u32 CurrAnim;
+    
+    // NOTE(pjs): Based on temperature data from weatherman
+    // dim the leds.
+    r32 BrightnessPercent;
+    system_time LastStatusUpdateTime;
 };
 
 

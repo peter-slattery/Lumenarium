@@ -5,6 +5,67 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
+internal bool
+MessageQueue_CanRead(blumen_network_msg_queue* Queue)
+{
+    bool Result = (Queue->ReadHead != Queue->WriteHead);
+    return Result;
+}
+
+internal gs_data
+MessageQueue_Read(blumen_network_msg_queue* Queue)
+{
+    gs_data Result = {};
+    u32 ReadIndex = Queue->ReadHead++;
+    if (Queue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+    {
+        Queue->ReadHead = 0;
+    }
+    Result = Queue->Buffers[ReadIndex];
+    return Result;
+}
+
+// KB(1) is just bigger than any packet we send. Good for now
+#define DEFAULT_QUEUE_ENTRY_SIZE KB(1)
+
+internal void
+MessageQueue_Init(blumen_network_msg_queue* Queue, gs_memory_arena* Arena)
+{
+    for (u32 i = 0; i < BLUMEN_MESSAGE_QUEUE_COUNT; i++)
+    {
+        Queue->Buffers[i] = PushSizeToData(Arena, DEFAULT_QUEUE_ENTRY_SIZE);
+    }
+}
+
+internal gs_data*
+MessageQueue_GetWrite(blumen_network_msg_queue* Queue)
+{
+    u32 Index = Queue->WriteHead++;
+    gs_data* Result = &Queue->Buffers[Index];
+    Assert(Result->Size > 0);
+    
+    if (Queue->WriteHead >= PACKETS_MAX)
+    {
+        Queue->WriteHead = 0;
+    }
+    return Result;
+}
+
+internal bool
+MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
+{
+    gs_data* Dest = MessageQueue_GetWrite(Queue);
+    Assert(Msg.Size <= DEFAULT_QUEUE_ENTRY_SIZE);
+    CopyMemoryTo(Msg.Memory, Dest->Memory, Msg.Size);
+}
+
+internal bool
+MessageQueue_CanWrite(blumen_network_msg_queue Queue)
+{
+    bool Result = ((Queue.WriteHead >= Queue.ReadHead) ||
+                   (Queue.WriteHead < Queue.ReadHead));
+    return Result;
+}
 
 internal void
 BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
@@ -32,23 +93,13 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                 Msg = SocketRecieve(Data->SocketManager, Data->ListenSocket, Ctx->Transient);
                 if (Msg.Size > 0)
                 {
-                    Data->MicPacketBuffer->Values[Data->MicPacketBuffer->WriteHead++] = Msg;
-                    if (Data->MicPacketBuffer->WriteHead >= PACKETS_MAX)
-                    {
-                        Data->MicPacketBuffer->WriteHead = 0;
-                    }
+                    MessageQueue_Write(Data->IncomingMsgQueue, Msg);
                 }
             }
             
-            while (Data->OutgoingMsgQueue->ReadHead != Data->OutgoingMsgQueue->WriteHead)
+            while (MessageQueue_CanRead(Data->OutgoingMsgQueue))
             {
-                u32 ReadIndex = Data->OutgoingMsgQueue->ReadHead++;
-                if (Data->OutgoingMsgQueue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
-                {
-                    Data->OutgoingMsgQueue->ReadHead = 0;
-                }
-                
-                Msg = Data->OutgoingMsgQueue->Buffers[ReadIndex];
+                Msg = MessageQueue_Read(Data->OutgoingMsgQueue);
                 u32 Address = WeathermanIPV4;
                 u32 Port = WeathermanPort;
                 s32 Flags = 0;
@@ -88,6 +139,9 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_FlowerColors);
     Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
     Patterns_PushPattern(Patterns, Pattern_BasicFlowers);
+    // 15
+    Patterns_PushPattern(Patterns, Pattern_Patchy);
+    Patterns_PushPattern(Patterns, Pattern_Leafy);
 }
 
 internal pixel
@@ -116,10 +170,13 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)Result.Memory;
     BLState->Running = true;
+    BLState->BrightnessPercent = 1;
+    MessageQueue_Init(&BLState->IncomingMsgQueue, &State->Permanent);
+    MessageQueue_Init(&BLState->OutgoingMsgQueue, &State->Permanent);
     
     BLState->MicListenJobData.Running = &BLState->Running;
     BLState->MicListenJobData.SocketManager = Context.SocketManager;
-    BLState->MicListenJobData.MicPacketBuffer = &BLState->MicPacketBuffer;
+    BLState->MicListenJobData.IncomingMsgQueue = &BLState->IncomingMsgQueue;
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
@@ -163,8 +220,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim2, 0, 100, Patterns_IndexToHandle(5), 0);
-        Animation_AddBlock(&Anim2, 50, Anim0.PlayableRange.Max, Patterns_IndexToHandle(10), 0);
+        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(17), 0);
         
         BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
@@ -204,26 +260,26 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     gs_string GreenString = MakeString("green");
     gs_string ILoveYouString = MakeString("i_love_you");
     
-    while (BLState->MicPacketBuffer.ReadHead != BLState->MicPacketBuffer.WriteHead)
+    while (MessageQueue_CanRead(&BLState->IncomingMsgQueue))
     {
-        gs_data PacketData = BLState->MicPacketBuffer.Values[BLState->MicPacketBuffer.ReadHead++];
+        gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
         
-        u8 PacketType = PacketData.Memory[0];
-        switch (PacketType) {
+        blumen_packet Packet = *(blumen_packet*)PacketData.Memory;
+        switch (Packet.Type) {
             case PacketType_PatternCommand:
             {
-                microphone_packet Packet = *(microphone_packet*)(PacketData.Memory + 1);
+                microphone_packet Mic = Packet.MicPacket;
                 
-                u32 NameLen = CStringLength(Packet.AnimationFileName);
-                if (StringEqualsCharArray(BlueString.ConstString, Packet.AnimationFileName, NameLen))
+                u32 NameLen = CStringLength(Mic.AnimationFileName);
+                if (StringEqualsCharArray(BlueString.ConstString, Mic.AnimationFileName, NameLen))
                 {
                     State->AnimationSystem.ActiveFadeGroup.From.Index = 0;
                 }
-                else if (StringEqualsCharArray(GreenString.ConstString, Packet.AnimationFileName, NameLen))
+                else if (StringEqualsCharArray(GreenString.ConstString, Mic.AnimationFileName, NameLen))
                 {
                     State->AnimationSystem.ActiveFadeGroup.From.Index = 1;
                 }
-                else if (StringEqualsCharArray(ILoveYouString.ConstString, Packet.AnimationFileName, NameLen))
+                else if (StringEqualsCharArray(ILoveYouString.ConstString, Mic.AnimationFileName, NameLen))
                 {
                     State->AnimationSystem.ActiveFadeGroup.From.Index = 2;
                 }
@@ -233,13 +289,13 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             
             case PacketType_MotorState:
             {
-                motor_packet Packet = *(motor_packet*)(PacketData.Memory + 1);
-                BLState->LastKnownMotorState = Packet;
+                motor_packet Motor = Packet.MotorPacket;
+                BLState->LastKnownMotorState = Motor;
                 
                 gs_string Temp = PushStringF(State->Transient, 256, "Received Motor States: %d %d %d\n",
-                                             Packet.FlowerPositions[0],
-                                             Packet.FlowerPositions[1],
-                                             Packet.FlowerPositions[2]);
+                                             Motor.FlowerPositions[0],
+                                             Motor.FlowerPositions[1],
+                                             Motor.FlowerPositions[2]);
                 NullTerminate(&Temp);
                 
                 OutputDebugStringA(Temp.Str);
@@ -247,66 +303,97 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             
             case PacketType_Temperature:
             {
-                temp_packet Packet = *(temp_packet*)(PacketData.Memory + 1);
+                temp_packet Temp = Packet.TempPacket;
                 
-                gs_string Temp = PushStringF(State->Transient, 256, "Temperature: %d\n",
-                                             Packet.Temperature);
-                NullTerminate(&Temp);
+                if (Temp.Temperature > 21)
+                {
+                    BLState->BrightnessPercent = .5f;
+                }
+                else
+                {
+                    BLState->BrightnessPercent = 1.f;
+                }
                 
-                OutputDebugStringA(Temp.Str);
+                gs_string TempStr = PushStringF(State->Transient, 256, "Temperature: %d\n",
+                                                Temp.Temperature);
+                NullTerminate(&TempStr);
+                OutputDebugStringA(TempStr.Str);
             }break;
             
             InvalidDefaultCase;
         }
-        
-        
-        if (BLState->MicPacketBuffer.ReadHead >= PACKETS_MAX)
+    }
+    
+    
+    // Open / Close the Motor
+    
+    if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue))
+    {
+        for (u32 i = 0; i < MotorOpenTimesCount; i++)
         {
-            BLState->MicPacketBuffer.ReadHead = 0;
+            time_range Range = MotorOpenTimes[i];
+            
+            bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
+            bool LastTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Last, Range);
+            
+            if (CurrTimeInRange && !LastTimeInRange)
+            {
+                OutputDebugString("Open\n");
+                gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
+                
+                blumen_packet* Packet = (blumen_packet*)Msg->Memory;
+                Packet->Type = PacketType_MotorState;
+                Packet->MotorPacket.FlowerPositions[0] = 2;
+                Packet->MotorPacket.FlowerPositions[1] = 2;
+                Packet->MotorPacket.FlowerPositions[2] = 2;
+            }
+            else if (!CurrTimeInRange && LastTimeInRange)
+            {
+                OutputDebugString("Close\n");
+                gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
+                
+                blumen_packet* Packet = (blumen_packet*)Msg->Memory;
+                Packet->Type = PacketType_MotorState;
+                Packet->MotorPacket.FlowerPositions[0] = 1;
+                Packet->MotorPacket.FlowerPositions[1] = 1;
+                Packet->MotorPacket.FlowerPositions[2] = 1;
+            }
         }
     }
     
-    if (false && MotorTimeElapsed > 0)
+    // Dim the leds based on temp data
+    for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
-        // NOTE(pjs):
-        MotorTimeElapsed = 0;
-        u8 Position = LastPosition;
-        if (LastPosition == 2)
+        led_buffer Buffer = State->LedSystem.Buffers[i];
+        for (u32 j = 0; j < Buffer.LedCount; j++)
         {
-            LastPosition = 1;
+            pixel* Color = Buffer.Colors + j;
+            Color->R = Color->R * BLState->BrightnessPercent;
+            Color->G = Color->G * BLState->BrightnessPercent;
+            Color->B = Color->B * BLState->BrightnessPercent;
         }
-        else
+    }
+    
+    // Send Status Packet
+    {
+        system_time LastSendTime = BLState->LastStatusUpdateTime;
+        s64 NanosSinceLastSend = ((s64)Context->SystemTime_Current.NanosSinceEpoch - (s64)LastSendTime.NanosSinceEpoch);
+        s64 SecondsSinceLastSend = NanosSinceLastSend * 1000000000;
+        if (SecondsSinceLastSend >= STATUS_PACKET_FREQ_SECONDS)
         {
-            LastPosition = 2;
-        }
-        
-        if ((BLState->OutgoingMsgQueue.WriteHead >= BLState->OutgoingMsgQueue.ReadHead) ||
-            (BLState->OutgoingMsgQueue.WriteHead < BLState->OutgoingMsgQueue.ReadHead))
-        {
-            u32 WriteIndex = BLState->OutgoingMsgQueue.WriteHead;
+            BLState->LastStatusUpdateTime = Context->SystemTime_Current;
+            gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
             
-            gs_data* Msg = BLState->OutgoingMsgQueue.Buffers + WriteIndex;
-            if (Msg->Size == 0)
-            {
-                *Msg = PushSizeToData(&State->Permanent, sizeof(motor_packet));
-            }
-            motor_packet* Packet = (motor_packet*)Msg->Memory;
-            Packet->FlowerPositions[0] = Position;
-            Packet->FlowerPositions[1] = Position;
-            Packet->FlowerPositions[2] = Position;
+            OutputDebugString("Sending Status\n");
             
-            // NOTE(pjs): We increment the write head AFTER we've written so that
-            // the network thread doesn't think the buffer is ready to send before
-            // the data is set. We want to avoid the case of:
-            //     1. Main Thread increments write head to 1
-            //     2. Network Thread thinks theres a new message to send at 0
-            //     3. Network Thread sends the message at 0
-            //     4. Main Thread sets the message at 0
-            BLState->OutgoingMsgQueue.WriteHead += 1;
-            if (BLState->OutgoingMsgQueue.WriteHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
-            {
-                BLState->OutgoingMsgQueue.WriteHead = 0;
-            }
+            blumen_packet* Packet = (blumen_packet*)Msg->Memory;
+            Packet->Type = PacketType_LumenariumStatus;
+            Packet->StatusPacket.NextMotorEventType = 0;
+            Packet->StatusPacket.NextEventTime = 0;
+            
+            animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+            CopyMemoryTo(ActiveAnim->Name.Str, Packet->StatusPacket.AnimFileName,
+                         Min(ActiveAnim->Name.Length, 32));
         }
     }
 }

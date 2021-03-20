@@ -151,6 +151,10 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
                 // ??
             }break;
             
+            case ERROR_NO_SUCH_DEVICE:
+            {
+            }break;
+            
             case ERROR_INVALID_HANDLE:
             InvalidDefaultCase;
         }

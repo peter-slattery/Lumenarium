@@ -219,6 +219,9 @@ int main(int ArgCount, char** Args)
     printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
     //printf("%d\n", StripCount);
     
+    
+    
+    
     return 0;
 }
 

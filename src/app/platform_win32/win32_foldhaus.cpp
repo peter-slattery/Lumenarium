@@ -620,6 +620,47 @@ WinMain (
         }
         DEBUG_TRACK_SCOPE(MainLoop);
         
+        {
+            // update system time
+            SYSTEMTIME WinLocalTime;
+            GetLocalTime(&WinLocalTime);
+            
+            SYSTEMTIME WinSysTime;
+            FILETIME WinSysFileTime;
+            GetSystemTime(&WinSysTime);
+            if (!SystemTimeToFileTime((const SYSTEMTIME*)&WinSysTime, &WinSysFileTime))
+            {
+                u32 Error = GetLastError();
+                InvalidCodePath;
+            }
+            ULARGE_INTEGER SysTime = {};
+            SysTime.LowPart = WinSysFileTime.dwLowDateTime;
+            SysTime.HighPart = WinSysFileTime.dwHighDateTime;
+            
+            Context.SystemTime_Last = Context.SystemTime_Current;
+            
+            Context.SystemTime_Current.NanosSinceEpoch = SysTime.QuadPart;
+            Context.SystemTime_Current.Year = WinLocalTime.wYear;
+            Context.SystemTime_Current.Month = WinLocalTime.wMonth;
+            Context.SystemTime_Current.Day = WinLocalTime.wDay;
+            Context.SystemTime_Current.Hour = WinLocalTime.wHour;
+            Context.SystemTime_Current.Minute = WinLocalTime.wMinute;
+            Context.SystemTime_Current.Second = WinLocalTime.wSecond;
+            
+#define PRINT_SYSTEM_TIME 0
+#if PRINT_SYSTEM_TIME
+            gs_string T = PushStringF(Context.ThreadContext.Transient,
+                                      256,
+                                      "%d %d %d - %lld\n",
+                                      Context.SystemTime_Current.Hour,
+                                      Context.SystemTime_Current.Minute,
+                                      Context.SystemTime_Current.Second,
+                                      Context.SystemTime_Current.NanosSinceEpoch);
+            NullTerminate(&T);
+            OutputDebugStringA(T.Str);
+#endif
+        }
+        
         ResetInputQueue(&InputQueue);
         
         ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false);

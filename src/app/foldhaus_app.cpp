@@ -133,12 +133,14 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Editor_Render(State, Context, RenderBuffer);
     }
     
+#if SEND_DATA
     // NOTE(pjs): Building data buffers to be sent out to the sculpture
     // This array is used on the platform side to actually send the information
     assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
     assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
     SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
     UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
+#endif
 }
 
 CLEANUP_APPLICATION(CleanupApplication)

@@ -189,6 +189,20 @@ GetSecondsElapsed (s64 Start, s64 End, s64 PerformanceCountFrequency)
     return Result;
 }
 
+typedef struct system_time
+{
+    u64 NanosSinceEpoch;
+    
+    s32 Year;
+    s32 Month;
+    s32 Day;
+    s32 Hour; // [0:23]
+    s32 Minute;
+    s32 Second;
+} system_time;
+
+#define STATUS_PACKET_FREQ_SECONDS 5
+
 struct context
 {
     gs_thread_context ThreadContext;
@@ -218,6 +232,9 @@ struct context
     platform_draw_font_codepoint* PlatformDrawFontCodepoint;
     
     platform_get_socket_handle* PlatformGetSocketHandle;
+    
+    system_time SystemTime_Last;
+    system_time SystemTime_Current;
 };
 
 #define FOLDHAUS_PLATFORM_H

@@ -7,6 +7,242 @@
 
 #define FLOWER_COLORS_COUNT 12
 
+internal r32
+Smoothstep(r32 T)
+{
+    r32 Result = (T * T * (3 - (2 * T)));
+    return Result;
+}
+internal r32
+Smoothstep(r32 T, r32 A, r32 B)
+{
+    return LerpR32(Smoothstep(T), A, B);
+}
+
+internal v2
+FloorV2(v2 P)
+{
+    v2 Result = {};
+    Result.x = FloorR32(P.x);
+    Result.y = FloorR32(P.y);
+    return Result;
+}
+internal v3
+FloorV3(v3 P)
+{
+    v3 Result = {};
+    Result.x = FloorR32(P.x);
+    Result.y = FloorR32(P.y);
+    Result.z = FloorR32(P.z);
+    return Result;
+}
+
+internal v2
+FractV2(v2 P)
+{
+    v2 Result = {};
+    Result.x = FractR32(P.x);
+    Result.y = FractR32(P.y);
+    return Result;
+}
+internal v3
+FractV3(v3 P)
+{
+    v3 Result = {};
+    Result.x = FractR32(P.x);
+    Result.y = FractR32(P.y);
+    Result.z = FractR32(P.z);
+    return Result;
+}
+
+internal v2
+SinV2(v2 P)
+{
+    v2 Result = {};
+    Result.x = SinR32(P.x);
+    Result.y = SinR32(P.y);
+    return Result;
+}
+internal v3
+SinV3(v3 P)
+{
+    v3 Result = {};
+    Result.x = SinR32(P.x);
+    Result.y = SinR32(P.y);
+    Result.y = SinR32(P.z);
+    return Result;
+}
+
+internal r32
+Hash1(v2 P)
+{
+    v2 Result = FractV2( P * 0.3183099f ) * 50.f;
+    return FractR32(P.x * P.y * (P.x + P.y));
+}
+
+internal r32
+Hash1(r32 N)
+{
+    return FractR32(N * 17.0f * FractR32(N * 0.3183099f));
+}
+
+internal v2
+Hash2(r32 N)
+{
+    v2 P = V2MultiplyPairwise(SinV2(v2{N,N+1.0f}), v2{43758.5453123f,22578.1459123f});
+    return FractV2(P);
+}
+
+internal v2
+Hash2(v2 P)
+{
+    v2 K = v2{ 0.3183099f, 0.3678794f };
+    v2 Kp = v2{K.y, K.x};
+    v2 R = V2MultiplyPairwise(P, K) + Kp;
+    return FractV2( K * 16.0f * FractR32( P.x * P.y * (P.x + P.y)));
+}
+
+internal v3
+Hash3(v2 P)
+{
+    v3 Q = v3{};
+    Q.x = V2Dot(P, v2{127.1f, 311.7f});
+    Q.y = V2Dot(P, v2{267.5f, 183.3f});
+    Q.z = V2Dot(P, v2{419.2f, 371.9f});
+    return FractV3(SinV3(Q) * 43758.5453f);
+}
+
+internal r32
+Random(v2 N)
+{
+    v2 V = v2{12.9898f, 4.1414f};
+    return FractR32(SinR32(V2Dot(N, V)) * 43758.5453);
+}
+
+internal r32
+Noise2D(v2 P)
+{
+    v2 IP = FloorV2(P);
+    v2 U = FractV2(P);
+    U = V2MultiplyPairwise(U, U);
+    U = V2MultiplyPairwise(U, ((U * 2.0f) + v2{-3, -3}));
+    
+    r32 A = LerpR32(U.x, Random(IP), Random(IP + v2{1.0f, 0}));
+    r32 B = LerpR32(U.x, Random(IP + v2{0, 1}), Random(IP + v2{1, 1}));
+    r32 Res = LerpR32(U.y, A, B);
+    
+    return Res * Res;
+}
+
+internal r32
+Noise3D(v3 Pp)
+{
+    v3 P = FloorV3(Pp);
+    v3 W = FractV3(Pp);
+    
+    //v3 U = W * W * W * (W * (W * 6.0f - 15.0f) + 10.0f);
+    v3 U = V3MultiplyPairwise(W, W * 6.0f - v3{15, 15, 15});
+    U = U + v3{10, 10, 10};
+    U = V3MultiplyPairwise(U, W);
+    U = V3MultiplyPairwise(U, W);
+    U = V3MultiplyPairwise(U, W);
+    
+    r32 N = P.x + 317.0f * P.y + 157.0f * P.z;
+    
+    r32 A = Hash1(N + 0.0f);
+    r32 B = Hash1(N + 1.0f);
+    r32 C = Hash1(N + 317.0f);
+    r32 D = Hash1(N + 317.0f);
+    r32 E = Hash1(N + 157.0f);
+    r32 F = Hash1(N + 158.0f);
+    r32 G = Hash1(N + 474.0f);
+    r32 H = Hash1(N + 475.0f);
+    
+    r32 K0 = A;
+    r32 K1 = B - A;
+    r32 K2 = C - A;
+    r32 K3 = E - A;
+    r32 K4 = A - B - C + D;
+    r32 K5 = A - C - E + G;
+    r32 K6 = A - B - E + F;
+    r32 K7 = A + B + C - D + E - F - G + H;
+    
+    return -1.0f + 2.0f * (K0 +
+                           K1 * U.x +
+                           K2 * U.y +
+                           K3 * U.z +
+                           K4 * U.x * U.y +
+                           K5 * U.y + U.z +
+                           K6 * U.z * U.x +
+                           K7 * U.x * U.y * U.z);
+}
+
+internal r32
+Fbm2D(v2 P)
+{
+    r32 R = 0;
+    r32 Amp = 1.0;
+    r32 Freq = 1.0;
+    for (u32 i = 0; i < 3; i++)
+    {
+        R += Amp * Noise2D(P * Freq);
+        Amp *= 0.5f;
+        Freq *= 1.0f / 0.5f;
+    }
+    return R;
+}
+
+global m44 M3 = m44{
+    0.00f,  0.80f,  0.60f, 0,
+    -0.80f,  0.36f, -0.48f, 0,
+    -0.60f, -0.48f,  0.64f, 0,
+    0, 0, 0, 1
+};
+
+internal r32
+Fbm3D(v3 P)
+{
+    v3 X = P;
+    r32 F = 2.0f;
+    r32 S = 0.5f;
+    r32 A = 0.0f;
+    r32 B = 0.5f;
+    for (u32 i = 0; i < 4; i++)
+    {
+        r32 N = Noise3D(X);
+        A += B * N;
+        B *= S;
+        v4 Xp = M3 * ToV4Point(X);
+        X = Xp.xyz * F;
+    }
+    
+    return A;
+}
+
+internal r32
+Voronoise(v2 P, r32 U, r32 V)
+{
+    r32 K = 1.0f + 63.0f + PowR32(1.0f - V, 6.0f);
+    
+    v2 I = FloorV2(P);
+    v2 F = FractV2(P);
+    
+    v2 A = v2{0, 0};
+    for (s32 y = -2; y <= 2; y++)
+    {
+        for (s32 x = -2; x <= 2; x++)
+        {
+            v2 G = v2{(r32)x, (r32)y};
+            v3 O = V3MultiplyPairwise(Hash3(I + G), v3{U, U, 1.0f});
+            v2 D = G - F + O.xy;
+            r32 W = PowR32(1.0f - Smoothstep(V2Mag(D), 0.0f, 1.414f), K);
+            A += v2{O.z * W, W};
+        }
+    }
+    
+    return A.x / A.y;
+}
+
 pixel FlowerAColors[FLOWER_COLORS_COUNT] = {
     { 232,219,88 },
     { 232,219,88 },
@@ -507,13 +743,6 @@ Pattern_LighthouseRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memo
     }
 }
 
-internal r32
-Smoothstep(r32 T)
-{
-    r32 Result = (T * T * (3 - (2 * T)));
-    return Result;
-}
-
 internal void
 Pattern_SmoothGrowRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
@@ -726,5 +955,98 @@ Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
         }
     }
 }
+
+internal void
+Pattern_Wavy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    
+}
+
+internal void
+Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        
+        v3 Pp = P.xyz;
+        
+        r32 Noise = Fbm3D((Pp / 1000) + (v3{Time, -Time, SinR32(Time)} * 0.1f));
+        Noise = RemapR32(Noise, -1, 1, 0, 1);
+        Noise = Smoothstep(Noise, 0, 1);
+        u8 NV = (u8)(Noise * 255);
+        
+        v3 BSeed = v3{P.z, P.x, P.y};
+        r32 BNoise = 1.0f; //Fbm3D(BSeed / 50);
+        
+        pixel C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, Noise);
+        C.R = (u8)((r32)C.R * BNoise);
+        C.G = (u8)((r32)C.G * BNoise);
+        C.B = (u8)((r32)C.B * BNoise);
+        
+        Leds->Colors[LedIndex] = C;
+        //Leds->Colors[LedIndex] = pixel{NV, NV, NV};
+    }
+}
+
+internal void
+Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    pixel* Colors = &FlowerBColors[0];
+    
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 RefPos = P.y + Noise2D(v2{P.x, P.z} * 50);
+        
+        r32 B = 0;
+        
+        pixel C = {};
+        
+        r32 BandWidth = 5;
+        r32 TransitionPeriod = 5.0f;
+        u32 BandCount = 10;
+        for (u32 Band = 0; Band < BandCount; Band++)
+        {
+            r32 BandSeed = RemapR32(Hash1((r32)Band), -1, 1, 0, 1);
+            r32 BandDelay = BandSeed * TransitionPeriod;
+            r32 BandTransitionDuration = RemapR32(Hash1((r32)Band * 3.413f), -1, 1, 0, 1) * TransitionPeriod;
+            r32 BandPercent = Smoothstep(ModR32(Time + BandDelay, BandTransitionDuration) / TransitionPeriod, 0, 1);
+            r32 BandHeight = 150 - BandPercent * 250;
+            
+            r32 BandDist = Abs(RefPos - BandHeight);
+            
+            //B += Max(0, BandWidth - BandDist);
+            B = Max(0, BandWidth - BandDist);
+            
+            
+            {
+                //pixel BandColor = GetColor(Colors, FLOWER_COLORS_COUNT, BandSeed);
+                pixel BandColor = Colors[Band % FLOWER_COLORS_COUNT];
+                C.R = C.R + (BandColor.R * B);
+                C.G = C.G + (BandColor.G * B);
+                C.B = C.B + (BandColor.B * B);
+            }
+            
+        }
+        
+        u8 V = (u8)(B * 255);
+        //pixel C = { V, V, V };
+        Leds->Colors[LedIndex] = C;
+    }
+}
+
+internal void
+Pattern_LeafyPatchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    
+}
+
+internal void
+Pattern_WavyPatchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    
+}
+
 #define BLUMEN_PATTERNS_H
 #endif // BLUMEN_PATTERNS_H
