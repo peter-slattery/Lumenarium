@@ -37,26 +37,21 @@ MessageQueue_Init(blumen_network_msg_queue* Queue, gs_memory_arena* Arena)
     }
 }
 
-internal gs_data*
-MessageQueue_GetWrite(blumen_network_msg_queue* Queue)
-{
-    u32 Index = Queue->WriteHead++;
-    gs_data* Result = &Queue->Buffers[Index];
-    Assert(Result->Size > 0);
-    
-    if (Queue->WriteHead >= PACKETS_MAX)
-    {
-        Queue->WriteHead = 0;
-    }
-    return Result;
-}
-
 internal bool
 MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
 {
-    gs_data* Dest = MessageQueue_GetWrite(Queue);
     Assert(Msg.Size <= DEFAULT_QUEUE_ENTRY_SIZE);
+    
+    u32 Index = Queue->WriteHead;
+    gs_data* Dest = Queue->Buffers + Index;
     CopyMemoryTo(Msg.Memory, Dest->Memory, Msg.Size);
+    Dest->Size = Msg.Size;
+    
+    // NOTE(pjs): We increment write head at the end of writing so that
+    // a reader thread doesn't pull the message off before we've finished
+    // filling it out
+    Queue->WriteHead++;
+    return true;
 }
 
 internal bool
@@ -104,8 +99,6 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                 u32 Port = WeathermanPort;
                 s32 Flags = 0;
                 SocketSend(Data->SocketManager, Data->ListenSocket, Address, Port, Msg, Flags);
-                
-                OutputDebugString("Sending Motor Packet\n");
             }
         }
     }
@@ -180,7 +173,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
-#if 0
+#if 1
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
 #endif
     
@@ -284,18 +277,30 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     State->AnimationSystem.ActiveFadeGroup.From.Index = 2;
                 }
                 
-                OutputDebugStringA("Received Pattern Packet\n");
+                OutputDebugStringA("\nReceived Pattern Packet\n");
             }break;
             
             case PacketType_MotorState:
             {
                 motor_packet Motor = Packet.MotorPacket;
+                
+                // NOTE(pjs): Python sends multi-byte integers in little endian
+                // order. Have to unpack
+                u8* T = (u8*)&Motor.Temperature;
+                Motor.Temperature = (T[0] << 8 |
+                                     T[1] << 0);
+                
                 BLState->LastKnownMotorState = Motor;
                 
-                gs_string Temp = PushStringF(State->Transient, 256, "Received Motor States: %d %d %d\n",
+                gs_string Temp = PushStringF(State->Transient, 256, "\nReceived Motor States: \n\tPos: %d %d %d\n\tErr: %d %d %d\n\tTemp: %d\n\n",
                                              Motor.FlowerPositions[0],
                                              Motor.FlowerPositions[1],
-                                             Motor.FlowerPositions[2]);
+                                             Motor.FlowerPositions[2],
+                                             Motor.MotorStatus[0],
+                                             Motor.MotorStatus[1],
+                                             Motor.MotorStatus[2],
+                                             (u32)Motor.Temperature
+                                             );
                 NullTerminate(&Temp);
                 
                 OutputDebugStringA(Temp.Str);
@@ -307,14 +312,14 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 
                 if (Temp.Temperature > 21)
                 {
-                    BLState->BrightnessPercent = .5f;
+                    BLState->BrightnessPercent = .25f;
                 }
                 else
                 {
                     BLState->BrightnessPercent = 1.f;
                 }
                 
-                gs_string TempStr = PushStringF(State->Transient, 256, "Temperature: %d\n",
+                gs_string TempStr = PushStringF(State->Transient, 256, "\nTemperature: %d\n",
                                                 Temp.Temperature);
                 NullTerminate(&TempStr);
                 OutputDebugStringA(TempStr.Str);
@@ -334,29 +339,37 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             time_range Range = MotorOpenTimes[i];
             
             bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
+            
             bool LastTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Last, Range);
             
-            if (CurrTimeInRange && !LastTimeInRange)
+            bool SendOpen = CurrTimeInRange && !LastTimeInRange;
+            
+            r64 NanosSinceLastSend = ((r64)Context->SystemTime_Current.NanosSinceEpoch - (r64)BLState->LastSendTime.NanosSinceEpoch);
+            r64 SecondsSinceLastSend = NanosSinceLastSend / PowR32(10, 8);
+            
+            SendOpen = SecondsSinceLastSend > 2;
+            if (SendOpen)
             {
-                OutputDebugString("Open\n");
-                gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
-                
-                blumen_packet* Packet = (blumen_packet*)Msg->Memory;
-                Packet->Type = PacketType_MotorState;
-                Packet->MotorPacket.FlowerPositions[0] = 2;
-                Packet->MotorPacket.FlowerPositions[1] = 2;
-                Packet->MotorPacket.FlowerPositions[2] = 2;
+                BLState->LastSendTime = Context->SystemTime_Current;
+                OutputDebugString("Motors: Open\n");
+                blumen_packet Packet = {};
+                Packet.Type = PacketType_MotorState;
+                Packet.MotorPacket.FlowerPositions[0] = 2;
+                Packet.MotorPacket.FlowerPositions[1] = 2;
+                Packet.MotorPacket.FlowerPositions[2] = 2;
+                gs_data Msg = StructToData(&Packet, blumen_packet);
+                MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
             }
             else if (!CurrTimeInRange && LastTimeInRange)
             {
-                OutputDebugString("Close\n");
-                gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
-                
-                blumen_packet* Packet = (blumen_packet*)Msg->Memory;
-                Packet->Type = PacketType_MotorState;
-                Packet->MotorPacket.FlowerPositions[0] = 1;
-                Packet->MotorPacket.FlowerPositions[1] = 1;
-                Packet->MotorPacket.FlowerPositions[2] = 1;
+                OutputDebugString("Motors: Close\n");
+                blumen_packet Packet = {};
+                Packet.Type = PacketType_MotorState;
+                Packet.MotorPacket.FlowerPositions[0] = 1;
+                Packet.MotorPacket.FlowerPositions[1] = 1;
+                Packet.MotorPacket.FlowerPositions[2] = 1;
+                gs_data Msg = StructToData(&Packet, blumen_packet);
+                MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
             }
         }
     }
@@ -377,23 +390,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     // Send Status Packet
     {
         system_time LastSendTime = BLState->LastStatusUpdateTime;
-        s64 NanosSinceLastSend = ((s64)Context->SystemTime_Current.NanosSinceEpoch - (s64)LastSendTime.NanosSinceEpoch);
-        s64 SecondsSinceLastSend = NanosSinceLastSend * 1000000000;
+        r64 NanosSinceLastSend = ((r64)Context->SystemTime_Current.NanosSinceEpoch - (r64)LastSendTime.NanosSinceEpoch);
+        r64 SecondsSinceLastSend = NanosSinceLastSend / PowR32(10, 8);
         if (SecondsSinceLastSend >= STATUS_PACKET_FREQ_SECONDS)
         {
             BLState->LastStatusUpdateTime = Context->SystemTime_Current;
-            gs_data* Msg = MessageQueue_GetWrite(&BLState->OutgoingMsgQueue);
-            
             OutputDebugString("Sending Status\n");
             
-            blumen_packet* Packet = (blumen_packet*)Msg->Memory;
-            Packet->Type = PacketType_LumenariumStatus;
-            Packet->StatusPacket.NextMotorEventType = 0;
-            Packet->StatusPacket.NextEventTime = 0;
+            blumen_packet Packet = {};
+            Packet.Type = PacketType_LumenariumStatus;
+            Packet.StatusPacket.NextMotorEventType = 0;
+            Packet.StatusPacket.NextEventTime = 0;
             
             animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-            CopyMemoryTo(ActiveAnim->Name.Str, Packet->StatusPacket.AnimFileName,
+            CopyMemoryTo(ActiveAnim->Name.Str, Packet.StatusPacket.AnimFileName,
                          Min(ActiveAnim->Name.Length, 32));
+            Packet.StatusPacket.AnimFileName[ActiveAnim->Name.Length] = 0;
+            
+            gs_data Msg = StructToData(&Packet, blumen_packet);
+            MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
         }
     }
 }

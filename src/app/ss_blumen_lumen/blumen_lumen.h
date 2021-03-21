@@ -18,6 +18,14 @@ enum bl_python_packet_type
 typedef struct motor_packet
 {
     u8 FlowerPositions[3];
+    /*
+u8 Motor1Pos;
+u8 Motor2Pos;
+u8 Motor3Pos;
+*/
+    u8 MotorStatus[3];
+    u16 Temperature;
+    
 } motor_packet;
 
 typedef struct microphone_packet
@@ -46,13 +54,15 @@ enum motor_event_type
 typedef struct status_packet
 {
     u8 NextMotorEventType;
+    // u16 Padding;
     u32 NextEventTime;
+    
     char AnimFileName[32];
 } status_packet;
 
 typedef struct blumen_packet
 {
-    bl_python_packet_type Type;
+    u8 Type;
     union
     {
         motor_packet MotorPacket;
@@ -104,9 +114,12 @@ SystemTimeIsInTimeRange(system_time SysTime, time_range Range)
 }
 
 global time_range MotorOpenTimes[] = {
-    { 14, 28, 14, 29 }
+    { 17, 56, 17, 56 },
+    { 17, 58, 17, 56 },
+    { 18, 00, 18, 00 },
+    
 };
-global u32 MotorOpenTimesCount = 1;
+global u32 MotorOpenTimesCount = 3;
 
 struct blumen_lumen_state
 {
@@ -131,6 +144,8 @@ struct blumen_lumen_state
     // dim the leds.
     r32 BrightnessPercent;
     system_time LastStatusUpdateTime;
+    
+    system_time LastSendTime;
 };
 
 

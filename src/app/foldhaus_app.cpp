@@ -133,7 +133,8 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Editor_Render(State, Context, RenderBuffer);
     }
     
-#if SEND_DATA
+#define SEND_DATA
+#ifdef SEND_DATA
     // NOTE(pjs): Building data buffers to be sent out to the sculpture
     // This array is used on the platform side to actually send the information
     assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
