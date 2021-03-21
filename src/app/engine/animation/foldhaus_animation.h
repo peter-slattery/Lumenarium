@@ -157,7 +157,6 @@ struct animation_system
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
     // panel
-    animation_handle ActiveAnimationHandle_;
     animation_fade_group ActiveFadeGroup;
     
     s32 CurrentFrame;
@@ -561,7 +560,9 @@ AnimationFadeGroup_Update(animation_fade_group* Group, r32 DeltaTime)
 {
     if (IsValid(Group->To))
     {
+        r32 FadeBefore = Group->FadeElapsed;
         Group->FadeElapsed += DeltaTime;
+        
         if (Group->FadeElapsed >= Group->FadeDuration)
         {
             AnimationFadeGroup_Advance(Group);

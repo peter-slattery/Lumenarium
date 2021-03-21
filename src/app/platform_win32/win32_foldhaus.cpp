@@ -681,6 +681,12 @@ WinMain (
         RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
         
+#if 0
+        gs_string T = PushStringF(Context.ThreadContext.Transient, 256, "%f\n", Context.DeltaTime);
+        NullTerminate(&T);
+        OutputDebugStringA(T.Str);
+#endif
+        
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
         bool Multithread = true;

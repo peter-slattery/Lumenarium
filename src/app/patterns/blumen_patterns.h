@@ -980,7 +980,7 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         
         v3 Pp = P.xyz;
         
-        r32 Noise = Fbm3D((Pp / 1000) + (v3{Time, -Time, SinR32(Time)} * 0.1f));
+        r32 Noise = Fbm3D((Pp / 1000) + (v3{Time, -Time, Time} * 0.01f));
         Noise = RemapR32(Noise, -1, 1, 0, 1);
         Noise = Smoothstep(Noise, 0, 1);
         u8 NV = (u8)(Noise * 255);
@@ -991,6 +991,7 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         v4 C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, Noise);
         C = C * BNoise;
         
+        //Leds->Colors[LedIndex] = V4ToRGBPixel(v4{Noise, Noise, Noise, 1});
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
         //Leds->Colors[LedIndex] = pixel{NV, NV, NV};
     }
@@ -1001,11 +1002,13 @@ Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
 {
     v4* Colors = &FlowerBColors[0];
     
-#if 1
+    
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
-        r32 RefPos = P.y; // + Noise2D(v2{P.x, P.z} * 10);
+        
+#if 0
+        r32 RefPos = P.y + Noise2D(v2{P.x, P.z} * 10);
         
         v4 C = {};
         r32 B = 0;
@@ -1015,18 +1018,19 @@ Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
         u32 BandCount = 10;
         for (u32 Band = 0; Band < BandCount; Band++)
         {
-            r32 BandSeed = RemapR32(Hash1((r32)Band), -1, 1, 0, 1);
-            r32 BandDelay = BandSeed * TransitionPeriod;
+            r32 BandSeed = Hash1((r32)Band);
+            r32 BandSeedPos = RemapR32(BandSeed, -1, 1, 0, 1);
+            r32 BandDelay = BandSeedPos * TransitionPeriod;
             r32 BandTransitionPeriod = RemapR32(Hash1((r32)Band * 3.413f), -1, 1, 0, 1) * TransitionPeriod;
             r32 BandOffset = Time + BandDelay;
             r32 BandPercent = ModR32(BandOffset, BandTransitionPeriod) / BandTransitionPeriod;
             r32 BandSmoothed = Smoothstep(BandPercent, 0, 1);
             
-            r32 BandHeight = 125 - BandPercent * 250;
+            r32 BandHeight = -125 + BandPercent * 250;
             
-            r32 BandDist = Abs(RefPos - (BandHeight + BandSeed * 5));
+            r32 BandDist = Abs(RefPos - BandHeight);
             
-            B += Max(0, BandWidth - BandDist);
+            B += Max(0, (BandWidth + BandSeed * 2.5) - BandDist);
         }
         B = Clamp(0, B, 1);
         
@@ -1039,31 +1043,17 @@ Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
         GradientB = Clamp(0, GradientB, 1);
         
         C = (GradientC * GradientB) + (BandC * B);
+#endif
+        //v4 C = GetColor(&FlowerBColors[0], FLOWER_COLORS_COUNT, 0);
+        v4 C = v4{ 255, 100, 3 };
+        C /= 255.f;
+        //r32 B = Fbm3D(P.xyz / 200);
         //C *= B;
-        
+        if (P.y < 75) {
+            C = v4{ 139 / 255.f, 69 / 255.f, 19 / 255.f, 1.0f} * .25f;
+        }
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
-#else
-    
-    r32 FadeTop = 150;
-    r32 FadeBottom = -50;
-    
-    v4 C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, 0);
-    
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        v4 P = Leds->Positions[LedIndex];
-        
-        r32 Brightness = RemapR32(P.y, 200, 0, 1, 0);
-        
-        Brightness = Clamp(Brightness, 0, 1);
-        u8 B = (u8)(Brightness * 255);
-        
-        v4 CB = C * Brightness;
-        
-        Leds->Colors[LedIndex] = V4ToRGBPixel(CB);
-    }
-#endif
 }
 
 internal void

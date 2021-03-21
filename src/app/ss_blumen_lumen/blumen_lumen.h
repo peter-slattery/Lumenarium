@@ -18,6 +18,11 @@ enum bl_python_packet_type
 typedef struct motor_packet
 {
     u8 FlowerPositions[3];
+} motor_packet;
+
+typedef struct motor_status_packet
+{
+    motor_packet Pos;
     /*
 u8 Motor1Pos;
 u8 Motor2Pos;
@@ -26,7 +31,7 @@ u8 Motor3Pos;
     u8 MotorStatus[3];
     u16 Temperature;
     
-} motor_packet;
+} motor_status_packet;
 
 typedef struct microphone_packet
 {
@@ -66,6 +71,7 @@ typedef struct blumen_packet
     union
     {
         motor_packet MotorPacket;
+        motor_status_packet MotorStatusPacket;
         microphone_packet MicPacket;
         temp_packet TempPacket;
         status_packet StatusPacket;
@@ -120,6 +126,23 @@ global time_range MotorOpenTimes[] = {
     
 };
 global u32 MotorOpenTimesCount = 3;
+
+struct phrase_string_to_anim_file
+{
+    char* Phrase;
+    u32 PatternIndex;
+};
+
+phrase_string_to_anim_file PhraseToAnimMap[] = {
+    { "begonia", 0},
+    { "hyacinth", 1 },
+    { "tulip", 1 },
+    { "calla lilly", 0 },
+    { "sunflower", 1 },
+    { "salvia", 2 },
+    { "freesia", 2 },
+};
+u32 PhraseToAnimMapCount = sizeof(PhraseToAnimMap) / sizeof(PhraseToAnimMap[0]);
 
 struct blumen_lumen_state
 {
