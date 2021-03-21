@@ -243,48 +243,58 @@ Voronoise(v2 P, r32 U, r32 V)
     return A.x / A.y;
 }
 
-pixel FlowerAColors[FLOWER_COLORS_COUNT] = {
-    { 232,219,88 },
-    { 232,219,88 },
-    { 232,219,88 },
-    { 147,75,176 },
-    { 193,187,197 },
-    { 223,190,49 },
-    { 198,76,65 },
-    { 198,76,65 },
-    { 198,76,65 },
-    { 226,200,17 },
-    { 116,126,39 },
-    { 61,62,31 }
+v4 FlowerAColors[FLOWER_COLORS_COUNT] = {
+    { 232 / 255.f, 219 / 255.f, 88 / 255.f },
+    { 232 / 255.f, 219 / 255.f, 88 / 255.f },
+    { 232 / 255.f, 219 / 255.f, 88 / 255.f },
+    { 147 / 255.f, 75 / 255.f, 176 / 255.f },
+    { 193 / 255.f, 187 / 255.f, 197 / 255.f },
+    { 223 / 255.f, 190 / 255.f, 49 / 255.f },
+    { 198 / 255.f, 76 / 255.f, 65 / 255.f },
+    { 198 / 255.f, 76 / 255.f, 65 / 255.f },
+    { 198 / 255.f, 76 / 255.f, 65 / 255.f },
+    { 226 / 255.f, 200 / 255.f, 17 / 255.f },
+    { 116 / 255.f, 126 / 255.f, 39 / 255.f },
+    { 61 / 255.f, 62 / 255.f, 31 / 255.f }
 };
-pixel FlowerBColors[FLOWER_COLORS_COUNT] = {
-    { 62,56,139 },
-    { 93,87,164 },
-    { 93,87,164 },
-    { 93,87,164 },
-    { 155,140,184 },
-    { 191,201,204 },
-    { 45,31,116 },
-    { 201,196,156 },
-    { 191,175,109 },
-    { 186,176,107 },
-    { 89,77,17 },
-    { 47,49,18 },
+v4 FlowerBColors[FLOWER_COLORS_COUNT] = {
+    { 62 / 255.f, 56 / 255.f, 139 / 255.f },
+    { 93 / 255.f, 87 / 255.f, 164 / 255.f },
+    { 93 / 255.f, 87 / 255.f, 164 / 255.f },
+    { 93 / 255.f, 87 / 255.f, 164 / 255.f },
+    { 155 / 255.f, 140 / 255.f, 184 / 255.f },
+    { 191 / 255.f, 201 / 255.f, 204 / 255.f },
+    { 45 / 255.f, 31 / 255.f, 116 / 255.f },
+    { 201 / 255.f, 196 / 255.f, 156 / 255.f },
+    { 191 / 255.f, 175 / 255.f, 109 / 255.f },
+    { 186 / 255.f, 176 / 255.f, 107 / 255.f },
+    { 89 / 255.f, 77 / 255.f, 17 / 255.f },
+    { 47 / 255.f, 49 / 255.f, 18 / 255.f },
 };
-pixel FlowerCColors[FLOWER_COLORS_COUNT] = {
-    { 220,217,210 },
-    { 220,217,210 },
-    { 220,217,210 },
-    { 225,193,110 },
-    { 225,193,110 },
-    { 227,221,214 },
-    { 227,221,214 },
-    { 230,218,187 },
-    { 230,218,187 },
-    { 172,190,211 },
-    { 172,190,211 },
-    { 172,190,211 },
+v4 FlowerCColors[FLOWER_COLORS_COUNT] = {
+    { 220 / 255.f, 217 / 255.f, 210 / 255.f },
+    { 220 / 255.f, 217 / 255.f, 210 / 255.f },
+    { 220 / 255.f, 217 / 255.f, 210 / 255.f },
+    { 225 / 255.f, 193 / 255.f, 110 / 255.f },
+    { 225 / 255.f, 193 / 255.f, 110 / 255.f },
+    { 227 / 255.f, 221 / 255.f, 214 / 255.f },
+    { 227 / 255.f, 221 / 255.f, 214 / 255.f },
+    { 230 / 255.f, 218 / 255.f, 187 / 255.f },
+    { 230 / 255.f, 218 / 255.f, 187 / 255.f },
+    { 172 / 255.f, 190 / 255.f, 211 / 255.f },
+    { 172 / 255.f, 190 / 255.f, 211 / 255.f },
+    { 172 / 255.f, 190 / 255.f, 211 / 255.f },
 };
+
+internal pixel
+V4ToRGBPixel(v4 C)
+{
+    pixel Result = {};
+    Result.R = (u8)(C.x * 255);
+    Result.G = (u8)(C.y * 255);
+    Result.B = (u8)(C.z * 255);
+    return Result;
+}
 
 internal pixel
 PixelMix(r32 T, pixel A, pixel B)
@@ -298,7 +308,15 @@ PixelMix(r32 T, pixel A, pixel B)
 }
 
 internal pixel
-GetColor(pixel* Colors, u32 ColorsCount, r32 Percent)
+PixelMix(r32 T, v4 A, v4 B)
+{
+    v4 Result = V4Lerp(T, A, B);
+    pixel P = V4ToRGBPixel(Result);
+    return P;
+}
+
+internal v4
+GetColor(v4* Colors, u32 ColorsCount, r32 Percent)
 {
     Percent = Clamp01(Percent);
     
@@ -311,7 +329,7 @@ GetColor(pixel* Colors, u32 ColorsCount, r32 Percent)
     r32 StepPercent = 1.f / (r32)ColorsCount;
     r32 PercentLower = (Percent - LowerPercent) / StepPercent;
     
-    pixel Result = PixelMix(PercentLower, Colors[LowerIndex], Colors[HigherIndex]);
+    v4 Result = V4Lerp(PercentLower, Colors[LowerIndex], Colors[HigherIndex]);
     
     return Result;
 }
@@ -345,8 +363,8 @@ Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
     r32 CycleTime = 10;
     r32 CyclePercent = ModR32(Time, CycleTime) / CycleTime;
     
-    pixel CA = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, CyclePercent);
-    pixel CB = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
+    v4 CA = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, CyclePercent);
+    v4 CB = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
     
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
@@ -637,16 +655,6 @@ Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     }
 }
 
-internal pixel
-V4ToRGBPixel(v4 C)
-{
-    pixel Result = {};
-    Result.R = (u8)(C.x * 255);
-    Result.G = (u8)(C.y * 255);
-    Result.B = (u8)(C.z * 255);
-    return Result;
-}
-
 internal void
 Pattern_HueFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
@@ -876,7 +884,7 @@ Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_mem
         FlowerOffset *= FlowerSpread;
 #else
         // Each flower different
-        pixel* Colors = &FlowerAColors[0];
+        v4* Colors = &FlowerAColors[0];
         r32 FlowerOffset = 0;
         if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
         {
@@ -896,30 +904,30 @@ Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_mem
             u32 LedIndex = Strip.LedLUT[i];
             v4 P = Leds->Positions[LedIndex];
             
-            pixel FinalColor = {};
+            v4 FinalColor = {};
             r32 B = RemapR32(SinR32((P.y / 15.f) + (PercentCycle * TauR32)), -1, 1, .5f, 1.f);
             r32 HNoise = RemapR32(SinR32((P.y / 31.f) + (PercentCycle * TauR32)), -1, 1, 0.f, 1.f);
             
-            pixel BottomColor = GetColor(Colors, FLOWER_COLORS_COUNT, (PercentCycle + HNoise) / 2);
+            v4 BottomColor = GetColor(Colors, FLOWER_COLORS_COUNT, (PercentCycle + HNoise) / 2);
             
             FinalColor = BottomColor;
             
-            Leds->Colors[LedIndex] = FinalColor;
+            Leds->Colors[LedIndex] = V4ToRGBPixel(FinalColor);
         }
     }
 }
 
 r32 TLastFrame = 0;
-pixel* FAC = &FlowerAColors[0];
-pixel* FBC = &FlowerBColors[0];
-pixel* FCC = &FlowerCColors[0];
+v4* FAC = &FlowerAColors[0];
+v4* FBC = &FlowerBColors[0];
+v4* FCC = &FlowerCColors[0];
 
 internal void
 Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     if (TLastFrame > Time)
     {
-        pixel* Temp = FAC;
+        v4 * Temp = FAC;
         FAC = FBC;
         FBC = FCC;
         FCC = Temp;
@@ -931,7 +939,7 @@ Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
         v2_strip Strip = Assembly.Strips[StripIndex];
         
         // Each flower different
-        pixel* Colors = FAC;
+        v4 * Colors = FAC;
         if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
         {
             Colors = FBC;
@@ -951,7 +959,8 @@ Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
             r32 T = ModR32(P.y + CycleT, 200) / 200.f;
             T = Clamp01(T);
             
-            Leds->Colors[LedIndex] = GetColor(Colors, FLOWER_COLORS_COUNT, T);
+            v4 Color = GetColor(Colors, FLOWER_COLORS_COUNT, T);
+            Leds->Colors[LedIndex] = V4ToRGBPixel(Color);
         }
     }
 }
@@ -979,12 +988,10 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         v3 BSeed = v3{P.z, P.x, P.y};
         r32 BNoise = 1.0f; //Fbm3D(BSeed / 50);
         
-        pixel C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, Noise);
-        C.R = (u8)((r32)C.R * BNoise);
-        C.G = (u8)((r32)C.G * BNoise);
-        C.B = (u8)((r32)C.B * BNoise);
+        v4 C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, Noise);
+        C = C * BNoise;
         
-        Leds->Colors[LedIndex] = C;
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
         //Leds->Colors[LedIndex] = pixel{NV, NV, NV};
     }
 }
@@ -992,48 +999,71 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
 internal void
 Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
-    pixel* Colors = &FlowerBColors[0];
+    v4* Colors = &FlowerBColors[0];
     
+#if 1
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
-        r32 RefPos = P.y + Noise2D(v2{P.x, P.z} * 50);
+        r32 RefPos = P.y; // + Noise2D(v2{P.x, P.z} * 10);
         
+        v4 C = {};
         r32 B = 0;
         
-        pixel C = {};
-        
         r32 BandWidth = 5;
-        r32 TransitionPeriod = 5.0f;
+        r32 TransitionPeriod = 30.0f;
         u32 BandCount = 10;
         for (u32 Band = 0; Band < BandCount; Band++)
         {
             r32 BandSeed = RemapR32(Hash1((r32)Band), -1, 1, 0, 1);
             r32 BandDelay = BandSeed * TransitionPeriod;
-            r32 BandTransitionDuration = RemapR32(Hash1((r32)Band * 3.413f), -1, 1, 0, 1) * TransitionPeriod;
-            r32 BandPercent = Smoothstep(ModR32(Time + BandDelay, BandTransitionDuration) / TransitionPeriod, 0, 1);
-            r32 BandHeight = 150 - BandPercent * 250;
+            r32 BandTransitionPeriod = RemapR32(Hash1((r32)Band * 3.413f), -1, 1, 0, 1) * TransitionPeriod;
+            r32 BandOffset = Time + BandDelay;
+            r32 BandPercent = ModR32(BandOffset, BandTransitionPeriod) / BandTransitionPeriod;
+            r32 BandSmoothed = Smoothstep(BandPercent, 0, 1);
             
-            r32 BandDist = Abs(RefPos - BandHeight);
+            r32 BandHeight = 125 - BandPercent * 250;
             
-            //B += Max(0, BandWidth - BandDist);
-            B = Max(0, BandWidth - BandDist);
+            r32 BandDist = Abs(RefPos - (BandHeight + BandSeed * 5));
             
-            
-            {
-                //pixel BandColor = GetColor(Colors, FLOWER_COLORS_COUNT, BandSeed);
-                pixel BandColor = Colors[Band % FLOWER_COLORS_COUNT];
-                C.R = C.R + (BandColor.R * B);
-                C.G = C.G + (BandColor.G * B);
-                C.B = C.B + (BandColor.B * B);
-            }
-            
+            B += Max(0, BandWidth - BandDist);
         }
+        B = Clamp(0, B, 1);
         
-        u8 V = (u8)(B * 255);
-        //pixel C = { V, V, V };
-        Leds->Colors[LedIndex] = C;
+        r32 BandCP = (P.y + 100) / 200;
+        BandCP = 0.8f;
+        v4 BandC = GetColor(&FlowerBColors[0], FLOWER_COLORS_COUNT, BandCP);
+        
+        v4 GradientC = GetColor(&FlowerBColors[0], FLOWER_COLORS_COUNT, 0);
+        r32 GradientB = RemapR32(P.y, 200, 0, 1, 0);
+        GradientB = Clamp(0, GradientB, 1);
+        
+        C = (GradientC * GradientB) + (BandC * B);
+        //C *= B;
+        
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
+#else
+    
+    r32 FadeTop = 150;
+    r32 FadeBottom = -50;
+    
+    v4 C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, 0);
+    
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        
+        r32 Brightness = RemapR32(P.y, 200, 0, 1, 0);
+        
+        Brightness = Clamp(Brightness, 0, 1);
+        u8 B = (u8)(Brightness * 255);
+        
+        v4 CB = C * Brightness;
+        
+        Leds->Colors[LedIndex] = V4ToRGBPixel(CB);
+    }
+#endif
 }
 
 internal void

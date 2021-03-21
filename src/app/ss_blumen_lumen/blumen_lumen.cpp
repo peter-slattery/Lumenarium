@@ -137,17 +137,17 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_Leafy);
 }
 
-internal pixel
-TEMP_Saturate(pixel P)
+internal v4
+TEMP_Saturate(v4  P)
 {
-    v4 CRGB = v4{ (r32)P.R / 255.f, (r32)P.G / 255.f, (r32)P.B / 255.f, 1.f };
+    v4 CRGB = P;
     v4 CHSV = RGBToHSV(CRGB);
     if (CHSV.g > .3f)
     {
         CHSV.g = 1;
         CRGB = HSVToRGB(CHSV);
     }
-    return V4ToRGBPixel(CRGB);
+    return CRGB;
 }
 
 internal gs_data
@@ -375,6 +375,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
     
     // Dim the leds based on temp data
+#if DIM_LED_BRIGHTNESS
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
         led_buffer Buffer = State->LedSystem.Buffers[i];
@@ -386,6 +387,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             Color->B = Color->B * BLState->BrightnessPercent;
         }
     }
+#endif
     
     // Send Status Packet
     {

@@ -308,13 +308,6 @@ Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
 }
 
 
-typedef struct status_packet_foo
-{
-    u8 NextMotorEventType;
-    u32 NextEventTime;
-    char AnimFileName[32];
-} status_packet;
-
 internal s32
 Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
 {
@@ -325,26 +318,32 @@ Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s3
     SockAddress.sin_port = HostToNetU16(Port);
     SockAddress.sin_addr.s_addr = HostToNetU32(Address);
     
-    status_packet_foo* Foo = (status_packet_foo*)Data.Memory;
-    
     s32 LengthSent = sendto(*Win32Sock, (char*)Data.Memory, Data.Size, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     
     OutputDebugString("Attempting To Send Network Data: ");
     if (LengthSent == SOCKET_ERROR)
     {
         s32 Error = WSAGetLastError();
-        if (Error == 10051)
+        switch (Error)
         {
-        }
-        if (Error == 10053)
-        {
-            // TODO(pjs): WSAECONNABORTED
-            InvalidCodePath;
-        }
-        else
-        {
-            // TODO(Peter): :ErrorLogging
-            InvalidCodePath;
+            case WSAECONNABORTED:
+            {
+            }break;
+            
+            case WSAENETUNREACH:
+            {
+            }break;
+            
+            case WSAECONNRESET:
+            {
+                
+            }break;
+            
+            case WSAENOTCONN:
+            {
+            }break;
+            
+            InvalidDefaultCase;
         }
         
         OutputDebugString("Error\n");

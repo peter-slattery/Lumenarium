@@ -142,6 +142,7 @@ struct assembly
     
     r32 Scale;
     v3 Center;
+    v3 MinLedPos, MaxLedPos;
     s32 LedCountTotal;
     u32 LedBufferIndex;
     
