@@ -89,14 +89,71 @@ struct pattern_args
     u8* UserData;
 };
 
-internal void
-AnimationSystem_RenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer, animation_pattern_array Patterns, pattern_args PatternArgs)
+struct render_anim_to_led_buffer_job_data
 {
+    animation_pattern Pattern;
+    led_buffer Buffer;
+    led_buffer_range BufferRange;
+    pattern_args PatternArgs;
+    r32 SecondsIntoBlock;
+};
+
+internal void
+AnimationSystem_RenderAnimationToLedBufferJob(gs_thread_context Context, gs_data Data)
+{
+    render_anim_to_led_buffer_job_data JobData = *(render_anim_to_led_buffer_job_data*)Data.Memory;
+    JobData.Pattern.Proc(&JobData.Buffer, 
+                         JobData.BufferRange,
+                         JobData.PatternArgs.Assembly, 
+                         JobData.SecondsIntoBlock, 
+                         JobData.PatternArgs.Transient, 
+                         JobData.PatternArgs.UserData);
+}
+
+#define MULTITHREAD_PATTERN_RENDERING 1
+
+internal void
+AnimationSystem_BeginRenderBlockToLedBuffer(animation_system* System, animation_block Block, led_buffer* Buffer, animation_pattern_array Patterns, pattern_args PatternArgs,
+                                            context Context)
+{
+    DEBUG_TRACK_FUNCTION;
+    
     u32 FramesIntoBlock = System->CurrentFrame - Block.Range.Min;
     r32 SecondsIntoBlock = FramesIntoBlock * System->SecondsPerFrame;
     
     animation_pattern Pattern = Patterns_GetPattern(Patterns, Block.AnimationProcHandle);
+    
+#if MULTITHREAD_PATTERN_RENDERING
+    u32 JobsCount = 4;
+    u32 LedsPerJob = Buffer->LedCount / JobsCount;
+    
+    for (u32 i = 0; i < JobsCount; i++)
+    {
+        gs_data Data = PushSizeToData(Context.ThreadContext.Transient, sizeof(render_anim_to_led_buffer_job_data));
+        render_anim_to_led_buffer_job_data* JobData = (render_anim_to_led_buffer_job_data*)Data.Memory;
+        JobData->Pattern = Pattern;
+        JobData->Buffer = *Buffer;
+        JobData->BufferRange.First = LedsPerJob * i;
+        JobData->BufferRange.OnePastLast = LedsPerJob * (i + 1);
+        JobData->PatternArgs = PatternArgs;
+        JobData->SecondsIntoBlock = SecondsIntoBlock;
+        
+        Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue,
+                                                  (thread_proc*)AnimationSystem_RenderAnimationToLedBufferJob,
+                                                  Data,
+                                                  ConstString("Render Pattern To Buffer"));
+    }
+#else
     Pattern.Proc(Buffer, PatternArgs.Assembly, SecondsIntoBlock, PatternArgs.Transient, PatternArgs.UserData);
+#endif
+}
+
+internal void
+AnimationSystem_EndRenderBlockToLedBuffer (context Context)
+{
+#if MULTITHREAD_PATTERN_RENDERING
+    Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
+#endif
 }
 
 // NOTE(pjs): This mirrors animation_layer_frame to account
@@ -114,7 +171,8 @@ RenderAnimationToLedBuffer (animation_system* System,
                             layer_led_buffer* LayerBuffers,
                             led_buffer* AssemblyLedBuffer,
                             animation_pattern_array Patterns,
-                            gs_memory_arena* Transient)
+                            gs_memory_arena* Transient,
+                            context Context)
 {
     led_buffer AccBuffer = LedBuffer_CreateCopyCleared(*AssemblyLedBuffer, Transient);
     
@@ -144,15 +202,17 @@ RenderAnimationToLedBuffer (animation_system* System,
         {
             led_buffer TempBuffer = LayerBuffers[Layer].HotBuffer;
             animation_block Block = LayerFrame.Hot;
-            AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  Patterns, PatternArgs);
+            AnimationSystem_BeginRenderBlockToLedBuffer(System, Block, &TempBuffer,  Patterns, PatternArgs, Context);
         }
         
         if (LayerFrame.HasNextHot)
         {
             led_buffer TempBuffer = LayerBuffers[Layer].NextHotBuffer;
             animation_block Block = LayerFrame.NextHot;
-            AnimationSystem_RenderBlockToLedBuffer(System, Block, &TempBuffer,  Patterns, PatternArgs);
+            AnimationSystem_BeginRenderBlockToLedBuffer(System, Block, &TempBuffer,  Patterns, PatternArgs, Context);
         }
+        
+        AnimationSystem_EndRenderBlockToLedBuffer(Context);
     }
     
     // Blend together any layers that have a hot and next hot buffer
@@ -193,8 +253,11 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
                                    led_system* LedSystem,
                                    animation_pattern_array Patterns,
                                    gs_memory_arena* Transient,
+                                   context Context,
                                    u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     s32 CurrentFrame = System->CurrentFrame;
     r32 FrameTime = CurrentFrame * System->SecondsPerFrame;
     
@@ -231,7 +294,8 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
                                                            FromLayerBuffers,
                                                            AssemblyLedBuffer,
                                                            Patterns,
-                                                           Transient);
+                                                           Transient,
+                                                           Context);
         led_buffer ConsolidatedBuffer = FromBuffer;
         
         if (ToAnim) {
@@ -241,7 +305,8 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
                                                              ToLayerBuffers,
                                                              AssemblyLedBuffer,
                                                              Patterns,
-                                                             Transient);
+                                                             Transient,
+                                                             Context);
             
             r32 BlendPercent = FadeGroup.FadeElapsed / FadeGroup.FadeDuration;
             LedBuffer_Blend(FromBuffer, ToBuffer, &ConsolidatedBuffer, LedBlend_Lerp, (u8*)&BlendPercent);

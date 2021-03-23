@@ -93,7 +93,7 @@ int main(int ArgCount, char** Args)
 {
     gs_thread_context Ctx = Win32CreateThreadContext();
     
-    HANDLE SerialHandle = Win32SerialPort_Open("\\\\.\\COM9");
+    HANDLE SerialHandle = Win32SerialPort_Open("\\\\.\\COM9", Ctx.Transient);
     Win32SerialPort_SetState(SerialHandle, 2000000, 8, 0, 1);
     
     gs_const_string OutFileName = ConstString("./serial_dump.data");

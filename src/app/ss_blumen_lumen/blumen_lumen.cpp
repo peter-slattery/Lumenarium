@@ -133,8 +133,11 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
     Patterns_PushPattern(Patterns, Pattern_BasicFlowers);
     // 15
+    Patterns_PushPattern(Patterns, Pattern_Wavy);
     Patterns_PushPattern(Patterns, Pattern_Patchy);
     Patterns_PushPattern(Patterns, Pattern_Leafy);
+    Patterns_PushPattern(Patterns, Pattern_LeafyPatchy);
+    Patterns_PushPattern(Patterns, Pattern_WavyPatchy);
 }
 
 internal v4

@@ -1558,6 +1558,25 @@ FindFirst(gs_string String, char C)
 }
 
 internal s64
+FindLast(char* String, s64 StartIndex, char C)
+{
+    s64 Result = -1;
+    s64 i = 0;
+    while (String[i] != 0 && i < StartIndex)
+    {
+        i++;
+    }
+    while (String[i])
+    {
+        if (String[i] == C)
+        {
+            Result = i;
+        }
+        i++;
+    }
+    return Result;
+}
+internal s64
 FindLast(gs_const_string String, u64 StartIndex, char C)
 {
     s64 Result = -1;

@@ -76,7 +76,7 @@ typedef UPDATE_AND_RENDER(update_and_render);
 #define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
 typedef RELOAD_STATIC_DATA(reload_static_data);
 
-#define CLEANUP_APPLICATION(name) void name(context Context)
+#define CLEANUP_APPLICATION(name) void name(context Context, addressed_data_buffer_list* OutputData)
 typedef CLEANUP_APPLICATION(cleanup_application);
 
 // Platform Functions
