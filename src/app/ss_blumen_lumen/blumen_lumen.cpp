@@ -223,9 +223,9 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     
     for (u32 i = 0; i < FLOWER_COLORS_COUNT; i++)
     {
-        FlowerAColors[i] = TEMP_Saturate(FlowerAColors[i]);
-        FlowerBColors[i] = TEMP_Saturate(FlowerBColors[i]);
-        FlowerCColors[i] = TEMP_Saturate(FlowerCColors[i]);
+        //FlowerAColors[i] = TEMP_Saturate(FlowerAColors[i]);
+        //FlowerBColors[i] = TEMP_Saturate(FlowerBColors[i]);
+        //FlowerCColors[i] = TEMP_Saturate(FlowerCColors[i]);
     }
     
     return Result;
@@ -236,8 +236,11 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
     
-    MotorTimeElapsed += Context->DeltaTime;
+    bool SendMotorCommand = false;
+    blumen_packet MotorCommand = {};
+    
 #if 0
+    MotorTimeElapsed += Context->DeltaTime;
     BLState->TimeElapsed += Context->DeltaTime;
     
     if (BLState->TimeElapsed > 5)
@@ -249,10 +252,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
 #endif
     
-    gs_string BlueString = MakeString("blue");
-    gs_string GreenString = MakeString("green");
-    gs_string ILoveYouString = MakeString("i_love_you");
-    
     while (MessageQueue_CanRead(&BLState->IncomingMsgQueue))
     {
         gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
@@ -262,27 +261,47 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             case PacketType_PatternCommand:
             {
                 microphone_packet Mic = Packet.MicPacket;
-                
                 u32 NameLen = CStringLength(Mic.AnimationFileName);
-                if (StringEqualsCharArray(BlueString.ConstString, Mic.AnimationFileName, NameLen))
-                {
-                    State->AnimationSystem.ActiveFadeGroup.From.Index = 0;
-                }
-                else if (StringEqualsCharArray(GreenString.ConstString, Mic.AnimationFileName, NameLen))
-                {
-                    State->AnimationSystem.ActiveFadeGroup.From.Index = 1;
-                }
-                else if (StringEqualsCharArray(ILoveYouString.ConstString, Mic.AnimationFileName, NameLen))
-                {
-                    State->AnimationSystem.ActiveFadeGroup.From.Index = 2;
-                }
                 
-                OutputDebugStringA("\nReceived Pattern Packet\n");
+                for (u32 i = 0; i < PhraseToAnimMapCount; i++)
+                {
+                    gs_const_string PhraseStr = ConstString(PhraseToAnimMap[i].Phrase);
+                    u32 PhraseIndex = PhraseToAnimMap[i].PatternIndex;
+                    if (StringEqualsCharArray(PhraseStr, Mic.AnimationFileName, NameLen))
+                    {
+                        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                                  animation_handle{(s32)PhraseIndex},
+                                                  3.0f);
+                        OutputDebugStringA("\nReceived Pattern Packet\n");
+                        
+                        {
+                            // DEBUG CODE
+                            u8 MotorState = BLState->LastKnownMotorState.FlowerPositions[0];
+                            if (MotorState == 2) {
+                                OutputDebugStringA("Sending 1\n");
+                                MotorState = 1;
+                            }
+                            else
+                            {
+                                OutputDebugStringA("Sending 1\n");
+                                MotorState = 2;
+                            }
+                            
+                            blumen_packet MPacket = {};
+                            MPacket.Type = PacketType_MotorState;
+                            MPacket.MotorPacket.FlowerPositions[0] = MotorState;
+                            MPacket.MotorPacket.FlowerPositions[1] = MotorState;
+                            MPacket.MotorPacket.FlowerPositions[2] = MotorState;
+                            MotorCommand = MPacket;
+                            SendMotorCommand = true;
+                        }
+                    }
+                }
             }break;
             
             case PacketType_MotorState:
             {
-                motor_packet Motor = Packet.MotorPacket;
+                motor_status_packet Motor = Packet.MotorStatusPacket;
                 
                 // NOTE(pjs): Python sends multi-byte integers in little endian
                 // order. Have to unpack
@@ -290,12 +309,12 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 Motor.Temperature = (T[0] << 8 |
                                      T[1] << 0);
                 
-                BLState->LastKnownMotorState = Motor;
+                BLState->LastKnownMotorState = Motor.Pos;
                 
                 gs_string Temp = PushStringF(State->Transient, 256, "\nReceived Motor States: \n\tPos: %d %d %d\n\tErr: %d %d %d\n\tTemp: %d\n\n",
-                                             Motor.FlowerPositions[0],
-                                             Motor.FlowerPositions[1],
-                                             Motor.FlowerPositions[2],
+                                             Motor.Pos.FlowerPositions[0],
+                                             Motor.Pos.FlowerPositions[1],
+                                             Motor.Pos.FlowerPositions[2],
                                              Motor.MotorStatus[0],
                                              Motor.MotorStatus[1],
                                              Motor.MotorStatus[2],
@@ -334,6 +353,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     
     if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue))
     {
+#if 0
         for (u32 i = 0; i < MotorOpenTimesCount; i++)
         {
             time_range Range = MotorOpenTimes[i];
@@ -347,33 +367,42 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             r64 NanosSinceLastSend = ((r64)Context->SystemTime_Current.NanosSinceEpoch - (r64)BLState->LastSendTime.NanosSinceEpoch);
             r64 SecondsSinceLastSend = NanosSinceLastSend / PowR32(10, 8);
             
-            SendOpen = SecondsSinceLastSend > 2;
+            //SendOpen = SecondsSinceLastSend > 2;
             if (SendOpen)
             {
+                SendMotorCommand = true;
+                
                 BLState->LastSendTime = Context->SystemTime_Current;
                 OutputDebugString("Motors: Open\n");
+                
                 blumen_packet Packet = {};
                 Packet.Type = PacketType_MotorState;
                 Packet.MotorPacket.FlowerPositions[0] = 2;
                 Packet.MotorPacket.FlowerPositions[1] = 2;
                 Packet.MotorPacket.FlowerPositions[2] = 2;
-                gs_data Msg = StructToData(&Packet, blumen_packet);
-                MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+                MotorCommand = Packet;
             }
             else if (!CurrTimeInRange && LastTimeInRange)
             {
+                SendMotorCommand = true;
                 OutputDebugString("Motors: Close\n");
+                
                 blumen_packet Packet = {};
                 Packet.Type = PacketType_MotorState;
                 Packet.MotorPacket.FlowerPositions[0] = 1;
                 Packet.MotorPacket.FlowerPositions[1] = 1;
                 Packet.MotorPacket.FlowerPositions[2] = 1;
-                gs_data Msg = StructToData(&Packet, blumen_packet);
-                MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+                MotorCommand = Packet;
             }
         }
+#endif
+        
+        if (SendMotorCommand)
+        {
+            gs_data Msg = StructToData(&MotorCommand, blumen_packet);
+            MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+        }
     }
-    
     // Dim the leds based on temp data
 #if DIM_LED_BRIGHTNESS
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
@@ -387,6 +416,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             Color->B = Color->B * BLState->BrightnessPercent;
         }
     }
+    
+    // TODO(pjs): dim stem to 50%
 #endif
     
     // Send Status Packet
