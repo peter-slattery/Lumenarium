@@ -74,38 +74,60 @@ HANDLE
 Win32SerialPort_Open(char* PortName)
 {
     DEBUG_TRACK_FUNCTION;
-    HANDLE ComPortHandle = CreateFile(PortName,
-                                      GENERIC_READ | GENERIC_WRITE,
-                                      FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                      NULL, // Default Security Attr
-                                      OPEN_EXISTING,
-                                      0, // Not overlapped I/O
-                                      NULL);
+    HANDLE ComPortHandle = INVALID_HANDLE_VALUE;;
     
-    if (ComPortHandle != INVALID_HANDLE_VALUE)
+    WIN32_FIND_DATA FindData;
+    HANDLE ComPortExists = FindFirstFile(PortName, &FindData);
+    
+    // TODO(PS): we aren't sure yet if FindFirstFile will actually work
+    // for the purpose of checking to see if a ComPort actually exists.
+    // When you go to Foldspace next time, make sure we are still connecting 
+    // the sculpture
+    if (ComPortExists != INVALID_HANDLE_VALUE)
     {
-        COMMTIMEOUTS Timeouts = { 0 };
-        Timeouts.ReadIntervalTimeout         = 0; // in milliseconds
-        Timeouts.ReadTotalTimeoutConstant    = 0; // in milliseconds
-        Timeouts.ReadTotalTimeoutMultiplier  = 0; // in milliseconds
-        Timeouts.WriteTotalTimeoutConstant   = 0; // in milliseconds
-        Timeouts.WriteTotalTimeoutMultiplier = 0; // in milliseconds
         
-        if (SetCommTimeouts(ComPortHandle, &Timeouts))
+        ComPortHandle = CreateFile(PortName,
+                                   GENERIC_READ | GENERIC_WRITE,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                   NULL, // Default Security Attr
+                                   OPEN_EXISTING,
+                                   0, // Not overlapped I/O
+                                   NULL);
+        
+        bool HasError = false;
+        
+        if (ComPortHandle != INVALID_HANDLE_VALUE)
         {
+            COMMTIMEOUTS Timeouts = { 0 };
+            Timeouts.ReadIntervalTimeout         = 0; // in milliseconds
+            Timeouts.ReadTotalTimeoutConstant    = 0; // in milliseconds
+            Timeouts.ReadTotalTimeoutMultiplier  = 0; // in milliseconds
+            Timeouts.WriteTotalTimeoutConstant   = 0; // in milliseconds
+            Timeouts.WriteTotalTimeoutMultiplier = 0; // in milliseconds
             
+            HasError = !SetCommTimeouts(ComPortHandle, &Timeouts);
         }
         else
         {
-            s32 Error = GetLastError();
-            // TODO(pjs): Error logging
+            HasError = true;
         }
-    }
-    else
-    {
-        // Error
-        s32 Error = GetLastError();
-        // TODO(pjs): Error logging
+        
+        if (HasError) 
+        {
+            // Error
+            s32 Error = GetLastError();
+            switch (Error)
+            {
+                case ERROR_NO_SUCH_DEVICE:
+                case ERROR_FILE_NOT_FOUND:
+                {
+                    // NOTE(PS): The outer scope should handle these cases
+                    ComPortHandle = INVALID_HANDLE_VALUE;
+                }break;
+                
+                InvalidDefaultCase;
+            }
+        }
     }
     
     return ComPortHandle;

@@ -683,7 +683,7 @@ WinMain (
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        bool Multithread = true;
+        bool Multithread = false;
         if (Multithread)
         {
             for (addressed_data_buffer* At = OutputData.Root;

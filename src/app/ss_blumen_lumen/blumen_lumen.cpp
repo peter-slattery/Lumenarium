@@ -173,7 +173,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
     BLState->MicListenJobData.ListenSocket = CreateSocket(Context.SocketManager, "127.0.0.1", "20185");
     
-#if 1
+#if 0
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
 #endif
     
@@ -213,7 +213,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(17), 0);
+        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(16), 0);
         
         BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         

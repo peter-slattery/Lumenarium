@@ -18,6 +18,25 @@ Smoothstep(r32 T, r32 A, r32 B)
 {
     return LerpR32(Smoothstep(T), A, B);
 }
+internal v3
+Smoothstep(v3 P)
+{
+    v3 R = {};
+    R.x = Smoothstep(P.x);
+    R.y = Smoothstep(P.y);
+    R.z = Smoothstep(P.z);
+    return R;
+}
+
+internal v3
+AbsV3(v3 P)
+{
+    v3 Result = {};
+    Result.x = Abs(P.x);
+    Result.y = Abs(P.y);
+    Result.z = Abs(P.z);
+    return Result;
+}
 
 internal v2
 FloorV2(v2 P)
@@ -113,6 +132,15 @@ Hash3(v2 P)
 }
 
 internal r32
+HashV3ToR32(v3 P)
+{
+    v3 Pp = FractV3(P * 0.3183099f + v3{0.1f, 0.1f, 0.1f});
+    Pp *= 17.0f;
+    r32 Result = FractR32(Pp.x * Pp.y * Pp.z * (Pp.x + Pp.y + Pp.z));
+    return Result;
+}
+
+internal r32
 Random(v2 N)
 {
     v2 V = v2{12.9898f, 4.1414f};
@@ -135,7 +163,35 @@ Noise2D(v2 P)
 }
 
 internal r32
-Noise3D(v3 Pp)
+Noise3D(v3 P)
+{
+    P = AbsV3(P);
+    v3 PFloor = FloorV3(P);
+    v3 PFract = FractV3(P);
+    v3 F = Smoothstep(PFract);
+    
+    r32 Result = LerpR32(F.z, 
+                         LerpR32(F.y, 
+                                 LerpR32(F.x,
+                                         HashV3ToR32(PFloor + v3{0, 0, 0}),
+                                         HashV3ToR32(PFloor + v3{1, 0, 0})),
+                                 LerpR32(F.x,
+                                         HashV3ToR32(PFloor + v3{0, 1, 0}),
+                                         HashV3ToR32(PFloor + v3{1, 1, 0}))),
+                         LerpR32(F.y,
+                                 LerpR32(F.x,
+                                         HashV3ToR32(PFloor + v3{0, 0, 1}),
+                                         HashV3ToR32(PFloor + v3{1, 0, 1})),
+                                 LerpR32(F.x,
+                                         HashV3ToR32(PFloor + v3{0, 1, 1}),
+                                         HashV3ToR32(PFloor + v3{1, 1, 1}))));
+    
+    Assert(Result >= 0 && Result <= 1);
+    return Result;
+}
+
+internal r32
+Noise3D_(v3 Pp)
 {
     v3 P = FloorV3(Pp);
     v3 W = FractV3(Pp);
@@ -217,6 +273,26 @@ Fbm3D(v3 P)
     }
     
     return A;
+}
+
+internal r32
+Fbm3D(v3 P, r32 T)
+{
+    v3 Tt = v3{T, T, T};
+    r32 SinT = SinR32(T);
+    v3 Tv = v3{SinT, SinT, SinT};
+    v3 Pp = P;
+    r32 F = 0.0;
+    
+    F += 0.500000f * Noise3D(Pp + Tt); Pp = Pp * 2.02;
+    F += 0.031250f * Noise3D(Pp); Pp = Pp * 2.01;
+    F += 0.250000f * Noise3D(Pp); Pp = Pp * 2.03;
+    F += 0.125000f * Noise3D(Pp); Pp = Pp * 2.01;
+    F += 0.062500f * Noise3D(Pp); Pp = Pp * 2.04;
+    F += 0.015625f * Noise3D(Pp + Tv);
+    
+    F = F / 0.984375f;
+    return F;
 }
 
 internal r32
@@ -974,6 +1050,7 @@ Pattern_Wavy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tra
 internal void
 Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+#if 0
     for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
@@ -994,6 +1071,49 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
         //Leds->Colors[LedIndex] = pixel{NV, NV, NV};
     }
+#elif 1
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 LedRange = 300.0f;
+        r32 ScaleFactor = 1.0f / LedRange;
+        v3 Pp = P.xyz + v3{150, 100, 0};
+        
+        r32 NoiseA = Noise3D((Pp / 38) + v3{0, 0, Time});
+        NoiseA = PowR32(NoiseA, 3);
+        NoiseA = Smoothstep(NoiseA);
+        v4 CA = v4{1, 0, 1, 1} * NoiseA;
+        
+        r32 NoiseB = Noise3D((Pp / 75) + v3{Time * 0.5f, 0, 0});
+        NoiseB = PowR32(NoiseB, 3);
+        NoiseB = Smoothstep(NoiseB);
+        v4 CB = v4{0, 1, 1, 1} * NoiseB;
+        
+        v4 C = CA + CB;
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+    }
+#else
+    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 LedRange = 300.0f;
+        r32 ScaleFactor = 1.0f / LedRange;
+        v3 Pp = P.xyz + v3{150, 100, 0};
+        
+        r32 NoiseA = Fbm3D((Pp / 35), Time * 0.5f);
+        //NoiseA = PowR32(NoiseA, 3);
+        NoiseA = Smoothstep(NoiseA);
+        v4 CA = v4{1, 0, 1, 1} * NoiseA;
+        
+        r32 NoiseB = Noise3D((Pp / 35) + v3{0, 0, Time * 5});
+        NoiseB = PowR32(NoiseB, 3);
+        NoiseB = Smoothstep(NoiseB);
+        v4 CB = v4{0, 1, 1, 1};
+        
+        v4 C = V4Lerp(NoiseB, CA, CB);
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+    }
+#endif
 }
 
 internal void
