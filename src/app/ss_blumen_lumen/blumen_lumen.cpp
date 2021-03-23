@@ -188,40 +188,32 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     
 #if 0
     { // Animation PLAYGROUND
-        animation Anim0 = {0};
-        Anim0.Name = PushStringF(&State->Permanent, 256, "test_anim_zero");
-        Anim0.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim0.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim0.PlayableRange.Min = 0;
-        Anim0.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc = {};
+        Desc.NameSize = 256;
+        Desc.LayersCount = 8;
+        Desc.BlocksCount = 8;
+        Desc.MinFrames = 0;
+        Desc.MaxFrames = SecondsToFrames(15, State->AnimationSystem);
+        
+        animation_desc Desc0 = Desc;
+        Desc.Name = "test_anim_zero";
+        animation Anim0 = Animation_Create(Desc0, &State->AnimationSystem);
         Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
         Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(15), 0);
-        
         BLState->AnimHandles[0] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
-        animation Anim1 = {0};
-        Anim1.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim1.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim1.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim1.PlayableRange.Min = 0;
-        Anim1.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc1 = Desc;
+        Desc1.Name = "test_anim_one";
+        animation Anim1 = Animation_Create(Desc1, &State->AnimationSystem);
         Animation_AddLayer(&Anim1, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
         Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(12), 0);
-        
         BLState->AnimHandles[1] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
         
-        animation Anim2 = {0};
-        Anim2.Name = PushStringF(&State->Permanent, 256, "i_love_you");
-        Anim2.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim2.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim2.PlayableRange.Min = 0;
-        Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc2 = Desc;
+        Desc2.Name = "i_love_you";
+        animation Anim2 = Animation_Create(Desc2, &State->AnimationSystem);;
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
         Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(20), 0);
-        
         BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
         State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
@@ -417,6 +409,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     // Dim the leds based on temp data
+#define DIM_LED_BRIGHTNESS 1
 #if DIM_LED_BRIGHTNESS
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
@@ -430,7 +423,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    // TODO(pjs): dim stem to 50%
+    // TODO(PS): This should really only happen if we think the 
+    // flower _might_ be open
+    for (u32 a = 0; a < State->Assemblies.Count; a++)
+    {
+        assembly Assembly = State->Assemblies.Values[a];
+        led_buffer Buffer = State->LedSystem.Buffers[Assembly.LedBufferIndex];
+        
+        led_strip_list TopStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("inner_bloom"), State->Transient);
+        for (u32 s = 0; s < TopStrips.Count; s++)
+        {
+            u32 SIndex = TopStrips.StripIndices[s];
+            v2_strip Strip = Assembly.Strips[SIndex];
+            for (u32 l = 0; l < Strip.LedCount; l++)
+            {
+                u32 LIndex = Strip.LedLUT[l];
+                Buffer.Colors[LIndex] = {0};
+            }
+        }
+    }
 #endif
     
     // Send Status Packet

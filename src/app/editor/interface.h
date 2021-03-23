@@ -753,13 +753,13 @@ ui_PushOverlayLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction 
 }
 
 static gs_string
-ui_PushLayoutCategoryName(ui_interface* Interface, gs_string Category, gs_string Identifier)
+ui_PushLayoutCategoryName(ui_interface* Interface, gs_string Category, u32 Value)
 {
     gs_string Result = PushStringF(Interface->PerFrameMemory, 
-                                   Category.Length + Identifier.Length,
-                                   "%S%S",
+                                   Category.Length + 25,
+                                   "%S%d",
                                    Category.ConstString,
-                                   Identifier.ConstString);
+                                   Value);
     return Result;
 }
 
@@ -782,9 +782,9 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
     return Result;
 }
 static ui_widget*
-ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Category, gs_string Identifier)
+ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Category, u32 Value)
 {
-    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Identifier);
+    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Value);
     return ui_PushLayout(Interface, Bounds, FillDir, Name);
 }
 
@@ -854,7 +854,16 @@ ui_PopLayout(ui_interface* Interface, gs_string LayoutName)
     // NOTE(pjs): If this isn't true then a layout was opened without being closed
     // Go check for ui_PushLayout, ui_BeginDropdown, ui_BeginRow, etc that don't have
     // a corresponding ui_Pop/ui_End*
-    Assert(StringsEqual(Layout->String, LayoutName));
+    // 
+    // We use StringsEqualUpToLength here becuase its possible that 
+    // the current layout used the Category + Identifier method
+    // for generating Layout->String. And if Identifier was a string
+    // that was edited within the scope of this layout, then 
+    // Layout->String and LayoutName will no longer match. 
+    //
+    // This is a compromise that will at least let us know if
+    // we aren't popping all our layouts correctly.
+    Assert(StringsEqualUpToLength(Layout->String, LayoutName, LayoutName.Length));
     
     ui_ExpandToFitChildren(Layout);
     
@@ -869,9 +878,9 @@ ui_PopLayout(ui_interface* Interface, gs_string LayoutName)
     }
 }
 static void
-ui_PopLayout(ui_interface* Interface, gs_string Category, gs_string Identifier)
+ui_PopLayout(ui_interface* Interface, gs_string Category, u32 Value)
 {
-    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Identifier);
+    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Value);
     ui_PopLayout(Interface, Name);
 }
 
@@ -1073,6 +1082,7 @@ ui_EvaluateWidget(ui_interface* Interface, ui_widget* Widget, rect2 Bounds)
                 else
                 {
                     OutChar(&State->EditString, Interface->TempInputString.Str[i]);
+                    Interface->CursorPosition += 1;
                 }
             }
         }

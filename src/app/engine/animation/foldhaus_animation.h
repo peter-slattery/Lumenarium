@@ -419,6 +419,38 @@ AnimationArray_GetSafe(animation_array Array, animation_handle Handle)
 //
 // Animation
 
+typedef struct animation_desc
+{
+    u32 NameSize;
+    char* Name;
+    
+    u32 LayersCount;
+    u32 BlocksCount;
+    
+    u32 MinFrames;
+    u32 MaxFrames;
+} animation_desc;
+
+internal animation
+Animation_Create(animation_desc Desc, animation_system* System)
+{
+    animation Result = {};
+    u32 NameLen = Desc.NameSize;
+    if (Desc.Name)
+    {
+        NameLen = Max(CStringLength(Desc.Name), NameLen);
+        Result.Name = PushStringF(System->Storage, NameLen, "%s", Desc.Name);
+    } else {
+        Result.Name = PushStringF(System->Storage, NameLen, "[New Animation]");
+    }
+    
+    Result.Layers = AnimLayerArray_Create(System->Storage, Desc.LayersCount);
+    Result.Blocks_ = AnimBlockArray_Create(System->Storage, Desc.BlocksCount);
+    Result.PlayableRange.Min = Desc.MinFrames;
+    Result.PlayableRange.Max = Desc.MaxFrames;
+    return Result;
+}
+
 internal handle
 Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, animation_pattern_handle AnimationProcHandle, u32 LayerIndex)
 {
