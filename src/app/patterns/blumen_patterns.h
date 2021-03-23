@@ -1187,6 +1187,41 @@ internal void
 Pattern_WavyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     DEBUG_TRACK_FUNCTION;
+    
+    gs_random_series Random = InitRandomSeries(24601);
+    
+    r32 LightSpeedMin = 1;
+    r32 LightSpeedMax = 5;
+    
+    r32 LightHueMin = (ModR32(Time, 10) / 10) * 360;
+    r32 LightHueMax = ModR32((LightHueMin + 45), 360) ;
+    
+    s32 LightTailLength = 10;
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        
+        r32 LightHue = LerpR32(NextRandomUnilateral(&Random),
+                               LightHueMin,
+                               LightHueMax);
+        r32 LightStartHeight = NextRandomUnilateral(&Random);
+        r32 LightSpeed = LerpR32(NextRandomUnilateral(&Random), 
+                                 LightSpeedMin,
+                                 LightSpeedMax);
+        r32 LightCurrentHeight = LightStartHeight + (LightSpeed * Time * 0.1f);
+        s32 StartIndex = (s32)(LightCurrentHeight * (r32)Strip.LedCount) % Strip.LedCount;
+        
+        for (s32 i = 0; i < LightTailLength; i++)
+        {
+            s32 StripLedIndex = StartIndex + i;
+            if (StripLedIndex >= (s32)Strip.LedCount) continue;
+            
+            u32 LedIndex = Strip.LedLUT[StripLedIndex];
+            r32 PctTail = ((r32)i / (r32)LightTailLength);
+            v4 C = HSVToRGB(v4{LightHue, 1, 1, 1}) * PctTail;
+            Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+        }
+    }
 }
 
 #define BLUMEN_PATTERNS_H

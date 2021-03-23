@@ -123,37 +123,45 @@ AnimationSystem_BeginRenderBlockToLedBuffer(animation_system* System, animation_
     
     animation_pattern Pattern = Patterns_GetPattern(Patterns, Block.AnimationProcHandle);
     
-#if MULTITHREAD_PATTERN_RENDERING
-    u32 JobsCount = 4;
-    u32 LedsPerJob = Buffer->LedCount / JobsCount;
-    
-    for (u32 i = 0; i < JobsCount; i++)
+    if (System->Multithreaded && Pattern.Multithreaded)
     {
-        gs_data Data = PushSizeToData(Context.ThreadContext.Transient, sizeof(render_anim_to_led_buffer_job_data));
-        render_anim_to_led_buffer_job_data* JobData = (render_anim_to_led_buffer_job_data*)Data.Memory;
-        JobData->Pattern = Pattern;
-        JobData->Buffer = *Buffer;
-        JobData->BufferRange.First = LedsPerJob * i;
-        JobData->BufferRange.OnePastLast = LedsPerJob * (i + 1);
-        JobData->PatternArgs = PatternArgs;
-        JobData->SecondsIntoBlock = SecondsIntoBlock;
+        u32 JobsCount = 4;
+        u32 LedsPerJob = Buffer->LedCount / JobsCount;
         
-        Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue,
-                                                  (thread_proc*)AnimationSystem_RenderAnimationToLedBufferJob,
-                                                  Data,
-                                                  ConstString("Render Pattern To Buffer"));
+        for (u32 i = 0; i < JobsCount; i++)
+        {
+            gs_data Data = PushSizeToData(Context.ThreadContext.Transient, sizeof(render_anim_to_led_buffer_job_data));
+            render_anim_to_led_buffer_job_data* JobData = (render_anim_to_led_buffer_job_data*)Data.Memory;
+            JobData->Pattern = Pattern;
+            JobData->Buffer = *Buffer;
+            JobData->BufferRange.First = LedsPerJob * i;
+            JobData->BufferRange.OnePastLast = LedsPerJob * (i + 1);
+            JobData->PatternArgs = PatternArgs;
+            JobData->SecondsIntoBlock = SecondsIntoBlock;
+            
+            Context.GeneralWorkQueue->PushWorkOnQueue(Context.GeneralWorkQueue,
+                                                      (thread_proc*)AnimationSystem_RenderAnimationToLedBufferJob,
+                                                      Data,
+                                                      ConstString("Render Pattern To Buffer"));
+        }
     }
-#else
-    Pattern.Proc(Buffer, PatternArgs.Assembly, SecondsIntoBlock, PatternArgs.Transient, PatternArgs.UserData);
-#endif
+    else
+    {
+        led_buffer_range Range = {};
+        Range.First = 0;
+        Range.OnePastLast = Buffer->LedCount;
+        
+        Pattern.Proc(Buffer, Range, PatternArgs.Assembly, SecondsIntoBlock, PatternArgs.Transient, PatternArgs.UserData);
+    }
 }
 
 internal void
-AnimationSystem_EndRenderBlockToLedBuffer (context Context)
+AnimationSystem_EndRenderBlockToLedBuffer (animation_system* System, context Context)
 {
-#if MULTITHREAD_PATTERN_RENDERING
-    Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
-#endif
+    if (System->Multithreaded)
+    {
+        Context.GeneralWorkQueue->CompleteQueueWork(Context.GeneralWorkQueue, Context.ThreadContext);
+    }
 }
 
 // NOTE(pjs): This mirrors animation_layer_frame to account
@@ -212,7 +220,7 @@ RenderAnimationToLedBuffer (animation_system* System,
             AnimationSystem_BeginRenderBlockToLedBuffer(System, Block, &TempBuffer,  Patterns, PatternArgs, Context);
         }
         
-        AnimationSystem_EndRenderBlockToLedBuffer(Context);
+        AnimationSystem_EndRenderBlockToLedBuffer(System, Context);
     }
     
     // Blend together any layers that have a hot and next hot buffer

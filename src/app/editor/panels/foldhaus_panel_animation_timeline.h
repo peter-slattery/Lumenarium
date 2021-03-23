@@ -15,6 +15,8 @@ struct animation_timeline_state
     handle SelectedBlockHandle;
     animation_handle EditingAnimationHandle;
     u32 SelectedAnimationLayer;
+    
+    animation_handle NextActiveAnim;
 };
 
 inline u32
@@ -504,13 +506,10 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
     
     if (FileInfo.Path.Length > 0)
     {
-        gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FileInfo.Path);
-        
-        gs_string AnimFileString = MakeString((char*)AnimFile.Data.Memory, AnimFile.Data.Size);
-        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, State->Patterns);
-        NewAnim.FileInfo = AnimFile.FileInfo;
-        
-        animation_handle NewAnimHandle = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
+        animation_handle NewAnimHandle = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                               State->Patterns,
+                                                                               Context, 
+                                                                               FileInfo.Path);
         State->AnimationSystem.ActiveFadeGroup.From = NewAnimHandle;
     }
 }
@@ -762,11 +761,9 @@ PANEL_MODAL_OVERRIDE_CALLBACK(AnimInfoView_SaveAnimFileCallback)
 }
 
 internal void
-AnimationTimeline_SetActiveAnimation (animation_handle Handle, animation_timeline_state* TimelineState,
-                                      animation_system* System)
+AnimationTimeline_SetActiveAnimation (animation_handle Handle, animation_timeline_state* TimelineState)
 {
-    System->ActiveFadeGroup.From = Handle;
-    TimelineState->EditingAnimationHandle = Handle;
+    TimelineState->NextActiveAnim = Handle;
 }
 
 internal void
@@ -775,7 +772,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
     animation_system* AnimSystem = &State->AnimationSystem;
     
     ui_interface* Interface = &State->Interface;
-    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"));
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"), ActiveAnim->Name);
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBG);
     
@@ -796,7 +793,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             {
                 animation_handle NewHandle = {};
                 NewHandle.Index = i;
-                AnimationTimeline_SetActiveAnimation(NewHandle, TimelineState, AnimSystem);
+                AnimationTimeline_SetActiveAnimation(NewHandle, TimelineState);
             }
         }
     }
@@ -899,7 +896,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             AnimationTimeline_AddAnimationBlockCommand(TimelineState, State, Context);
         }
     }
-    ui_PopLayout(Interface, MakeString("AnimInfo Layout"));
+    ui_PopLayout(Interface, MakeString("AnimInfo Layout"), ActiveAnim->Name);
 }
 
 internal void
@@ -917,11 +914,12 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     
     animation* ActiveAnim = 0;
     animation_handle Handle = State->AnimationSystem.ActiveFadeGroup.From;
-    TimelineState->EditingAnimationHandle = Handle;
     if (IsValid(Handle))
     {
         animation_array Animations = State->AnimationSystem.Animations;
         ActiveAnim = AnimationArray_GetSafe(Animations, Handle);
+        TimelineState->EditingAnimationHandle = Handle;
+        TimelineState->NextActiveAnim = Handle;
     }
     
     ui_FillRect(&State->Interface, PanelBounds, v4{.1f,.1f,.1f,1.f});
@@ -944,6 +942,13 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     LayerList_Render(TimelineState, ActiveAnim, LayersBounds, Panel, RenderBuffer, State, Context);
     TimeRange_Render(TimelineState, ActiveAnim, TimeRangeBounds, RenderBuffer, State, Context);
     AnimInfoView_Render(TimelineState, ActiveAnim, InfoBounds, Panel, RenderBuffer, State, Context);
+    
+    if (!AnimHandlesAreEqual(TimelineState->NextActiveAnim,
+                             Handle))
+    {
+        State->AnimationSystem.ActiveFadeGroup.From = TimelineState->NextActiveAnim;
+        TimelineState->EditingAnimationHandle = TimelineState->NextActiveAnim;
+    }
 }
 
 #define FOLDHAUS_PANEL_ANIMATION_TIMELINE_H

@@ -752,6 +752,17 @@ ui_PushOverlayLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction 
     return Result;
 }
 
+static gs_string
+ui_PushLayoutCategoryName(ui_interface* Interface, gs_string Category, gs_string Identifier)
+{
+    gs_string Result = PushStringF(Interface->PerFrameMemory, 
+                                   Category.Length + Identifier.Length,
+                                   "%S%S",
+                                   Category.ConstString,
+                                   Identifier.ConstString);
+    return Result;
+}
+
 static ui_widget*
 ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Name)
 {
@@ -769,6 +780,12 @@ ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir
     
     Interface->ActiveLayout = Result;
     return Result;
+}
+static ui_widget*
+ui_PushLayout(ui_interface* Interface, rect2 Bounds, ui_layout_direction FillDir, gs_string Category, gs_string Identifier)
+{
+    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Identifier);
+    return ui_PushLayout(Interface, Bounds, FillDir, Name);
 }
 
 static ui_widget*
@@ -850,6 +867,12 @@ ui_PopLayout(ui_interface* Interface, gs_string LayoutName)
     {
         ui_CommitBounds(Interface->ActiveLayout, Layout->Bounds);
     }
+}
+static void
+ui_PopLayout(ui_interface* Interface, gs_string Category, gs_string Identifier)
+{
+    gs_string Name = ui_PushLayoutCategoryName(Interface, Category, Identifier);
+    ui_PopLayout(Interface, Name);
 }
 
 static ui_widget*

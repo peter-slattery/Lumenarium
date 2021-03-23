@@ -182,9 +182,23 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
             }
         }
     }
-    
     return Result;
 }
+internal animation
+AnimParser_Parse(gs_data File, gs_memory_arena* Arena, animation_pattern_array AnimPatterns)
+{
+    gs_string FileString = MakeString((char*)File.Memory, File.Size);
+    return AnimParser_Parse(FileString, Arena, AnimPatterns);
+}
 
+internal animation_handle
+AnimationSystem_LoadAnimationFromFile(animation_system* System, animation_pattern_array AnimPatterns, context Context, gs_const_string FilePath)
+{
+    gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FilePath);
+    animation NewAnim = AnimParser_Parse(AnimFile.Data, System->Storage, AnimPatterns);
+    NewAnim.FileInfo = AnimFile.FileInfo;
+    animation_handle NewAnimHandle = AnimationArray_Push(&System->Animations, NewAnim);
+    return NewAnimHandle;
+}
 #define FOLDHAUS_ANIMATION_SERIALIZER_CPP
 #endif // FOLDHAUS_ANIMATION_SERIALIZER_CPP

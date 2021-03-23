@@ -43,6 +43,9 @@ MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
     Assert(Msg.Size <= DEFAULT_QUEUE_ENTRY_SIZE);
     
     u32 Index = Queue->WriteHead;
+    Assert(Index >= 0 && 
+           Index < BLUMEN_MESSAGE_QUEUE_COUNT);
+    
     gs_data* Dest = Queue->Buffers + Index;
     CopyMemoryTo(Msg.Memory, Dest->Memory, Msg.Size);
     Dest->Size = Msg.Size;
@@ -50,7 +53,7 @@ MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
     // NOTE(pjs): We increment write head at the end of writing so that
     // a reader thread doesn't pull the message off before we've finished
     // filling it out
-    Queue->WriteHead++;
+    Queue->WriteHead = (Queue->WriteHead + 1) % BLUMEN_MESSAGE_QUEUE_COUNT;
     return true;
 }
 
@@ -116,28 +119,28 @@ BlumenLumen_LoadPatterns(app_state* State)
     }
     
     Patterns->Count = 0;
-    Patterns_PushPattern(Patterns, TestPatternOne);
-    Patterns_PushPattern(Patterns, TestPatternTwo);
-    Patterns_PushPattern(Patterns, TestPatternThree);
-    Patterns_PushPattern(Patterns, Pattern_AllGreen);
-    Patterns_PushPattern(Patterns, Pattern_HueShift);
-    Patterns_PushPattern(Patterns, Pattern_HueFade);
-    Patterns_PushPattern(Patterns, Pattern_Spots);
-    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
-    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
-    Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
-    Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
-    Patterns_PushPattern(Patterns, Pattern_Blue);
-    Patterns_PushPattern(Patterns, Pattern_Green);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColors);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
-    Patterns_PushPattern(Patterns, Pattern_BasicFlowers);
+    Patterns_PushPattern(Patterns, TestPatternOne, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, TestPatternTwo, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, TestPatternThree, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_AllGreen, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_HueShift, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_HueFade, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Spots, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_GrowAndFade, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_ColorToWhite, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Blue, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Green, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColors, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_BasicFlowers, PATTERN_MULTITHREADED);
     // 15
-    Patterns_PushPattern(Patterns, Pattern_Wavy);
-    Patterns_PushPattern(Patterns, Pattern_Patchy);
-    Patterns_PushPattern(Patterns, Pattern_Leafy);
-    Patterns_PushPattern(Patterns, Pattern_LeafyPatchy);
-    Patterns_PushPattern(Patterns, Pattern_WavyPatchy);
+    Patterns_PushPattern(Patterns, Pattern_Wavy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Patchy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Leafy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_LeafyPatchy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_WavyPatchy, PATTERN_SINGLETHREADED);
 }
 
 internal v4
@@ -183,6 +186,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
     
+#if 0
     { // Animation PLAYGROUND
         animation Anim0 = {0};
         Anim0.Name = PushStringF(&State->Permanent, 256, "test_anim_zero");
@@ -216,13 +220,19 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
         
-        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(16), 0);
+        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(20), 0);
         
         BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
         State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
-        State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
+#endif
+    animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                              State->Patterns,
+                                                                              Context,
+                                                                              ConstString("data/demo_patterns.foldanim"));
+    State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
+    State->AnimationSystem.TimelineShouldAdvance = true;
     
     for (u32 i = 0; i < FLOWER_COLORS_COUNT; i++)
     {
