@@ -132,7 +132,7 @@ Win32Socket_ConnectToAddress(char* Address, char* DefaultPort)
 }
 
 internal bool
-Win32ConnectSocket(platform_socket* Socket)
+Win32ConnectSocket(platform_socket_manager* Manager, platform_socket* Socket)
 {
     bool Result = false;
     
@@ -156,7 +156,7 @@ Win32ConnectSocket(platform_socket* Socket)
             
             // If iMode == 0, blocking is enabled
             // if iMode != 0, non-blocking mode is enabled
-            u_long iMode = 1;
+            u_long iMode = 0;
             Error = ioctlsocket(SocketHandle, FIONBIO, &iMode);
             if (Error != NO_ERROR)
             {
@@ -218,7 +218,7 @@ Win32ConnectSocket(platform_socket* Socket)
 }
 
 internal bool
-Win32CloseSocket(platform_socket* Socket)
+Win32CloseSocket(platform_socket_manager* Manager, platform_socket* Socket)
 {
     SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
     closesocket(*Win32Sock);
@@ -228,7 +228,7 @@ Win32CloseSocket(platform_socket* Socket)
 }
 
 internal bool
-Win32SocketQueryStatus(platform_socket* Socket)
+Win32SocketQueryStatus(platform_socket_manager* Manager, platform_socket* Socket)
 {
     SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
     bool Result = (*Win32Sock != INVALID_SOCKET);
@@ -236,7 +236,7 @@ Win32SocketQueryStatus(platform_socket* Socket)
 }
 
 internal u32
-Win32SocketPeek(platform_socket* Socket)
+Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
 {
     u32 Result = 0;
     s32 Flags = MSG_PEEK;
@@ -257,16 +257,10 @@ Win32SocketPeek(platform_socket* Socket)
         {
             case WSAEWOULDBLOCK:
             case WSAENOTCONN:
-            {
-            }break;
-            
             case WSAECONNRESET:
-            {
-            }break;
-            
             case WSAECONNABORTED:
             {
-                Win32CloseSocket(Socket);
+                CloseSocket(Manager, Socket);
             }break;
             
             InvalidDefaultCase;
@@ -276,7 +270,7 @@ Win32SocketPeek(platform_socket* Socket)
 }
 
 internal gs_data
-Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
+Win32SocketReceive(platform_socket_manager* Manager, platform_socket* Socket, gs_memory_arena* Storage)
 {
     // TODO(pjs): Test this first code path when you have data running - it should
     // get the actual size of the data packet being sent
@@ -309,7 +303,7 @@ Win32SocketReceive(platform_socket* Socket, gs_memory_arena* Storage)
 
 
 internal s32
-Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
+Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
 {
     SOCKET* Win32Sock = (SOCKET*)Socket->PlatformHandle;
     
@@ -327,26 +321,23 @@ Win32SocketSend(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s3
         switch (Error)
         {
             case WSAECONNABORTED:
-            {
-            }break;
-            
             case WSAENETUNREACH:
-            {
-            }break;
-            
             case WSAECONNRESET:
-            {
-                
-            }break;
-            
             case WSAENOTCONN:
             {
+                if (CloseSocket(Manager, Socket))
+                {
+                    Error = 0;
+                }
             }break;
             
             InvalidDefaultCase;
         }
         
-        OutputDebugString("Error\n");
+        if (Error) 
+        {
+            OutputDebugString("Error\n");
+        }
     }
     else
     {

@@ -725,26 +725,29 @@ AnimationSystem_Update(animation_system* System, r32 DeltaTime)
     AnimationFadeGroup_Update(&System->ActiveFadeGroup, DeltaTime);
     
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
-    // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-    // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-    System->CurrentFrame += 1;
-    
-    // Loop back to the beginning
-    if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
+    if (ActiveAnim)
     {
-        switch (System->RepeatMode)
+        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
+        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
+        System->CurrentFrame += 1;
+        
+        // Loop back to the beginning
+        if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
         {
-            case AnimationRepeat_Single:
+            switch (System->RepeatMode)
             {
-                System->CurrentFrame = 0;
-            }break;
-            
-            case AnimationRepeat_Loop:
-            {
-                // TODO(pjs):
-            }break;
-            
-            InvalidDefaultCase;
+                case AnimationRepeat_Single:
+                {
+                    System->CurrentFrame = 0;
+                }break;
+                
+                case AnimationRepeat_Loop:
+                {
+                    // TODO(pjs):
+                }break;
+                
+                InvalidDefaultCase;
+            }
         }
     }
 }

@@ -172,6 +172,7 @@ Win32SerialPort_Open(char* PortName, gs_memory_arena* Transient)
             s32 Error = GetLastError();
             switch (Error)
             {
+                case ERROR_INVALID_FUNCTION:
                 case ERROR_NO_SUCH_DEVICE:
                 case ERROR_FILE_NOT_FOUND:
                 {

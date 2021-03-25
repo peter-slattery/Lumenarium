@@ -33,6 +33,16 @@ US_CustomUpdate(user_space_desc* Desc, app_state* State, context* Context)
 }
 
 internal void
+US_CustomDebugUI(user_space_desc* Desc, panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer,
+                 app_state* State, context Context)
+{
+    if (Desc->CustomDebugUI)
+    {
+        Desc->CustomDebugUI(Desc->UserData, Panel, PanelBounds, RenderBuffer, State, Context);
+    }
+}
+
+internal void
 US_CustomCleanup(user_space_desc* Desc, app_state* State, context Context)
 {
     if (Desc->CustomCleanup)

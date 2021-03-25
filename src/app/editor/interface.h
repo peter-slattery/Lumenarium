@@ -1444,6 +1444,22 @@ ui_Toggle(ui_interface* Interface, gs_string Text, bool Value)
     return Result;
 }
 
+internal bool
+ui_ToggleText(ui_interface* Interface, gs_string Text, bool Value)
+{
+    ui_widget* Widget = ui_CreateWidget(Interface, Text);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_Clickable);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawString);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawBackground);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawHorizontalFill);
+    ui_WidgetSetFlag(Widget, UIWidgetFlag_DrawOutline);
+    ui_eval_result Eval = ui_EvaluateWidget(Interface, Widget);
+    
+    bool Result = Eval.Clicked ? !Value : Value;
+    Widget->FillPercent = Result ? 1.0f : 0.0f;
+    return Result;
+}
+
 internal void
 ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 ElementCount)
 {

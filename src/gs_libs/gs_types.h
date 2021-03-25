@@ -1158,31 +1158,34 @@ typedef struct platform_socket_handle_
 
 typedef struct platform_socket
 {
+    platform_socket_handle_ Handle;
     char Addr[128];
     char Port[32];
     u8* PlatformHandle;
 } platform_socket;
 
-#define CONNECT_SOCKET(name) bool name(platform_socket* Socket)
+typedef struct platform_socket_manager platform_socket_manager;
+
+#define CONNECT_SOCKET(name) bool name(platform_socket_manager* Manager, platform_socket* Socket)
 typedef CONNECT_SOCKET(platform_connect_socket);
 
-#define CLOSE_SOCKET(name) bool name(platform_socket* Socket)
+#define CLOSE_SOCKET(name) bool name(platform_socket_manager* Manager, platform_socket* Socket)
 typedef CLOSE_SOCKET(platform_close_socket);
 
-#define SOCKET_QUERY_STATUS(name) bool name(platform_socket* Socket)
+#define SOCKET_QUERY_STATUS(name) bool name(platform_socket_manager* Manager, platform_socket* Socket)
 typedef SOCKET_QUERY_STATUS(platform_socket_query_status);
 
-#define SOCKET_PEEK(name) u32 name(platform_socket* Socket)
+#define SOCKET_PEEK(name) u32 name(platform_socket_manager* Manager, platform_socket* Socket)
 typedef SOCKET_PEEK(platform_socket_peek);
 
 // TODO(pjs): allow for a size parameter that can be zero
 // if provided, that is how big the message it expects to be
 // if it equals zero, the proc will peek at the message first to determine
 //    the needed size
-#define SOCKET_RECEIVE(name) gs_data name(platform_socket* Socket, gs_memory_arena* Storage)
+#define SOCKET_RECEIVE(name) gs_data name(platform_socket_manager* Manager, platform_socket* Socket, gs_memory_arena* Storage)
 typedef SOCKET_RECEIVE(platform_socket_receive);
 
-#define SOCKET_SEND(name) s32 name(platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
+#define SOCKET_SEND(name) s32 name(platform_socket_manager* Manager, platform_socket* Socket, u32 Address, u32 Port, gs_data Data, s32 Flags)
 typedef SOCKET_SEND(platform_socket_send);
 
 #define SOCKETS_COUNT_MAX 32
