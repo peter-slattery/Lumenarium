@@ -183,10 +183,19 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
 #endif
     
+#if 0
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
+#else
+    gs_const_string SculpturePath0 = ConstString("data/ss_blumen_one.fold");
+    gs_const_string SculpturePath1 = ConstString("data/ss_blumen_two.fold");
+    gs_const_string SculpturePath2 = ConstString("data/ss_blumen_three.fold");
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath0, State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath1, State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath2, State->GlobalLog);
+#endif
     
-#if 0
+#if 1
     { // Animation PLAYGROUND
         animation_desc Desc = {};
         Desc.NameSize = 256;
@@ -218,20 +227,25 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         
         State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
     } // End Animation Playground
-#endif
+#else
     animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
                                                                               State->Patterns,
                                                                               Context,
                                                                               ConstString("data/demo_patterns.foldanim"));
-    State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
-    State->AnimationSystem.TimelineShouldAdvance = true;
     
+    State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
+#endif
+    State->AnimationSystem.TimelineShouldAdvance = true;
     for (u32 i = 0; i < FLOWER_COLORS_COUNT; i++)
     {
         //FlowerAColors[i] = TEMP_Saturate(FlowerAColors[i]);
         //FlowerBColors[i] = TEMP_Saturate(FlowerBColors[i]);
         //FlowerCColors[i] = TEMP_Saturate(FlowerCColors[i]);
     }
+    
+    BLState->AssemblyColors[0] = RedV4;
+    BLState->AssemblyColors[1] = GreenV4;
+    BLState->AssemblyColors[2] = BlueV4;
     
     return Result;
 }

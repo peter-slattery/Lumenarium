@@ -143,6 +143,7 @@ struct assembly
 {
     gs_memory_arena Arena;
     
+    u32 AssemblyIndex;
     gs_string Name;
     gs_string FilePath;
     

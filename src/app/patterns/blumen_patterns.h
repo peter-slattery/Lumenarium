@@ -577,7 +577,6 @@ v4 RGBToHSV(v4 In)
     r32 Min = Min(In.r, Min(In.g, In.b));
     r32 Max = Max(In.r, Max(In.g, In.b));
     
-    
     r32 V = Max;
     r32 Delta = Max - Min;
     r32 S = 0;
@@ -601,9 +600,6 @@ v4 RGBToHSV(v4 In)
         H *= 60;                // degrees
         if( H < 0 )
             H += 360;
-        Assert(H);
-        //if ( isNaN(h) )
-        //H = 0;
         Result = v4{H, S, V, 1};
     }
     else
@@ -1187,15 +1183,21 @@ internal void
 Pattern_WavyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     DEBUG_TRACK_FUNCTION;
-    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     gs_random_series Random = InitRandomSeries(24601);
     
     r32 LightSpeedMin = 1;
     r32 LightSpeedMax = 5;
     
+#if 0
     r32 LightHueMin = (ModR32(Time, 10) / 10) * 360;
     r32 LightHueMax = ModR32((LightHueMin + 45), 360) ;
-    
+#else
+    v4 CenterColor = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    r32 CenterHue = RGBToHSV(CenterColor).x;
+    r32 LightHueMin = ModR32(CenterHue + 30, 360);;
+    r32 LightHueMax = ModR32(CenterHue - 30, 360) ;
+#endif
     s32 LightTailLength = 10;
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {

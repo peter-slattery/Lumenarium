@@ -175,13 +175,27 @@ int main(int ArgCount, char** Args)
 {
     gs_thread_context Ctx = Win32CreateThreadContext();
     
-    gs_string OutputBuffer = PushString(Ctx.Transient, MB(4));
+    gs_string OutputBuffer0 = PushString(Ctx.Transient, MB(4));
+    gs_string OutputBuffer1 = PushString(Ctx.Transient, MB(4));
+    gs_string OutputBuffer2 = PushString(Ctx.Transient, MB(4));
     
-    WriteAssemblyUARTOpen(&OutputBuffer,
-                          "Blumen Lumen - Silver Spring",
+    WriteAssemblyUARTOpen(&OutputBuffer0,
+                          "Blumen Lumen - Silver Spring - 00",
                           100,
                           v3{0, 0, 0},
-                          63,
+                          21,
+                          "");
+    WriteAssemblyUARTOpen(&OutputBuffer1,
+                          "Blumen Lumen - Silver Spring - 01",
+                          100,
+                          v3{0, 0, 0},
+                          21,
+                          "");
+    WriteAssemblyUARTOpen(&OutputBuffer2,
+                          "Blumen Lumen - Silver Spring - 02",
+                          100,
+                          v3{0, 0, 0},
+                          21,
                           "");
     
     u32 StripCount = 0;
@@ -196,7 +210,7 @@ int main(int ArgCount, char** Args)
     F0.StemChannels = StemChannels;
     F0.BloomOuterChannels = BloomOuterChannels;
     F0.BloomInnerChannels = BloomInnerChannels;
-    StripCount += BuildFlower(&OutputBuffer, F0);
+    StripCount += BuildFlower(&OutputBuffer0, F0);
     
     flower_desc F1 = {};
     F1.Pos = v3{0, 0, 0};
@@ -205,7 +219,7 @@ int main(int ArgCount, char** Args)
     F1.StemChannels = StemChannels;
     F1.BloomInnerChannels = BloomInnerChannels;
     F1.BloomOuterChannels = BloomOuterChannels;
-    StripCount += BuildFlower(&OutputBuffer, F1);
+    StripCount += BuildFlower(&OutputBuffer1, F1);
     
     flower_desc F2 = {};
     F2.Pos = v3{1, 0, 0};
@@ -214,9 +228,13 @@ int main(int ArgCount, char** Args)
     F2.StemChannels = StemChannels;
     F2.BloomInnerChannels = BloomInnerChannels;
     F2.BloomOuterChannels = BloomOuterChannels;
-    StripCount += BuildFlower(&OutputBuffer, F2);
+    StripCount += BuildFlower(&OutputBuffer2, F2);
     
-    printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
+    WriteEntireFile(Ctx.FileHandler, ConstString("data/ss_blumen_one.fold"), StringToData(OutputBuffer0));
+    WriteEntireFile(Ctx.FileHandler, ConstString("data/ss_blumen_two.fold"), StringToData(OutputBuffer1));
+    WriteEntireFile(Ctx.FileHandler, ConstString("data/ss_blumen_three.fold"), StringToData(OutputBuffer2));
+    
+    //printf("%.*s\n", (u32)OutputBuffer.Length, OutputBuffer.Str);
     //printf("%d\n", StripCount);
     
     

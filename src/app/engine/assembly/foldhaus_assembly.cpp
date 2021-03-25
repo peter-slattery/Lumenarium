@@ -26,6 +26,7 @@ AssemblyArray_Push(assembly_array* Array, assembly Assembly)
     Assert(Array->Count < Array->CountMax);
     u32 Index = Array->Count++;
     Array->Values[Index] = Assembly;
+    Array->Values[Index].AssemblyIndex = Index;
     return Index;
 }
 

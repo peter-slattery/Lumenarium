@@ -169,6 +169,8 @@ struct blumen_lumen_state
     system_time LastStatusUpdateTime;
     
     system_time LastSendTime;
+    
+    v4 AssemblyColors[3];
 };
 
 
