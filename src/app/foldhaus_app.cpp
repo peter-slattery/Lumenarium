@@ -95,6 +95,21 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->RunEditor = true;
 }
 
+internal void
+BuildAssemblyData (app_state* State, context Context, addressed_data_buffer_list* OutputData)
+{
+    
+#define SEND_DATA
+#ifdef SEND_DATA
+    // NOTE(pjs): Building data buffers to be sent out to the sculpture
+    // This array is used on the platform side to actually send the information
+    assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
+    assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
+    SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
+    UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
+#endif
+}
+
 UPDATE_AND_RENDER(UpdateAndRender)
 {
     DEBUG_TRACK_FUNCTION;
@@ -119,6 +134,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            &State->LedSystem,
                                            State->Patterns,
                                            State->Transient,
+                                           *Context,
                                            State->UserSpaceDesc.UserData.Memory);
     }
     
@@ -133,20 +149,21 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Editor_Render(State, Context, RenderBuffer);
     }
     
-#define SEND_DATA
-#ifdef SEND_DATA
-    // NOTE(pjs): Building data buffers to be sent out to the sculpture
-    // This array is used on the platform side to actually send the information
-    assembly_array SACNAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaSACN, State->Transient);
-    assembly_array UARTAssemblies = AssemblyArray_Filter(State->Assemblies, AssemblyFilter_OutputsViaUART, State->Transient);
-    SACN_BuildOutputData(&State->SACN, OutputData, SACNAssemblies, &State->LedSystem);
-    UART_BuildOutputData(OutputData, UARTAssemblies, &State->LedSystem, State->Transient);
-#endif
+    BuildAssemblyData(State, *Context, OutputData);
 }
 
 CLEANUP_APPLICATION(CleanupApplication)
 {
     app_state* State = (app_state*)Context.MemoryBase;
+    
+    for (u32 i = 0; i < State->Assemblies.Count; i++)
+    {
+        assembly Assembly = State->Assemblies.Values[i];
+        led_buffer LedBuffer = State->LedSystem.Buffers[Assembly.LedBufferIndex];
+        AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, pixel{0, 0, 0});
+    }
+    BuildAssemblyData(State, Context, OutputData);
+    
     US_CustomCleanup(&State->UserSpaceDesc, State, Context);
     SACN_Cleanup(&State->SACN, Context);
 }

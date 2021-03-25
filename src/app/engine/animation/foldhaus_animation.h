@@ -5,7 +5,7 @@
 //
 #ifndef FOLDHAUS_ANIMATION
 
-#define ANIMATION_PROC(name) void name(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+#define ANIMATION_PROC(name) void name(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 typedef ANIMATION_PROC(animation_proc);
 
 struct frame_range
@@ -164,6 +164,8 @@ struct animation_system
     r32 SecondsPerFrame;
     b32 TimelineShouldAdvance;
     
+    // Settings
+    bool Multithreaded;
 };
 
 // NOTE(pjs): A Pattern is a named procedure which can be used as
@@ -174,6 +176,7 @@ struct animation_pattern
     char* Name;
     s32 NameLength;
     animation_proc* Proc;
+    bool Multithreaded;
 };
 
 struct animation_pattern_array
@@ -250,9 +253,14 @@ Patterns_Create(gs_memory_arena* Arena, s32 CountMax)
     return Result;
 }
 
-#define Patterns_PushPattern(array, proc) Patterns_PushPattern_((array), (proc), Stringify(proc), sizeof(Stringify(proc)) - 1)
+#define PATTERN_MULTITHREADED true
+#define PATTERN_SINGLETHREADED false
+
+#define Patterns_PushPattern(array, proc, multithread) \
+Patterns_PushPattern_((array), (proc), Stringify(proc), sizeof(Stringify(proc)) - 1, (multithread))
+
 internal void
-Patterns_PushPattern_(animation_pattern_array* Array, animation_proc* Proc, char* Name, u32 NameLength)
+Patterns_PushPattern_(animation_pattern_array* Array, animation_proc* Proc, char* Name, u32 NameLength, bool Multithreaded)
 {
     Assert(Array->Count < Array->CountMax);
     
@@ -260,6 +268,7 @@ Patterns_PushPattern_(animation_pattern_array* Array, animation_proc* Proc, char
     Pattern.Name = Name;
     Pattern.NameLength = NameLength;
     Pattern.Proc = Proc;
+    Pattern.Multithreaded = Multithreaded;
     
     Array->Values[Array->Count++] = Pattern;
 }
@@ -409,6 +418,38 @@ AnimationArray_GetSafe(animation_array Array, animation_handle Handle)
 //////////////////////////
 //
 // Animation
+
+typedef struct animation_desc
+{
+    u32 NameSize;
+    char* Name;
+    
+    u32 LayersCount;
+    u32 BlocksCount;
+    
+    u32 MinFrames;
+    u32 MaxFrames;
+} animation_desc;
+
+internal animation
+Animation_Create(animation_desc Desc, animation_system* System)
+{
+    animation Result = {};
+    u32 NameLen = Desc.NameSize;
+    if (Desc.Name)
+    {
+        NameLen = Max(CStringLength(Desc.Name), NameLen);
+        Result.Name = PushStringF(System->Storage, NameLen, "%s", Desc.Name);
+    } else {
+        Result.Name = PushStringF(System->Storage, NameLen, "[New Animation]");
+    }
+    
+    Result.Layers = AnimLayerArray_Create(System->Storage, Desc.LayersCount);
+    Result.Blocks_ = AnimBlockArray_Create(System->Storage, Desc.BlocksCount);
+    Result.PlayableRange.Min = Desc.MinFrames;
+    Result.PlayableRange.Max = Desc.MaxFrames;
+    return Result;
+}
 
 internal handle
 Animation_AddBlock(animation* Animation, u32 StartFrame, s32 EndFrame, animation_pattern_handle AnimationProcHandle, u32 LayerIndex)
@@ -603,6 +644,9 @@ AnimationSystem_Init(animation_system_desc Desc)
     Clear(&Result.ActiveFadeGroup.From);
     Clear(&Result.ActiveFadeGroup.To);
     Result.ActiveFadeGroup.FadeElapsed = 0;
+    
+    // Settings
+    Result.Multithreaded = true;
     
     return Result;
 }

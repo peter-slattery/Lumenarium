@@ -232,7 +232,7 @@ struct u64_array
 # define InvalidDefaultCase default: { AssertBreak("invalid default case"); } break;
 # define StaticAssert(c) \
 enum { \
-    Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
+Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
 }
 #else
 # define Assert(c)
@@ -560,7 +560,7 @@ struct gs_const_string_array
 {
     gs_const_string* Strings;
     u64 Count;
-    u64 Used;
+    u64 CountMax;
 };
 
 struct gs_string_array
@@ -576,6 +576,27 @@ CStringLength(char* Str)
     char* At = Str;
     while (*At) { At++; }
     u64 Result = PointerDifference(At, Str);
+    return Result;
+}
+
+internal bool
+CStringsEqual(char* A, char* B)
+{
+    bool Result = true;
+    
+    char* AAt = A;
+    char* BAt = B;
+    while (AAt[0] && BAt[0])
+    {
+        if (AAt[0] != BAt[0])
+        {
+            Result = false;
+            break;
+        }
+        AAt++;
+        BAt++;
+    }
+    if (AAt[0] != 0 || BAt[0] != 0) { Result = false; }
     return Result;
 }
 

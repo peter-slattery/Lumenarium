@@ -70,20 +70,74 @@ Win32SerialPort_SetState(HANDLE ComPortHandle, u32 BaudRate, u8 ByteSize, u8 Par
     bool Success = SetCommState(ComPortHandle, &ControlSettings);
 }
 
+gs_const_string_array
+Win32SerialPorts_List(gs_memory_arena* Arena, gs_memory_arena* Transient)
+{
+    gs_const_string_array Result = {};
+    
+    DWORD SizeNeeded0 = 0;
+    DWORD CountReturned0 = 0;
+    EnumPorts(NULL, 1, 0, 0, &SizeNeeded0, &CountReturned0);
+    Assert(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+    
+    DWORD SizeNeeded1 = 0;
+    DWORD CountReturned1 = 0;
+    PORT_INFO_1* PortsArray = (PORT_INFO_1*)PushSize(Transient, SizeNeeded0);
+    if (EnumPorts(NULL, 
+                  1, 
+                  (u8*)PortsArray, 
+                  SizeNeeded0, 
+                  &SizeNeeded1, 
+                  &CountReturned1))
+    {
+        Result.CountMax = (u64)CountReturned1;
+        Result.Strings = PushArray(Arena, gs_const_string, Result.CountMax);
+        
+        for (; Result.Count < Result.CountMax; Result.Count++)
+        {
+            u64 Index = Result.Count;
+            u64 StrLen = CStringLength(PortsArray[Index].pName);
+            gs_string Str = PushString(Arena, StrLen);
+            PrintF(&Str, "%.*s", StrLen, PortsArray[Index].pName);
+            Result.Strings[Result.Count] = Str.ConstString;
+        }
+    }
+    
+    return Result;
+}
+
+bool
+Win32SerialPort_Exists(char* PortName, gs_memory_arena* Transient)
+{
+    bool Result = false;
+    if (PortName != 0)
+    {
+        gs_const_string PortIdent = ConstString(PortName);
+        u32 IdentBegin = FindLast(PortIdent, '\\') + 1;
+        PortIdent = Substring(PortIdent, IdentBegin, PortIdent.Length);
+        
+        gs_const_string_array PortsAvailable = Win32SerialPorts_List(Transient, Transient);
+        
+        for (u64 i = 0; i < PortsAvailable.Count; i++)
+        {
+            gs_const_string AvailablePortName = PortsAvailable.Strings[i];
+            if (StringsEqualUpToLength(AvailablePortName, PortIdent, PortIdent.Length))
+            {
+                Result = true;
+                break;
+            }
+        }
+    }
+    return Result;
+}
+
 HANDLE
-Win32SerialPort_Open(char* PortName)
+Win32SerialPort_Open(char* PortName, gs_memory_arena* Transient)
 {
     DEBUG_TRACK_FUNCTION;
     HANDLE ComPortHandle = INVALID_HANDLE_VALUE;;
     
-    WIN32_FIND_DATA FindData;
-    HANDLE ComPortExists = FindFirstFile(PortName, &FindData);
-    
-    // TODO(PS): we aren't sure yet if FindFirstFile will actually work
-    // for the purpose of checking to see if a ComPort actually exists.
-    // When you go to Foldspace next time, make sure we are still connecting 
-    // the sculpture
-    if (ComPortExists != INVALID_HANDLE_VALUE)
+    if (Win32SerialPort_Exists(PortName, Transient))
     {
         
         ComPortHandle = CreateFile(PortName,
@@ -289,7 +343,7 @@ Win32SerialArray_Get(gs_const_string PortName)
 }
 
 HANDLE
-Win32SerialArray_GetOrOpen(gs_const_string PortName, u32 BaudRate, u8 ByteSize, u8 Parity, u8 StopBits)
+Win32SerialArray_GetOrOpen(gs_const_string PortName, u32 BaudRate, u8 ByteSize, u8 Parity, u8 StopBits, gs_memory_arena* Transient)
 {
     DEBUG_TRACK_FUNCTION;
     
@@ -297,7 +351,7 @@ Win32SerialArray_GetOrOpen(gs_const_string PortName, u32 BaudRate, u8 ByteSize, 
     if (PortHandle == INVALID_HANDLE_VALUE)
     {
         Assert(IsNullTerminated(PortName));
-        PortHandle = Win32SerialPort_Open(PortName.Str);
+        PortHandle = Win32SerialPort_Open(PortName.Str, Transient);
         if (PortHandle != INVALID_HANDLE_VALUE)
         {
             Win32SerialPort_SetState(PortHandle, BaudRate, ByteSize, Parity, StopBits);

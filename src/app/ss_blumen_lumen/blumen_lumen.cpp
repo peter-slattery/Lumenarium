@@ -43,6 +43,9 @@ MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
     Assert(Msg.Size <= DEFAULT_QUEUE_ENTRY_SIZE);
     
     u32 Index = Queue->WriteHead;
+    Assert(Index >= 0 && 
+           Index < BLUMEN_MESSAGE_QUEUE_COUNT);
+    
     gs_data* Dest = Queue->Buffers + Index;
     CopyMemoryTo(Msg.Memory, Dest->Memory, Msg.Size);
     Dest->Size = Msg.Size;
@@ -50,7 +53,7 @@ MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
     // NOTE(pjs): We increment write head at the end of writing so that
     // a reader thread doesn't pull the message off before we've finished
     // filling it out
-    Queue->WriteHead++;
+    Queue->WriteHead = (Queue->WriteHead + 1) % BLUMEN_MESSAGE_QUEUE_COUNT;
     return true;
 }
 
@@ -116,25 +119,28 @@ BlumenLumen_LoadPatterns(app_state* State)
     }
     
     Patterns->Count = 0;
-    Patterns_PushPattern(Patterns, TestPatternOne);
-    Patterns_PushPattern(Patterns, TestPatternTwo);
-    Patterns_PushPattern(Patterns, TestPatternThree);
-    Patterns_PushPattern(Patterns, Pattern_AllGreen);
-    Patterns_PushPattern(Patterns, Pattern_HueShift);
-    Patterns_PushPattern(Patterns, Pattern_HueFade);
-    Patterns_PushPattern(Patterns, Pattern_Spots);
-    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow);
-    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow);
-    Patterns_PushPattern(Patterns, Pattern_GrowAndFade);
-    Patterns_PushPattern(Patterns, Pattern_ColorToWhite);
-    Patterns_PushPattern(Patterns, Pattern_Blue);
-    Patterns_PushPattern(Patterns, Pattern_Green);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColors);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite);
-    Patterns_PushPattern(Patterns, Pattern_BasicFlowers);
+    Patterns_PushPattern(Patterns, TestPatternOne, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, TestPatternTwo, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, TestPatternThree, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_AllGreen, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_HueShift, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_HueFade, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Spots, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_GrowAndFade, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_ColorToWhite, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Blue, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Green, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColors, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_BasicFlowers, PATTERN_MULTITHREADED);
     // 15
-    Patterns_PushPattern(Patterns, Pattern_Patchy);
-    Patterns_PushPattern(Patterns, Pattern_Leafy);
+    Patterns_PushPattern(Patterns, Pattern_Wavy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Patchy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Leafy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_LeafyPatchy, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_WavyPatchy, PATTERN_SINGLETHREADED);
 }
 
 internal v4
@@ -180,46 +186,45 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
     LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
     
+#if 0
     { // Animation PLAYGROUND
-        animation Anim0 = {0};
-        Anim0.Name = PushStringF(&State->Permanent, 256, "test_anim_zero");
-        Anim0.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim0.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim0.PlayableRange.Min = 0;
-        Anim0.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc = {};
+        Desc.NameSize = 256;
+        Desc.LayersCount = 8;
+        Desc.BlocksCount = 8;
+        Desc.MinFrames = 0;
+        Desc.MaxFrames = SecondsToFrames(15, State->AnimationSystem);
+        
+        animation_desc Desc0 = Desc;
+        Desc.Name = "test_anim_zero";
+        animation Anim0 = Animation_Create(Desc0, &State->AnimationSystem);
         Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
         Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(15), 0);
-        
         BLState->AnimHandles[0] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
         
-        animation Anim1 = {0};
-        Anim1.Name = PushStringF(&State->Permanent, 256, "test_anim_one");
-        Anim1.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim1.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim1.PlayableRange.Min = 0;
-        Anim1.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc1 = Desc;
+        Desc1.Name = "test_anim_one";
+        animation Anim1 = Animation_Create(Desc1, &State->AnimationSystem);
         Animation_AddLayer(&Anim1, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
         Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(12), 0);
-        
         BLState->AnimHandles[1] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
         
-        animation Anim2 = {0};
-        Anim2.Name = PushStringF(&State->Permanent, 256, "i_love_you");
-        Anim2.Layers = AnimLayerArray_Create(State->AnimationSystem.Storage, 8);
-        Anim2.Blocks_ = AnimBlockArray_Create(State->AnimationSystem.Storage, 8);
-        Anim2.PlayableRange.Min = 0;
-        Anim2.PlayableRange.Max = SecondsToFrames(15, State->AnimationSystem);
+        animation_desc Desc2 = Desc;
+        Desc2.Name = "i_love_you";
+        animation Anim2 = Animation_Create(Desc2, &State->AnimationSystem);;
         Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        
-        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(16), 0);
-        
+        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(20), 0);
         BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
         
         State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
-        State->AnimationSystem.TimelineShouldAdvance = true;
     } // End Animation Playground
+#endif
+    animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                              State->Patterns,
+                                                                              Context,
+                                                                              ConstString("data/demo_patterns.foldanim"));
+    State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
+    State->AnimationSystem.TimelineShouldAdvance = true;
     
     for (u32 i = 0; i < FLOWER_COLORS_COUNT; i++)
     {
@@ -404,6 +409,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     // Dim the leds based on temp data
+#define DIM_LED_BRIGHTNESS 1
 #if DIM_LED_BRIGHTNESS
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
@@ -417,7 +423,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    // TODO(pjs): dim stem to 50%
+    // TODO(PS): This should really only happen if we think the 
+    // flower _might_ be open
+    for (u32 a = 0; a < State->Assemblies.Count; a++)
+    {
+        assembly Assembly = State->Assemblies.Values[a];
+        led_buffer Buffer = State->LedSystem.Buffers[Assembly.LedBufferIndex];
+        
+        led_strip_list TopStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("inner_bloom"), State->Transient);
+        for (u32 s = 0; s < TopStrips.Count; s++)
+        {
+            u32 SIndex = TopStrips.StripIndices[s];
+            v2_strip Strip = Assembly.Strips[SIndex];
+            for (u32 l = 0; l < Strip.LedCount; l++)
+            {
+                u32 LIndex = Strip.LedLUT[l];
+                Buffer.Colors[LIndex] = {0};
+            }
+        }
+    }
 #endif
     
     // Send Status Packet

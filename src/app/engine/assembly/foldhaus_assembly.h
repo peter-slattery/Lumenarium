@@ -32,6 +32,12 @@ struct led_buffer
     v4* Positions;
 };
 
+struct led_buffer_range
+{
+    u32 First;
+    u32 OnePastLast;
+};
+
 struct led_system
 {
     gs_allocator PlatformMemory;
@@ -184,6 +190,8 @@ LedBuffer_ClearToBlack(led_buffer* Buffer)
 internal void
 LedBuffer_Copy(led_buffer From, led_buffer* To)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     Assert(From.LedCount == To->LedCount);
     u32 LedCount = To->LedCount;
     for (u32 i = 0; i < LedCount; i++)
@@ -195,6 +203,8 @@ LedBuffer_Copy(led_buffer From, led_buffer* To)
 internal void
 LedBuffer_Blend(led_buffer A, led_buffer B, led_buffer* Dest, led_blend_proc* BlendProc, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     Assert(A.LedCount == B.LedCount);
     Assert(Dest->LedCount == A.LedCount);
     Assert(BlendProc);
@@ -211,6 +221,8 @@ LedBuffer_Blend(led_buffer A, led_buffer B, led_buffer* Dest, led_blend_proc* Bl
 internal led_buffer
 LedBuffer_CreateCopyCleared (led_buffer Buffer, gs_memory_arena* Arena)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     led_buffer Result = {};
     Result.LedCount = Buffer.LedCount;
     Result.Positions = Buffer.Positions;

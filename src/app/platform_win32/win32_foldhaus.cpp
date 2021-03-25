@@ -396,7 +396,7 @@ Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* 
         {
             if (BufferAt->ComPort.Length > 0)
             {
-                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
+                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1, Context.Transient);
                 if (SerialPort != INVALID_HANDLE_VALUE)
                 {
                     if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
@@ -524,8 +524,38 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
 }
 
 #include "../../gs_libs/gs_path.h"
-
 #include "../../gs_libs/gs_csv.h"
+
+internal void
+Win32_SendOutputData(gs_thread_context ThreadContext, addressed_data_buffer_list OutputData)
+{
+    bool Multithread = true;
+    if (Multithread)
+    {
+        for (addressed_data_buffer* At = OutputData.Root;
+             At != 0;
+             At = At->Next)
+        {
+            gs_data ProcArg = {};
+            ProcArg.Memory = (u8*)At;
+            ProcArg.Size = sizeof(addressed_data_buffer);
+            Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
+        }
+    }
+    else
+    {
+        for (addressed_data_buffer* At = OutputData.Root;
+             At != 0;
+             At = At->Next)
+        {
+            gs_data ProcArg = {};
+            ProcArg.Memory = (u8*)At;
+            ProcArg.Size = sizeof(addressed_data_buffer);
+            Win32_SendAddressedDataBuffer_Job(ThreadContext, ProcArg);
+        }
+    }
+    
+}
 
 int WINAPI
 WinMain (
@@ -707,31 +737,7 @@ WinMain (
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        bool Multithread = false;
-        if (Multithread)
-        {
-            for (addressed_data_buffer* At = OutputData.Root;
-                 At != 0;
-                 At = At->Next)
-            {
-                gs_data ProcArg = {};
-                ProcArg.Memory = (u8*)At;
-                ProcArg.Size = sizeof(addressed_data_buffer);
-                Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
-            }
-        }
-        else
-        {
-            for (addressed_data_buffer* At = OutputData.Root;
-                 At != 0;
-                 At = At->Next)
-            {
-                gs_data ProcArg = {};
-                ProcArg.Memory = (u8*)At;
-                ProcArg.Size = sizeof(addressed_data_buffer);
-                Win32_SendAddressedDataBuffer_Job(ThreadContext, ProcArg);
-            }
-        }
+        Win32_SendOutputData(ThreadContext, OutputData);
         
         RenderCommandBuffer(RenderBuffer);
         ClearRenderBuffer(&RenderBuffer);
@@ -759,7 +765,9 @@ WinMain (
         LastFrameEnd = GetWallClock();
     }
     
-    Context.CleanupApplication(Context);
+    Context.CleanupApplication(Context, &OutputData);
+    Win32_SendOutputData(ThreadContext, OutputData);
+    Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
     
     Win32WorkQueue_Cleanup();
     //Win32_TestCode_SocketReading_Cleanup();

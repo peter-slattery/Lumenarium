@@ -14,7 +14,9 @@ struct animation_timeline_state
     frame_range VisibleRange;
     handle SelectedBlockHandle;
     animation_handle EditingAnimationHandle;
-    u32 SelectedAnimationLayer;
+    s32 SelectedAnimationLayer;
+    
+    animation_handle NextActiveAnim;
 };
 
 inline u32
@@ -263,7 +265,8 @@ AnimationTimeline_AddAnimationBlockCommand(animation_timeline_state* TimelineSta
     if ((EndFrame - StartFrame) > 0)
     {
         animation_pattern_handle PatternHandle = Patterns_IndexToHandle(0);
-        u32 Layer = TimelineState->SelectedAnimationLayer;
+        s32 Layer = TimelineState->SelectedAnimationLayer;
+        Assert(Layer >= 0);
         
         handle NewBlockHandle = Animation_AddBlock(ActiveAnim, StartFrame, EndFrame, PatternHandle, Layer);
         
@@ -504,13 +507,10 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
     
     if (FileInfo.Path.Length > 0)
     {
-        gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FileInfo.Path);
-        
-        gs_string AnimFileString = MakeString((char*)AnimFile.Data.Memory, AnimFile.Data.Size);
-        animation NewAnim = AnimParser_Parse(AnimFileString, State->AnimationSystem.Storage, State->Patterns);
-        NewAnim.FileInfo = AnimFile.FileInfo;
-        
-        animation_handle NewAnimHandle = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
+        animation_handle NewAnimHandle = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                               State->Patterns,
+                                                                               Context, 
+                                                                               FileInfo.Path);
         State->AnimationSystem.ActiveFadeGroup.From = NewAnimHandle;
     }
 }
@@ -639,7 +639,7 @@ LayerList_Render(animation_timeline_state* TimelineState, animation* ActiveAnim,
     if (ActiveAnim)
     {
         v2 LayerTextPos = {};
-        for (u32 i = 0; i < ActiveAnim->Layers.Count; i++)
+        for (s32 i = 0; i < (s32)ActiveAnim->Layers.Count; i++)
         {
             anim_layer* Layer = ActiveAnim->Layers.Values + i;
             
@@ -762,11 +762,9 @@ PANEL_MODAL_OVERRIDE_CALLBACK(AnimInfoView_SaveAnimFileCallback)
 }
 
 internal void
-AnimationTimeline_SetActiveAnimation (animation_handle Handle, animation_timeline_state* TimelineState,
-                                      animation_system* System)
+AnimationTimeline_SetActiveAnimation (animation_handle Handle, animation_timeline_state* TimelineState)
 {
-    System->ActiveFadeGroup.From = Handle;
-    TimelineState->EditingAnimationHandle = Handle;
+    TimelineState->NextActiveAnim = Handle;
 }
 
 internal void
@@ -774,8 +772,9 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
 {
     animation_system* AnimSystem = &State->AnimationSystem;
     
+    animation_handle ActiveAnimHandle = State->AnimationSystem.ActiveFadeGroup.From;
     ui_interface* Interface = &State->Interface;
-    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"));
+    ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("AnimInfo Layout"), ActiveAnimHandle.Index);
     
     ui_FillRect(&State->Interface, Bounds, Interface->Style.PanelBG);
     
@@ -796,7 +795,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             {
                 animation_handle NewHandle = {};
                 NewHandle.Index = i;
-                AnimationTimeline_SetActiveAnimation(NewHandle, TimelineState, AnimSystem);
+                AnimationTimeline_SetActiveAnimation(NewHandle, TimelineState);
             }
         }
     }
@@ -806,18 +805,22 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
     {
         if (ui_Button(Interface, MakeString("New")))
         {
-            animation NewAnim = {};
-            NewAnim.Name = PushString(State->AnimationSystem.Storage, 256);
+            animation_desc Desc = {};
+            Desc.NameSize = 256;
+            Desc.LayersCount = 8;
+            Desc.BlocksCount = 8;
+            Desc.MinFrames = 0;
+            Desc.MaxFrames = SecondsToFrames(15, State->AnimationSystem);
             
+            animation NewAnim = Animation_Create(Desc, &State->AnimationSystem);
             animation_handle NewAnimHandle = AnimationArray_Push(&State->AnimationSystem.Animations, NewAnim);
-            State->AnimationSystem.ActiveFadeGroup.From = NewAnimHandle;
+            AnimationTimeline_SetActiveAnimation(NewAnimHandle, TimelineState);
         }
         if (ActiveAnim && ui_Button(Interface, MakeString("Save")))
         {
             // Save Animation File
             // TODO(pjs): If you created the animation via the "new" button, there won't be a file attached.
             // need to use the file browser to create a file
-            animation_handle ActiveAnimHandle = State->AnimationSystem.ActiveFadeGroup.From;
             animation ActiveAnimation = *AnimationArray_GetSafe(State->AnimationSystem.Animations, ActiveAnimHandle);
             
             if (!ActiveAnimation.FileInfo.Path.Str)
@@ -853,22 +856,26 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
         
         ui_Label(Interface, MakeString("Layer"));
         
-        u32 LayerIndex = TimelineState->SelectedAnimationLayer;
-        anim_layer* SelectedLayer = ActiveAnim->Layers.Values + LayerIndex;
-        
-        ui_TextEntry(Interface, MakeString("Layer Name"), &SelectedLayer->Name);
-        gs_string BlendStr = BlendModeStrings[SelectedLayer->BlendMode];
-        if (ui_BeginLabeledDropdown(Interface, MakeString("Blend Mode"), BlendStr))
+        s32 LayerIndex = TimelineState->SelectedAnimationLayer;
+        anim_layer* SelectedLayer = 0;
+        if (LayerIndex >= 0)
         {
-            for (u32 i = 0; i < BlendMode_Count; i++)
+            SelectedLayer = ActiveAnim->Layers.Values + LayerIndex;
+            
+            ui_TextEntry(Interface, MakeString("Layer Name"), &SelectedLayer->Name);
+            gs_string BlendStr = BlendModeStrings[SelectedLayer->BlendMode];
+            if (ui_BeginLabeledDropdown(Interface, MakeString("Blend Mode"), BlendStr))
             {
-                if (ui_Button(Interface, BlendModeStrings[i]))
+                for (u32 i = 0; i < BlendMode_Count; i++)
                 {
-                    SelectedLayer->BlendMode = (blend_mode)i;
+                    if (ui_Button(Interface, BlendModeStrings[i]))
+                    {
+                        SelectedLayer->BlendMode = (blend_mode)i;
+                    }
                 }
             }
+            ui_EndLabeledDropdown(Interface);
         }
-        ui_EndLabeledDropdown(Interface);
         
         ui_Label(Interface, MakeString("Pattern"));
         
@@ -917,11 +924,12 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     
     animation* ActiveAnim = 0;
     animation_handle Handle = State->AnimationSystem.ActiveFadeGroup.From;
-    TimelineState->EditingAnimationHandle = Handle;
     if (IsValid(Handle))
     {
         animation_array Animations = State->AnimationSystem.Animations;
         ActiveAnim = AnimationArray_GetSafe(Animations, Handle);
+        TimelineState->EditingAnimationHandle = Handle;
+        TimelineState->NextActiveAnim = Handle;
     }
     
     ui_FillRect(&State->Interface, PanelBounds, v4{.1f,.1f,.1f,1.f});
@@ -944,6 +952,14 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     LayerList_Render(TimelineState, ActiveAnim, LayersBounds, Panel, RenderBuffer, State, Context);
     TimeRange_Render(TimelineState, ActiveAnim, TimeRangeBounds, RenderBuffer, State, Context);
     AnimInfoView_Render(TimelineState, ActiveAnim, InfoBounds, Panel, RenderBuffer, State, Context);
+    
+    if (!AnimHandlesAreEqual(TimelineState->NextActiveAnim,
+                             Handle))
+    {
+        State->AnimationSystem.ActiveFadeGroup.From = TimelineState->NextActiveAnim;
+        TimelineState->EditingAnimationHandle = TimelineState->NextActiveAnim;
+        TimelineState->SelectedAnimationLayer = -1;
+    }
 }
 
 #define FOLDHAUS_PANEL_ANIMATION_TIMELINE_H

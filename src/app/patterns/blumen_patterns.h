@@ -411,30 +411,30 @@ GetColor(v4* Colors, u32 ColorsCount, r32 Percent)
 }
 
 internal void
-SolidColorPattern(led_buffer* Leds, pixel Color)
+SolidColorPattern(led_buffer* Leds, led_buffer_range Range, pixel Color)
 {
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         Leds->Colors[LedIndex] = Color;
     }
 }
 
 internal void
-Pattern_Blue(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Blue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     pixel Blue = pixel{0, 0, 255};
-    SolidColorPattern(Leds, Blue);
+    SolidColorPattern(Leds, Range, Blue);
 }
 
 internal void
-Pattern_Green(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Green(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     pixel Green = pixel{0, 255, 0};
-    SolidColorPattern(Leds, Green);
+    SolidColorPattern(Leds, Range, Green);
 }
 
 internal void
-Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_FlowerColors(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 CycleTime = 10;
     r32 CyclePercent = ModR32(Time, CycleTime) / CycleTime;
@@ -442,7 +442,7 @@ Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
     v4 CA = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, CyclePercent);
     v4 CB = GetColor(FlowerAColors, FLOWER_COLORS_COUNT, 1.0f - CyclePercent);
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         r32 Pct = (Abs(ModR32(P.y, 150) / 150) + CycleTime) * PiR32;
@@ -453,7 +453,7 @@ Pattern_FlowerColors(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
 }
 
 internal void
-TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+TestPatternOne(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     led_strip_list BlumenStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Blumen Lumen"), Transient);
     led_strip_list RadiaStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("assembly"), ConstString("Radialumia"), Transient);
@@ -485,7 +485,7 @@ TestPatternOne(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
 }
 
 internal void
-TestPatternTwo(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+TestPatternTwo(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 PeriodicTime = (Time / PiR32) * 2;
     
@@ -504,7 +504,7 @@ TestPatternTwo(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
     r32 OuterRadiusSquared = 1000000;
     r32 InnerRadiusSquared = 0;
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 Position = Leds->Positions[LedIndex];
         
@@ -537,7 +537,7 @@ TestPatternTwo(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
 }
 
 internal void
-TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+TestPatternThree(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     v4 GreenCenter = v4{0, 0, 150, 1};
     r32 GreenRadius = Abs(SinR32(Time)) * 200;
@@ -548,7 +548,7 @@ TestPatternThree(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     r32 FadeDist = 35;
     
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 LedPosition = Leds->Positions[LedIndex];
         u8 Red = 0;
@@ -702,7 +702,7 @@ while (Hue > 360.0f) { Hue -= 360.0f; }
 }
 
 internal void
-Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_HueShift(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 Height = SinR32(Time) * 25;
     
@@ -713,7 +713,7 @@ Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
     v4 HSV = { CycleProgress * 360, 1, 1, 1 };
     v4 RGB = HSVToRGB(HSV);
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 Pos = Leds->Positions[LedIndex];
         r32 Dist = Pos.y - Height;
@@ -732,7 +732,7 @@ Pattern_HueShift(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena*
 }
 
 internal void
-Pattern_HueFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_HueFade(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 HueBase = ModR32(Time * 50, 360);
     
@@ -740,7 +740,7 @@ Pattern_HueFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* 
     r32 CycleProgress = FractR32(Time / CycleLength);
     r32 CycleBlend = (SinR32(Time) * .5f) + .5f;
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 Pos = Leds->Positions[LedIndex];
         r32 Hue = HueBase + Pos.y + Pos.x;
@@ -752,9 +752,9 @@ Pattern_HueFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* 
 }
 
 internal void
-Pattern_AllGreen(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_AllGreen(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         u32 I = LedIndex + 1;
         Leds->Colors[LedIndex] = {};
@@ -781,7 +781,7 @@ PatternHash(r32 Seed)
 }
 
 internal void
-Pattern_Spots(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Spots(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     pixel ColorA = { 0, 255, 255 };
     pixel ColorB = { 255, 0, 255 };
@@ -790,7 +790,7 @@ Pattern_Spots(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
     Time *= Speed;
     r32 ScaleA = 2 * SinR32(Time / 5);
     r32 ScaleB = 2.4f * CosR32(Time / 2.5f);
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         r32 V = P.y;
@@ -807,10 +807,10 @@ Pattern_Spots(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
 }
 
 internal void
-Pattern_LighthouseRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_LighthouseRainbow(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     v2 RefVector = V2Normalize(v2{ SinR32(Time), CosR32(Time) });
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v2 Vector = v2{
             Leds->Positions[LedIndex].x,
@@ -828,7 +828,7 @@ Pattern_LighthouseRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memo
 }
 
 internal void
-Pattern_SmoothGrowRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_SmoothGrowRainbow(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 FillCycleTime = ModR32(Time, 7.0f) / 7.0f;
     r32 ColorCycleTime = ModR32(Time, 21.0f) / 21.0f;
@@ -850,7 +850,7 @@ Pattern_SmoothGrowRainbow(led_buffer* Leds, assembly Assembly, r32 Time, gs_memo
 }
 
 internal void
-Pattern_GrowAndFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_GrowAndFade(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 PercentCycle = ModR32(Time, 10) / 10;
     v4 HSV = { PercentCycle * 360, 1, 1, 1 };
@@ -859,7 +859,7 @@ Pattern_GrowAndFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_are
     r32 RefHeight = -100 + (Smoothstep(PercentCycle * 1.4f) * 400);
     r32 RefBrightness = 1.0f - Smoothstep(PercentCycle);
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         
@@ -873,7 +873,7 @@ Pattern_GrowAndFade(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_are
 }
 
 internal void
-Pattern_ColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_ColorToWhite(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 FadeBottomBase = 50;
     r32 FadeTop = 125;
@@ -935,7 +935,7 @@ Pattern_ColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
 }
 
 internal void
-Pattern_FlowerColorToWhite(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_FlowerColorToWhite(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     r32 FadeBottomBase = 50;
     r32 FadeTop = 125;
@@ -999,7 +999,7 @@ v4* FBC = &FlowerBColors[0];
 v4* FCC = &FlowerCColors[0];
 
 internal void
-Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_BasicFlowers(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     if (TLastFrame > Time)
     {
@@ -1042,16 +1042,11 @@ Pattern_BasicFlowers(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_ar
 }
 
 internal void
-Pattern_Wavy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
     
-}
-
-internal void
-Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
-{
-#if 0
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         
@@ -1072,8 +1067,14 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
         //Leds->Colors[LedIndex] = pixel{NV, NV, NV};
     }
-#elif 1
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+}
+
+internal void
+Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    DEBUG_TRACK_FUNCTION;
+    
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         r32 LedRange = 300.0f;
@@ -1093,37 +1094,17 @@ Pattern_Patchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* T
         v4 C = CA + CB;
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
-#else
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
-    {
-        v4 P = Leds->Positions[LedIndex];
-        r32 LedRange = 300.0f;
-        r32 ScaleFactor = 1.0f / LedRange;
-        v3 Pp = P.xyz + v3{150, 100, 0};
-        
-        r32 NoiseA = Fbm3D((Pp / 35), Time * 0.5f);
-        //NoiseA = PowR32(NoiseA, 3);
-        NoiseA = Smoothstep(NoiseA);
-        v4 CA = v4{1, 0, 1, 1} * NoiseA;
-        
-        r32 NoiseB = Noise3D((Pp / 35) + v3{0, 0, Time * 5});
-        NoiseB = PowR32(NoiseB, 3);
-        NoiseB = Smoothstep(NoiseB);
-        v4 CB = v4{0, 1, 1, 1};
-        
-        v4 C = V4Lerp(NoiseB, CA, CB);
-        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
-    }
-#endif
 }
 
 internal void
-Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Leafy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     v4* Colors = &FlowerBColors[0];
     
     
-    for (u32 LedIndex = 0; LedIndex < Leds->LedCount; LedIndex++)
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
         
@@ -1177,15 +1158,70 @@ Pattern_Leafy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Tr
 }
 
 internal void
-Pattern_LeafyPatchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_LeafyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
-    
+    DEBUG_TRACK_FUNCTION;
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        v4 P = Leds->Positions[LedIndex];
+        r32 LedRange = 300.0f;
+        r32 ScaleFactor = 1.0f / LedRange;
+        v3 Pp = P.xyz + v3{150, 100, 0};
+        
+        r32 NoiseA = Fbm3D((Pp / 35), Time * 0.5f);
+        //NoiseA = PowR32(NoiseA, 3);
+        NoiseA = Smoothstep(NoiseA);
+        v4 CA = v4{1, 0, 1, 1} * NoiseA;
+        
+        r32 NoiseB = Noise3D((Pp / 35) + v3{0, 0, Time * 5});
+        NoiseB = PowR32(NoiseB, 3);
+        NoiseB = Smoothstep(NoiseB);
+        v4 CB = v4{0, 1, 1, 1};
+        
+        v4 C = V4Lerp(NoiseB, CA, CB);
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+    }
 }
 
 internal void
-Pattern_WavyPatchy(led_buffer* Leds, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_WavyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
     
+    gs_random_series Random = InitRandomSeries(24601);
+    
+    r32 LightSpeedMin = 1;
+    r32 LightSpeedMax = 5;
+    
+    r32 LightHueMin = (ModR32(Time, 10) / 10) * 360;
+    r32 LightHueMax = ModR32((LightHueMin + 45), 360) ;
+    
+    s32 LightTailLength = 10;
+    for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
+    {
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        
+        r32 LightHue = LerpR32(NextRandomUnilateral(&Random),
+                               LightHueMin,
+                               LightHueMax);
+        r32 LightStartHeight = NextRandomUnilateral(&Random);
+        r32 LightSpeed = LerpR32(NextRandomUnilateral(&Random), 
+                                 LightSpeedMin,
+                                 LightSpeedMax);
+        r32 LightCurrentHeight = LightStartHeight + (LightSpeed * Time * 0.1f);
+        s32 StartIndex = (s32)(LightCurrentHeight * (r32)Strip.LedCount) % Strip.LedCount;
+        
+        for (s32 i = 0; i < LightTailLength; i++)
+        {
+            s32 StripLedIndex = StartIndex + i;
+            if (StripLedIndex >= (s32)Strip.LedCount) continue;
+            
+            u32 LedIndex = Strip.LedLUT[StripLedIndex];
+            r32 PctTail = ((r32)i / (r32)LightTailLength);
+            v4 C = HSVToRGB(v4{LightHue, 1, 1, 1}) * PctTail;
+            Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+        }
+    }
 }
 
 #define BLUMEN_PATTERNS_H

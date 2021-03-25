@@ -25,12 +25,12 @@ SET LastError=%ERRORLEVEL%
 
 del lock.tmp
 
-cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib
+cl %CommonCompilerFlags% %SourceCodePath%\platform_win32\win32_foldhaus.cpp /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib  opengl32.lib dsound.lib Ws2_32.lib Comdlg32.lib Winspool.lib
 
 
 REM COMPILE UTILITY EXES
 
-cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial_monitor.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
+cl %CommonCompilerFlags% %ProjectDevPath%\src\serial_monitor\first.cpp /Feserial_monitor.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib Winspool.lib
 
 cl %CommonCompilerFlags% %ProjectDevPath%\src\sculpture_gen\gen_blumen_lumen.cpp /Fegen_blumen_lumen.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
 
