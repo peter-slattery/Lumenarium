@@ -11,6 +11,7 @@
 #include "../gs_libs/gs_tests.h"
 
 #include "../gs_libs/gs_path.h"
+#include "../gs_libs/gs_csv.h"
 
 gs_memory_arena Scratch = {};
 void* Alloc(u64 Size, u64* ResultSize) { *ResultSize = Size; return malloc(Size); }
@@ -28,6 +29,11 @@ bool StringTest (gs_string StrA, gs_string StrB)
 bool PathTest (char* In, char* Out) {
     return StringsEqual(SanitizePath(ConstString(In), &Scratch), ConstString(Out));
 }
+
+global char* SampleCSV = R"FOO(Flower	Primary Hue (0-365)	Secondary Hue  (0-365)	Tertiary Hue  (0-365)	Homonyms
+Flower A	55	32	128	foo, bar, blah, baz, whatever
+Flower B	123	344	32	foo, bar, blah, baz, whatever
+Flower C	55	32	128	foo, bar, blah, baz, whatever)FOO";
 
 int main (int ArgCount, char** Args)
 {
@@ -97,6 +103,24 @@ int main (int ArgCount, char** Args)
         TestResult(PathTest("C:/users/pslattery\\test.foo", "C:\\users\\pslattery\\test.foo"));
         TestResult(PathTest("./test/../foo.bar", ".\\foo.bar"));
         TestResult(PathTest("C:\\hello\\world\\.\\test", "C:\\hello\\world\\test"));
+    }
+    
+    Test("gs_csv.h")
+    {
+        gs_const_string TestCSV = ConstString(SampleCSV);
+        gscsv_sheet Sheet = CSV_Parse(TestCSV, { '\t' }, &Scratch);
+        
+        gs_const_string Cell = CSVSheet_GetCell(Sheet, 0, 0);
+        TestResult(StringsEqual(Cell, ConstString("Flower")));
+        
+        Cell = CSVSheet_GetCell(Sheet, 1, 1);
+        TestResult(StringsEqual(Cell, ConstString("55")));
+        
+        Cell = CSVSheet_GetCell(Sheet, 4, 1);
+        TestResult(StringsEqual(Cell, ConstString("foo, bar, blah, baz, whatever")));
+        
+        Cell = CSVSheet_GetCell(Sheet, 4, 3);
+        TestResult(StringsEqual(Cell, ConstString("foo, bar, blah, baz, whatever")));
     }
     
     return 0;
