@@ -10,6 +10,9 @@ gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.csv");
 char PhraseMapCSVSeparator = ',';
 
+gs_const_string AmbientPatternFolder = ConstString("data/blumen_animations/ambient_patterns/*.foldanim");
+gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_responses/*.foldanim");
+
 global time_range MotorOpenTimes[] = {
     { 00, 30, 00, 40 },
     { 00, 50, 01, 00 },
@@ -57,5 +60,7 @@ global time_range MotorOpenTimes[] = {
     { 14, 50, 15, 00 },
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes);
+
+r32 VoiceCommandFadeDuration = 1.0f; // in seconds
 
 #endif //BLUMEN_LUMEN_SETTINGS_H

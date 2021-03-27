@@ -924,12 +924,12 @@ AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer*
     
     animation* ActiveAnim = 0;
     animation_handle Handle = State->AnimationSystem.ActiveFadeGroup.From;
+    TimelineState->NextActiveAnim = Handle;
     if (IsValid(Handle))
     {
         animation_array Animations = State->AnimationSystem.Animations;
         ActiveAnim = AnimationArray_GetSafe(Animations, Handle);
         TimelineState->EditingAnimationHandle = Handle;
-        TimelineState->NextActiveAnim = Handle;
     }
     
     ui_FillRect(&State->Interface, PanelBounds, v4{.1f,.1f,.1f,1.f});

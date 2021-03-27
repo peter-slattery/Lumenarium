@@ -7,6 +7,14 @@
 
 #include "message_queue.h"
 
+enum bl_pattern_mode
+{
+    BlumenPattern_Standard,
+    BlumenPattern_VoiceCommand,
+    
+    BlumenPattern_Count,
+};
+
 enum bl_python_packet_type
 {
     PacketType_Invalid = 0,
@@ -122,24 +130,6 @@ SystemTimeIsInTimeRange(system_time SysTime, time_range Range)
     return Result;
 }
 
-
-struct phrase_string_to_anim_file
-{
-    char* Phrase;
-    u32 PatternIndex;
-};
-
-phrase_string_to_anim_file PhraseToAnimMap[] = {
-    { "begonia", 0},
-    { "hyacinth", 1 },
-    { "tulip", 1 },
-    { "calla lilly", 0 },
-    { "sunflower", 1 },
-    { "salvia", 2 },
-    { "freesia", 2 },
-};
-u32 PhraseToAnimMapCount = sizeof(PhraseToAnimMap) / sizeof(PhraseToAnimMap[0]);
-
 #include "blumen_lumen_settings.h"
 
 struct blumen_lumen_state
@@ -178,6 +168,10 @@ struct blumen_lumen_state
     // 
     u32 AssemblyNameToClearCoreMapCount;
     u64* AssemblyNameToClearCore_Names;
+    
+    bl_pattern_mode PatternMode;
+    animation_handle_array ModeAnimations[BlumenPattern_Count];
+    u32 CurrentAnimation;
     
     phrase_hue_map PhraseHueMap;
     

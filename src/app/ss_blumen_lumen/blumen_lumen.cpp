@@ -5,6 +5,29 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
+internal animation_handle_array
+LoadAllAnimationsInDir(gs_const_string Path, blumen_lumen_state* BLState, app_state* State, context Context)
+{
+    animation_handle_array Result = {};
+    
+    gs_thread_context Ctx = Context.ThreadContext;
+    gs_file_info_array FilesInDir = EnumerateDirectory(Ctx.FileHandler, State->Transient, Path, 0);
+    
+    Result.Count = FilesInDir.Count;
+    Result.Handles = PushArray(&State->Permanent, animation_handle, Result.Count);
+    
+    for (u32 i = 0; i < FilesInDir.Count; i++)
+    {
+        gs_file_info File = FilesInDir.Values[i];
+        Result.Handles[i] = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                  State->Patterns,
+                                                                  Context,
+                                                                  File.Path);
+    }
+    
+    return Result;
+}
+
 internal s32
 GetCCIndex (assembly Assembly, blumen_lumen_state* BLState)
 {
@@ -265,13 +288,17 @@ BlumenLumen_CustomInit(app_state* State, context Context)
         
         State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
     } // End Animation Playground
-#else
+#elif 0
     animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
                                                                               State->Patterns,
                                                                               Context,
                                                                               ConstString("data/demo_patterns.foldanim"));
-    
     State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
+#else
+    BLState->ModeAnimations[BlumenPattern_Standard] = LoadAllAnimationsInDir(AmbientPatternFolder, BLState, State, Context);
+    BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
+    
+    State->AnimationSystem.ActiveFadeGroup.From = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -301,8 +328,26 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 phrase_hue NewHue = PhraseHueMap_Get(BLState->PhraseHueMap, NameHash);
                 if (NewHue.PhraseHash != 0)
                 {
-                    u32 AssemblyIdx = BLState->LastAssemblyColorSet;
-                    BLState->AssemblyColors[AssemblyIdx] = NewHue;
+                    if (BLState->PatternMode == BlumenPattern_Standard)
+                    {
+                        BLState->AssemblyColors[0] = NewHue;
+                        BLState->AssemblyColors[1] = NewHue;
+                        BLState->AssemblyColors[2] = NewHue;
+                        
+                        animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_VoiceCommand].Handles[0];
+                        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                                  NewAnim,
+                                                  VoiceCommandFadeDuration);
+                    }
+                    else
+                    {
+                        u32 AssemblyIdx = BLState->LastAssemblyColorSet;
+                        BLState->AssemblyColors[AssemblyIdx] = NewHue;
+                    }
+                    
+                    BLState->PatternMode = BlumenPattern_VoiceCommand;
+                    // TODO(PS): get current time so we can fade back after
+                    // a while
                 }
             }break;
             
@@ -457,9 +502,12 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             Packet.StatusPacket.NextEventTime = 0;
             
             animation* ActiveAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-            CopyMemoryTo(ActiveAnim->Name.Str, Packet.StatusPacket.AnimFileName,
-                         Min(ActiveAnim->Name.Length, 32));
-            Packet.StatusPacket.AnimFileName[ActiveAnim->Name.Length] = 0;
+            if (ActiveAnim)
+            {
+                CopyMemoryTo(ActiveAnim->Name.Str, Packet.StatusPacket.AnimFileName,
+                             Min(ActiveAnim->Name.Length, 32));
+                Packet.StatusPacket.AnimFileName[ActiveAnim->Name.Length] = 0;
+            }
             
             gs_data Msg = StructToData(&Packet, blumen_packet);
             MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);

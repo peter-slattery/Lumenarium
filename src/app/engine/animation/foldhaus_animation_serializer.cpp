@@ -194,10 +194,14 @@ AnimParser_Parse(gs_data File, gs_memory_arena* Arena, animation_pattern_array A
 internal animation_handle
 AnimationSystem_LoadAnimationFromFile(animation_system* System, animation_pattern_array AnimPatterns, context Context, gs_const_string FilePath)
 {
+    animation_handle NewAnimHandle = InvalidAnimHandle();
     gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FilePath);
-    animation NewAnim = AnimParser_Parse(AnimFile.Data, System->Storage, AnimPatterns);
-    NewAnim.FileInfo = AnimFile.FileInfo;
-    animation_handle NewAnimHandle = AnimationArray_Push(&System->Animations, NewAnim);
+    if (AnimFile.Size > 0)
+    {
+        animation NewAnim = AnimParser_Parse(AnimFile.Data, System->Storage, AnimPatterns);
+        NewAnim.FileInfo = AnimFile.FileInfo;
+        NewAnimHandle = AnimationArray_Push(&System->Animations, NewAnim);
+    }
     return NewAnimHandle;
 }
 #define FOLDHAUS_ANIMATION_SERIALIZER_CPP

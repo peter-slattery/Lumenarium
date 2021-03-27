@@ -89,6 +89,13 @@ struct animation_handle
     s32 Index;
 };
 
+struct animation_handle_array
+{
+    u32 Count;
+    animation_handle* Handles;
+};
+
+internal animation_handle InvalidAnimHandle () { return { -1 }; }
 internal bool IsValid (animation_handle H) { return H.Index >= 0; }
 internal void Clear (animation_handle* H) { H->Index = -1; }
 internal bool AnimHandlesAreEqual (animation_handle A, animation_handle B)
