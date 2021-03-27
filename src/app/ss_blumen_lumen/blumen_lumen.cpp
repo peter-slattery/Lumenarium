@@ -78,73 +78,14 @@ DEBUG_ReceivedMotorPositions(motor_packet NewPos,
     }
 }
 
-// KB(1) is just bigger than any packet we send. Good for now
-#define DEFAULT_QUEUE_ENTRY_SIZE KB(1)
-
 internal void
-MessageQueue_Init(blumen_network_msg_queue* Queue, gs_memory_arena* Arena)
+DEBUG_ReceivedTemperature(temp_packet Temp, gs_thread_context Ctx)
 {
-    for (u32 i = 0; i < BLUMEN_MESSAGE_QUEUE_COUNT; i++)
-    {
-        Queue->Buffers[i] = PushSizeToData(Arena, DEFAULT_QUEUE_ENTRY_SIZE);
-    }
-}
-
-internal bool
-MessageQueue_CanWrite(blumen_network_msg_queue Queue)
-{
-    bool Result = ((Queue.WriteHead >= Queue.ReadHead) ||
-                   (Queue.WriteHead < Queue.ReadHead));
-    return Result;
-}
-
-internal bool
-MessageQueue_Write(blumen_network_msg_queue* Queue, gs_data Msg)
-{
-    Assert(Msg.Size <= DEFAULT_QUEUE_ENTRY_SIZE);
-    
-    u32 Index = Queue->WriteHead;
-    Assert(Index >= 0 && 
-           Index < BLUMEN_MESSAGE_QUEUE_COUNT);
-    
-    gs_data* Dest = Queue->Buffers + Index;
-    CopyMemoryTo(Msg.Memory, Dest->Memory, Msg.Size);
-    Dest->Size = Msg.Size;
-    
-    // NOTE(pjs): We increment write head at the end of writing so that
-    // a reader thread doesn't pull the message off before we've finished
-    // filling it out
-    Queue->WriteHead = (Queue->WriteHead + 1) % BLUMEN_MESSAGE_QUEUE_COUNT;
-    return true;
-}
-
-internal bool
-MessageQueue_CanRead(blumen_network_msg_queue Queue)
-{
-    bool Result = (Queue.ReadHead != Queue.WriteHead);
-    return Result;
-}
-
-internal gs_data
-MessageQueue_Read(blumen_network_msg_queue* Queue)
-{
-    gs_data Result = {};
-    u32 ReadIndex = Queue->ReadHead++;
-    if (Queue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
-    {
-        Queue->ReadHead = 0;
-    }
-    Result = Queue->Buffers[ReadIndex];
-    return Result;
-}
-
-internal void
-MessageQueue_Clear(blumen_network_msg_queue* Queue)
-{
-    while (MessageQueue_CanRead(*Queue))
-    {
-        MessageQueue_Read(Queue);
-    }
+    gs_string TempStr = PushStringF(Ctx.Transient, 256, 
+                                    "\nTemperature: %d\n",
+                                    Temp.Temperature);
+    NullTerminate(&TempStr);
+    OutputDebugStringA(TempStr.Str);
 }
 
 internal void
@@ -394,11 +335,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     BLState->BrightnessPercent = 1.f;
                 }
                 
-                gs_string TempStr = PushStringF(State->Transient, 256, 
-                                                "\nTemperature: %d\n",
-                                                Temp.Temperature);
-                NullTerminate(&TempStr);
-                OutputDebugStringA(TempStr.Str);
+                DEBUG_ReceivedTemperature(Temp, Context->ThreadContext);
             }break;
             
             InvalidDefaultCase;

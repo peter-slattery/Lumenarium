@@ -5,6 +5,8 @@
 //
 #ifndef BLUMEN_LUMEN_H
 
+#include "message_queue.h"
+
 enum bl_python_packet_type
 {
     PacketType_Invalid = 0,
@@ -89,14 +91,6 @@ typedef struct blumen_packet
 } blumen_packet;
 
 #pragma pack(pop)
-
-#define BLUMEN_MESSAGE_QUEUE_COUNT 32
-typedef struct blumen_network_msg_queue
-{
-    gs_data Buffers[BLUMEN_MESSAGE_QUEUE_COUNT];
-    u32 WriteHead;
-    u32 ReadHead;
-} blumen_network_msg_queue;
 
 // TODO(pjs): Refactor this -> blumen_network_job_state
 struct mic_listen_job_data
@@ -191,6 +185,7 @@ struct blumen_lumen_state
     motor_packet DEBUG_PendingMotorPacket;
 };
 
+#include "message_queue.cpp"
 
 
 
