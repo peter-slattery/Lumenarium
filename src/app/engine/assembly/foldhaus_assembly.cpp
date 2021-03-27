@@ -195,9 +195,11 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
     }
 }
 
-internal void
+internal assembly*
 LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena* Scratch, context Context, gs_const_string Path, event_log* GlobalLog)
 {
+    assembly* NewAssembly = 0;
+    
     gs_file AssemblyFile = ReadEntireFile(Context.ThreadContext.FileHandler, Path);
     if (FileNoError(AssemblyFile))
     {
@@ -206,7 +208,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
         s32 IndexOfLastSlash = FindLast(Path, '\\');
         gs_const_string FileName = Substring(Path, IndexOfLastSlash + 1, Path.Length);
         
-        assembly* NewAssembly = AssemblyArray_Take(Assemblies);
+        NewAssembly = AssemblyArray_Take(Assemblies);
         NewAssembly->Arena = CreateMemoryArena(Context.ThreadContext.Allocator, "Assembly Arena");
         
         parser AssemblyParser = ParseAssemblyFile(NewAssembly, FileName, AssemblyFileText, Scratch);
@@ -232,6 +234,8 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
     {
         LogError(GlobalLog, "Unable to load assembly file");
     }
+    
+    return NewAssembly;
 }
 
 internal void

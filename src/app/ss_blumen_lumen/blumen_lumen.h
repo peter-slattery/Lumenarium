@@ -14,6 +14,16 @@ enum bl_python_packet_type
     PacketType_LumenariumStatus = 4,
 };
 
+enum bl_motor_state_value
+{
+    MotorState_Invalid = 0,
+    
+    MotorState_Closed = 1,
+    MotorState_Open = 2,
+    MotorState_HalfOpen = 3,
+    MotorState_MostlyOpen = 4,
+};
+
 #pragma pack(push, 1)
 typedef struct motor_packet
 {
@@ -171,6 +181,14 @@ struct blumen_lumen_state
     system_time LastSendTime;
     
     v4 AssemblyColors[3];
+    
+    // The indices of this array are the index the clear core uses to 
+    // represent a motor. 
+    // The values of the array are the names Lumenarium uses to 
+    // represent assemblies.
+    // 
+    u32 AssemblyNameToClearCoreMapCount;
+    u64* AssemblyNameToClearCore_Names;
 };
 
 

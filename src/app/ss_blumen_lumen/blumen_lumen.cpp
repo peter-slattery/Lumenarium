@@ -5,6 +5,24 @@
 //
 #ifndef BLUMEN_LUMEN_CPP
 
+internal s32
+GetCCIndex (assembly Assembly, blumen_lumen_state* BLState)
+{
+    s32 Result = 0;
+    
+    u64 AssemblyNameHash = HashDJB2ToU32(StringExpand(Assembly.Name));
+    for (u32 i = 0; i < BLState->AssemblyNameToClearCoreMapCount; i++)
+    {
+        if (AssemblyNameHash == BLState->AssemblyNameToClearCore_Names[i])
+        {
+            Result = (s32)i;
+            break;
+        }
+    }
+    
+    return Result;
+}
+
 internal bool
 MessageQueue_CanRead(blumen_network_msg_queue* Queue)
 {
@@ -190,9 +208,17 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     gs_const_string SculpturePath0 = ConstString("data/ss_blumen_one.fold");
     gs_const_string SculpturePath1 = ConstString("data/ss_blumen_two.fold");
     gs_const_string SculpturePath2 = ConstString("data/ss_blumen_three.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath0, State->GlobalLog);
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath1, State->GlobalLog);
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath2, State->GlobalLog);
+    assembly* Flower0 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath0, State->GlobalLog);
+    assembly* Flower1 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath1, State->GlobalLog);
+    assembly* Flower2 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath2, State->GlobalLog);
+    
+    BLState->AssemblyNameToClearCoreMapCount = 3;
+    BLState->AssemblyNameToClearCore_Names = PushArray(&State->Permanent, 
+                                                       u64,
+                                                       BLState->AssemblyNameToClearCoreMapCount);
+    BLState->AssemblyNameToClearCore_Names[0] = HashDJB2ToU32(StringExpand(Flower0->Name));
+    BLState->AssemblyNameToClearCore_Names[1] = HashDJB2ToU32(StringExpand(Flower1->Name));
+    BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU32(StringExpand(Flower2->Name));
 #endif
     
 #if 1
@@ -437,11 +463,23 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    // TODO(PS): This should really only happen if we think the 
-    // flower _might_ be open
+    // NOTE(PS): If the flowers are mostly open or full open
+    // we mask off the top leds to prevent them from overheating
+    // while telescoped inside the flower
+    motor_packet CurrMotorPos = BLState->LastKnownMotorState;
     for (u32 a = 0; a < State->Assemblies.Count; a++)
     {
         assembly Assembly = State->Assemblies.Values[a];
+        u64 AssemblyCCIndex = GetCCIndex(Assembly, BLState);
+        
+        u8 MotorPos = CurrMotorPos.FlowerPositions[AssemblyCCIndex];
+        
+        if (MotorPos == MotorState_Closed || 
+            MotorPos == MotorState_HalfOpen) 
+        {
+            continue;
+        }
+        
         led_buffer Buffer = State->LedSystem.Buffers[Assembly.LedBufferIndex];
         
         led_strip_list TopStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("inner_bloom"), State->Transient);
