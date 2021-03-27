@@ -574,27 +574,6 @@ WinMain (
     
     if (!SetWorkingDirectory(HInstance, ThreadContext)) return 1;
     
-    
-    gs_file TestFile = ReadEntireFile(ThreadContext.FileHandler, ConstString("data/flower_codes.tsv"));
-    gs_const_string TestFileStr = {};
-    TestFileStr.Str = (char*)TestFile.Memory;
-    TestFileStr.Length = TestFile.Size;
-    gscsv_sheet Sheet = CSV_Parse(TestFileStr, { '\t' }, ThreadContext.Transient);
-    
-    gs_string Out = PushString(ThreadContext.Transient, TestFile.Size * 2);
-    
-    for (u64 y = 0; y < Sheet.RowCount; y++)
-    {
-        for (u64 x = 0; x < Sheet.ColumnCount; x++)
-        {
-            gs_const_string Cell = CSVSheet_GetCell(Sheet, x, y);
-            AppendPrintF(&Out, "%S\t", Cell);
-        }
-        AppendPrintF(&Out, "\n");
-    }
-    NullTerminate(&Out);
-    OutputDebugStringA(Out.Str);
-    
     MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
     Win32UpdateWindowDimension(&MainWindow);
     

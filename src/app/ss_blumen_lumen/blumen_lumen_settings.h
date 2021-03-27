@@ -7,8 +7,8 @@ gs_const_string Flower0AssemblyPath = ConstString("data/ss_blumen_one.fold");
 gs_const_string Flower1AssemblyPath = ConstString("data/ss_blumen_two.fold");
 gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 
-gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.tsv");
-char PhraseMapCSVSeparator = '\t';
+gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.csv");
+char PhraseMapCSVSeparator = ',';
 
 global time_range MotorOpenTimes[] = {
     { 00, 30, 00, 40 },

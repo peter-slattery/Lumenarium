@@ -106,12 +106,14 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
                 State->AssemblyDebugState.TargetChannel = FSC(Board, Strip);
             }break;
             
+            case ADS_Override_AllOff:
             case ADS_Override_AllRed:
             case ADS_Override_AllGreen:
             case ADS_Override_AllBlue:
             case ADS_Override_AllWhite:
             {
                 State->AssemblyDebugState.Brightness = (u8)ui_LabeledRangeSlider(Interface, MakeString("Brightness"), (r32)State->AssemblyDebugState.Brightness, 0, 255);
+                State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
             }break;
             
             default:

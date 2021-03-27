@@ -1006,21 +1006,15 @@ Pattern_BasicFlowers(led_buffer* Leds, led_buffer_range Range, assembly Assembly
     }
     TLastFrame = Time;
     
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
+    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
         v2_strip Strip = Assembly.Strips[StripIndex];
-        
-        // Each flower different
-        v4 * Colors = FAC;
-        if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "center"))
-        {
-            Colors = FBC;
-        }
-        else if (AssemblyStrip_HasTagValueSLOW(Strip, "flower", "right"))
-        {
-            Colors = FCC;
-        }
-        
         r32 CycleT = ModR32(Time, 10) * 20;
         
         for (u32 i = 0; i < Strip.LedCount; i++)
@@ -1031,7 +1025,15 @@ Pattern_BasicFlowers(led_buffer* Leds, led_buffer_range Range, assembly Assembly
             r32 T = ModR32(P.y + CycleT, 200) / 200.f;
             T = Clamp01(T);
             
-            v4 Color = GetColor(Colors, FLOWER_COLORS_COUNT, T);
+            v4 Color = {};
+            if (T < 0.5f) 
+            {
+                Color = V4Lerp(T * 2, C0, C1);
+            } 
+            else 
+            {
+                Color = V4Lerp((T - 0.5f) * 2, C1, C2);
+            }
             Leds->Colors[LedIndex] = V4ToRGBPixel(Color);
         }
     }
@@ -1041,6 +1043,11 @@ internal void
 Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     DEBUG_TRACK_FUNCTION;
+    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
@@ -1056,7 +1063,7 @@ Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Ti
         v3 BSeed = v3{P.z, P.x, P.y};
         r32 BNoise = 1.0f; //Fbm3D(BSeed / 50);
         
-        v4 C = GetColor(&FlowerAColors[0], FLOWER_COLORS_COUNT, Noise);
+        v4 C = V4Lerp(BNoise, C0, C1);
         C = C * BNoise;
         
         //Leds->Colors[LedIndex] = V4ToRGBPixel(v4{Noise, Noise, Noise, 1});
@@ -1070,6 +1077,11 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
 {
     DEBUG_TRACK_FUNCTION;
     
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
+    
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
@@ -1080,12 +1092,12 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
         r32 NoiseA = Noise3D((Pp / 38) + v3{0, 0, Time});
         NoiseA = PowR32(NoiseA, 3);
         NoiseA = Smoothstep(NoiseA);
-        v4 CA = v4{1, 0, 1, 1} * NoiseA;
+        v4 CA = C0 * NoiseA;
         
         r32 NoiseB = Noise3D((Pp / 75) + v3{Time * 0.5f, 0, 0});
         NoiseB = PowR32(NoiseB, 3);
         NoiseB = Smoothstep(NoiseB);
-        v4 CB = v4{0, 1, 1, 1} * NoiseB;
+        v4 CB = C1 * NoiseB;
         
         v4 C = CA + CB;
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
@@ -1097,8 +1109,10 @@ Pattern_Leafy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 T
 {
     DEBUG_TRACK_FUNCTION;
     
-    v4* Colors = &FlowerBColors[0];
-    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
@@ -1157,6 +1171,10 @@ internal void
 Pattern_LeafyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     DEBUG_TRACK_FUNCTION;
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
@@ -1167,12 +1185,12 @@ Pattern_LeafyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly,
         r32 NoiseA = Fbm3D((Pp / 35), Time * 0.5f);
         //NoiseA = PowR32(NoiseA, 3);
         NoiseA = Smoothstep(NoiseA);
-        v4 CA = v4{1, 0, 1, 1} * NoiseA;
+        v4 CA = C0 * NoiseA;
         
         r32 NoiseB = Noise3D((Pp / 35) + v3{0, 0, Time * 5});
         NoiseB = PowR32(NoiseB, 3);
         NoiseB = Smoothstep(NoiseB);
-        v4 CB = v4{0, 1, 1, 1};
+        v4 CB = C1;
         
         v4 C = V4Lerp(NoiseB, CA, CB);
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);

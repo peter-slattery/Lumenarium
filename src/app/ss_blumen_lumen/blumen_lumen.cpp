@@ -278,9 +278,9 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->AssemblyNameToClearCore_Names = PushArray(&State->Permanent, 
                                                        u64,
                                                        BLState->AssemblyNameToClearCoreMapCount);
-    BLState->AssemblyNameToClearCore_Names[0] = HashDJB2ToU64(Flower0->Name);
-    BLState->AssemblyNameToClearCore_Names[1] = HashDJB2ToU64(Flower1->Name);
-    BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU64(Flower2->Name);
+    BLState->AssemblyNameToClearCore_Names[0] = HashDJB2ToU32(StringExpand(Flower2->Name));
+    BLState->AssemblyNameToClearCore_Names[1] = HashDJB2ToU32(StringExpand(Flower1->Name));
+    BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU32(StringExpand(Flower0->Name));
     
     gs_file_handler FileHandler = Context.ThreadContext.FileHandler;
     gs_file ColorPhraseCSVFile = ReadEntireFile(FileHandler, PhraseMapCSVPath);
@@ -292,7 +292,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, 
                                                     &State->Permanent);
     
-#if 1
+#if 0
     { // Animation PLAYGROUND
         animation_desc Desc = {};
         Desc.NameSize = 256;
@@ -363,25 +363,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     u32 AssemblyIdx = BLState->LastAssemblyColorSet;
                     BLState->AssemblyColors[AssemblyIdx] = NewHue;
                 }
-#if 0
-                for (u32 i = 0; i < PhraseToAnimMapCount; i++)
-                {
-                    gs_const_string PhraseStr = ConstString(PhraseToAnimMap[i].Phrase);
-                    u32 PhraseIndex = PhraseToAnimMap[i].PatternIndex;
-                    if (StringEqualsCharArray(PhraseStr, Mic.AnimationFileName, NameLen))
-                    {
-                        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
-                                                  animation_handle{(s32)PhraseIndex},
-                                                  3.0f);
-                        
-                        gs_string T = PushStringF(State->Transient, 256,
-                                                  "Received Animation Packet:\nAnimationIndex: %d\n",
-                                                  PhraseIndex);
-                        NullTerminate(&T);
-                        OutputDebugStringA(T.Str);
-                    }
-                }
-#endif
             }break;
             
             case PacketType_MotorState:
