@@ -273,6 +273,8 @@ Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
 #define IsPowerOfTwo(x) (((x) & ((x) - 1)) == 0)
 #define IsOdd(x) (((x) & 1) != 0)
 
+#define CArrayLength(arr) (sizeof(arr) / (sizeof(arr[0])))
+
 internal void
 ZeroMemory_(u8* Memory, u64 Size)
 {

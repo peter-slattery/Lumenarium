@@ -1390,6 +1390,13 @@ internal gs_data StringToData(gs_string String)
 {
     return StringToData(String.ConstString);
 }
+internal gs_const_string DataToString(gs_data Data)
+{
+    gs_const_string Result = {};
+    Result.Str = (char*)Data.Memory;
+    Result.Length = Data.Size;
+    return Result;
+}
 
 internal bool IsSlash(char C) { return ((C == '/') || (C == '\\')); }
 internal bool IsUpper(char C) { return(('A' <= C) && (C <= 'Z')); }
@@ -3783,6 +3790,16 @@ HashDJB2ToU32(u32 Length, char* String)
     }
     return Hash;
 }
+internal u32
+HashDJB2ToU32(gs_const_string Str)
+{
+    return HashDJB2ToU32(StringExpand(Str));
+}
+internal u32
+HashDJB2ToU32(gs_string Str)
+{
+    return HashDJB2ToU32(StringExpand(Str));
+}
 
 internal u64
 HashDJB2ToU64(char* String)
@@ -3804,6 +3821,16 @@ HashDJB2ToU64(u32 Length, char* String)
         Hash = ((Hash << 5) + Hash) + String[i];
     }
     return Hash;
+}
+internal u64
+HashDJB2ToU64(gs_const_string Str)
+{
+    return HashDJB2ToU64(StringExpand(Str));
+}
+internal u64
+HashDJB2ToU64(gs_string Str)
+{
+    return HashDJB2ToU64(StringExpand(Str));
 }
 
 ///////////////////////////

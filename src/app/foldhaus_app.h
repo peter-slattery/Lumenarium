@@ -82,6 +82,17 @@ internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "engine/assembly/foldhaus_assembly.cpp"
 
+internal assembly*
+LoadAssembly(gs_const_string Path, app_state* State, context Context)
+{
+    return LoadAssembly(&State->Assemblies, 
+                        &State->LedSystem, 
+                        State->Transient, 
+                        Context, 
+                        Path,
+                        State->GlobalLog);
+}
+
 #include "engine/user_space.cpp"
 
 #include "patterns/blumen_patterns.h"

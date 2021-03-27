@@ -57,16 +57,25 @@ DEBUG_SentMotorCommand(motor_packet Packet, gs_thread_context Ctx)
 }
 
 internal void
-DEBUG_ReceivedMotorPositions(motor_packet Packet, gs_thread_context Ctx)
+DEBUG_ReceivedMotorPositions(motor_packet NewPos, 
+                             motor_packet LastPos, 
+                             gs_thread_context Ctx)
 {
-    gs_string Str = PushStringF(Ctx.Transient, 256, "Motor Status Received\nCurrent Positions: %d %d %d\n", 
-                                Packet.FlowerPositions[0],
-                                Packet.FlowerPositions[1],
-                                Packet.FlowerPositions[2]);
-    DEBUG_AppendText(Str, Ctx);
+    bool PosChanged = (LastPos.FlowerPositions[0] != NewPos.FlowerPositions[0] ||
+                       LastPos.FlowerPositions[1] != NewPos.FlowerPositions[1] ||
+                       LastPos.FlowerPositions[2] != NewPos.FlowerPositions[2]);
     
-    NullTerminate(&Str);
-    OutputDebugStringA(Str.Str);
+    if (PosChanged) 
+    {
+        gs_string Str = PushStringF(Ctx.Transient, 256, "Motor Status Received\nCurrent Positions: %d %d %d\n", 
+                                    NewPos.FlowerPositions[0],
+                                    NewPos.FlowerPositions[1],
+                                    NewPos.FlowerPositions[2]);
+        DEBUG_AppendText(Str, Ctx);
+        
+        NullTerminate(&Str);
+        OutputDebugStringA(Str.Str);
+    }
 }
 
 // KB(1) is just bigger than any packet we send. Good for now
@@ -261,34 +270,27 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
 #endif
     
-#if 0
-    gs_const_string SculpturePath = ConstString("data/test_blumen.fold");
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath, State->GlobalLog);
-#else
-    gs_const_string SculpturePath0 = ConstString("data/ss_blumen_one.fold");
-    gs_const_string SculpturePath1 = ConstString("data/ss_blumen_two.fold");
-    gs_const_string SculpturePath2 = ConstString("data/ss_blumen_three.fold");
-    assembly* Flower0 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath0, State->GlobalLog);
-    assembly* Flower1 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath1, State->GlobalLog);
-    assembly* Flower2 = LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, SculpturePath2, State->GlobalLog);
+    assembly* Flower0 = LoadAssembly(Flower0AssemblyPath, State, Context);
+    assembly* Flower1 = LoadAssembly(Flower1AssemblyPath, State, Context);
+    assembly* Flower2 = LoadAssembly(Flower2AssemblyPath, State, Context);
     
     BLState->AssemblyNameToClearCoreMapCount = 3;
     BLState->AssemblyNameToClearCore_Names = PushArray(&State->Permanent, 
                                                        u64,
                                                        BLState->AssemblyNameToClearCoreMapCount);
-    BLState->AssemblyNameToClearCore_Names[0] = HashDJB2ToU32(StringExpand(Flower0->Name));
-    BLState->AssemblyNameToClearCore_Names[1] = HashDJB2ToU32(StringExpand(Flower1->Name));
-    BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU32(StringExpand(Flower2->Name));
-#endif
+    BLState->AssemblyNameToClearCore_Names[0] = HashDJB2ToU64(Flower0->Name);
+    BLState->AssemblyNameToClearCore_Names[1] = HashDJB2ToU64(Flower1->Name);
+    BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU64(Flower2->Name);
     
-    {
-        gs_file ColorPhraseCSVFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/flower_codes.tsv"));
-        gs_const_string ColorPhraseMapStr = ConstString((char*)ColorPhraseCSVFile.Memory,
-                                                        ColorPhraseCSVFile.Size);
-        gscsv_sheet ColorPhraseSheet = CSV_Parse(ColorPhraseMapStr, { '\t' }, State->Transient);
-        
-        BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, &State->Permanent);
-    }
+    gs_file_handler FileHandler = Context.ThreadContext.FileHandler;
+    gs_file ColorPhraseCSVFile = ReadEntireFile(FileHandler, PhraseMapCSVPath);
+    gs_const_string ColorPhraseMapStr = DataToString(ColorPhraseCSVFile.Data);
+    gscsv_sheet ColorPhraseSheet = CSV_Parse(ColorPhraseMapStr, 
+                                             { PhraseMapCSVSeparator },
+                                             State->Transient);
+    
+    BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, 
+                                                    &State->Permanent);
     
 #if 1
     { // Animation PLAYGROUND
@@ -343,19 +345,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     bool SendMotorCommand = false;
     blumen_packet MotorCommand = {};
     
-#if 0
-    MotorTimeElapsed += Context->DeltaTime;
-    BLState->TimeElapsed += Context->DeltaTime;
-    
-    if (BLState->TimeElapsed > 5)
-    {
-        u32 NextIndex = ++BLState->CurrAnim % 3;
-        animation_handle Next = BLState->AnimHandles[NextIndex];
-        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup, Next, 5);
-        BLState->TimeElapsed = 0;
-    }
-#endif
-    
     while (MessageQueue_CanRead(BLState->IncomingMsgQueue))
     {
         gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
@@ -406,12 +395,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                                      T[1] << 0);
                 
                 motor_packet LastPos = BLState->LastKnownMotorState;
-                if (LastPos.FlowerPositions[0] != Motor.Pos.FlowerPositions[0] ||
-                    LastPos.FlowerPositions[1] != Motor.Pos.FlowerPositions[1] ||
-                    LastPos.FlowerPositions[2] != Motor.Pos.FlowerPositions[2])
-                {
-                    DEBUG_ReceivedMotorPositions(Motor.Pos, Context->ThreadContext);
-                }
+                DEBUG_ReceivedMotorPositions(LastPos, Motor.Pos, Context->ThreadContext);
                 BLState->LastKnownMotorState = Motor.Pos;
                 
             }break;
@@ -429,7 +413,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     BLState->BrightnessPercent = 1.f;
                 }
                 
-                gs_string TempStr = PushStringF(State->Transient, 256, "\nTemperature: %d\n",
+                gs_string TempStr = PushStringF(State->Transient, 256, 
+                                                "\nTemperature: %d\n",
                                                 Temp.Temperature);
                 NullTerminate(&TempStr);
                 OutputDebugStringA(TempStr.Str);
@@ -441,10 +426,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     
     
     // Open / Close the Motor
-    
     if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue))
     {
-#if 1
         for (u32 i = 0; i < MotorOpenTimesCount; i++)
         {
             time_range Range = MotorOpenTimes[i];
@@ -487,7 +470,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 MotorCommand = Packet;
             }
         }
-#endif
         
         if (SendMotorCommand)
         {
@@ -497,8 +479,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     // Dim the leds based on temp data
-#define DIM_LED_BRIGHTNESS 1
-#if DIM_LED_BRIGHTNESS
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
         led_buffer Buffer = State->LedSystem.Buffers[i];
@@ -517,11 +497,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     motor_packet CurrMotorPos = BLState->LastKnownMotorState;
     for (u32 a = 0; a < State->Assemblies.Count; a++)
     {
-        // TODO(PS): make sure to align which assembly goes with which
-        // flower index
-        bool FlowerIsOpen = BLState->LastKnownMotorState.FlowerPositions[a] == 2;
-        //if (!FlowerIsOpen) continue;
-        
         assembly Assembly = State->Assemblies.Values[a];
         u64 AssemblyCCIndex = GetCCIndex(Assembly, BLState);
         
@@ -547,7 +522,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             }
         }
     }
-#endif
     
     // Send Status Packet
     {
