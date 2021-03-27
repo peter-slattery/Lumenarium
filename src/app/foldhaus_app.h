@@ -72,6 +72,7 @@ struct app_state
     panel* HotPanel;
     
     user_space_desc UserSpaceDesc;
+    bool ShowingUserSpaceDebug;
     
     bool RunEditor;
 };
