@@ -219,7 +219,8 @@ struct blumen_lumen_state
     
     system_time LastSendTime;
     
-    v4 AssemblyColors[3];
+    phrase_hue AssemblyColors[3];
+    u32 LastAssemblyColorSet;
     
     // The indices of this array are the index the clear core uses to 
     // represent a motor. 
@@ -228,6 +229,8 @@ struct blumen_lumen_state
     // 
     u32 AssemblyNameToClearCoreMapCount;
     u64* AssemblyNameToClearCore_Names;
+    
+    phrase_hue_map PhraseHueMap;
     
     // Debug
     motor_packet DEBUG_PendingMotorPacket;

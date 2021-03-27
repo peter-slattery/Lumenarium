@@ -42,6 +42,7 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
 #include "engine/user_space.h"
+#include "ss_blumen_lumen/phrase_hue_map.h"
 #include "ss_blumen_lumen/blumen_lumen.h"
 
 struct app_state

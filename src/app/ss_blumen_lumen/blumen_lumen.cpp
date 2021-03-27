@@ -281,6 +281,15 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->AssemblyNameToClearCore_Names[2] = HashDJB2ToU32(StringExpand(Flower2->Name));
 #endif
     
+    {
+        gs_file ColorPhraseCSVFile = ReadEntireFile(Context.ThreadContext.FileHandler, ConstString("data/flower_codes.tsv"));
+        gs_const_string ColorPhraseMapStr = ConstString((char*)ColorPhraseCSVFile.Memory,
+                                                        ColorPhraseCSVFile.Size);
+        gscsv_sheet ColorPhraseSheet = CSV_Parse(ColorPhraseMapStr, { '\t' }, State->Transient);
+        
+        BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, &State->Permanent);
+    }
+    
 #if 1
     { // Animation PLAYGROUND
         animation_desc Desc = {};
@@ -323,10 +332,6 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
-    BLState->AssemblyColors[0] = RedV4;
-    BLState->AssemblyColors[1] = GreenV4;
-    BLState->AssemblyColors[2] = BlueV4;
-    
     return Result;
 }
 
@@ -360,8 +365,16 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             case PacketType_PatternCommand:
             {
                 microphone_packet Mic = Packet.MicPacket;
+                u64 NameHash = HashDJB2ToU32(Mic.AnimationFileName);
                 u32 NameLen = CStringLength(Mic.AnimationFileName);
                 
+                phrase_hue NewHue = PhraseHueMap_Get(BLState->PhraseHueMap, NameHash);
+                if (NewHue.PhraseHash != 0)
+                {
+                    u32 AssemblyIdx = BLState->LastAssemblyColorSet;
+                    BLState->AssemblyColors[AssemblyIdx] = NewHue;
+                }
+#if 0
                 for (u32 i = 0; i < PhraseToAnimMapCount; i++)
                 {
                     gs_const_string PhraseStr = ConstString(PhraseToAnimMap[i].Phrase);
@@ -379,6 +392,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                         OutputDebugStringA(T.Str);
                     }
                 }
+#endif
             }break;
             
             case PacketType_MotorState:

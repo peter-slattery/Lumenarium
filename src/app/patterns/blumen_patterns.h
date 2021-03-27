@@ -1193,8 +1193,7 @@ Pattern_WavyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, 
     r32 LightHueMin = (ModR32(Time, 10) / 10) * 360;
     r32 LightHueMax = ModR32((LightHueMin + 45), 360) ;
 #else
-    v4 CenterColor = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
-    r32 CenterHue = RGBToHSV(CenterColor).x;
+    r32 CenterHue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3].Hue0;
     r32 LightHueMin = ModR32(CenterHue + 30, 360);;
     r32 LightHueMax = ModR32(CenterHue - 30, 360) ;
 #endif
