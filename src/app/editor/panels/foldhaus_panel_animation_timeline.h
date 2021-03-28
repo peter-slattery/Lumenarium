@@ -889,6 +889,10 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
             //if (ui_BeginLabeledDropdown(Interface, MakeString("Selected Pattern"), MakeString(BlockPattern.Name, BlockPattern.NameLength)))
             if (ui_BeginDropdown(Interface, MakeString(BlockPattern.Name, BlockPattern.NameLength)))
             {
+                Interface->ActiveLayout->Bounds.Max.x += 128.0f;
+                Interface->ActiveLayout->Columns[0].XMax += 128.0f;
+                
+                ui_BeginList(Interface, MakeString("Patterns List"), 5, State->Patterns.Count);
                 for (u32 i = 0; i < State->Patterns.Count; i++)
                 {
                     animation_pattern Pattern = State->Patterns.Values[i];
@@ -897,6 +901,7 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
                         SelectedBlock->AnimationProcHandle = Patterns_IndexToHandle(i);
                     }
                 }
+                ui_EndList(Interface);
             }
             ui_EndLabeledDropdown(Interface);
         }

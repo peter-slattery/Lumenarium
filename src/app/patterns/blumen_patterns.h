@@ -753,20 +753,7 @@ Pattern_AllGreen(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r3
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         u32 I = LedIndex + 1;
-        Leds->Colors[LedIndex] = {};
-        if (I % 3 == 0)
-        {
-            Leds->Colors[LedIndex].R = 255;
-        }
-        else if (I % 3 == 1)
-        {
-            Leds->Colors[LedIndex].G = 255;
-        }
-        else if (I % 3 == 2)
-        {
-            Leds->Colors[LedIndex].B = 255;
-        }
-        
+        Leds->Colors[LedIndex] = {0, 255, 0};
     }
 }
 

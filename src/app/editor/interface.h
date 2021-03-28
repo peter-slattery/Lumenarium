@@ -1524,7 +1524,9 @@ ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 Elem
     // Create the viewport that offsets list contents (and at render time determines what is visible)
     //
     ui_widget* ViewportLayout = ui_PushLayout(Interface, MakeString("Contents"));
+    ui_WidgetSetFlag(ViewportLayout, UIWidgetFlag_DrawOutline);
     ui_WidgetClearFlag(ViewportLayout, UIWidgetFlag_ExpandsToFitChildren);
+    ViewportLayout->FillDirection = LayoutDirection_TopDown;
     
     ViewportLayout->Bounds.Min.y = SliderBounds.Min.y;
     ViewportLayout->Bounds.Max.y = SliderBounds.Max.y;
@@ -1532,7 +1534,7 @@ ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 Elem
     s32 ScrollableElements = Max(0, ElementCount - ViewportRows);
     ui_widget_retained_state* ViewportState = ui_GetOrCreateRetainedState(Interface, ViewportLayout);
     ViewportState->ChildrenDrawOffset.x = 0;
-    ViewportState->ChildrenDrawOffset.y = ((1.0f - State->InitialValueR32) * (r32)(ScrollableElements)) * ViewportLayout->RowHeight;
+    ViewportState->ChildrenDrawOffset.y = ((1.0f - State->InitialValueR32) * (r32)(ScrollableElements + 1)) * ViewportLayout->RowHeight;
 }
 
 internal void
