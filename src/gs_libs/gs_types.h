@@ -137,6 +137,9 @@ global_const r64 MinR64 = -MaxR64;
 global_const r64 SmallestPositiveR64 = 4.94065645841247e-324;
 global_const r64 EpsilonR64 = 1.11022302462515650e-16;
 
+global_const r64 NanosToSeconds = 1 / 10000000.0;
+global_const r64 SecondsToNanos = 10000000.0;
+
 // TODO: va_start and va_arg replacements
 
 internal r32

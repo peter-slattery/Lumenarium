@@ -2709,8 +2709,30 @@ PushSize_(gs_memory_arena* Arena, u64 Size, char* Location)
         {
             CursorEntry = MemoryArenaNewCursor(Arena, Size, Location);
         }
-        Assert(CursorEntry);
-        Assert(CursorHasRoom(CursorEntry->Cursor, Size));
+        
+        if (!CursorEntry || !CursorHasRoom(CursorEntry->Cursor, Size))
+        {
+            __debugbreak();
+            
+            CursorEntry = 0;
+            for (u64 i = 0;
+                 i < Arena->CursorsCount;
+                 i++)
+            {
+                gs_memory_cursor_list* At = Arena->Cursors + i;
+                if (CursorHasRoom(At->Cursor, Size))
+                {
+                    CursorEntry = At;
+                    break;
+                }
+            }
+            if (!CursorEntry)
+            {
+                CursorEntry = MemoryArenaNewCursor(Arena, Size, Location);
+            }
+        }
+        //Assert(CursorEntry);
+        //Assert(CursorHasRoom(CursorEntry->Cursor, Size));
 #else
         
         gs_memory_cursor_list* CursorEntry = Arena->CursorList;

@@ -145,11 +145,8 @@ struct blumen_lumen_state
     mic_listen_job_data MicListenJobData;
     
     motor_packet LastKnownMotorState;
-    
-    r64 TimeElapsed;
-    
-    animation_handle AnimHandles[3];
-    u32 CurrAnim;
+    u64 LastTimeMotorStateChanged[BL_FLOWER_COUNT];
+    b8 ShouldDimUpperLeds[BL_FLOWER_COUNT];
     
     // NOTE(pjs): Based on temperature data from weatherman
     // dim the leds.
@@ -158,7 +155,7 @@ struct blumen_lumen_state
     
     system_time LastSendTime;
     
-    phrase_hue AssemblyColors[3];
+    phrase_hue AssemblyColors[BL_FLOWER_COUNT];
     u32 LastAssemblyColorSet;
     
     // The indices of this array are the index the clear core uses to 
@@ -171,12 +168,13 @@ struct blumen_lumen_state
     
     bl_pattern_mode PatternMode;
     animation_handle_array ModeAnimations[BlumenPattern_Count];
-    u32 CurrentAnimation;
     
     phrase_hue_map PhraseHueMap;
+    system_time TimeLastSetToVoiceMode;
     
     // Debug
     motor_packet DEBUG_PendingMotorPacket;
+    bool DEBUG_IgnoreWeatherDimmingLeds;
 };
 
 #include "message_queue.cpp"

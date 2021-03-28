@@ -160,6 +160,9 @@ struct animation_system
     animation_array Animations;
     
     animation_repeat_mode RepeatMode;
+    animation_handle_array Playlist;
+    u32 PlaylistAt;
+    r32 PlaylistFadeTime;
     
     // NOTE(Peter): The frame currently being displayed/processed. you
     // can see which frame you're on by looking at the time slider on the timeline
@@ -621,14 +624,21 @@ AnimationFadeGroup_Update(animation_fade_group* Group, r32 DeltaTime)
 internal void
 AnimationFadeGroup_FadeTo(animation_fade_group* Group, animation_handle To, r32 Duration)
 {
-    // complete current fade if there is one in progress
-    if (IsValid(Group->To))
+    if (IsValid(Group->From))
     {
-        AnimationFadeGroup_Advance(Group);
+        // complete current fade if there is one in progress
+        if (IsValid(Group->To))
+        {
+            AnimationFadeGroup_Advance(Group);
+        }
+        
+        Group->To = To;
+        Group->FadeDuration = Duration;
     }
-    
-    Group->To = To;
-    Group->FadeDuration = Duration;
+    else
+    {
+        Group->From = To;
+    }
 }
 
 // System
@@ -750,13 +760,30 @@ AnimationSystem_Update(animation_system* System, r32 DeltaTime)
                 
                 case AnimationRepeat_Loop:
                 {
-                    // TODO(pjs):
+                    Assert(System->Playlist.Count > 0);
+                    u32 NextIndex = System->PlaylistAt;
+                    System->PlaylistAt = (System->PlaylistAt + 1) % System->Playlist.Count;
+                    animation_handle Next = System->Playlist.Handles[NextIndex];
+                    
+                    AnimationFadeGroup_FadeTo(&System->ActiveFadeGroup,
+                                              Next,
+                                              System->PlaylistFadeTime);
+                    System->CurrentFrame = 0;
                 }break;
                 
                 InvalidDefaultCase;
             }
         }
     }
+}
+
+internal void
+AnimationSystem_FadeToPlaylist(animation_system* System, animation_handle_array Playlist)
+{
+    System->Playlist = Playlist;
+    System->PlaylistAt = 0;
+    
+    AnimationFadeGroup_FadeTo(&System->ActiveFadeGroup, Playlist.Handles[0], System->PlaylistFadeTime);
 }
 
 inline bool

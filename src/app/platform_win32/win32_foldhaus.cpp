@@ -556,6 +556,41 @@ Win32_SendOutputData(gs_thread_context ThreadContext, addressed_data_buffer_list
     
 }
 
+// Time
+internal system_time
+Win32GetSystemTime()
+{
+    system_time Result = {};
+    
+    SYSTEMTIME WinLocalTime;
+    GetLocalTime(&WinLocalTime);
+    
+    SYSTEMTIME WinSysTime;
+    FILETIME WinSysFileTime;
+    GetSystemTime(&WinSysTime);
+    if (SystemTimeToFileTime((const SYSTEMTIME*)&WinSysTime, &WinSysFileTime))
+    {
+        ULARGE_INTEGER SysTime = {};
+        SysTime.LowPart = WinSysFileTime.dwLowDateTime;
+        SysTime.HighPart = WinSysFileTime.dwHighDateTime;
+        
+        Result.NanosSinceEpoch = SysTime.QuadPart;
+        Result.Year   = WinLocalTime.wYear;
+        Result.Month  = WinLocalTime.wMonth;
+        Result.Day    = WinLocalTime.wDay;
+        Result.Hour   = WinLocalTime.wHour;
+        Result.Minute = WinLocalTime.wMinute;
+        Result.Second = WinLocalTime.wSecond;
+    }
+    else
+    {
+        u32 Error = GetLastError();
+        InvalidCodePath;
+    }
+    
+    return Result;
+}
+
 int WINAPI
 WinMain (
          HINSTANCE HInstance,
@@ -636,6 +671,8 @@ WinMain (
     
     Context.InitializeApplication(Context);
     
+    system_time StartTime = Win32GetSystemTime();
+    
     Running = true;
     Context.WindowIsVisible = true;
     while (Running)
@@ -647,31 +684,8 @@ WinMain (
         DEBUG_TRACK_SCOPE(MainLoop);
         
         {
-            // update system time
-            SYSTEMTIME WinLocalTime;
-            GetLocalTime(&WinLocalTime);
-            
-            SYSTEMTIME WinSysTime;
-            FILETIME WinSysFileTime;
-            GetSystemTime(&WinSysTime);
-            if (!SystemTimeToFileTime((const SYSTEMTIME*)&WinSysTime, &WinSysFileTime))
-            {
-                u32 Error = GetLastError();
-                InvalidCodePath;
-            }
-            ULARGE_INTEGER SysTime = {};
-            SysTime.LowPart = WinSysFileTime.dwLowDateTime;
-            SysTime.HighPart = WinSysFileTime.dwHighDateTime;
-            
             Context.SystemTime_Last = Context.SystemTime_Current;
-            
-            Context.SystemTime_Current.NanosSinceEpoch = SysTime.QuadPart;
-            Context.SystemTime_Current.Year = WinLocalTime.wYear;
-            Context.SystemTime_Current.Month = WinLocalTime.wMonth;
-            Context.SystemTime_Current.Day = WinLocalTime.wDay;
-            Context.SystemTime_Current.Hour = WinLocalTime.wHour;
-            Context.SystemTime_Current.Minute = WinLocalTime.wMinute;
-            Context.SystemTime_Current.Second = WinLocalTime.wSecond;
+            Context.SystemTime_Current = Win32GetSystemTime();
             
 #define PRINT_SYSTEM_TIME 0
 #if PRINT_SYSTEM_TIME
@@ -682,6 +696,11 @@ WinMain (
                                       Context.SystemTime_Current.Minute,
                                       Context.SystemTime_Current.Second,
                                       Context.SystemTime_Current.NanosSinceEpoch);
+            
+            u64 NanosElapsed = Context.SystemTime_Current.NanosSinceEpoch - StartTime.NanosSinceEpoch;
+            r64 SecondsElapsed = (r64)NanosElapsed * NanosToSeconds;
+            
+            PrintF(&T, "%lld %f Seconds\n", NanosElapsed, SecondsElapsed);
             NullTerminate(&T);
             OutputDebugStringA(T.Str);
 #endif

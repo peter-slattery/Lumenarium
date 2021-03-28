@@ -120,6 +120,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     // zero the Transient arena when we clear it so it wouldn't be a problem, but it is technically
     // incorrect to clear the arena, and then access the memory later.
     ClearArena(State->Transient);
+    Assert(State->UserSpaceDesc.UserData.Memory != 0);
     
     if (State->RunEditor)
     {
@@ -129,6 +130,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     AnimationSystem_Update(&State->AnimationSystem, Context->DeltaTime);
     if (AnimationSystem_NeedsRender(State->AnimationSystem))
     {
+        Assert(State->UserSpaceDesc.UserData.Memory != 0);
         AnimationSystem_RenderToLedBuffers(&State->AnimationSystem,
                                            State->Assemblies,
                                            &State->LedSystem,
@@ -138,7 +140,9 @@ UPDATE_AND_RENDER(UpdateAndRender)
                                            State->UserSpaceDesc.UserData.Memory);
     }
     
+    Assert(State->UserSpaceDesc.UserData.Memory != 0);
     US_CustomUpdate(&State->UserSpaceDesc, State, Context);
+    Assert(State->UserSpaceDesc.UserData.Memory != 0);
     
     AssemblyDebug_OverrideOutput(State->AssemblyDebugState,
                                  State->Assemblies,
@@ -149,6 +153,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
         Editor_Render(State, Context, RenderBuffer);
     }
     
+    Assert(State->UserSpaceDesc.UserData.Memory != 0);
     BuildAssemblyData(State, *Context, OutputData);
 }
 

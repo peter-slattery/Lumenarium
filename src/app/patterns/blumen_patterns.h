@@ -1065,7 +1065,7 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
     DEBUG_TRACK_FUNCTION;
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % BL_FLOWER_COUNT];
     v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
     v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
     

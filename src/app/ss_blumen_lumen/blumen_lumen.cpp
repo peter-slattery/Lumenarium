@@ -175,6 +175,16 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
 }
 
 internal void
+BlumenLumen_SetPatternMode(bl_pattern_mode Mode, r32 FadeDuration, animation_system* System, blumen_lumen_state* BLState)
+{
+    BLState->PatternMode = Mode;
+    animation_handle_array Playlist = BLState->ModeAnimations[Mode];
+    System->RepeatMode = AnimationRepeat_Loop;
+    System->PlaylistFadeTime = FadeDuration;
+    AnimationSystem_FadeToPlaylist(System, Playlist);
+}
+
+internal void
 BlumenLumen_LoadPatterns(app_state* State)
 {
     animation_pattern_array* Patterns = &State->Patterns;
@@ -298,7 +308,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->ModeAnimations[BlumenPattern_Standard] = LoadAllAnimationsInDir(AmbientPatternFolder, BLState, State, Context);
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
     
-    State->AnimationSystem.ActiveFadeGroup.From = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
+    BlumenLumen_SetPatternMode(BlumenPattern_Standard, 5, &State->AnimationSystem, BLState);
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -333,21 +343,16 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                         BLState->AssemblyColors[0] = NewHue;
                         BLState->AssemblyColors[1] = NewHue;
                         BLState->AssemblyColors[2] = NewHue;
-                        
-                        animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_VoiceCommand].Handles[0];
-                        AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
-                                                  NewAnim,
-                                                  VoiceCommandFadeDuration);
                     }
                     else
                     {
                         u32 AssemblyIdx = BLState->LastAssemblyColorSet;
                         BLState->AssemblyColors[AssemblyIdx] = NewHue;
+                        BLState->LastAssemblyColorSet = (BLState->LastAssemblyColorSet + 1) % 3;
                     }
                     
-                    BLState->PatternMode = BlumenPattern_VoiceCommand;
-                    // TODO(PS): get current time so we can fade back after
-                    // a while
+                    BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
+                    BLState->TimeLastSetToVoiceMode = Context->SystemTime_Current;
                 }
             }break;
             
@@ -361,8 +366,18 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 Motor.Temperature = (T[0] << 8 |
                                      T[1] << 0);
                 
+                motor_packet CurrPos = Motor.Pos;
                 motor_packet LastPos = BLState->LastKnownMotorState;
                 DEBUG_ReceivedMotorPositions(LastPos, Motor.Pos, Context->ThreadContext);
+                
+                for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
+                {
+                    if (LastPos.FlowerPositions[i] != CurrPos.FlowerPositions[i])
+                    {
+                        BLState->LastTimeMotorStateChanged[i] = Context->SystemTime_Current.NanosSinceEpoch;
+                    }
+                }
+                
                 BLState->LastKnownMotorState = Motor.Pos;
                 
             }break;
@@ -373,11 +388,11 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 
                 if (Temp.Temperature > 0)
                 {
-                    BLState->BrightnessPercent = .25f;
+                    BLState->BrightnessPercent = HighTemperatureBrightnessPercent;
                 }
                 else
                 {
-                    BLState->BrightnessPercent = 1.f;
+                    BLState->BrightnessPercent = FullBrightnessPercent;
                 }
                 
                 DEBUG_ReceivedTemperature(Temp, Context->ThreadContext);
@@ -387,6 +402,23 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
+    // Transition back to standard mode after some time
+    if (BLState->PatternMode == BlumenPattern_VoiceCommand)
+    {
+        u64 LastChangeClock = BLState->TimeLastSetToVoiceMode.NanosSinceEpoch;
+        u64 NowClocks = Context->SystemTime_Current.NanosSinceEpoch;
+        s64 NanosSinceChange = NowClocks - LastChangeClock;
+        r64 SecondsSinceChange = (r64)NanosSinceChange * NanosToSeconds;
+        
+        if (SecondsSinceChange > VoiceCommandSustainDuration)
+        {
+            BLState->PatternMode = BlumenPattern_Standard;
+            animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
+            AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                      NewAnim,
+                                      VoiceCommandFadeDuration);
+        }
+    }
     
     // Open / Close the Motor
     if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue))
@@ -441,38 +473,42 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             DEBUG_SentMotorCommand(MotorCommand.MotorPacket, Context->ThreadContext);
         }
     }
-    // Dim the leds based on temp data
-    for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
+    
+    // When a motor state changes to being open, wait to turn Upper Leds on 
+    // in order to hide the fact that they are turning off
+    motor_packet CurrMotorPos = BLState->LastKnownMotorState;
+    u64 NowNanos = Context->SystemTime_Current.NanosSinceEpoch;
+    for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
     {
-        led_buffer Buffer = State->LedSystem.Buffers[i];
-        for (u32 j = 0; j < Buffer.LedCount; j++)
+        // have to map from "assembly load order" to 
+        // the order that the clear core is referencing the 
+        // motors by
+        assembly Assembly = State->Assemblies.Values[i];
+        u64 AssemblyCCIndex = GetCCIndex(Assembly, BLState);
+        u8 MotorPos = CurrMotorPos.FlowerPositions[AssemblyCCIndex];
+        
+        if ((MotorPos == MotorState_Open || MotorPos == MotorState_MostlyOpen) &&
+            !BLState->ShouldDimUpperLeds[i])
         {
-            pixel* Color = Buffer.Colors + j;
-            Color->R = Color->R * BLState->BrightnessPercent;
-            Color->G = Color->G * BLState->BrightnessPercent;
-            Color->B = Color->B * BLState->BrightnessPercent;
+            u64 ChangedNanos = BLState->LastTimeMotorStateChanged[i];
+            u64 NanosSinceChanged = NowNanos - ChangedNanos;
+            r64 SecondsSinceChanged = (r64)NanosSinceChanged * NanosToSeconds;
+            if (SecondsSinceChanged > TurnUpperLedsOffAfterMotorCloseCommandDelay)
+            {
+                BLState->ShouldDimUpperLeds[i] = true;
+            }
         }
     }
     
     // NOTE(PS): If the flowers are mostly open or full open
     // we mask off the top leds to prevent them from overheating
     // while telescoped inside the flower
-    motor_packet CurrMotorPos = BLState->LastKnownMotorState;
-    for (u32 a = 0; a < State->Assemblies.Count; a++)
+    for (u32 a = 0; a < BL_FLOWER_COUNT; a++)
     {
         assembly Assembly = State->Assemblies.Values[a];
-        u64 AssemblyCCIndex = GetCCIndex(Assembly, BLState);
-        
-        u8 MotorPos = CurrMotorPos.FlowerPositions[AssemblyCCIndex];
-        
-        if (MotorPos == MotorState_Closed || 
-            MotorPos == MotorState_HalfOpen) 
-        {
-            continue;
-        }
+        if (!BLState->ShouldDimUpperLeds[a]) continue;
         
         led_buffer Buffer = State->LedSystem.Buffers[Assembly.LedBufferIndex];
-        
         led_strip_list TopStrips = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("inner_bloom"), State->Transient);
         for (u32 s = 0; s < TopStrips.Count; s++)
         {
@@ -482,6 +518,22 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             {
                 u32 LIndex = Strip.LedLUT[l];
                 Buffer.Colors[LIndex] = {0};
+            }
+        }
+    }
+    
+    // Dim the leds based on temp data
+    if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
+    {
+        for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
+        {
+            led_buffer Buffer = State->LedSystem.Buffers[i];
+            for (u32 j = 0; j < Buffer.LedCount; j++)
+            {
+                pixel* Color = Buffer.Colors + j;
+                Color->R = Color->R * BLState->BrightnessPercent;
+                Color->G = Color->G * BLState->BrightnessPercent;
+                Color->B = Color->B * BLState->BrightnessPercent;
             }
         }
     }
@@ -524,7 +576,7 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
     {
         motor_packet PendingPacket = BLState->DEBUG_PendingMotorPacket;
         
-        for (u32 MotorIndex = 0; MotorIndex < 3; MotorIndex++)
+        for (u32 MotorIndex = 0; MotorIndex < BL_FLOWER_COUNT; MotorIndex++)
         {
             gs_string Label = PushStringF(State->Transient, 32, "Motor %d", MotorIndex);
             ui_BeginRow(I, 5);
@@ -567,6 +619,40 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
             DEBUG_SentMotorCommand(Packet.MotorPacket, Context.ThreadContext);
         }
         
+        motor_packet MotorPos = BLState->LastKnownMotorState;
+        ui_Label(I, MakeString("Current Motor Positions"));
+        {
+            for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
+            {
+                ui_BeginRow(I, 2);
+                gs_string MotorStr = PushStringF(State->Transient, 32, 
+                                                 "Motor %d", 
+                                                 i);
+                ui_Label(I, MotorStr);
+                
+                gs_string StateStr = {};
+                switch (MotorPos.FlowerPositions[i])
+                {
+                    case MotorState_Closed: { 
+                        StateStr = MakeString("Closed"); 
+                    } break;
+                    case MotorState_HalfOpen: { 
+                        StateStr = MakeString("Half Open"); 
+                    } break;
+                    case MotorState_MostlyOpen: { 
+                        StateStr = MakeString("Mostly Open"); 
+                    } break;
+                    case MotorState_Open: { 
+                        StateStr = MakeString("Open"); 
+                    } break;
+                }
+                
+                ui_Label(I, StateStr);
+                ui_EndRow(I);
+            }
+        }
+        
+        BLState->DEBUG_IgnoreWeatherDimmingLeds = ui_LabeledToggle(I, MakeString("Ignore Weather Dimming Leds"), BLState->DEBUG_IgnoreWeatherDimmingLeds);
     }
 }
 
