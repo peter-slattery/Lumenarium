@@ -19,6 +19,12 @@ struct animation_timeline_state
     animation_handle NextActiveAnim;
 };
 
+internal void
+AnimationTimeline_SelectLayer(animation_timeline_state* TLState, s32 Layer)
+{
+    TLState->SelectedAnimationLayer = Layer;
+}
+
 inline u32
 GetFrameFromPointInAnimationPanel(v2 Point, rect2 PanelBounds, frame_range VisibleRange)
 {
@@ -266,6 +272,11 @@ AnimationTimeline_AddAnimationBlockCommand(animation_timeline_state* TimelineSta
     {
         animation_pattern_handle PatternHandle = Patterns_IndexToHandle(0);
         s32 Layer = TimelineState->SelectedAnimationLayer;
+        if (Layer < 0)
+        {
+            Layer = Animation_AddLayer(ActiveAnim, MakeString("[New Layer]"), BlendMode_Add, &State->AnimationSystem);
+            AnimationTimeline_SelectLayer(TimelineState, Layer);
+        }
         Assert(Layer >= 0);
         
         handle NewBlockHandle = Animation_AddBlock(ActiveAnim, StartFrame, EndFrame, PatternHandle, Layer);
@@ -472,33 +483,6 @@ DrawLayerMenu(animation_system* AnimationSystem, animation ActiveAnim, ui_interf
     }
 }
 
-internal rect2
-DrawAnimationBlock (animation_block AnimationBlock, v4 BlockColor, frame_range VisibleFrames, rect2 TimelineBounds, render_command_buffer* RenderBuffer)
-{
-    rect2 BlockBounds = {};
-    
-    r32 TimelineWidth = Rect2Width(TimelineBounds);
-    
-    u32 ClampedBlockStartFrame = ClampFrameToRange(AnimationBlock.Range.Min, VisibleFrames);
-    r32 StartFramePercent = FrameToPercentRange(ClampedBlockStartFrame, VisibleFrames);
-    r32 StartPosition = TimelineWidth * StartFramePercent;
-    
-    u32 ClampedBlockEndFrame = ClampFrameToRange(AnimationBlock.Range.Max, VisibleFrames);
-    r32 EndFramePercent = FrameToPercentRange(ClampedBlockEndFrame, VisibleFrames);
-    r32 EndPosition = TimelineWidth * EndFramePercent;
-    
-    r32 LayerYOffset = LAYER_HEIGHT * AnimationBlock.Layer;
-    BlockBounds.Min = TimelineBounds.Min + v2{StartPosition, LayerYOffset};
-    BlockBounds.Max = TimelineBounds.Min + v2{EndPosition, LayerYOffset + LAYER_HEIGHT};
-    
-    PushRenderQuad2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, BlockColor);
-    PushRenderBoundingBox2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, 1, WhiteV4);
-    
-    // TODO(pjs): If mouse is on one of the border hot spots, render an off colored square to signal the region is hot
-    
-    return BlockBounds;
-}
-
 PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 {
     Assert(ReturningFrom->TypeIndex == PanelType_FileView);
@@ -518,6 +502,8 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAnimationFileCallback)
 internal void
 PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     animation_system* AnimSystem = &State->AnimationSystem;
     ui_interface* Interface = &State->Interface;
     ui_PushLayout(Interface, Bounds, LayoutDirection_TopDown, MakeString("PlayBar Layout"));
@@ -548,6 +534,8 @@ PlayBar_Render(animation_timeline_state* TimelineState, rect2 Bounds, panel* Pan
 internal void
 FrameCount_Render(animation_timeline_state* TimelineState, animation* ActiveAnim, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     ui_interface* Interface = &State->Interface;
     gs_string TempString = PushString(State->Transient, 256);
     
@@ -627,6 +615,7 @@ LayerList_DrawLayerButton (ui_interface* Interface, gs_string Name, rect2 Bounds
 internal void
 LayerList_Render(animation_timeline_state* TimelineState, animation* ActiveAnim, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
     ui_interface* Interface = &State->Interface;
     
     ui_FillRect(Interface, Bounds, Interface->Style.PanelBG);
@@ -659,8 +648,48 @@ LayerList_Render(animation_timeline_state* TimelineState, animation* ActiveAnim,
 }
 
 internal void
+TimeRange_RenderBlock (rect2 BlockBounds, u32 BlockIndex, animation* ActiveAnim, handle SelectedBlockHandle, ui_interface* Interface, render_command_buffer* RenderBuffer)
+{
+    v4 BlockColor = BlackV4;
+    if (SelectedBlockHandle.Index == BlockIndex && SelectedBlockHandle.Generation == ActiveAnim->Blocks_.Generations[BlockIndex])
+    {
+        BlockColor = TealV4;
+    }
+    
+    PushRenderQuad2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, BlockColor);
+    PushRenderBoundingBox2D(RenderBuffer, BlockBounds.Min, BlockBounds.Max, 1, WhiteV4);
+}
+
+struct block_bounds_lut_entry
+{
+    rect2 Bounds;
+    u32 Index;
+};
+
+internal void
+TimeRange_RenderBlockArray(block_bounds_lut_entry* Blocks, u32* LUT, u32 LUTCount, r32 HeightOffset, animation* ActiveAnim, handle SelectedBlockHandle, handle* DragBlockHandle, ui_interface* Interface, render_command_buffer* RenderBuffer)
+{
+    for (u32 i = 0; i < LUTCount; i++)
+    {
+        u32 BlockBoundsIndex = LUT[i];
+        block_bounds_lut_entry Block = Blocks[BlockBoundsIndex];
+        Block.Bounds.Max.y += HeightOffset;
+        
+        TimeRange_RenderBlock(Block.Bounds, Block.Index, ActiveAnim, SelectedBlockHandle, Interface, RenderBuffer);
+        
+        if (PointIsInRect(Block.Bounds, Interface->Mouse.Pos))
+        {
+            DragBlockHandle->Index = Block.Index;
+            DragBlockHandle->Generation = ActiveAnim->Blocks_.Generations[Block.Index];
+        }
+    }
+}
+
+internal void
 TimeRange_Render(animation_timeline_state* TimelineState, animation* ActiveAnim, rect2 Bounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     ui_interface* Interface = &State->Interface;
     
     // TODO(pjs): setting the timeline to show the entire range
@@ -682,32 +711,108 @@ TimeRange_Render(animation_timeline_state* TimelineState, animation* ActiveAnim,
     handle DragBlockHandle = {0};
     if (ActiveAnim)
     {
-        for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
+        u32 BlocksCountMax = ActiveAnim->Blocks_.Count;
+        u32 BlocksCount = 0;
+        block_bounds_lut_entry* Blocks = PushArray(State->Transient, block_bounds_lut_entry, BlocksCountMax);
+        
+        u32 FrontBlocksCount = 0;
+        u32* FrontBlocks = PushArray(State->Transient, u32, BlocksCountMax);
+        u32 BackBlocksCount = 0;
+        u32* BackBlocks = PushArray(State->Transient, u32, BlocksCountMax);
+        
+        for (u32 l = 0; l < ActiveAnim->Layers.Count; l++)
         {
-            animation_block* AnimationBlockAt = ActiveAnim->Blocks_.Values + i;
+            BlocksCount = 0;
+            FrontBlocksCount = 0;
+            BackBlocksCount = 0;
             
-            // If either end is in the range, we should draw it
-            b32 RangeIsVisible = (FrameIsInRange(ViewRange, AnimationBlockAt->Range.Min) ||
-                                  FrameIsInRange(ViewRange, AnimationBlockAt->Range.Max));
-            // If neither end is in the range, but the ends surround the visible range,
-            // we should still draw it.
-            RangeIsVisible |= (AnimationBlockAt->Range.Min <= ViewRange.Min &&
-                               AnimationBlockAt->Range.Max>= ViewRange.Max);
-            if (RangeIsVisible)
+            for (u32 i = 0; i < ActiveAnim->Blocks_.Count; i++)
             {
-                v4 BlockColor = BlackV4;
-                if (SelectedBlockHandle.Index == i && SelectedBlockHandle.Generation == ActiveAnim->Blocks_.Generations[i])
-                {
-                    BlockColor = PinkV4;
-                }
-                rect2 BlockBounds = DrawAnimationBlock(*AnimationBlockAt, BlockColor, ViewRange, Bounds, Interface->RenderBuffer);
+                animation_block* AnimationBlockAt = ActiveAnim->Blocks_.Values + i;
+                if (AnimationBlockAt->Layer != l) continue;
                 
-                if (PointIsInRect(BlockBounds, Interface->Mouse.Pos))
+                // If either end is in the range, we should draw it
+                b32 RangeIsVisible = (FrameIsInRange(ViewRange, AnimationBlockAt->Range.Min) ||
+                                      FrameIsInRange(ViewRange, AnimationBlockAt->Range.Max));
+                // If neither end is in the range, but the ends surround the visible range,
+                // we should still draw it.
+                RangeIsVisible |= (AnimationBlockAt->Range.Min <= ViewRange.Min &&
+                                   AnimationBlockAt->Range.Max>= ViewRange.Max);
+                if (!RangeIsVisible) continue;
+                
+                r32 TimelineWidth = Rect2Width(Bounds);
+                
+                frame_range BlockAtRange = AnimationBlockAt->Range;
+                u32 ClampedBlockStartFrame = ClampFrameToRange(BlockAtRange.Min, ViewRange);
+                r32 StartFramePercent = FrameToPercentRange(ClampedBlockStartFrame, ViewRange);
+                r32 StartPosition = TimelineWidth * StartFramePercent;
+                
+                u32 ClampedBlockEndFrame = ClampFrameToRange(BlockAtRange.Max, ViewRange);
+                r32 EndFramePercent = FrameToPercentRange(ClampedBlockEndFrame, ViewRange);
+                r32 EndPosition = TimelineWidth * EndFramePercent;
+                
+                r32 LayerYOffset = LAYER_HEIGHT * AnimationBlockAt->Layer;
+                
+                rect2 NewBlockBounds = {};
+                NewBlockBounds.Min = Bounds.Min + v2{StartPosition, LayerYOffset};
+                NewBlockBounds.Max = Bounds.Min + v2{EndPosition, LayerYOffset + LAYER_HEIGHT};
+                
+                block_bounds_lut_entry NewBlock = {};
+                NewBlock.Bounds = NewBlockBounds;
+                NewBlock.Index = i;
+                
+                // fast (implementation-wise) insert sort. 
+                // TODO(PS): probably not great
+                for (u32 j = 0; j < BlocksCount; j++)
                 {
-                    DragBlockHandle.Index = i;
-                    DragBlockHandle.Generation = ActiveAnim->Blocks_.Generations[i];
+                    if (Blocks[j].Bounds.Min.x > NewBlock.Bounds.Min.x)
+                    {
+                        block_bounds_lut_entry Old = Blocks[j];
+                        Blocks[j] = NewBlock;
+                        NewBlock = Old;
+                    }
+                }
+                Blocks[BlocksCount++] = NewBlock;
+            }
+            
+            // BlockBounds are sorted by their render bounds from left to right
+            // This iterates over them to see if any on the same layer overlap, and if
+            // so, shrinks one of them, putting it in a new list
+            for (u32 i = 0; i < BlocksCount; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    BackBlocks[BackBlocksCount++] = i;
+                    continue;
+                }
+                
+                bool ShortCandidate = false;
+                block_bounds_lut_entry Block = Blocks[i];
+                if (i > 0) 
+                {
+                    block_bounds_lut_entry PrevBlock = Blocks[i - 1];
+                    rect2 Union = Rect2Union(PrevBlock.Bounds, Block.Bounds);
+                    ShortCandidate |= Rect2Width(Union) > 0;
+                }
+                if (i < BlocksCount - 1)
+                {
+                    block_bounds_lut_entry NextBlock = Blocks[i + 1];
+                    rect2 Union = Rect2Union(NextBlock.Bounds, Block.Bounds);
+                    ShortCandidate |= Rect2Width(Union) > 0;
+                }
+                
+                if (ShortCandidate)
+                {
+                    FrontBlocks[FrontBlocksCount++] = i;
+                }
+                else
+                {
+                    BackBlocks[BackBlocksCount++] = i;
                 }
             }
+            
+            TimeRange_RenderBlockArray(Blocks, BackBlocks, BackBlocksCount, 0, ActiveAnim, SelectedBlockHandle, &DragBlockHandle, Interface, RenderBuffer);
+            TimeRange_RenderBlockArray(Blocks, FrontBlocks, FrontBlocksCount, -15, ActiveAnim, SelectedBlockHandle, &DragBlockHandle, Interface, RenderBuffer);
         }
     }
     
@@ -770,6 +875,7 @@ AnimationTimeline_SetActiveAnimation (animation_handle Handle, animation_timelin
 internal void
 AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAnim, rect2 Bounds, panel* Panel, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
     animation_system* AnimSystem = &State->AnimationSystem;
     
     animation_handle ActiveAnimHandle = State->AnimationSystem.ActiveFadeGroup.From;
@@ -884,9 +990,8 @@ AnimInfoView_Render(animation_timeline_state* TimelineState, animation* ActiveAn
         {
             animation_pattern BlockPattern = Patterns_GetPattern(State->Patterns, SelectedBlock->AnimationProcHandle);
             
-            ui_BeginRow(Interface, 3);
+            ui_BeginRow(Interface, 2);
             ui_Label(Interface, MakeString("Selected Pattern"));
-            //if (ui_BeginLabeledDropdown(Interface, MakeString("Selected Pattern"), MakeString(BlockPattern.Name, BlockPattern.NameLength)))
             if (ui_BeginDropdown(Interface, MakeString(BlockPattern.Name, BlockPattern.NameLength)))
             {
                 Interface->ActiveLayout->Bounds.Max.x += 128.0f;
@@ -925,6 +1030,8 @@ GSMetaTag(panel_type_animation_timeline);
 internal void
 AnimationTimeline_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* RenderBuffer, app_state* State, context Context)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     animation_timeline_state* TimelineState = Panel_GetStateStruct(Panel, animation_timeline_state);
     
     animation* ActiveAnim = 0;

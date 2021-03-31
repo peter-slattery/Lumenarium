@@ -430,14 +430,15 @@ Win32_SendAddressedDataBuffer_Job(gs_thread_context Context, gs_data Arg)
 }
 
 internal bool
-ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError)
+ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError, bool AppReady)
 {
     bool Success = false;
     if (HotLoadDLL(DLL))
     {
         SetApplicationLinks(Context, *DLL, WorkQueue);
-        Context->ReloadStaticData(*Context, GlobalDebugServices);
+        Context->ReloadStaticData(*Context, GlobalDebugServices, AppReady);
         Success = true;
+        OutputDebugStringA("Reloaded DLL\n");
     }
     else if(ShouldError)
     {
@@ -609,19 +610,29 @@ WinMain (
     
     if (!SetWorkingDirectory(HInstance, ThreadContext)) return 1;
     
-    MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
-    Win32UpdateWindowDimension(&MainWindow);
-    
-    win32_opengl_window_info OpenGLWindowInfo = {};
-    OpenGLWindowInfo.ColorBits = 32;
-    OpenGLWindowInfo.AlphaBits = 8;
-    OpenGLWindowInfo.DepthBits = 0;
-    CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
-    
     context Context = {};
     Context.ThreadContext = ThreadContext;
     Context.MemorySize = MB(64);
     Context.MemoryBase = (u8*)Win32Alloc(Context.MemorySize, 0);
+    
+    gs_const_string Args = ConstString((char*)CmdLineArgs);
+    if (StringsEqual(Args, ConstString("-headless")))
+    {
+        OutputDebugStringA("Running Headless\n");
+        Context.Headless = true;
+    }
+    
+    if (!Context.Headless)
+    {
+        MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
+        Win32UpdateWindowDimension(&MainWindow);
+        
+        win32_opengl_window_info OpenGLWindowInfo = {};
+        OpenGLWindowInfo.ColorBits = 32;
+        OpenGLWindowInfo.AlphaBits = 8;
+        OpenGLWindowInfo.DepthBits = 0;
+        CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
+    }
     
     gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator, "Platform Memory");
     
@@ -657,7 +668,7 @@ WinMain (
     *Context.SocketManager = CreatePlatformSocketManager(Win32ConnectSocket, Win32CloseSocket, Win32SocketQueryStatus, Win32SocketPeek, Win32SocketReceive, Win32SocketSend);
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
-    if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
+    if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true, false)) { return -1; }
     
     Mouse_Init();
     
@@ -708,42 +719,43 @@ WinMain (
         
         ResetInputQueue(&InputQueue);
         
-        ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false);
+        ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false, true);
         
         AddressedDataBufferList_Clear(&OutputData);
         
-        Mouse_Update(MainWindow, &Context);
-        
-        MSG Message;
-        while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
+        if (!Context.Headless)
         {
-            DEBUG_TRACK_SCOPE(PeekWindowsMessages);
-            HandleWindowMessage(Message, &MainWindow, &InputQueue, &Context.Mouse);
+            Mouse_Update(MainWindow, &Context);
+            MSG Message;
+            while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
+            {
+                DEBUG_TRACK_SCOPE(PeekWindowsMessages);
+                HandleWindowMessage(Message, &MainWindow, &InputQueue, &Context.Mouse);
+            }
+            
+            Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
+            RenderBuffer.ViewWidth = MainWindow.Width;
+            RenderBuffer.ViewHeight = MainWindow.Height;
         }
         
-        Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
-        RenderBuffer.ViewWidth = MainWindow.Width;
-        RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
-        
-#if 0
-        gs_string T = PushStringF(Context.ThreadContext.Transient, 256, "%f\n", Context.DeltaTime);
-        NullTerminate(&T);
-        OutputDebugStringA(T.Str);
-#endif
+        Context.TotalTime += (r64)Context.DeltaTime;
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
         Win32_SendOutputData(ThreadContext, OutputData);
         
-        RenderCommandBuffer(RenderBuffer);
-        ClearRenderBuffer(&RenderBuffer);
-        
-        Mouse_Advance(&Context);
-        
-        HDC DeviceContext = GetDC(MainWindow.Handle);
-        SwapBuffers(DeviceContext);
-        ReleaseDC(MainWindow.Handle, DeviceContext);
+        if (!Context.Headless)
+        {
+            RenderCommandBuffer(RenderBuffer);
+            ClearRenderBuffer(&RenderBuffer);
+            
+            Mouse_Advance(&Context);
+            
+            HDC DeviceContext = GetDC(MainWindow.Handle);
+            SwapBuffers(DeviceContext);
+            ReleaseDC(MainWindow.Handle, DeviceContext);
+        }
         
         Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
         
@@ -767,8 +779,6 @@ WinMain (
     Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
     
     Win32WorkQueue_Cleanup();
-    //Win32_TestCode_SocketReading_Cleanup();
-    
     Win32SocketSystem_Cleanup();
     
     return 0;

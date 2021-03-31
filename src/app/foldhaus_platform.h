@@ -74,7 +74,7 @@ typedef INITIALIZE_APPLICATION(initialize_application);
 #define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
 typedef UPDATE_AND_RENDER(update_and_render);
 
-#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices)
+#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices, bool AppReady)
 typedef RELOAD_STATIC_DATA(reload_static_data);
 
 #define CLEANUP_APPLICATION(name) void name(context Context, addressed_data_buffer_list* OutputData)
@@ -213,6 +213,7 @@ struct context
     
     b32 WindowIsVisible;
     rect2 WindowBounds;
+    r64 TotalTime;
     r32 DeltaTime;
     mouse_state Mouse;
     
@@ -236,6 +237,9 @@ struct context
     
     system_time SystemTime_Last;
     system_time SystemTime_Current;
+    
+    // 
+    bool Headless;
 };
 
 #define FOLDHAUS_PLATFORM_H

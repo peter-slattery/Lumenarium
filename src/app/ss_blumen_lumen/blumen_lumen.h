@@ -155,6 +155,7 @@ struct blumen_lumen_state
     
     system_time LastSendTime;
     
+    phrase_hue StandardPatternHues;
     phrase_hue AssemblyColors[BL_FLOWER_COUNT];
     u32 LastAssemblyColorSet;
     
@@ -172,6 +173,7 @@ struct blumen_lumen_state
     phrase_hue_map PhraseHueMap;
     system_time TimeLastSetToVoiceMode;
     
+    r32 PatternSpeed;
     // Debug
     motor_packet DEBUG_PendingMotorPacket;
     bool DEBUG_IgnoreWeatherDimmingLeds;
@@ -179,6 +181,26 @@ struct blumen_lumen_state
 
 #include "message_queue.cpp"
 
+internal phrase_hue
+BlumenLumen_GetCurrentHue(blumen_lumen_state* BLState, assembly Assembly)
+{
+    phrase_hue Result = {};
+    
+    switch (BLState->PatternMode)
+    {
+        case BlumenPattern_Standard:
+        {
+            Result = BLState->StandardPatternHues;
+        }break;
+        
+        case BlumenPattern_VoiceCommand:
+        {
+            Result = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+        }break;
+    }
+    
+    return Result;
+}
 
 
 

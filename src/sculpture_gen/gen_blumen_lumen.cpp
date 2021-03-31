@@ -106,8 +106,8 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
 #if 1
     // the bloom stem inner
     loop_desc BloomStemInner = {};
-    BloomStemInner.CenterStart = v3{0, 1.4f, 0} + Desc.Pos;
-    BloomStemInner.CenterEnd = v3{0, .9f, 0} + Desc.Pos;
+    BloomStemInner.CenterStart = v3{0, 1.4f, 0};
+    BloomStemInner.CenterEnd = v3{0, .9f, 0};
     BloomStemInner.Radius = .05f;
     BloomStemInner.SegmentsCount = 6;
     BloomStemInner.SubsegmentsCount = 3;
@@ -120,8 +120,8 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
     
     // the bloom stem outer
     loop_desc BloomStemOuter = {};
-    BloomStemOuter.CenterStart = v3{0, .5f, 0} + Desc.Pos;
-    BloomStemOuter.CenterEnd = v3{0, .9f, 0} + Desc.Pos;
+    BloomStemOuter.CenterStart = v3{0, .5f, 0};
+    BloomStemOuter.CenterEnd = v3{0, .9f, 0};
     BloomStemOuter.Radius = .07f;
     BloomStemOuter.SegmentsCount = 9;
     BloomStemOuter.SubsegmentsCount = 3;
@@ -136,8 +136,8 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
 #if 1
     // the flower stem
     loop_desc FlowerStem = {};
-    FlowerStem.CenterStart = v3{0, -1.5f, 0} + Desc.Pos;
-    FlowerStem.CenterEnd = v3{0, .5f, 0} + Desc.Pos;
+    FlowerStem.CenterStart = v3{0, -1.5f, 0};
+    FlowerStem.CenterEnd = v3{0, .5f, 0};
     FlowerStem.Radius = .05f;
     FlowerStem.SegmentsCount = 6;
     FlowerStem.SubsegmentsCount = 1;
@@ -182,7 +182,7 @@ int main(int ArgCount, char** Args)
     WriteAssemblyUARTOpen(&OutputBuffer0,
                           "Blumen Lumen - Silver Spring - 00",
                           100,
-                          v3{0, 0, 0},
+                          v3{-1, 0, 0},
                           21,
                           "");
     WriteAssemblyUARTOpen(&OutputBuffer1,
@@ -194,7 +194,7 @@ int main(int ArgCount, char** Args)
     WriteAssemblyUARTOpen(&OutputBuffer2,
                           "Blumen Lumen - Silver Spring - 02",
                           100,
-                          v3{0, 0, 0},
+                          v3{1, 0, 0},
                           21,
                           "");
     
@@ -204,7 +204,7 @@ int main(int ArgCount, char** Args)
     u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 0) };
     u32 BloomInnerChannels[] = { FSC(0, 0), FSC(0, 1), FSC(0, 2), FSC(0, 3), FSC(0, 4), FSC(0, 5) };
     flower_desc F0 = {};
-    F0.Pos = v3{-1, 0, 0};
+    F0.Pos = v3{0, 0, 0};
     F0.ComPort = "\\\\.\\COM11";
     F0.FlowerTagValue = "left";
     F0.StemChannels = StemChannels;
@@ -222,7 +222,7 @@ int main(int ArgCount, char** Args)
     StripCount += BuildFlower(&OutputBuffer1, F1);
     
     flower_desc F2 = {};
-    F2.Pos = v3{1, 0, 0};
+    F2.Pos = v3{0, 0, 0};
     F2.ComPort = "\\\\.\\COM6";
     F2.FlowerTagValue = "right";
     F2.StemChannels = StemChannels;

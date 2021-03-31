@@ -194,28 +194,18 @@ BlumenLumen_LoadPatterns(app_state* State)
     }
     
     Patterns->Count = 0;
-    Patterns_PushPattern(Patterns, TestPatternOne, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, TestPatternTwo, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, TestPatternThree, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_AllGreen, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_HueShift, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_HueFade, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_Spots, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_LighthouseRainbow, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_SmoothGrowRainbow, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_GrowAndFade, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_ColorToWhite, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_Blue, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_Green, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColors, PATTERN_MULTITHREADED);
-    Patterns_PushPattern(Patterns, Pattern_FlowerColorToWhite, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Rainbow, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_BasicFlowers, PATTERN_MULTITHREADED);
-    // 15
     Patterns_PushPattern(Patterns, Pattern_Wavy, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_Patchy, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_Leafy, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_LeafyPatchy, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_WavyPatchy, PATTERN_SINGLETHREADED);
+    Patterns_PushPattern(Patterns, Pattern_VerticalLines, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_Rotary, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_AllOnMask, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_BulbMask, PATTERN_MULTITHREADED);
 }
 
 internal gs_data
@@ -239,6 +229,8 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->MicListenJobData.SocketManager = Context.SocketManager;
     BLState->MicListenJobData.IncomingMsgQueue = &BLState->IncomingMsgQueue;
     BLState->MicListenJobData.OutgoingMsgQueue = &BLState->OutgoingMsgQueue;
+    
+    BLState->PatternSpeed = GlobalAnimSpeed;
     
 #if 1
     BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
@@ -267,38 +259,6 @@ BlumenLumen_CustomInit(app_state* State, context Context)
                                                     &State->Permanent);
     
 #if 0
-    { // Animation PLAYGROUND
-        animation_desc Desc = {};
-        Desc.NameSize = 256;
-        Desc.LayersCount = 8;
-        Desc.BlocksCount = 8;
-        Desc.MinFrames = 0;
-        Desc.MaxFrames = SecondsToFrames(15, State->AnimationSystem);
-        
-        animation_desc Desc0 = Desc;
-        Desc.Name = "test_anim_zero";
-        animation Anim0 = Animation_Create(Desc0, &State->AnimationSystem);
-        Animation_AddLayer(&Anim0, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddBlock(&Anim0, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(15), 0);
-        BLState->AnimHandles[0] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim0);
-        
-        animation_desc Desc1 = Desc;
-        Desc1.Name = "test_anim_one";
-        animation Anim1 = Animation_Create(Desc1, &State->AnimationSystem);
-        Animation_AddLayer(&Anim1, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddBlock(&Anim1, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(12), 0);
-        BLState->AnimHandles[1] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim1);
-        
-        animation_desc Desc2 = Desc;
-        Desc2.Name = "i_love_you";
-        animation Anim2 = Animation_Create(Desc2, &State->AnimationSystem);;
-        Animation_AddLayer(&Anim2, MakeString("Base Layer"), BlendMode_Overwrite, &State->AnimationSystem);
-        Animation_AddBlock(&Anim2, 0, Anim0.PlayableRange.Max, Patterns_IndexToHandle(20), 0);
-        BLState->AnimHandles[2] = AnimationArray_Push(&State->AnimationSystem.Animations, Anim2);
-        
-        State->AnimationSystem.ActiveFadeGroup.From = BLState->AnimHandles[2];
-    } // End Animation Playground
-#elif 0
     animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
                                                                               State->Patterns,
                                                                               Context,
@@ -307,6 +267,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 #else
     BLState->ModeAnimations[BlumenPattern_Standard] = LoadAllAnimationsInDir(AmbientPatternFolder, BLState, State, Context);
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
+    AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
     
     BlumenLumen_SetPatternMode(BlumenPattern_Standard, 5, &State->AnimationSystem, BLState);
 #endif
@@ -401,6 +362,20 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             InvalidDefaultCase;
         }
     }
+    
+    // Update next frames Hues
+    r32 AnimTime = AnimationSystem_GetCurrentTime(State->AnimationSystem);
+    AnimTime = (r32)Context->TotalTime;
+    r32 BaseTime = AnimTime * BLState->PatternSpeed;
+    
+    r32 ColorSpeed = 1; //.001;
+    r32 ColorOscSpeed = .05 * ColorSpeed;
+    r32 ColorRelOscSpeed = 1 * ColorSpeed;;
+    r32 ColorOscillation = (SinR32(BaseTime * ColorOscSpeed) + 1) / 2;
+    r32 ColorRelationship = 30 + (((1 + SinR32(BaseTime * ColorRelOscSpeed)) / 2) * 300);
+    BLState->StandardPatternHues.Hue0 = ModR32(ColorOscillation * 360, 360);
+    BLState->StandardPatternHues.Hue1 = ModR32(BaseTime + ColorRelationship, 360);
+    BLState->StandardPatternHues.Hue2 = LerpR32(.3f, BLState->StandardPatternHues.Hue0, BLState->StandardPatternHues.Hue1);
     
     // Transition back to standard mode after some time
     if (BLState->PatternMode == BlumenPattern_VoiceCommand)

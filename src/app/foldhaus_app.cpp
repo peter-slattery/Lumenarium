@@ -10,13 +10,22 @@
 
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
-    app_state* State = (app_state*)Context.MemoryBase;
-    
     GlobalDebugServices = DebugServices;
-    State->PanelSystem.PanelDefs = GlobalPanelDefs;
-    State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
     
-    US_LoadPatterns(&State->UserSpaceDesc, State, Context);
+    if (AppReady)
+    {
+        app_state* State = (app_state*)Context.MemoryBase;
+        State->PanelSystem.PanelDefs = GlobalPanelDefs;
+        State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
+        
+        gs_data UserData = State->UserSpaceDesc.UserData;
+        State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
+        if (UserData.Memory && !State->UserSpaceDesc.UserData.Memory)
+        {
+            State->UserSpaceDesc.UserData = UserData;
+        }
+        US_LoadPatterns(&State->UserSpaceDesc, State, Context);
+    }
 }
 
 INITIALIZE_APPLICATION(InitializeApplication)
@@ -38,19 +47,25 @@ INITIALIZE_APPLICATION(InitializeApplication)
     AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
     State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
-    interface_config IConfig = {0};
-    IConfig.FontSize = 14;
-    IConfig.PanelBG              = v4{ .3f,  .3f,  .3f, 1.f };
-    IConfig.ButtonColor_Inactive = BlackV4;
-    IConfig.ButtonColor_Active   = v4{ .1f,  .1f,  .1f, 1.f };
-    IConfig.ButtonColor_Selected = v4{ .3f,  .3f,  .3f, 1.f };
-    IConfig.TextColor            = WhiteV4;
-    IConfig.ListBGColors[0]      = v4{ .16f, .16f, .16f, 1.f };
-    IConfig.ListBGColors[1]      = v4{ .18f, .18f, .18f, 1.f };
-    IConfig.ListBGHover          = v4{ .22f, .22f, .22f, 1.f };
-    IConfig.ListBGSelected       = v4{ .44f, .44f, .44f, 1.f };
-    IConfig.Margin = v2{5, 5};
-    State->Interface = ui_InterfaceCreate(Context, IConfig, &State->Permanent);
+    if (!Context.Headless)
+    {
+        interface_config IConfig = {0};
+        IConfig.FontSize = 14;
+        IConfig.PanelBG              = v4{ .3f,  .3f,  .3f, 1.f };
+        IConfig.ButtonColor_Inactive = BlackV4;
+        IConfig.ButtonColor_Active   = v4{ .1f,  .1f,  .1f, 1.f };
+        IConfig.ButtonColor_Selected = v4{ .3f,  .3f,  .3f, 1.f };
+        IConfig.TextColor            = WhiteV4;
+        IConfig.ListBGColors[0]      = v4{ .16f, .16f, .16f, 1.f };
+        IConfig.ListBGColors[1]      = v4{ .18f, .18f, .18f, 1.f };
+        IConfig.ListBGHover          = v4{ .22f, .22f, .22f, 1.f };
+        IConfig.ListBGSelected       = v4{ .44f, .44f, .44f, 1.f };
+        IConfig.Margin = v2{5, 5};
+        State->Interface = ui_InterfaceCreate(Context, IConfig, &State->Permanent);
+        
+        PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
+        
+    }
     
     State->SACN = SACN_Initialize(Context);
     
@@ -59,17 +74,14 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->AssemblyDebugState.Brightness = 255;
     State->AssemblyDebugState.Override = ADS_Override_None;
     
-    GlobalDebugServices->Interface.RenderSculpture = true;
-    
-    PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
-    
     State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
     
-    State->UserSpaceDesc = BlumenLumen_UserSpaceCreate();
-    
-    ReloadStaticData(Context, GlobalDebugServices);
+    ReloadStaticData(Context, GlobalDebugServices, true);
     US_CustomInit(&State->UserSpaceDesc, State, Context);
     
+    GlobalDebugServices->Interface.RenderSculpture = true;
+    
+    if (!Context.Headless)
     {
         // NOTE(pjs): This just sets up the default panel layout
         panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
@@ -92,7 +104,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         
     }
     
-    State->RunEditor = true;
+    State->RunEditor = !Context.Headless;
 }
 
 internal void
@@ -152,6 +164,7 @@ UPDATE_AND_RENDER(UpdateAndRender)
     {
         Editor_Render(State, Context, RenderBuffer);
     }
+    ResetWorkQueue(Context->GeneralWorkQueue);
     
     Assert(State->UserSpaceDesc.UserData.Memory != 0);
     BuildAssemblyData(State, *Context, OutputData);

@@ -122,6 +122,7 @@ AnimationSystem_BeginRenderBlockToLedBuffer(animation_system* System, animation_
     r32 SecondsIntoBlock = FramesIntoBlock * System->SecondsPerFrame;
     
     animation_pattern Pattern = Patterns_GetPattern(Patterns, Block.AnimationProcHandle);
+    Assert(Pattern.Proc);
     
     if (System->Multithreaded && Pattern.Multithreaded)
     {
@@ -182,6 +183,8 @@ RenderAnimationToLedBuffer (animation_system* System,
                             gs_memory_arena* Transient,
                             context Context)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     led_buffer AccBuffer = LedBuffer_CreateCopyCleared(*AssemblyLedBuffer, Transient);
     
     // Create the LayerLEDBuffers
@@ -266,8 +269,7 @@ AnimationSystem_RenderToLedBuffers(animation_system* System, assembly_array Asse
 {
     DEBUG_TRACK_FUNCTION;
     
-    s32 CurrentFrame = System->CurrentFrame;
-    r32 FrameTime = CurrentFrame * System->SecondsPerFrame;
+    r32 FrameTime = AnimationSystem_GetCurrentTime(*System);
     
 #if 1
     animation_array Animations = System->Animations;

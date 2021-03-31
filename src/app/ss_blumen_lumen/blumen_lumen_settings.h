@@ -126,4 +126,8 @@ r32 HighTemperatureBrightnessPercent = .25f;
 // lower it for heat reasons?
 r32 FullBrightnessPercent = 1.0f;
 
+// A global modifier so Joerg can just slow all the patterns right down
+// XD
+r32 GlobalAnimSpeed = 1.0f;
+
 #endif //BLUMEN_LUMEN_SETTINGS_H

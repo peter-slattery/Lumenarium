@@ -291,6 +291,13 @@ Patterns_IndexToHandle(s32 Index)
     return Result;
 }
 
+internal bool
+IsValid(animation_pattern_handle Handle)
+{
+    bool Result = Handle.IndexPlusOne > 0;
+    return Result;
+}
+
 internal animation_pattern
 Patterns_GetPattern(animation_pattern_array Patterns, animation_pattern_handle Handle)
 {
@@ -312,7 +319,7 @@ internal animation_block_array
 AnimBlockArray_Create(gs_memory_arena* Storage, u32 CountMax)
 {
     animation_block_array Result = {0};
-    Result.CountMax = CountMax;
+    Result.CountMax = Max(CountMax, 32);
     Result.Values = PushArray(Storage, animation_block, Result.CountMax);
     Result.Generations = PushArray(Storage, u32, Result.CountMax);
     return Result;
@@ -359,7 +366,7 @@ internal anim_layer_array
 AnimLayerArray_Create(gs_memory_arena* Storage, u32 CountMax)
 {
     anim_layer_array Result = {0};
-    Result.CountMax = CountMax;
+    Result.CountMax = Max(CountMax, 32);
     Result.Values = PushArray(Storage, anim_layer, Result.CountMax);
     return Result;
 }
@@ -409,6 +416,8 @@ AnimationArray_Push(animation_array* Array, animation Value)
 internal animation*
 AnimationArray_Get(animation_array Array, animation_handle Handle)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     animation* Result = 0;
     if (IsValid(Handle) && Handle.Index < (s32)Array.Count)
     {
@@ -539,6 +548,13 @@ SecondsToFrames(r32 Seconds, animation_system System)
 {
     u32 Result = Seconds * (1.0f / System.SecondsPerFrame);
     return Result;
+}
+
+inline frame_range
+FrameRange_Overlap(frame_range A, frame_range B)
+{
+    frame_range Result = {};
+    
 }
 
 inline bool
@@ -679,6 +695,8 @@ AnimationSystem_CalculateAnimationFrame(animation_system* System,
                                         animation* Animation,
                                         gs_memory_arena* Arena)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     animation_frame Result = {0};
     Result.LayersCount = Animation->Layers.Count;
     Result.Layers = PushArray(Arena, animation_layer_frame, Result.LayersCount);
@@ -790,6 +808,13 @@ inline bool
 AnimationSystem_NeedsRender(animation_system System)
 {
     bool Result = (System.CurrentFrame != System.LastUpdatedFrame);
+    return Result;
+}
+
+inline r32
+AnimationSystem_GetCurrentTime(animation_system System)
+{
+    r32 Result = System.CurrentFrame * System.SecondsPerFrame;
     return Result;
 }
 

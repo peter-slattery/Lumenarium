@@ -82,12 +82,10 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
     {
         Result.Name = Parser_ReadStringValue(&Parser, AnimField_AnimName);
         
-        Result.Layers.CountMax = Parser_ReadU32Value(&Parser, AnimField_LayersCount);
-        Result.Layers.Values = PushArray(Arena, anim_layer, Result.Layers.CountMax);
-        
-        Result.Blocks_.CountMax = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
-        Result.Blocks_.Generations = PushArray(Arena, u32, Result.Blocks_.CountMax);
-        Result.Blocks_.Values = PushArray(Arena, animation_block, Result.Blocks_.CountMax);
+        u32 LayersNeeded = Parser_ReadU32Value(&Parser, AnimField_LayersCount);
+        u32 BlocksNeeded = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
+        Result.Layers = AnimLayerArray_Create(Arena, LayersNeeded);
+        Result.Blocks_ = AnimBlockArray_Create(Arena, BlocksNeeded);
         
         if (Parser_ReadOpenStruct(&Parser, AnimField_PlayableRange))
         {
@@ -169,7 +167,7 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
                             break;
                         }
                     }
-                    
+                    Assert(IsValid(Block.AnimationProcHandle));
                     if (Parser_ReadCloseStruct(&Parser))
                     {
                         AnimBlockArray_Push(&Result.Blocks_, Block);
@@ -200,6 +198,7 @@ AnimationSystem_LoadAnimationFromFile(animation_system* System, animation_patter
     {
         animation NewAnim = AnimParser_Parse(AnimFile.Data, System->Storage, AnimPatterns);
         NewAnim.FileInfo = AnimFile.FileInfo;
+        NewAnim.FileInfo.Path = PushStringF(System->Storage, AnimFile.FileInfo.Path.Length, "%S", AnimFile.FileInfo.Path).ConstString;
         NewAnimHandle = AnimationArray_Push(&System->Animations, NewAnim);
     }
     return NewAnimHandle;
