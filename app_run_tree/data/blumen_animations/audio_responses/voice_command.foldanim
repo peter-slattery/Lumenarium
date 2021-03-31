@@ -1,0 +1,24 @@
+lumenarium_animation_file;
+animation_name: "voice_command";
+layers_count: 1;
+blocks_count: 1;
+playable_range:{
+    min: 0;
+    max: 360;
+};
+layers:{
+    layer:{
+        name: "Colors";
+        blend: "Add";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 0;
+            max: 360;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_Leafy";
+    };
+};

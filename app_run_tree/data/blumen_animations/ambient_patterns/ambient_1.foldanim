@@ -1,0 +1,56 @@
+lumenarium_animation_file;
+animation_name: "digital_fire";
+layers_count: 3;
+blocks_count: 4;
+playable_range:{
+    min: 0;
+    max: 2000;
+};
+layers:{
+    layer:{
+        name: "mask1";
+        blend: "Add";
+    };
+    layer:{
+        name: "mask2";
+        blend: "Add";
+    };
+    layer:{
+        name: "color";
+        blend: "Multiply";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 0;
+            max: 2000;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_BulbMask";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 2000;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_VerticalLines";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 1032;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_Rainbow";
+    };
+    block:{
+        frame_range:{
+            min: 959;
+            max: 2000;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_Wavy";
+    };
+};

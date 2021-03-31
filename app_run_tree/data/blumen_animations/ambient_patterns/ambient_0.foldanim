@@ -1,0 +1,92 @@
+lumenarium_animation_file;
+animation_name: "ambient_0";
+layers_count: 2;
+blocks_count: 9;
+playable_range:{
+    min: 0;
+    max: 1000;
+};
+layers:{
+    layer:{
+        name: "Color";
+        blend: "Add";
+    };
+    layer:{
+        name: "Mask";
+        blend: "Multiply";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 88;
+            max: 315;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_Rotary";
+    };
+    block:{
+        frame_range:{
+            min: 156;
+            max: 429;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_LeafyPatchy";
+    };
+    block:{
+        frame_range:{
+            min: 403;
+            max: 675;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_Patchy";
+    };
+    block:{
+        frame_range:{
+            min: 643;
+            max: 997;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_LeafyPatchy";
+    };
+    block:{
+        frame_range:{
+            min: 253;
+            max: 571;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_VerticalLines";
+    };
+    block:{
+        frame_range:{
+            min: 522;
+            max: 772;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_Rotary";
+    };
+    block:{
+        frame_range:{
+            min: 737;
+            max: 998;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_VerticalLines";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 117;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_VerticalLines";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 179;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_Rainbow";
+    };
+};
