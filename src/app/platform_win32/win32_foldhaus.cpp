@@ -596,6 +596,7 @@ WinMain (
     
     context Context = {};
     Context.ThreadContext = ThreadContext;
+    Context.SystemTime_Current = Win32GetSystemTime();
     
     gs_const_string Args = ConstString((char*)CmdLineArgs);
     if (StringsEqual(Args, ConstString("-headless")))

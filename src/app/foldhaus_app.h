@@ -95,6 +95,7 @@ LoadAssembly(gs_const_string Path, app_state* State, context Context)
 
 #include "engine/user_space.cpp"
 
+#include "ss_blumen_lumen/gfx_math.h"
 #include "ss_blumen_lumen/sdf.h"
 #include "patterns/blumen_patterns.h"
 #include "ss_blumen_lumen/blumen_lumen.cpp"

@@ -209,6 +209,109 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_BulbMask, PATTERN_MULTITHREADED);
 }
 
+internal void
+AppendPrintDate(gs_string* WriteStr, system_time Time)
+{
+    AppendPrintF(WriteStr, "%d-%d-%d : %d:%d:%d\n\n",
+                 Time.Year, Time.Month, Time.Day,
+                 Time.Hour, Time.Minute, Time.Second);
+}
+
+internal void
+BlumenLumen_AppendBootupLog(app_state* State, blumen_lumen_state* BLState, context Context)
+{
+    gs_thread_context Ctx = Context.ThreadContext;
+    gs_const_string BootupLogPath = ConstString("lumenarium_boot_log.log");
+    
+    gs_file BootLog = ReadEntireFile(Ctx.FileHandler, BootupLogPath);
+    gs_string WriteStr = {};
+    
+    // we don't want the log file getting huge
+    // if it gets above some threshold, instead of appending,
+    // copy what there is to an _old file, and start this one over
+    // 
+    // The thinking is that without the copy operation, when we reached
+    // our threshold, we'd overwrite the whole log. If something went
+    // wrong at that point, we'd have nothing to go on. This way, there is
+    // always some historical data present on the system
+    // 
+    if (BootLog.Size < MB(4))
+    {
+        WriteStr = PushString(State->Transient, BootLog.Size + 1024);
+    }
+    else
+    {
+        if (!WriteEntireFile(Ctx.FileHandler, ConstString("lumenarium_boot_log_old.log"),
+                             BootLog.Data))
+        {
+            InvalidCodePath;
+        }
+        WriteStr = PushString(State->Transient, 1024);
+    }
+    
+    
+    // Copy old entries in
+    if (BootLog.Size > 0)
+    {
+        PrintF(&WriteStr, "%.*s", BootLog.Size, BootLog.Memory);
+    }
+    
+    // New Entry
+    AppendPrintF(&WriteStr, "Lumenarium Restarted\n");
+    AppendPrintF(&WriteStr, "* Time: ");
+    AppendPrintDate(&WriteStr, Context.SystemTime_Current);
+    
+    gs_data Data = StringToData(WriteStr);
+    WriteEntireFile(Ctx.FileHandler, BootupLogPath, Data);
+}
+
+internal void
+BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Context)
+{
+    if (!BLState->ShouldUpdateLog) return;
+    
+    gs_string FileStr = PushString(State->Transient, 1024);
+    AppendPrintF(&FileStr, "Lumenarium Status\n");
+    
+    AppendPrintF(&FileStr, "Last Updated At:");
+    AppendPrintDate(&FileStr, Context.SystemTime_Current);
+    AppendPrintF(&FileStr, "\n\n");
+    
+    animation* CurrAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+    AppendPrintF(&FileStr, "Curr Animation: %S\n", CurrAnim->Name);
+    
+    char* Connected = BLState->MicListenJobData.IsConnected ? "Connected" : "Disconnected";
+    AppendPrintF(&FileStr, "Connected to Python: %s\n", Connected);
+    
+    u8 MP0 = BLState->LastKnownMotorState.FlowerPositions[0];
+    u8 MP1 = BLState->LastKnownMotorState.FlowerPositions[1];
+    u8 MP2 = BLState->LastKnownMotorState.FlowerPositions[2];
+    AppendPrintF(&FileStr, "Last Known Motor State: %d %d %d\n", MP0, MP1, MP2);
+    
+    char* PatternMode = 0;
+    switch (BLState->PatternMode)
+    {
+        case BlumenPattern_Standard: { PatternMode = "Standard"; } break;
+        case BlumenPattern_VoiceCommand: { PatternMode = "Voice Command"; } break;
+    }
+    AppendPrintF(&FileStr, "Pattern Mode: %s\n", PatternMode);
+    
+    phrase_hue LastHuePhrase = BLState->LastHuePhrase;
+    AppendPrintF(&FileStr, "Last Mic Phrase: %S\n", LastHuePhrase.Phrase);
+    
+    AppendPrintF(&FileStr, "Pattern Speed: %f\n", BLState->PatternSpeed);
+    
+    AppendPrintF(&FileStr, "Pattern Brightness: %f\n", BLState->BrightnessPercent);
+    
+    AppendPrintF(&FileStr, "Last Temp Received: %d\n", BLState->LastTemperatureReceived);
+    
+    gs_data LogMem = StringToData(FileStr);
+    if (!WriteEntireFile(Context.ThreadContext.FileHandler, ConstString("lumenarium_status.log"), LogMem))
+    {
+        InvalidCodePath;
+    }
+}
+
 internal gs_data
 BlumenLumen_CustomInit(app_state* State, context Context)
 {
@@ -274,55 +377,8 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
+    BlumenLumen_AppendBootupLog(State, BLState, Context);
     return Result;
-}
-
-internal void
-BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Context)
-{
-    if (!BLState->ShouldUpdateLog) return;
-    
-    gs_string FileStr = PushString(State->Transient, 1024);
-    AppendPrintF(&FileStr, "Lumenarium Status\n");
-    
-    system_time Time = Context.SystemTime_Current;
-    AppendPrintF(&FileStr, "Last Updated At: %d-%d-%d : %d:%d:%d\n\n",
-                 Time.Year, Time.Month, Time.Day,
-                 Time.Hour, Time.Minute, Time.Second);
-    
-    animation* CurrAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
-    AppendPrintF(&FileStr, "Curr Animation: %S\n", CurrAnim->Name);
-    
-    char* Connected = BLState->MicListenJobData.IsConnected ? "Connected" : "Disconnected";
-    AppendPrintF(&FileStr, "Connected to Python: %s\n", Connected);
-    
-    u8 MP0 = BLState->LastKnownMotorState.FlowerPositions[0];
-    u8 MP1 = BLState->LastKnownMotorState.FlowerPositions[1];
-    u8 MP2 = BLState->LastKnownMotorState.FlowerPositions[2];
-    AppendPrintF(&FileStr, "Last Known Motor State: %d %d %d\n", MP0, MP1, MP2);
-    
-    char* PatternMode = 0;
-    switch (BLState->PatternMode)
-    {
-        case BlumenPattern_Standard: { PatternMode = "Standard"; } break;
-        case BlumenPattern_VoiceCommand: { PatternMode = "Voice Command"; } break;
-    }
-    AppendPrintF(&FileStr, "Pattern Mode: %s\n", PatternMode);
-    
-    phrase_hue LastHuePhrase = BLState->LastHuePhrase;
-    AppendPrintF(&FileStr, "Last Mic Phrase: %S\n", LastHuePhrase.Phrase);
-    
-    AppendPrintF(&FileStr, "Pattern Speed: %f\n", BLState->PatternSpeed);
-    
-    AppendPrintF(&FileStr, "Pattern Brightness: %f\n", BLState->BrightnessPercent);
-    
-    AppendPrintF(&FileStr, "Last Temp Received: %d\n", BLState->LastTemperatureReceived);
-    
-    gs_data LogMem = StringToData(FileStr);
-    if (!WriteEntireFile(Context.ThreadContext.FileHandler, ConstString("lumenarium_status.log"), LogMem))
-    {
-        InvalidCodePath;
-    }
 }
 
 internal void
