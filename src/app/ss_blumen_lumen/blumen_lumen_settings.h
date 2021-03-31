@@ -143,6 +143,6 @@ r32 GlobalAnimSpeed = 1.0f;
 
 // How often should Lumenarium send its status to the python server?
 // 
-#define STATUS_PACKET_FREQ_SECONDS 2 // in seconds
+#define STATUS_PACKET_FREQ_SECONDS 10 // in seconds
 
 #endif //BLUMEN_LUMEN_SETTINGS_H

@@ -281,7 +281,12 @@ BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Con
     if (!BLState->ShouldUpdateLog) return;
     
     gs_string FileStr = PushString(State->Transient, 1024);
-    AppendPrintF(&FileStr, "Lumenarium Status\n\n");
+    AppendPrintF(&FileStr, "Lumenarium Status\n");
+    
+    system_time Time = Context.SystemTime_Current;
+    AppendPrintF(&FileStr, "Last Updated At: %d-%d-%d : %d:%d:%d\n\n",
+                 Time.Year, Time.Month, Time.Day,
+                 Time.Hour, Time.Minute, Time.Second);
     
     animation* CurrAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     AppendPrintF(&FileStr, "Curr Animation: %S\n", CurrAnim->Name);
