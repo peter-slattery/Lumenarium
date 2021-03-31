@@ -133,6 +133,7 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
     {
         if (!SocketQueryStatus(Data->SocketManager, ListenSocket))
         {
+            Data->IsConnected = false;
             if (SocketHandleIsValid(ListenSocket))
             {
                 OutputDebugStringA("Disconnected from Python Server\n");
@@ -142,6 +143,7 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             if (ListenSocket.Index != 0)
             {
                 OutputDebugStringA("Connected to Python Server\n");
+                Data->IsConnected = true;
             }
         }
         

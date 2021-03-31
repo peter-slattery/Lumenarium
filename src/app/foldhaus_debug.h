@@ -184,6 +184,8 @@ InitDebugServices_OffMode (debug_services* Services,
                            gs_thread_context Ctx,
                            s32 ThreadCount)
 {
+    *Services = {0};
+    
     Services->Ctx = Ctx;
     Services->GetWallClock = GetWallClock;
     Services->GetThreadId = GetThreadId;
