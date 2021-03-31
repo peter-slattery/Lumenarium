@@ -2607,7 +2607,7 @@ CreateMemoryArena_(arena_type ArenaType, gs_allocator Allocator, u64 ChunkSize, 
 }
 
 internal gs_memory_arena
-CreateMemoryArena(gs_allocator Allocator, char* Name, u64 ChunkSize = KB(32), u64 Alignment = Bytes(8))
+CreateMemoryArena(gs_allocator Allocator, char* Name, u64 ChunkSize = KB(4), u64 Alignment = Bytes(8))
 {
     return CreateMemoryArena_(Arena_BaseArena, Allocator, ChunkSize, Alignment, 0, Name);
 }

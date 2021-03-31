@@ -68,7 +68,7 @@ struct packet_ringbuffer
     u32 WriteHead;
 };
 
-#define INITIALIZE_APPLICATION(name) void name(context Context)
+#define INITIALIZE_APPLICATION(name) void name(context* Context)
 typedef INITIALIZE_APPLICATION(initialize_application);
 
 #define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)

@@ -612,8 +612,6 @@ WinMain (
     
     context Context = {};
     Context.ThreadContext = ThreadContext;
-    Context.MemorySize = MB(64);
-    Context.MemoryBase = (u8*)Win32Alloc(Context.MemorySize, 0);
     
     gs_const_string Args = ConstString((char*)CmdLineArgs);
     if (StringsEqual(Args, ConstString("-headless")))
@@ -680,7 +678,7 @@ WinMain (
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
     
-    Context.InitializeApplication(Context);
+    Context.InitializeApplication(&Context);
     
     system_time StartTime = Win32GetSystemTime();
     

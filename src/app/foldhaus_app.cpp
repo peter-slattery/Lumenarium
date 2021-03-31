@@ -30,11 +30,13 @@ RELOAD_STATIC_DATA(ReloadStaticData)
 
 INITIALIZE_APPLICATION(InitializeApplication)
 {
-    app_state* State = (app_state*)Context.MemoryBase;
+    Context->MemorySize = sizeof(app_state);
+    Context->MemoryBase = AllocatorAlloc(Context->ThreadContext.Allocator, Context->MemorySize).Memory; 
+    app_state* State = (app_state*)Context->MemoryBase;
     *State = {};
     
-    State->Permanent = CreateMemoryArena(Context.ThreadContext.Allocator, "Permanent");
-    State->Transient = Context.ThreadContext.Transient;
+    State->Permanent = CreateMemoryArena(Context->ThreadContext.Allocator, "Permanent");
+    State->Transient = Context->ThreadContext.Transient;
     State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
     
     State->GlobalLog = PushStruct(&State->Permanent, event_log);
@@ -47,7 +49,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     AnimSysDesc.SecondsPerFrame = 1.0f / 24.0f;
     State->AnimationSystem = AnimationSystem_Init(AnimSysDesc);
     
-    if (!Context.Headless)
+    if (!Context->Headless)
     {
         interface_config IConfig = {0};
         IConfig.FontSize = 14;
@@ -61,50 +63,50 @@ INITIALIZE_APPLICATION(InitializeApplication)
         IConfig.ListBGHover          = v4{ .22f, .22f, .22f, 1.f };
         IConfig.ListBGSelected       = v4{ .44f, .44f, .44f, 1.f };
         IConfig.Margin = v2{5, 5};
-        State->Interface = ui_InterfaceCreate(Context, IConfig, &State->Permanent);
+        State->Interface = ui_InterfaceCreate(*Context, IConfig, &State->Permanent);
         
         PanelSystem_Init(&State->PanelSystem, GlobalPanelDefs, GlobalPanelDefsCount, &State->Permanent);
         
     }
     
-    State->SACN = SACN_Initialize(Context);
+    State->SACN = SACN_Initialize(*Context);
     
-    State->LedSystem = LedSystem_Create(Context.ThreadContext.Allocator, 128);
+    State->LedSystem = LedSystem_Create(Context->ThreadContext.Allocator, 128);
     State->AssemblyDebugState = AssemblyDebug_Create(&State->Permanent);
     State->AssemblyDebugState.Brightness = 255;
     State->AssemblyDebugState.Override = ADS_Override_None;
     
-    State->Modes = OperationModeSystemInit(&State->Permanent, Context.ThreadContext);
+    State->Modes = OperationModeSystemInit(&State->Permanent, Context->ThreadContext);
     
-    ReloadStaticData(Context, GlobalDebugServices, true);
-    US_CustomInit(&State->UserSpaceDesc, State, Context);
+    ReloadStaticData(*Context, GlobalDebugServices, true);
+    US_CustomInit(&State->UserSpaceDesc, State, *Context);
     
     GlobalDebugServices->Interface.RenderSculpture = true;
     
-    if (!Context.Headless)
+    if (!Context->Headless)
     {
         // NOTE(pjs): This just sets up the default panel layout
-        panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, Context);
-        SplitPanel(RootPanel, .25f, PanelSplit_Horizontal, &State->PanelSystem, State, Context);
+        panel* RootPanel = PanelSystem_PushPanel(&State->PanelSystem, PanelType_SculptureView, State, *Context);
+        SplitPanel(RootPanel, .25f, PanelSplit_Horizontal, &State->PanelSystem, State, *Context);
         
         panel* AnimPanel = RootPanel->Bottom;
-        Panel_SetType(AnimPanel, &State->PanelSystem, PanelType_AnimationTimeline, State, Context);
+        Panel_SetType(AnimPanel, &State->PanelSystem, PanelType_AnimationTimeline, State, *Context);
         
         panel* TopPanel = RootPanel->Top;
-        SplitPanel(TopPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        SplitPanel(TopPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, *Context);
         
         panel* LeftPanel = TopPanel->Left;
-        SplitPanel(LeftPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, Context);
+        SplitPanel(LeftPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, *Context);
         
         panel* Profiler = LeftPanel->Right;
-        Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, Context);
+        Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, *Context);
         
         panel* Hierarchy = LeftPanel->Left;
-        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, Context);
+        Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, *Context);
         
     }
     
-    State->RunEditor = !Context.Headless;
+    State->RunEditor = !Context->Headless;
 }
 
 internal void

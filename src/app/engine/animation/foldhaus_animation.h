@@ -801,7 +801,10 @@ AnimationSystem_FadeToPlaylist(animation_system* System, animation_handle_array 
     System->Playlist = Playlist;
     System->PlaylistAt = 0;
     
-    AnimationFadeGroup_FadeTo(&System->ActiveFadeGroup, Playlist.Handles[0], System->PlaylistFadeTime);
+    if (System->Playlist.Count > 0)
+    {
+        AnimationFadeGroup_FadeTo(&System->ActiveFadeGroup, Playlist.Handles[0], System->PlaylistFadeTime);
+    }
 }
 
 inline bool
