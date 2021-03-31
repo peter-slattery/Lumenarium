@@ -74,8 +74,6 @@ struct animation
     gs_string Name;
     
     anim_layer_array Layers;
-    // TODO(pjs): Pretty sure Blocks_ should be obsolete and
-    // Layers should contain their own blocks
     animation_block_array Blocks_;
     
     frame_range PlayableRange;
@@ -169,6 +167,7 @@ struct animation_system
     // panel
     animation_fade_group ActiveFadeGroup;
     
+    r32 SecondsOnCurrentFrame;
     s32 CurrentFrame;
     s32 LastUpdatedFrame;
     r32 SecondsPerFrame;
@@ -762,13 +761,28 @@ AnimationSystem_Update(animation_system* System, r32 DeltaTime)
     animation* ActiveAnim = AnimationSystem_GetActiveAnimation(System);
     if (ActiveAnim)
     {
-        // TODO(Peter): Revisit this. This implies that the framerate of the animation system
-        // is tied to the framerate of the simulation. That seems correct to me, but I'm not sure
-        System->CurrentFrame += 1;
+        System->SecondsOnCurrentFrame += DeltaTime;
+        while (System->SecondsOnCurrentFrame > System->SecondsPerFrame)
+        {
+            System->CurrentFrame += 1;
+            System->SecondsOnCurrentFrame -= System->SecondsPerFrame;
+        }
         
         // Loop back to the beginning
         if (System->CurrentFrame > ActiveAnim->PlayableRange.Max)
         {
+            // NOTE(PS): There's no long term reason why this needs to be true
+            // but I don't want to implement dealing with PlayableRanges that
+            // don't start at zero right now becuse there's literally no reason
+            // I can think of where that's useful.
+            Assert(ActiveAnim->PlayableRange.Min == 0);
+            
+            s32 FramesPastEnd = System->CurrentFrame;
+            while (FramesPastEnd > ActiveAnim->PlayableRange.Max)
+            {
+                FramesPastEnd -= ActiveAnim->PlayableRange.Max;
+            }
+            
             switch (System->RepeatMode)
             {
                 case AnimationRepeat_Single:

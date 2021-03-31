@@ -7,10 +7,14 @@ Building Lumenarium requires having MSVC installed (sorry, Windows only for now!
 2. Run the appropriate build batch file
 	- for Windows: use `build\build_app_msvc_win32_debug.bat`
 	- other platforms coming soon
+3. Build scripts will output executables into the app_run_tree directory, by platform
 
 ## Run Lumenarium
 Windows - Debug
-1. Just run `win32_msvc\debug\win32_foldhaus.exe`
+1. Run `app_run_tree\win32_msvc\debug\win32_foldhaus.exe`
+
+If you want to run in headless mode:
+1. Run `app_run_tree\win32_msvc\debug\win32_foldhaus.exe -headless`
 
 ## Debug Lumenarium
 ### Windows

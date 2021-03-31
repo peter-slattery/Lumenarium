@@ -111,7 +111,16 @@ r64 VoiceCommandSustainDuration = 30.0; // in seconds
 // to have been on the whole time.
 r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 5.0; // in seconds
 
+
 // NOTE: Temperature & Time of Day Based Led Brightness Settings
+
+// The temperature above which we dim the leds to
+// HighTemperatureBrightnessPercent (below)
+//
+// NOTE: this is an 8bit signed integer so its range is
+// -128 to 127, not that we should need either of those extremes for 
+// this, but just a note that you can't just put anything in here.
+s8 MinHighTemperature = 0;
 
 // The percent brightness we set leds to during high temperatures.
 // A value in the range 0:1 inclusive
@@ -128,6 +137,12 @@ r32 FullBrightnessPercent = 1.0f;
 
 // A global modifier so Joerg can just slow all the patterns right down
 // XD
+// This is a percent - so 1 is full speed, 0.1f is 1/10 full speed and 
+// 2 is 2x as fast. 
 r32 GlobalAnimSpeed = 1.0f;
+
+// How often should Lumenarium send its status to the python server?
+// 
+#define STATUS_PACKET_FREQ_SECONDS 2 // in seconds
 
 #endif //BLUMEN_LUMEN_SETTINGS_H

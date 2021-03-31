@@ -85,7 +85,7 @@ typedef double r64;
 #endif
 
 
-#ifdef DEBUG
+#if DEBUG
 
 static void DebugPrint(char* Format, ...);
 
@@ -95,8 +95,8 @@ static void DebugPrint(char* Format, ...);
 if((expression)) \
 { \
 }else{ \
-    volatile int* p = 0; \
-    *p = 5; \
+volatile int* p = 0; \
+*p = 5; \
 }
 #endif
 
@@ -319,9 +319,9 @@ GSIntDivideRoundUpDef(s64);
 
 #define GSRemapDef(type) \
 static type GSRemap(type Value, type OldMin, type OldMax, type NewMin, type NewMax) { \
-    type Result = (Value - OldMin) / (OldMax - OldMin); \
-    Result = (Result * (NewMax - NewMin)) + NewMin; \
-    return Result; \
+type Result = (Value - OldMin) / (OldMax - OldMin); \
+Result = (Result * (NewMax - NewMin)) + NewMin; \
+return Result; \
 }
 GSRemapDef(u8);
 GSRemapDef(u16);

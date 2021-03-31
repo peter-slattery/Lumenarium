@@ -81,8 +81,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     ReloadStaticData(*Context, GlobalDebugServices, true);
     US_CustomInit(&State->UserSpaceDesc, State, *Context);
     
-    GlobalDebugServices->Interface.RenderSculpture = true;
-    
     if (!Context->Headless)
     {
         // NOTE(pjs): This just sets up the default panel layout

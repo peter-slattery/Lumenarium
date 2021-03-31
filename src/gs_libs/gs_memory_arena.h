@@ -153,13 +153,13 @@ typedef unsigned int  gs_mem_u32;
 
 typedef unsigned long long int gs_mem_u64;
 
-#ifdef DEBUG
+#if DEBUG
 #if !defined(GSMem_Assert)
 #define GSMem_Assert(expression) \
 if((expression)) { \
 }else{ \
-    volatile int* p = 0; \
-    *p = 5; \
+volatile int* p = 0; \
+*p = 5; \
 }
 
 #endif

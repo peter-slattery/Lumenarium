@@ -109,6 +109,9 @@ struct mic_listen_job_data
     blumen_network_msg_queue* IncomingMsgQueue;
     
     blumen_network_msg_queue* OutgoingMsgQueue;
+    
+    // Status
+    bool IsConnected;
 };
 
 typedef struct time_range
@@ -151,6 +154,7 @@ struct blumen_lumen_state
     // NOTE(pjs): Based on temperature data from weatherman
     // dim the leds.
     r32 BrightnessPercent;
+    s8 LastTemperatureReceived;
     system_time LastStatusUpdateTime;
     
     system_time LastSendTime;
@@ -172,11 +176,15 @@ struct blumen_lumen_state
     
     phrase_hue_map PhraseHueMap;
     system_time TimeLastSetToVoiceMode;
+    phrase_hue LastHuePhrase;
     
     r32 PatternSpeed;
+    
     // Debug
     motor_packet DEBUG_PendingMotorPacket;
     bool DEBUG_IgnoreWeatherDimmingLeds;
+    
+    bool ShouldUpdateLog;
 };
 
 #include "message_queue.cpp"

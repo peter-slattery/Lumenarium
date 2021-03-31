@@ -163,15 +163,42 @@ RenderProfiler_ListVisualization(ui_interface* Interface, ui_widget* Layout, deb
     ui_EndList(Interface);
 }
 
+struct mem_amt
+{
+    u64 OrigSize;
+    r64 Size;
+    char* Units;
+};
+
+internal mem_amt
+GetMemAmt (u64 BytesCount)
+{
+    mem_amt Result = {};
+    Result.OrigSize = BytesCount;
+    Result.Size = (r64)BytesCount;
+    Result.Units = "bytes";
+    
+    u32 i = 0;
+    char* UnitList[] = { "kb", "mb", "gb", "tb" };
+    while (Result.Size > 1024) {
+        Result.Size /= 1024.0;
+        Result.Units = UnitList[i++];
+    }
+    
+    return Result;
+}
+
 internal void
 RenderProfiler_MemoryView(ui_interface* Interface, ui_widget* Layout, app_state* State, context Context, gs_memory_arena* Memory)
 {
     gs_allocator_debug Debug = *Context.ThreadContext.Allocator.Debug;
     gs_string TempString = PushString(State->Transient, 256);
     
-    u64 MemFootprint = Debug.TotalAllocSize;
+    mem_amt MemFootprint = GetMemAmt(Debug.TotalAllocSize);
     u64 AllocCount = Debug.AllocationsCount;
-    PrintF(&TempString, "Total Memory Size: %lld | Allocations: %lld", MemFootprint, AllocCount);
+    
+    
+    PrintF(&TempString, "Total Memory Size: %.2f %s | Allocations: %lld", MemFootprint.Size, MemFootprint.Units, AllocCount);
     ui_Label(Interface, TempString);
     
     ui_column_spec ColumnWidths[] = {
@@ -194,7 +221,9 @@ RenderProfiler_MemoryView(ui_interface* Interface, ui_widget* Layout, app_state*
         PrintF(&TempString, "%S", A.Location);
         ui_Label(Interface, TempString);
         
-        PrintF(&TempString, "%lld bytes", A.Size);
+        mem_amt Amt = GetMemAmt(A.Size);
+        
+        PrintF(&TempString, "%.2f %s", Amt.Size, Amt.Units);
         ui_Label(Interface, TempString);
     }
     ui_EndRow(Interface);
@@ -216,59 +245,65 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     RectHSplitAtDistanceFromTop(PanelBounds, FrameListHeight, &FrameListBounds, &ProcListBounds);
     rect2 FrameListInner = RectInset(FrameListBounds, 4);
     
-    r32 SingleFrameStep = Rect2Width(FrameListInner) / DEBUG_FRAME_COUNT;
-    r32 SingleFrameWidth = (r32)((s32)SingleFrameStep - 2);
-    
-    ui_OutlineRect(&State->Interface, FrameListBounds, 2, WhiteV4);
-    if (MouseButtonHeldDown(Context.Mouse.LeftButtonState))
+    s32 FramesToDisplay = DEBUG_FRAME_COUNT;
+    if (FramesToDisplay != 0)
     {
-        if (PointIsInRect(FrameListBounds, Context.Mouse.Pos))
+        r32 SingleFrameStep = Rect2Width(FrameListInner) / FramesToDisplay;
+        r32 SingleFrameWidth = (r32)((s32)SingleFrameStep - 2);
+        
+        ui_OutlineRect(&State->Interface, FrameListBounds, 2, WhiteV4);
+        if (MouseButtonHeldDown(Context.Mouse.LeftButtonState))
         {
-            v2 LocalMouse = Rect2GetRectLocalPoint(FrameListBounds, Context.Mouse.Pos);
-            s32 ClosestFrameIndex = (LocalMouse.x / SingleFrameStep);
-            if (ClosestFrameIndex >= 0 && ClosestFrameIndex < DEBUG_FRAME_COUNT)
+            if (PointIsInRect(FrameListBounds, Context.Mouse.Pos))
             {
-                GlobalDebugServices->RecordFrames = false;
-                GlobalDebugServices->CurrentDebugFrame = ClosestFrameIndex;
+                v2 LocalMouse = Rect2GetRectLocalPoint(FrameListBounds, Context.Mouse.Pos);
+                s32 ClosestFrameIndex = (LocalMouse.x / SingleFrameStep);
+                if (ClosestFrameIndex >= 0 && ClosestFrameIndex < FramesToDisplay)
+                {
+                    GlobalDebugServices->RecordFrames = false;
+                    GlobalDebugServices->CurrentDebugFrame = ClosestFrameIndex;
+                }
             }
         }
+        
+        rect2 FrameBounds = MakeRect2MinDim(FrameListInner.Min, v2{SingleFrameWidth, Rect2Height(FrameListInner)});
+        for (s32 F = 0; F < DEBUG_FRAME_COUNT; F++)
+        {
+            rect2 PositionedFrameBounds = Rect2TranslateX(FrameBounds, F * SingleFrameStep);
+            s32 FramesAgo = (GlobalDebugServices->CurrentDebugFrame - F);
+            if (FramesAgo < 0) { FramesAgo += DEBUG_FRAME_COUNT; }
+            v4 Color = FrameColors[Clamp(0, FramesAgo, 3)];
+            ui_FillRect(&State->Interface, PositionedFrameBounds, Color);
+        }
     }
-    
-    rect2 FrameBounds = MakeRect2MinDim(FrameListInner.Min, v2{SingleFrameWidth, Rect2Height(FrameListInner)});
-    for (s32 F = 0; F < DEBUG_FRAME_COUNT; F++)
-    {
-        rect2 PositionedFrameBounds = Rect2TranslateX(FrameBounds, F * SingleFrameStep);
-        s32 FramesAgo = (GlobalDebugServices->CurrentDebugFrame - F);
-        if (FramesAgo < 0) { FramesAgo += DEBUG_FRAME_COUNT; }
-        v4 Color = FrameColors[Clamp(0, FramesAgo, 3)];
-        ui_FillRect(&State->Interface, PositionedFrameBounds, Color);
-    }
-    
-    debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
     
     ui_widget* Layout = ui_PushLayout(&State->Interface, ProcListBounds, LayoutDirection_TopDown, MakeString("Profiler Layout"));
     
-    ui_BeginRow(&State->Interface, 4);
+    debug_frame* VisibleFrame = GetLastDebugFrame(GlobalDebugServices);
+    if (VisibleFrame)
     {
-        s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
-        s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
-        u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
-        PrintF(&String, "Frame %d", CurrentDebugFrame);
-        ui_Label(&State->Interface, String);
-        
-        PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
-        ui_Label(&State->Interface, String);
-        
-        // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
-        // be removed, or used for something else
-        ui_ReserveBounds(&State->Interface, Layout, true);
-        
-        if (ui_Button(&State->Interface, MakeString("Resume Recording")))
+        ui_BeginRow(&State->Interface, 4);
         {
-            GlobalDebugServices->RecordFrames = true;
+            s64 FrameStartCycles = VisibleFrame->FrameStartCycles;
+            s64 FrameTotalCycles = VisibleFrame->FrameEndCycles - VisibleFrame->FrameStartCycles;
+            u32 CurrentDebugFrame = GlobalDebugServices->CurrentDebugFrame - 1;
+            PrintF(&String, "Frame %d", CurrentDebugFrame);
+            ui_Label(&State->Interface, String);
+            
+            PrintF(&String, "Total Cycles: %lld", FrameTotalCycles);
+            ui_Label(&State->Interface, String);
+            
+            // NOTE(NAME): Skipping a space for aesthetic reasons, not functional, and could
+            // be removed, or used for something else
+            ui_ReserveBounds(&State->Interface, Layout, true);
+            
+            if (ui_Button(&State->Interface, MakeString("Resume Recording")))
+            {
+                GlobalDebugServices->RecordFrames = true;
+            }
         }
+        ui_EndRow(&State->Interface);
     }
-    ui_EndRow(&State->Interface);
     
     ui_BeginRow(&State->Interface, 8);
     {
@@ -291,12 +326,18 @@ ProfilerView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Rend
     {
         case DebugUI_Profiler:
         {
-            RenderProfiler_ScopeVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+            if (VisibleFrame) 
+            {
+                RenderProfiler_ScopeVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+            }
         }break;
         
         case DebugUI_ScopeList:
         {
-            RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+            if (VisibleFrame)
+            {
+                RenderProfiler_ListVisualization(&State->Interface, Layout, VisibleFrame, Memory);
+            }
         }break;
         
         case DebugUI_MemoryView:

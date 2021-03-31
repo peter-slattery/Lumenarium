@@ -40,7 +40,7 @@ struct window
 struct handle_window_msg_result
 {
     b32 NeedsUpdate;
-#ifdef DEBUG
+#if DEBUG
     char MessageType[128];
 #endif
 };

@@ -128,7 +128,6 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
             
             if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
             {
-                // TODO(pjs): add this color to the style
                 v4 TextColor = BlackV4;
                 Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, ClippedFillBounds, TextColor, -1);
             }

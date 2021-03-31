@@ -356,22 +356,6 @@ SetApplicationLinks (context* Context, win32_dll_refresh DLL, gs_work_queue* Wor
     }
 }
 
-// TODO(Peter): :Redundant remove
-internal u8*
-DEBUGAlloc(s32 ElementSize, s32 ElementCount)
-{
-    return (u8*)Win32Alloc(ElementSize * ElementCount, 0);
-}
-
-// TODO(Peter): :Redundant remove
-internal u8*
-Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
-{
-    u8* NewMemory = (u8*)Win32Alloc(NewSize, 0);
-    CopyMemoryTo(Buf, NewMemory, OldSize);
-    return NewMemory;
-}
-
 internal void
 Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* BufferAt)
 {
@@ -604,7 +588,7 @@ WinMain (
     
     gs_allocator_debug AllocDebug = {};
     AllocDebug.AllocationsCountMax = 4096;
-    AllocDebug.Allocations = (gs_debug_allocation*)Win32Alloc(sizeof(gs_debug_allocation) * AllocDebug.AllocationsCountMax, 0);
+    AllocDebug.Allocations = AllocatorAllocArray(ThreadContext.Allocator, gs_debug_allocation, AllocDebug.AllocationsCountMax);
     
     ThreadContext.Allocator.Debug = &AllocDebug;
     
@@ -636,17 +620,25 @@ WinMain (
     
     s64 PerformanceCountFrequency = GetPerformanceFrequency();
     s64 LastFrameEnd = GetWallClock();
-    r32 TargetSecondsPerFrame = 1 / 60.0f;
+    r32 TargetSecondsPerFrame = 1 / 30.0f;
     r32 LastFrameSecondsElapsed = 0.0f;
     
     GlobalDebugServices = PushStruct(&PlatformPermanent, debug_services);
-    InitDebugServices(GlobalDebugServices,
-                      PerformanceCountFrequency,
-                      DEBUGAlloc,
-                      Win32Realloc,
-                      GetWallClock,
-                      Win32GetThreadId,
-                      PLATFORM_THREAD_COUNT + 1);
+#if DEBUG
+    InitDebugServices_DebugMode(GlobalDebugServices,
+                                PerformanceCountFrequency,
+                                GetWallClock,
+                                Win32GetThreadId,
+                                Context.ThreadContext,
+                                PLATFORM_THREAD_COUNT + 1);
+#else
+    InitDebugServices_OffMode(GlobalDebugServices,
+                              PerformanceCountFrequency,
+                              GetWallClock,
+                              Win32GetThreadId,
+                              Context.ThreadContext,
+                              PLATFORM_THREAD_COUNT + 1);
+#endif
     
     input_queue InputQueue = InputQueue_Create(&PlatformPermanent, 32);
     
@@ -674,7 +666,11 @@ WinMain (
     
     Win32SerialArray_Create(ThreadContext);
     
-    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, Win32Realloc);
+    render_command_buffer RenderBuffer = {};
+    if (!Context.Headless)
+    {
+        RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, ThreadContext);
+    }
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
     
@@ -690,6 +686,7 @@ WinMain (
         {
             EndDebugFrame(GlobalDebugServices);
         }
+        
         DEBUG_TRACK_SCOPE(MainLoop);
         
         {

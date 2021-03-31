@@ -63,7 +63,7 @@ Win32CreateThreadContext(gs_memory_arena* Transient = 0)
 
 PUSH_WORK_ON_QUEUE(Win32PushWorkOnQueue)
 {
-#ifdef DEBUG
+#if DEBUG
     // NOTE(Peter): Just prints out the names of all the pending jobs if we end up
     // overflowing the buffer
     if (Queue->JobsCount >= Queue->JobsMax)
@@ -82,7 +82,7 @@ PUSH_WORK_ON_QUEUE(Win32PushWorkOnQueue)
     gs_threaded_job* Job = Queue->Jobs + Queue->JobsCount;
     Job->WorkProc = WorkProc;
     Job->Data = Data;
-#ifdef DEBUG
+#if DEBUG
     Job->JobName = JobName;
 #endif
     
@@ -184,7 +184,7 @@ CREATE_THREAD(Win32CreateThread)
     Thread->UserData = UserData;
     
     // TODO(pjs): ugh, allocation out in the middle of nowhere
-    HANDLE* ThreadHandle = (HANDLE*)Win32Alloc(sizeof(HANDLE), 0);
+    HANDLE* ThreadHandle = AllocatorAllocStruct(Ctx.Allocator, HANDLE);
     *ThreadHandle = CreateThread(0, 0, Win32ThreadProcWrapper, (void*)Thread, 0, 0);
     // TODO(pjs): Error checking on the created thread
     

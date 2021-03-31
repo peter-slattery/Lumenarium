@@ -202,8 +202,6 @@ typedef struct system_time
     s32 Second;
 } system_time;
 
-#define STATUS_PACKET_FREQ_SECONDS 2
-
 struct context
 {
     gs_thread_context ThreadContext;

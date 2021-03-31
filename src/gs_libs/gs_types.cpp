@@ -2474,7 +2474,6 @@ AllocatorDebug_PushAlloc(gs_allocator_debug* Debug, u64 Size, char* Location)
 internal gs_data
 AllocatorAlloc_(gs_allocator Allocator, u64 Size, char* Location)
 {
-    // TODO(Peter): Memory Profiling with Location
     u64 SizeResult = 0;
     void* Memory = Allocator.Alloc(Size, &SizeResult);
     if (Allocator.Debug)
@@ -2486,7 +2485,6 @@ AllocatorAlloc_(gs_allocator Allocator, u64 Size, char* Location)
 internal void
 AllocatorFree_(gs_allocator Allocator, void* Base, u64 Size, char* Location)
 {
-    // TODO(Peter): Memory Profiling with Location
     if (Base != 0 && Size != 0)
     {
         Allocator.Free(Base, Size);
@@ -3498,7 +3496,7 @@ CreatePlatformThreadManager(platform_create_thread* CreateThreadProc,
 }
 
 internal platform_thread_handle
-CreateThread(platform_thread_manager* Manager, thread_proc_* Proc, u8* Arg)
+CreateThread(platform_thread_manager* Manager, thread_proc_* Proc, u8* Arg, gs_thread_context Ctx)
 {
     platform_thread_handle Result = {};
     
@@ -3513,7 +3511,7 @@ CreateThread(platform_thread_manager* Manager, thread_proc_* Proc, u8* Arg)
     Assert(Result.Index != 0);
     
     Manager->ThreadsUsed[Result.Index] = true;
-    Manager->CreateThreadProc(&Manager->Threads[Result.Index], Proc, Arg);
+    Manager->CreateThreadProc(&Manager->Threads[Result.Index], Proc, Arg, Ctx);
     
     return Result;
 }
@@ -3719,7 +3717,6 @@ CloseSocket(platform_socket_manager* Manager, platform_socket_handle_ Handle)
 }
 
 // NOTE(pjs): returns true if the socket is connected
-// TODO(pjs): make this more descriptive?
 internal bool
 SocketQueryStatus(platform_socket_manager* Manager, platform_socket_handle_ SocketHandle)
 {

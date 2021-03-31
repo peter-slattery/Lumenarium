@@ -140,8 +140,6 @@ global_const r64 EpsilonR64 = 1.11022302462515650e-16;
 global_const r64 NanosToSeconds = 1 / 10000000.0;
 global_const r64 SecondsToNanos = 10000000.0;
 
-// TODO: va_start and va_arg replacements
-
 internal r32
 DegToRadR32(r32 Degrees)
 {
@@ -1090,10 +1088,9 @@ typedef struct platform_thread
     u8* PlatformHandle;
     thread_proc_* Proc;
     u8* UserData;
-    // TODO(pjs): Some kind of platform thread handle
 } platform_thread;
 
-#define CREATE_THREAD(name) bool name(platform_thread* Thread, thread_proc_* Proc, u8* UserData)
+#define CREATE_THREAD(name) bool name(platform_thread* Thread, thread_proc_* Proc, u8* UserData, gs_thread_context Ctx)
 typedef CREATE_THREAD(platform_create_thread);
 
 #define KILL_THREAD(name) bool name(platform_thread* Thread)

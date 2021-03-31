@@ -251,7 +251,6 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
     }
     else
     {
-        // TODO(pjs): Error handling
         s32 Error = WSAGetLastError();
         switch (Error)
         {

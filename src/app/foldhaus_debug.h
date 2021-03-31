@@ -75,11 +75,6 @@ enum debug_ui_view
 
 struct debug_interface
 {
-    b32 ShowCameraMouse;
-    b32 ShowTrackedScopes;
-    b32 RenderSculpture;
-    b32 SendSACNData;
-    
     s32 FrameView;
 };
 
@@ -105,34 +100,39 @@ struct debug_histogram_entry
     u32 Total_CallCount;
 };
 
-#define DEBUG_FRAME_COUNT 128
+#if DEBUG
+# define DEBUG_FRAME_COUNT 128
+#else
+# define DEBUG_FRAME_COUNT 0
+#endif
+
 struct debug_services
 {
     s64 PerformanceCountFrequency;
     
     b32 RecordFrames;
     s32 CurrentDebugFrame;
-    debug_frame Frames[DEBUG_FRAME_COUNT];
+    debug_frame* Frames;
     
     debug_interface Interface;
     
+    gs_thread_context Ctx;
+    
     debug_get_thread_id* GetThreadId;
     debug_timing_proc* GetWallClock;
-    debug_alloc* Alloc;
-    debug_realloc* Realloc;
 };
 
 internal void
 InitializeDebugFrame (debug_frame* Frame, s32 NameHashMax, s32 ThreadCount, s32 ScopeCallsMax, debug_services* Services)
 {
     Frame->ScopeNamesMax = NameHashMax;
-    Frame->ScopeNamesHash = (scope_name*)Services->Alloc(sizeof(scope_name), NameHashMax);
+    Frame->ScopeNamesHash = AllocatorAllocArray(Services->Ctx.Allocator, scope_name, NameHashMax);
     
     // NOTE(Peter): We use the same size as scope names because we're only storing a single instance
     // per scope. If ScopeNamesMax can't hold all the scopes, this will never get filled and
     // we should assert and recompile with a resized NameHashMax
     Frame->CollatedScopesMax = NameHashMax;
-    Frame->CollatedScopes = (collated_scope_record*)Services->Alloc(sizeof(collated_scope_record), NameHashMax);
+    Frame->CollatedScopes = AllocatorAllocArray(Services->Ctx.Allocator, collated_scope_record, NameHashMax);
     
     for (s32 i = 0; i < Frame->ScopeNamesMax; i++)
     {
@@ -141,14 +141,13 @@ InitializeDebugFrame (debug_frame* Frame, s32 NameHashMax, s32 ThreadCount, s32 
     }
     
     Frame->ThreadCount = ThreadCount;
-    Frame->ThreadCalls = (debug_scope_record_list*)Services->Alloc(sizeof(debug_scope_record_list),
-                                                                   ThreadCount);
+    Frame->ThreadCalls = AllocatorAllocArray(Services->Ctx.Allocator, debug_scope_record_list, ThreadCount); 
     
     for (s32 i = 0; i < ThreadCount; i++)
     {
         Frame->ThreadCalls[i].Max = ScopeCallsMax;
         Frame->ThreadCalls[i].Count = 0;
-        Frame->ThreadCalls[i].Calls = (scope_record*)Services->Alloc(sizeof(scope_record), ScopeCallsMax);
+        Frame->ThreadCalls[i].Calls = AllocatorAllocArray(Services->Ctx.Allocator, scope_record, ScopeCallsMax);
         Frame->ThreadCalls[i].CurrentScopeCallDepth = 0;
         Frame->ThreadCalls[i].ThreadId = 0;
     }
@@ -178,16 +177,34 @@ StartDebugFrame(debug_frame* Frame, debug_services* Services)
 }
 
 internal void
-InitDebugServices (debug_services* Services,
-                   s64 PerformanceCountFrequency,
-                   debug_alloc* Alloc,
-                   debug_realloc* Realloc,
-                   debug_timing_proc* GetWallClock,
-                   debug_get_thread_id* GetThreadId,
-                   s32 ThreadCount)
+InitDebugServices_OffMode (debug_services* Services,
+                           s64 PerformanceCountFrequency,
+                           debug_timing_proc* GetWallClock,
+                           debug_get_thread_id* GetThreadId,
+                           gs_thread_context Ctx,
+                           s32 ThreadCount)
 {
-    Services->Alloc = Alloc;
-    Services->Realloc = Realloc;
+    Services->Ctx = Ctx;
+    Services->GetWallClock = GetWallClock;
+    Services->GetThreadId = GetThreadId;
+    
+    Services->RecordFrames = false;
+    Services->Frames = 0;
+    
+    Services->CurrentDebugFrame = 0;
+    Services->PerformanceCountFrequency = PerformanceCountFrequency;
+}
+
+
+internal void
+InitDebugServices_DebugMode (debug_services* Services,
+                             s64 PerformanceCountFrequency,
+                             debug_timing_proc* GetWallClock,
+                             debug_get_thread_id* GetThreadId,
+                             gs_thread_context Ctx,
+                             s32 ThreadCount)
+{
+    Services->Ctx = Ctx;
     Services->GetWallClock = GetWallClock;
     Services->GetThreadId = GetThreadId;
     
@@ -196,19 +213,13 @@ InitDebugServices (debug_services* Services,
     Services->CurrentDebugFrame = 0;
     s32 NameHashMax = 4096;
     s32 ScopeCallsMax = 4096;
+    Services->Frames = AllocatorAllocArray(Ctx.Allocator, debug_frame, DEBUG_FRAME_COUNT);
     for (s32 i = 0; i < DEBUG_FRAME_COUNT; i++)
     {
         InitializeDebugFrame(&Services->Frames[i], NameHashMax, ThreadCount, ScopeCallsMax,  Services);
     }
     
-    Services->Interface.RenderSculpture = true;
-    
     Services->PerformanceCountFrequency = PerformanceCountFrequency;
-    
-    Services->Interface.ShowCameraMouse = false;
-    Services->Interface.ShowTrackedScopes = false;
-    Services->Interface.RenderSculpture = true;
-    Services->Interface.SendSACNData = false;
 }
 
 internal debug_frame*
@@ -221,6 +232,8 @@ GetCurrentDebugFrame (debug_services* Services)
 internal debug_frame*
 GetLastDebugFrame(debug_services* Services)
 {
+    if (!Services->Frames) return 0;
+    
     s32 Index = (Services->CurrentDebugFrame - 1);
     if (Index < 0) { Index += DEBUG_FRAME_COUNT; }
     debug_frame* Result = Services->Frames + Index;
@@ -323,7 +336,11 @@ EndDebugFrame (debug_services* Services)
     }
     ClosingFrame->ScopeNamesCount = ScopeNamesCount;
     
-    Services->CurrentDebugFrame = (Services->CurrentDebugFrame + 1) % DEBUG_FRAME_COUNT;
+    s32 FramesCount = DEBUG_FRAME_COUNT;
+    if (FramesCount > 0)
+    {
+        Services->CurrentDebugFrame = (Services->CurrentDebugFrame + 1) % FramesCount;
+    }
     StartDebugFrame(&Services->Frames[Services->CurrentDebugFrame], Services);
 }
 
@@ -388,10 +405,9 @@ PushScopeTimeOnFrame (debug_services* Services, s32 NameHash, u64 StartCycles, u
     
     if (ThreadList->Count >= ThreadList->Max)
     {
-        s32 CurrentSize = ThreadList->Max * sizeof(scope_record);
         s32 NewMax = (ThreadList->Max + DEBUG_FRAME_GROW_SIZE);
-        s32 NewSize = NewMax * sizeof(scope_record);
-        ThreadList->Calls = (scope_record*)Services->Realloc((u8*)ThreadList->Calls, CurrentSize, NewSize);
+        AllocatorFreeArray(Services->Ctx.Allocator, ThreadList->Calls, scope_record, ThreadList->Max);
+        ThreadList->Calls = AllocatorAllocArray(Services->Ctx.Allocator, scope_record, NewMax); 
         ThreadList->Max = NewMax;
     }
     
@@ -411,7 +427,7 @@ internal r32 DEBUGGetSecondsElapsed (s64 Start, s64 End, r32 PerformanceCountFre
     return Result;
 }
 
-#ifdef DEBUG
+#if DEBUG
 #define DEBUG_TRACK_FUNCTION scope_tracker ScopeTracker ((char*)__func__, GlobalDebugServices)
 #define DEBUG_TRACK_SCOPE(name) scope_tracker ScopeTracker_##name (#name, GlobalDebugServices)
 #else

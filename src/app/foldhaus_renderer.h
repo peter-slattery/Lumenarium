@@ -124,7 +124,6 @@ struct render_quad_3d
 
 struct render_texture
 {
-    // TODO(Peter): Is all this necessary?
     u8* Memory;
     s32 Handle;
     s32 Width;
@@ -214,7 +213,7 @@ struct render_command_buffer
     s32 CommandMemoryUsed;
     s32 CommandMemorySize;
     
-    renderer_realloc* Realloc;
+    gs_thread_context Ctx;
     
     s32 ViewWidth;
     s32 ViewHeight;
@@ -265,9 +264,9 @@ ResizeBufferIfNecessary(render_command_buffer* Buffer, s32 DataSize)
         s32 SpaceNeeded = DataSize - SpaceAvailable; // This is known to be positive at this point
         s32 AdditionSize = Max(SpaceNeeded, COMMAND_BUFFER_MIN_GROW_SIZE);
         s32 NewSize = Buffer->CommandMemorySize + AdditionSize;
-        Buffer->CommandMemory = Buffer->Realloc(Buffer->CommandMemory,
-                                                Buffer->CommandMemorySize,
-                                                NewSize);
+        
+        AllocatorFree(Buffer->Ctx.Allocator, Buffer->CommandMemory, Buffer->CommandMemorySize);
+        Buffer->CommandMemory = AllocatorAlloc(Buffer->Ctx.Allocator, NewSize).Memory;
         Buffer->CommandMemorySize = NewSize;
     }
 }

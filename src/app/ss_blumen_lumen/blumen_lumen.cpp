@@ -149,7 +149,6 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
         {
             if (SocketPeek(Data->SocketManager, ListenSocket))
             {
-                // TODO(pjs): Make this a peek operation
                 Msg = SocketRecieve(Data->SocketManager, ListenSocket, Ctx->Transient);
                 if (Msg.Size > 0)
                 {
@@ -233,7 +232,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->PatternSpeed = GlobalAnimSpeed;
     
 #if 1
-    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData);
+    BLState->MicListenThread = CreateThread(Context.ThreadManager, BlumenLumen_MicListenJob, (u8*)&BLState->MicListenJobData, Context.ThreadContext);
 #endif
     
     assembly* Flower0 = LoadAssembly(Flower0AssemblyPath, State, Context);
@@ -277,9 +276,53 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 }
 
 internal void
+BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Context)
+{
+    if (!BLState->ShouldUpdateLog) return;
+    
+    gs_string FileStr = PushString(State->Transient, 1024);
+    AppendPrintF(&FileStr, "Lumenarium Status\n\n");
+    
+    animation* CurrAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
+    AppendPrintF(&FileStr, "Curr Animation: %S\n", CurrAnim->Name);
+    
+    char* Connected = BLState->MicListenJobData.IsConnected ? "Connected" : "Disconnected";
+    AppendPrintF(&FileStr, "Connected to Python: %s\n", Connected);
+    
+    u8 MP0 = BLState->LastKnownMotorState.FlowerPositions[0];
+    u8 MP1 = BLState->LastKnownMotorState.FlowerPositions[1];
+    u8 MP2 = BLState->LastKnownMotorState.FlowerPositions[2];
+    AppendPrintF(&FileStr, "Last Known Motor State: %d %d %d\n", MP0, MP1, MP2);
+    
+    char* PatternMode = 0;
+    switch (BLState->PatternMode)
+    {
+        case BlumenPattern_Standard: { PatternMode = "Standard"; } break;
+        case BlumenPattern_VoiceCommand: { PatternMode = "Voice Command"; } break;
+    }
+    AppendPrintF(&FileStr, "Pattern Mode: %s\n", PatternMode);
+    
+    phrase_hue LastHuePhrase = BLState->LastHuePhrase;
+    AppendPrintF(&FileStr, "Last Mic Phrase: %S\n", LastHuePhrase.Phrase);
+    
+    AppendPrintF(&FileStr, "Pattern Speed: %f\n", BLState->PatternSpeed);
+    
+    AppendPrintF(&FileStr, "Pattern Brightness: %f\n", BLState->BrightnessPercent);
+    
+    AppendPrintF(&FileStr, "Last Temp Received: %d\n", BLState->LastTemperatureReceived);
+    
+    gs_data LogMem = StringToData(FileStr);
+    if (!WriteEntireFile(Context.ThreadContext.FileHandler, ConstString("lumenarium_status.log"), LogMem))
+    {
+        InvalidCodePath;
+    }
+}
+
+internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
+    BLState->ShouldUpdateLog = false;
     
     bool SendMotorCommand = false;
     blumen_packet MotorCommand = {};
@@ -314,7 +357,9 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     
                     BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
                     BLState->TimeLastSetToVoiceMode = Context->SystemTime_Current;
+                    BLState->LastHuePhrase = NewHue;
                 }
+                BLState->ShouldUpdateLog = true;
             }break;
             
             case PacketType_MotorState:
@@ -340,14 +385,14 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 }
                 
                 BLState->LastKnownMotorState = Motor.Pos;
-                
+                BLState->ShouldUpdateLog = true;
             }break;
             
             case PacketType_Temperature:
             {
                 temp_packet Temp = Packet.TempPacket;
                 
-                if (Temp.Temperature > 0)
+                if (Temp.Temperature > MinHighTemperature)
                 {
                     BLState->BrightnessPercent = HighTemperatureBrightnessPercent;
                 }
@@ -355,8 +400,10 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 {
                     BLState->BrightnessPercent = FullBrightnessPercent;
                 }
+                BLState->LastTemperatureReceived = Temp.Temperature;
                 
                 DEBUG_ReceivedTemperature(Temp, Context->ThreadContext);
+                BLState->ShouldUpdateLog = true;
             }break;
             
             InvalidDefaultCase;
@@ -392,6 +439,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
                                       NewAnim,
                                       VoiceCommandFadeDuration);
+            BLState->ShouldUpdateLog = true;
         }
     }
     
@@ -517,7 +565,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     {
         system_time LastSendTime = BLState->LastStatusUpdateTime;
         r64 NanosSinceLastSend = ((r64)Context->SystemTime_Current.NanosSinceEpoch - (r64)LastSendTime.NanosSinceEpoch);
-        r64 SecondsSinceLastSend = NanosSinceLastSend / PowR32(10, 8);
+        r64 SecondsSinceLastSend = NanosSinceLastSend * NanosToSeconds;
         if (SecondsSinceLastSend >= STATUS_PACKET_FREQ_SECONDS)
         {
             BLState->LastStatusUpdateTime = Context->SystemTime_Current;
@@ -538,8 +586,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             
             gs_data Msg = StructToData(&Packet, blumen_packet);
             MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+            
+            // there's no new information here, but by updating the log here,
+            // we're updating it at some infrequent but regular period that isnt
+            // every single frame
+            BLState->ShouldUpdateLog = true;
         }
     }
+    
+    BlumenLumen_UpdateLog(State, BLState, *Context);
 }
 
 US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)

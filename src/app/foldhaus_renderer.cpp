@@ -6,22 +6,22 @@
 #ifndef FOLDHAUS_RENDERER_CPP
 
 internal render_command_buffer
-AllocateRenderCommandBuffer (u8* Memory, s32 Size, renderer_realloc* Realloc)
+AllocateRenderCommandBuffer (u8* Memory, s32 Size, gs_thread_context Ctx)
 {
     render_command_buffer Result = {};
     Result.CommandMemory = Memory;
     Result.CommandMemorySize = Size;
     Result.CommandMemoryUsed = 0;
-    Result.Realloc = Realloc;
+    Result.Ctx = Ctx;
     return Result;
 }
 internal render_command_buffer
 AllocateRenderCommandBuffer(u32 MemorySize,
                             gs_memory_arena* Arena,
-                            renderer_realloc* Realloc)
+                            gs_thread_context Ctx)
 {
     u8* Memory = PushSize(Arena, MemorySize);
-    return AllocateRenderCommandBuffer(Memory, MemorySize, Realloc);
+    return AllocateRenderCommandBuffer(Memory, MemorySize, Ctx);
 }
 
 internal void
