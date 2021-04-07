@@ -207,6 +207,8 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_Rotary, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_AllOnMask, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_BulbMask, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_VoicePattern, PATTERN_MULTITHREADED);
+    
 }
 
 internal void
@@ -373,7 +375,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
     AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
     
-    BlumenLumen_SetPatternMode(BlumenPattern_Standard, 5, &State->AnimationSystem, BLState);
+    BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -390,6 +392,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     bool SendMotorCommand = false;
     blumen_packet MotorCommand = {};
     
+    r64 PhraseGroupingTime = 1.0f;
     while (MessageQueue_CanRead(BLState->IncomingMsgQueue))
     {
         gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
@@ -403,26 +406,17 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 u32 NameLen = CStringLength(Mic.AnimationFileName);
                 
                 phrase_hue NewHue = PhraseHueMap_Get(BLState->PhraseHueMap, NameHash);
-                if (NewHue.PhraseHash != 0)
+                if (BLState->NextHotHue.Phrase.Length < NewHue.Phrase.Length)
                 {
-                    if (BLState->PatternMode == BlumenPattern_Standard)
+                    BLState->NextHotHue = NewHue;
+                    if (SecondsElapsed(BLState->TimePhraseReceptionBegan,
+                                       Context->SystemTime_Current) > PhraseGroupingTime)
                     {
-                        BLState->AssemblyColors[0] = NewHue;
-                        BLState->AssemblyColors[1] = NewHue;
-                        BLState->AssemblyColors[2] = NewHue;
+                        BLState->TimePhraseReceptionBegan = Context->SystemTime_Current;
+                        BLState->InPhraseReceptionMode = true;
                     }
-                    else
-                    {
-                        u32 AssemblyIdx = BLState->LastAssemblyColorSet;
-                        BLState->AssemblyColors[AssemblyIdx] = NewHue;
-                        BLState->LastAssemblyColorSet = (BLState->LastAssemblyColorSet + 1) % 3;
-                    }
-                    
-                    BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
-                    BLState->TimeLastSetToVoiceMode = Context->SystemTime_Current;
-                    BLState->LastHuePhrase = NewHue;
+                    BLState->TimeLastPhraseReceived = Context->SystemTime_Current;
                 }
-                BLState->ShouldUpdateLog = true;
             }break;
             
             case PacketType_MotorState:
@@ -470,6 +464,35 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             }break;
             
             InvalidDefaultCase;
+        }
+    }
+    
+    if (BLState->InPhraseReceptionMode)
+    {
+        r32 SecondsSincePhraseBegan = SecondsElapsed(BLState->TimePhraseReceptionBegan, Context->SystemTime_Current);
+        if (SecondsSincePhraseBegan > PhraseGroupingTime)
+        {
+            // if we are in standard color mode, shift all flowers to the new color
+            // otherwise, only shift the next flower in the sequence to the new color
+            phrase_hue NewHue = BLState->NextHotHue;
+            if (BLState->PatternMode == BlumenPattern_Standard)
+            {
+                BLState->AssemblyColors[0] = NewHue;
+                BLState->AssemblyColors[1] = NewHue;
+                BLState->AssemblyColors[2] = NewHue;
+            }
+            else
+            {
+                u32 AssemblyIdx = BLState->LastAssemblyColorSet;
+                BLState->AssemblyColors[AssemblyIdx] = NewHue;
+                BLState->LastAssemblyColorSet = (BLState->LastAssemblyColorSet + 1) % 3;
+            }
+            
+            BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
+            BLState->TimeLastSetToVoiceMode = Context->SystemTime_Current;
+            BLState->LastHuePhrase = NewHue;
+            BLState->ShouldUpdateLog = true;
+            BLState->InPhraseReceptionMode = false;
         }
     }
     

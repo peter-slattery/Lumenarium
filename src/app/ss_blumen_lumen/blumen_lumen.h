@@ -175,6 +175,12 @@ struct blumen_lumen_state
     animation_handle_array ModeAnimations[BlumenPattern_Count];
     
     phrase_hue_map PhraseHueMap;
+    
+    bool InPhraseReceptionMode;
+    phrase_hue NextHotHue;
+    system_time TimePhraseReceptionBegan;
+    system_time TimeLastPhraseReceived;
+    
     system_time TimeLastSetToVoiceMode;
     phrase_hue LastHuePhrase;
     
