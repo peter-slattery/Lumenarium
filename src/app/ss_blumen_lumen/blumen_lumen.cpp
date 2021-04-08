@@ -404,6 +404,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     while (MessageQueue_CanRead(BLState->IncomingMsgQueue))
     {
         gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
+        if (PacketData.Memory == 0) continue;
         
         blumen_packet Packet = *(blumen_packet*)PacketData.Memory;
         switch (Packet.Type) {
