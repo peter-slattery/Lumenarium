@@ -44,7 +44,7 @@ MessageQueue_CanRead(blumen_network_msg_queue Queue)
 }
 
 internal gs_data
-MessageQueue_Read(blumen_network_msg_queue* Queue)
+MessageQueue_Peek(blumen_network_msg_queue* Queue)
 {
     gs_data Result = {};
     u32 ReadIndex = Queue->ReadHead;
@@ -53,7 +53,19 @@ MessageQueue_Read(blumen_network_msg_queue* Queue)
         ReadIndex = 0;
     }
     Result = Queue->Buffers[ReadIndex];
-    Queue->ReadHead = ReadIndex;
+    return Result;
+}
+
+internal gs_data
+MessageQueue_Read(blumen_network_msg_queue* Queue)
+{
+    gs_data Result = {};
+    u32 ReadIndex = Queue->ReadHead++;
+    if (ReadIndex >= BLUMEN_MESSAGE_QUEUE_COUNT)
+    {
+        Queue->ReadHead = 0;
+    }
+    Result = Queue->Buffers[ReadIndex];
     return Result;
 }
 

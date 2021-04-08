@@ -160,18 +160,22 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             
             while (MessageQueue_CanRead(*Data->OutgoingMsgQueue))
             {
-                Msg = MessageQueue_Read(Data->OutgoingMsgQueue);
+                Msg = MessageQueue_Peek(Data->OutgoingMsgQueue);
                 
                 u32 Address = WeathermanIPV4;
                 u32 Port = WeathermanPort;
                 s32 Flags = 0;
-                SocketSend(Data->SocketManager, ListenSocket, Address, Port, Msg, Flags);
+                s32 LengthSent = SocketSend(Data->SocketManager, ListenSocket, Address, Port, Msg, Flags);
+                if (LengthSent != 0)
+                {
+                    // if we actually sent the message, THEN we pull it off the
+                    // message queue
+                    MessageQueue_Read(Data->OutgoingMsgQueue);
+                } else {
+                    break;
+                }
             }
-            
-            Assert(!MessageQueue_CanRead(*Data->OutgoingMsgQueue));
         }
-        
-        MessageQueue_Clear(Data->OutgoingMsgQueue);
     }
     
     CloseSocket(Data->SocketManager, ListenSocket);

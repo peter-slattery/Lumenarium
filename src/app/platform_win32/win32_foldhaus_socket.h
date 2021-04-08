@@ -156,7 +156,7 @@ Win32ConnectSocket(platform_socket_manager* Manager, platform_socket* Socket)
             
             // If iMode == 0, blocking is enabled
             // if iMode != 0, non-blocking mode is enabled
-            u_long iMode = 1;
+            u_long iMode = 0;
             Error = ioctlsocket(SocketHandle, FIONBIO, &iMode);
             if (Error != NO_ERROR)
             {
@@ -169,6 +169,7 @@ Win32ConnectSocket(platform_socket_manager* Manager, platform_socket* Socket)
                 u32 Status = WSAGetLastError();
                 if (Status == WSAEWOULDBLOCK)
                 {
+                    // Non-blocking sockets
 #if 0
                     TIMEVAL Timeout = { 0, 500 };
                     fd_set SocketSet = {};
@@ -244,9 +245,12 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
     char Temp[4];
     u32 TempSize = 4;
     
-    OutputDebugString("Pre Peek");
-    s32 BytesQueued = recv(*Win32Sock, Temp, TempSize, Flags);
-    OutputDebugString("Post Peek");
+    //OutputDebugString("Pre Peek...");
+    //s32 BytesQueued = recv(*Win32Sock, Temp, TempSize, Flags);
+    u_long BytesQueued = 0;
+    ioctlsocket(*Win32Sock, FIONREAD, &BytesQueued);
+    //OutputDebugString("Post Peek\n");
+    
     if (BytesQueued != SOCKET_ERROR)
     {
         Result = (u32)BytesQueued;
@@ -257,6 +261,14 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
         switch (Error)
         {
             case WSAEWOULDBLOCK:
+            {
+                // NOTE(PS): This case covers non-blocking sockets
+                // if we peek and there's nothing there, it returns
+                // this error code. MSDN says its a non-fatal error
+                // and the operation should be retried later
+                Result = 0;
+            } break;
+            
             case WSAENOTCONN:
             case WSAECONNRESET:
             case WSAECONNABORTED:
@@ -267,7 +279,7 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
             InvalidDefaultCase;
         }
     }
-    return Result;
+    return (s32)Result;
 }
 
 internal gs_data
@@ -315,12 +327,20 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
     
     s32 LengthSent = sendto(*Win32Sock, (char*)Data.Memory, Data.Size, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     
-    OutputDebugString("Attempting To Send Network Data: ");
+    //OutputDebugString("Attempting To Send Network Data: ");
     if (LengthSent == SOCKET_ERROR)
     {
         s32 Error = WSAGetLastError();
         switch (Error)
         {
+            case WSAEWOULDBLOCK:
+            {
+                // NOTE(PS): This covers non-blocking sockets
+                // In this case the message should be tried again
+                LengthSent = 0;
+                //OutputDebugString("Not sent, buffered\n");
+            }break;
+            
             case WSAECONNABORTED:
             case WSAENETUNREACH:
             case WSAECONNRESET:
@@ -329,15 +349,11 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
                 if (CloseSocket(Manager, Socket))
                 {
                     Error = 0;
+                    OutputDebugString("Error\n");
                 }
             }break;
             
             InvalidDefaultCase;
-        }
-        
-        if (Error) 
-        {
-            OutputDebugString("Error\n");
         }
     }
     else
