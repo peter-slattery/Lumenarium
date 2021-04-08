@@ -424,7 +424,7 @@ ui_InterfaceReset(ui_interface* Interface)
         Interface->RetainedState[i].FramesSinceAccess += 1;
         if (Interface->RetainedState[i].FramesSinceAccess > 1)
         {
-            Interface->RetainedState[i] = {0};
+            Interface->RetainedState[i].Id = {0};
         }
     }
     
@@ -515,6 +515,9 @@ ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
     {
         if (ui_WidgetIdsEqual(Interface->RetainedState[i].Id, Id))
         {
+            // NOTE(PS): If we are accessing a retained state, it shouldn't
+            // have been accessed longer ago than the last frame
+            Assert(Interface->RetainedState[i].FramesSinceAccess <= 2);
             Interface->RetainedState[i].FramesSinceAccess = 0;
             Result = Interface->RetainedState + i;
             break;
@@ -526,10 +529,28 @@ ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
 internal ui_widget_retained_state*
 ui_CreateRetainedState(ui_interface* Interface, ui_widget* Widget)
 {
-    u64 Index = Interface->RetainedStateCount++;
+    u64 Index = RETAINED_STATE_MAX;
+    if (Interface->RetainedStateCount >= RETAINED_STATE_MAX)
+    {
+        for (u32 i = 0; i < Interface->RetainedStateCount; i++)
+        {
+            if (Interface->RetainedState[i].FramesSinceAccess > 0)
+            {
+                Index = i;
+                break;
+            }
+        }
+    } else {
+        Index = Interface->RetainedStateCount++;
+    }
+    
+    Assert(Index < RETAINED_STATE_MAX);
     ui_widget_retained_state* Result = Interface->RetainedState + Index;
     Result->Id = Widget->Id;
-    Result->EditString = PushString(Interface->Permanent, 256);
+    if (Result->EditString.Size != 256)
+    {
+        Result->EditString = PushString(Interface->Permanent, 256);
+    }
     return Result;
 }
 
