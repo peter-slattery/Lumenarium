@@ -127,9 +127,9 @@ Pattern_BasicFlowers(led_buffer* Leds, led_buffer_range Range, assembly Assembly
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
-    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
@@ -166,9 +166,9 @@ Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Ti
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
-    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     r32 Top = 120 + (SinR32(Time) * 10);
     r32 Mid = 70 + (CosR32(Time * 2.13) * 20);
@@ -228,8 +228,9 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
@@ -290,9 +291,9 @@ Pattern_Leafy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 T
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
-    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
@@ -326,9 +327,9 @@ Pattern_LeafyPatchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly,
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
-    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
@@ -609,9 +610,9 @@ Pattern_VoicePattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly
     Time = Time * BLState->PatternSpeed;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
-    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
-    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {

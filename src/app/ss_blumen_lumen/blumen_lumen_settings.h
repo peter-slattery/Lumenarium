@@ -16,8 +16,8 @@ gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 
 // The path to the phrase map CSV. Can be an absolute path, or relative
 // to the app_run_tree folder
-gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.csv");
-char PhraseMapCSVSeparator = ',';
+gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.tsv");
+char PhraseMapCSVSeparator = '\t';
 
 // Search Strings for which folders to find ambient animation files and
 // voice animation files in.

@@ -380,9 +380,13 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
     AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
     
-    BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
+    BlumenLumen_SetPatternMode(BlumenPattern_Standard, 5, &State->AnimationSystem, BLState);
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
+    
+    BLState->StandardPatternHues.Hue0.Flags = Hue_Value;
+    BLState->StandardPatternHues.Hue1.Flags = Hue_Value;
+    BLState->StandardPatternHues.Hue2.Flags = Hue_Value;
     
     BlumenLumen_AppendBootupLog(State, BLState, Context);
     return Result;
@@ -510,9 +514,9 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     r32 ColorRelOscSpeed = 1 * ColorSpeed;;
     r32 ColorOscillation = (SinR32(BaseTime * ColorOscSpeed) + 1) / 2;
     r32 ColorRelationship = 30 + (((1 + SinR32(BaseTime * ColorRelOscSpeed)) / 2) * 300);
-    BLState->StandardPatternHues.Hue0 = ModR32(ColorOscillation * 360, 360);
-    BLState->StandardPatternHues.Hue1 = ModR32(BaseTime + ColorRelationship, 360);
-    BLState->StandardPatternHues.Hue2 = LerpR32(.3f, BLState->StandardPatternHues.Hue0, BLState->StandardPatternHues.Hue1);
+    BLState->StandardPatternHues.Hue0.Hue = ModR32(ColorOscillation * 360, 360);
+    BLState->StandardPatternHues.Hue1.Hue = ModR32(BaseTime + ColorRelationship, 360);
+    BLState->StandardPatternHues.Hue2.Hue = LerpR32(.3f, BLState->StandardPatternHues.Hue0.Hue, BLState->StandardPatternHues.Hue1.Hue);
     
     // Transition back to standard mode after some time
     if (BLState->PatternMode == BlumenPattern_VoiceCommand)
