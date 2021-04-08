@@ -392,7 +392,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     bool SendMotorCommand = false;
     blumen_packet MotorCommand = {};
     
-    r64 PhraseGroupingTime = 1.0f;
     while (MessageQueue_CanRead(BLState->IncomingMsgQueue))
     {
         gs_data PacketData = MessageQueue_Read(&BLState->IncomingMsgQueue);
@@ -410,7 +409,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 {
                     BLState->NextHotHue = NewHue;
                     if (SecondsElapsed(BLState->TimePhraseReceptionBegan,
-                                       Context->SystemTime_Current) > PhraseGroupingTime)
+                                       Context->SystemTime_Current) > PhrasePriorityMessageGroupingTime)
                     {
                         BLState->TimePhraseReceptionBegan = Context->SystemTime_Current;
                         BLState->InPhraseReceptionMode = true;
@@ -470,7 +469,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     if (BLState->InPhraseReceptionMode)
     {
         r32 SecondsSincePhraseBegan = SecondsElapsed(BLState->TimePhraseReceptionBegan, Context->SystemTime_Current);
-        if (SecondsSincePhraseBegan > PhraseGroupingTime)
+        if (SecondsSincePhraseBegan > PhrasePriorityMessageGroupingTime)
         {
             // if we are in standard color mode, shift all flowers to the new color
             // otherwise, only shift the next flower in the sequence to the new color

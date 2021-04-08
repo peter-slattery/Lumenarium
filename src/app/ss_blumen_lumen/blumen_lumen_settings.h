@@ -141,6 +141,8 @@ r32 FullBrightnessPercent = 1.0f;
 // 2 is 2x as fast. 
 r32 GlobalAnimSpeed = 1.0f;
 
+r64 PhrasePriorityMessageGroupingTime = 1.0f;
+
 // How often should Lumenarium send its status to the python server?
 // 
 #define STATUS_PACKET_FREQ_SECONDS 10 // in seconds
