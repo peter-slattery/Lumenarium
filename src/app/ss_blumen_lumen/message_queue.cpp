@@ -47,12 +47,13 @@ internal gs_data
 MessageQueue_Read(blumen_network_msg_queue* Queue)
 {
     gs_data Result = {};
-    u32 ReadIndex = Queue->ReadHead++;
-    if (Queue->ReadHead >= BLUMEN_MESSAGE_QUEUE_COUNT)
+    u32 ReadIndex = Queue->ReadHead;
+    if (ReadIndex >= BLUMEN_MESSAGE_QUEUE_COUNT)
     {
-        Queue->ReadHead = 0;
+        ReadIndex = 0;
     }
     Result = Queue->Buffers[ReadIndex];
+    Queue->ReadHead = ReadIndex;
     return Result;
 }
 

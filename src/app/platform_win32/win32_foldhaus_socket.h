@@ -156,7 +156,7 @@ Win32ConnectSocket(platform_socket_manager* Manager, platform_socket* Socket)
             
             // If iMode == 0, blocking is enabled
             // if iMode != 0, non-blocking mode is enabled
-            u_long iMode = 0;
+            u_long iMode = 1;
             Error = ioctlsocket(SocketHandle, FIONBIO, &iMode);
             if (Error != NO_ERROR)
             {
@@ -244,7 +244,9 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
     char Temp[4];
     u32 TempSize = 4;
     
+    OutputDebugString("Pre Peek");
     s32 BytesQueued = recv(*Win32Sock, Temp, TempSize, Flags);
+    OutputDebugString("Post Peek");
     if (BytesQueued != SOCKET_ERROR)
     {
         Result = (u32)BytesQueued;

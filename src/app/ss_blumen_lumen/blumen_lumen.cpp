@@ -167,6 +167,8 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
                 s32 Flags = 0;
                 SocketSend(Data->SocketManager, ListenSocket, Address, Port, Msg, Flags);
             }
+            
+            Assert(!MessageQueue_CanRead(*Data->OutgoingMsgQueue));
         }
         
         MessageQueue_Clear(Data->OutgoingMsgQueue);
@@ -208,7 +210,6 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_AllOnMask, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_BulbMask, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_VoicePattern, PATTERN_MULTITHREADED);
-    
 }
 
 internal void
