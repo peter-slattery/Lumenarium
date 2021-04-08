@@ -64,6 +64,7 @@ MessageQueue_Read(blumen_network_msg_queue* Queue)
     if (ReadIndex >= BLUMEN_MESSAGE_QUEUE_COUNT)
     {
         Queue->ReadHead = 0;
+        ReadIndex = 0;
     }
     Result = Queue->Buffers[ReadIndex];
     return Result;
