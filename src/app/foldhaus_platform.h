@@ -202,6 +202,14 @@ typedef struct system_time
     s32 Second;
 } system_time;
 
+internal r64
+SecondsElapsed(system_time Start, system_time End)
+{
+    u64 N = End.NanosSinceEpoch - Start.NanosSinceEpoch;
+    r64 S = (r64)N * NanosToSeconds;
+    return S;
+}
+
 struct context
 {
     gs_thread_context ThreadContext;

@@ -10,6 +10,10 @@
 internal pixel
 V4ToRGBPixel(v4 C)
 {
+    C.x = Clamp01(C.x);
+    C.y = Clamp01(C.y);
+    C.z = Clamp01(C.z);
+    
     pixel Result = {};
     Result.R = (u8)(C.x * 255);
     Result.G = (u8)(C.y * 255);
@@ -484,6 +488,143 @@ Pattern_BulbMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r3
         BulbSDF += N;
         BulbSDF = Clamp01(BulbSDF);
         v4 C = WhiteV4 * BulbSDF;
+        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+    }
+}
+
+internal v4
+GenPatchyColor(v3 P, r32 Time, v4 C0, v4 C1, v4 C2)
+{
+    r32 LedRange = 300.0f;
+    r32 ScaleFactor = 1.0f / LedRange;
+    v3 Pp = P + v3{150, 100, 0};
+    
+    r32 ScaleA = 1;
+    r32 NoiseA = Noise3D(((Pp / 38) + v3{0, 0, Time}) * ScaleA);
+    NoiseA = PowR32(NoiseA, 3);
+    NoiseA = Smoothstep(NoiseA);
+    
+    r32 ScaleBP = 2;
+    r32 ScaleB = 15;
+    r32 NoiseBP = Noise3D(((Pp / 13) + v3{ 0, Time * -0.33f, 0}) * ScaleBP);
+    NoiseBP = PowR32(NoiseBP, 3);
+    r32 NoiseB = Noise3D(((Pp / 75) + v3{Time * 0.5f, 0, 0}) * ScaleB);
+    NoiseB = PowR32(NoiseB, 3);
+    NoiseB = Smoothstep(NoiseB) * NoiseBP;
+    
+    r32 ScaleC = 1.5;
+    r32 NoiseCP = Noise3D(((Pp / 132) + v3{Time * -0.33f, 0, 0}) * 0.5f);
+    r32 NoiseC = Noise3D(((Pp / 164) + v3{Time * 0.25f, 0, 0}) * ScaleC);
+    NoiseC = PowR32(NoiseC, 3);
+    NoiseC = Smoothstep(NoiseC) * NoiseCP;
+    
+    v4 C = (C0 * NoiseA) + (C1 * NoiseB) + (C2 * NoiseC);
+    C /= (NoiseA + NoiseB + NoiseC);
+    return C;
+}
+
+internal r32
+GenVerticalStrips(v3 P, r32 Time)
+{
+    v2 Right = v2{1, 0};
+    v2 Pa = V2Normalize(v2{P.x, P.z});
+    r32 Angle = .5f + (.5f * V2Dot(Pa, Right));
+    
+    r32 HOffset = 70.0f;
+    r32 O = 50.0f;
+    r32 C = 10.0f;
+    
+    r32 X = Angle;
+    r32 Y = P.y;
+    r32 I = FloorR32(Y / C) * C;
+    I += (X * HOffset) + (Time * 25);
+    
+    r32 V = FractR32(I / O);
+    V = 2.0f * (0.5f - Abs(V - 0.5f));
+    Assert(V >= 0 && V <= 1);
+    
+    return V;
+}
+
+internal v4
+GenVerticalLeaves(v3 P, r32 Time, v4 C0, v4 C1, v4 C2)
+{
+    r32 A = GenVerticalStrips(P, Time * .25f);
+    r32 B = GenVerticalStrips(P * .3f, Time);
+    r32 C = GenVerticalStrips(P * .25f, Time * 2);
+    
+    v4 R = (C0 * A) + (C1 * B) + (C2 * C);
+    R /= A + B + C;
+    return R;
+}
+
+internal r32
+GenLiquidBands(v3 P, r32 Offset, r32 Time)
+{
+    r32 Width = 30;
+    r32 VAcc = 0;
+    for (u32 i = 1; i < 3; i++)
+    {
+        v3 P0 = v3{P.x + (23.124f * i), 0, P.z - (-12.34f * i)};
+        
+        r32 Y = (P.y - Offset);
+        r32 S = Fbm3D(P0 * .005f, Time) * 250;
+        S += ModR32((Time * 100) - (150 * i), 400);
+        
+        r32 V = (Width - Abs(Y - S)) / Width;
+        V = Clamp01(V);
+        
+        VAcc += V;
+    }
+    
+    return VAcc;
+}
+
+internal r32
+GenDotBands(v3 P, r32 Time)
+{
+    r32 RowHeight = 25;
+    r32 DotRadius = 20;
+    
+    r32 Y = P.y + 150;
+    s32 Row  = (s32)FloorR32(Y / RowHeight);
+    r32 RowH = Abs(FractR32(Y / RowHeight));
+    r32 DotDistY = Max(0, .5f - RowH) * 2;
+    
+    r32 Angle = (V2Dot(V2Normalize(v2{P.x, P.z}), v2{1,0}) * .5f) + .5f;
+    r32 DotDistX = Abs(ModR32(Angle, .2f));
+    
+    r32 DotDist = SqrtR32(PowR32(DotDistX, 2) + PowR32(RowH, 2));
+    r32 B = (DotRadius - DotDist) / DotRadius;
+    B = Clamp01(DotDist);
+    
+    return DotDistY;
+    
+}
+
+internal void
+Pattern_VoicePattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    
+    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
+    v4 C0 = HSVToRGB({Hue.Hue0, 1, 1, 1});
+    v4 C1 = HSVToRGB({Hue.Hue1, 1, 1, 1});
+    v4 C2 = HSVToRGB({Hue.Hue2, 1, 1, 1});
+    
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        v3 P = Leds->Positions[LedIndex].xyz;
+        
+        v4 C = {};
+        C += GenPatchyColor(P, Time, C0, C2, {});
+        //C = GenVerticalLeaves((P - Assembly.Center) + v3{0, 150, 0}, Time, C0, C1, C2);
+        r32 Bands = GenLiquidBands(P, -250, Time);
+        //C = V4Lerp(Bands, C * .5f, C1);
+        
+        //C = WhiteV4 * GenDotBands(P - Assembly.Center, Time);
+        
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
 }
