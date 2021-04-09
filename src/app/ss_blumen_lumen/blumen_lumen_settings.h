@@ -99,6 +99,12 @@ r32 FullBrightnessPercent = 1.0f;
 // 2 is 2x as fast.
 r32 GlobalAnimSpeed = 1.0f;
 
+// How long it takes to fade from one animation to the next.
+// This is used both for transitioning between animation files
+// as well as transitioning from Standard pattern mode to voice 
+// activated mode
+r32 GlobalAnimTransitionSpeed = 5.0f;
+
 r64 PhrasePriorityMessageGroupingTime = 1.0f;
 
 // How often should Lumenarium send its status to the python server?

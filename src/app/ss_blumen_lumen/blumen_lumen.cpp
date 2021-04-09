@@ -380,7 +380,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
     AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
     
-    BlumenLumen_SetPatternMode(BlumenPattern_Standard, 5, &State->AnimationSystem, BLState);
+    BlumenLumen_SetPatternMode(BlumenPattern_Standard, GlobalAnimTransitionSpeed, &State->AnimationSystem, BLState);
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -497,7 +497,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 BLState->LastAssemblyColorSet = (BLState->LastAssemblyColorSet + 1) % 3;
             }
             
-            BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, 5, &State->AnimationSystem, BLState);
+            BlumenLumen_SetPatternMode(BlumenPattern_VoiceCommand, GlobalAnimTransitionSpeed, &State->AnimationSystem, BLState);
             BLState->TimeLastSetToVoiceMode = Context->SystemTime_Current;
             BLState->LastHuePhrase = NewHue;
             BLState->ShouldUpdateLog = true;
