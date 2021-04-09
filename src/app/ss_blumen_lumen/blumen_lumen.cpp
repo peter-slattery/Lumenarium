@@ -731,25 +731,25 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
             {
                 ui_Label(I, Label);
                 
-                bool IsClosed = PendingPacket.FlowerPositions[MotorIndex] == 1;
+                bool IsClosed = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Closed;
                 if (ui_ToggleText(I, MakeString("Closed (1)"), IsClosed))
                 {
-                    PendingPacket.FlowerPositions[MotorIndex] = 1;
+                    PendingPacket.FlowerPositions[MotorIndex] = MotorState_Closed;
                 }
-                bool IsHOpen = PendingPacket.FlowerPositions[MotorIndex] == 3;
+                bool IsHOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_HalfOpen;
                 if (ui_ToggleText(I, MakeString("Half Open (3)"), IsHOpen))
                 {
-                    PendingPacket.FlowerPositions[MotorIndex] = 3;
+                    PendingPacket.FlowerPositions[MotorIndex] = MotorState_HalfOpen;
                 }
-                bool IsMOpen = PendingPacket.FlowerPositions[MotorIndex] == 4;
+                bool IsMOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_MostlyOpen;
                 if (ui_ToggleText(I, MakeString("Mostly Open (4)"), IsMOpen))
                 {
-                    PendingPacket.FlowerPositions[MotorIndex] = 4;
+                    PendingPacket.FlowerPositions[MotorIndex] = MotorState_MostlyOpen;
                 }
-                bool IsOpen = PendingPacket.FlowerPositions[MotorIndex] == 2;
+                bool IsOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Open;
                 if (ui_ToggleText(I, MakeString("Open (2)"), IsOpen))
                 {
-                    PendingPacket.FlowerPositions[MotorIndex] = 2;
+                    PendingPacket.FlowerPositions[MotorIndex] = MotorState_Open;
                 }
             }
             ui_EndRow(I);
