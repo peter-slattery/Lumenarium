@@ -18,6 +18,9 @@
 #include "engine/foldhaus_network_ordering.h"
 
 #include "engine/assembly/foldhaus_assembly.h"
+
+#include "ss_blumen_lumen/gfx_math.h"
+
 #include "engine/assembly/foldhaus_assembly_parser.cpp"
 #include "engine/assembly/foldhaus_assembly_debug.h"
 
@@ -42,7 +45,6 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
 #include "engine/user_space.h"
-#include "ss_blumen_lumen/gfx_math.h"
 #include "ss_blumen_lumen/phrase_hue_map.h"
 #include "ss_blumen_lumen/blumen_lumen.h"
 

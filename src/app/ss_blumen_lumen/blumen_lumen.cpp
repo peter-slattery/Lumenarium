@@ -357,7 +357,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
     {
         assembly Assembly = State->Assemblies.Values[i];
-        BLState->StemStrips[i] = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("stem"), &State->Permanent);
+        BLState->StemStrips[Assembly.AssemblyIndex] = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("stem"), &State->Permanent);
     }
     
     BLState->AssemblyNameToClearCoreMapCount = 3;

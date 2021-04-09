@@ -443,4 +443,18 @@ while (Hue > 360.0f) { Hue -= 360.0f; }
     return Result;
 }
 
+internal pixel
+V4ToRGBPixel(v4 C)
+{
+    C.x = Clamp01(C.x);
+    C.y = Clamp01(C.y);
+    C.z = Clamp01(C.z);
+    
+    pixel Result = {};
+    Result.R = (u8)(C.x * 255);
+    Result.G = (u8)(C.y * 255);
+    Result.B = (u8)(C.z * 255);
+    return Result;
+}
+
 #endif //GFX_MATH_H

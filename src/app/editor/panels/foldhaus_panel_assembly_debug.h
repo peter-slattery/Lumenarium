@@ -118,6 +118,11 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
                 State->AssemblyDebugState.TargetAssembly = ui_LabeledTextEntryU64(Interface, MakeString("Assembly"), State->AssemblyDebugState.TargetAssembly);
             }break;
             
+            case ADS_Override_AllHue:
+            {
+                State->AssemblyDebugState.TargetHue = (u32)ui_LabeledRangeSlider(Interface, MakeString("Hue"), (r32)State->AssemblyDebugState.TargetHue, 0, 360);
+            }break;
+            
             default:
             {
                 InterfaceAssert(Interface->PerFrameMemory);
