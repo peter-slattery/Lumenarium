@@ -398,6 +398,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
     BLState->ShouldUpdateLog = false;
     
+    gs_string DebugStr = PushString(State->Transient, 256);
+    
     bool SendMotorCommand = false;
     blumen_packet MotorCommand = {};
     
@@ -415,8 +417,12 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 u32 NameLen = CStringLength(Mic.AnimationFileName);
                 
                 phrase_hue NewHue = PhraseHueMap_Get(BLState->PhraseHueMap, NameHash);
-                if (BLState->NextHotHue.Phrase.Length < NewHue.Phrase.Length)
+                if (NewHue.Phrase.Length > 0 && BLState->NextHotHue.Phrase.Length < NewHue.Phrase.Length)
                 {
+                    PrintF(&DebugStr, "Queuing: %S\n", NewHue.Phrase);
+                    NullTerminate(&DebugStr);
+                    OutputDebugString(DebugStr.Str);
+                    
                     BLState->NextHotHue = NewHue;
                     if (SecondsElapsed(BLState->TimePhraseReceptionBegan,
                                        Context->SystemTime_Current) > PhrasePriorityMessageGroupingTime)
@@ -484,6 +490,12 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             // if we are in standard color mode, shift all flowers to the new color
             // otherwise, only shift the next flower in the sequence to the new color
             phrase_hue NewHue = BLState->NextHotHue;
+            
+            PrintF(&DebugStr, "Switching To: %S\n", NewHue.Phrase);
+            NullTerminate(&DebugStr);
+            OutputDebugString(DebugStr.Str);
+            
+            
             if (BLState->PatternMode == BlumenPattern_Standard)
             {
                 BLState->AssemblyColors[0] = NewHue;
@@ -778,6 +790,16 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
         }
         
         BLState->DEBUG_IgnoreWeatherDimmingLeds = ui_LabeledToggle(I, MakeString("Ignore Weather Dimming Leds"), BLState->DEBUG_IgnoreWeatherDimmingLeds);
+        
+        ui_Label(I, MakeString("Set Internal Motor State:"));
+        if (ui_Button(I, MakeString("Closed")))
+        {
+            
+        }
+        if (ui_Button(I, MakeString("Open")))
+        {
+            
+        }
     }
 }
 
