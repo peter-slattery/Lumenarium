@@ -1,15 +1,19 @@
 lumenarium_animation_file;
 animation_name: "voice_anim";
-layers_count: 1;
-blocks_count: 1;
+layers_count: 2;
+blocks_count: 2;
 playable_range:{
     min: 0;
     max: 3600;
 };
 layers:{
     layer:{
-        name: "[New Layer]";
+        name: "Base";
         blend: "Add";
+    };
+    layer:{
+        name: "Add In";
+        blend: "Overwrite";
     };
 };
 blocks:{
@@ -19,6 +23,14 @@ blocks:{
             max: 3599;
         };
         layer_index: 0;
-        animation_name: "Pattern_RainbowLoadingBar";
+        animation_name: "Pattern_VoicePattern";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 3600;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_VoiceAddIns";
     };
 };

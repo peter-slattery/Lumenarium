@@ -35,7 +35,7 @@ blocks:{
             max: 2000;
         };
         layer_index: 1;
-        animation_name: "Pattern_VerticalLines";
+        animation_name: "Pattern_Leafy";
     };
     block:{
         frame_range:{

@@ -105,6 +105,9 @@ r32 GlobalAnimSpeed = 1.0f;
 // activated mode
 r32 GlobalAnimTransitionSpeed = 5.0f;
 
+// how long it takes to fade from the old voice hue to the new one
+r32 PhraseHueFadeInDuration = 2.0f; // seconds
+
 r64 PhrasePriorityMessageGroupingTime = 1.0f;
 
 // How often should Lumenarium send its status to the python server?

@@ -171,17 +171,8 @@ Pattern_BasicFlowers(led_buffer* Leds, led_buffer_range Range, assembly Assembly
 }
 
 internal void
-Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_WavyOptions(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData, r32 Granularity, v4 C0, v4 C1, v4 C2)
 {
-    DEBUG_TRACK_FUNCTION;
-    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    Time = Time * BLState->PatternSpeed;
-    
-    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
-    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
-    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
-    
     r32 Top = 120 + (SinR32(Time) * 10);
     r32 Mid = 70 + (CosR32(Time * 2.13) * 20);
     r32 Bot = 0;
@@ -233,7 +224,7 @@ Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Ti
 }
 
 internal void
-Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_Wavy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     DEBUG_TRACK_FUNCTION;
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
@@ -244,6 +235,18 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
     v4 C1 = RGBFromPhraseHue(Hue.Hue1);
     v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
+    Pattern_WavyOptions(Leds, Range, Assembly, Time, Transient, UserData, 1, C0, C1, C2);
+}
+
+internal void
+Pattern_PatchyOptions(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData, r32 Granularity, v4 C0, v4 C1, v4 C2)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    
+    r32 BaseGA = 50.000f * (1 / Granularity);
+    r32 BaseGB = 135.20f * (1 / Granularity);
+    r32 BaseGC = 260.74f * (1 / Granularity);
+    
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         v4 P = Leds->Positions[LedIndex];
@@ -251,20 +254,39 @@ Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
         r32 ScaleFactor = 1.0f / LedRange;
         v3 Pp = P.xyz + v3{150, 100, 0};
         
-        r32 NoiseA = Noise3D((Pp / 38) + v3{0, 0, Time});
+        r32 NoiseA = Noise3D((Pp / BaseGA) + v3{0, 0, Time});
         NoiseA = PowR32(NoiseA, 3);
         NoiseA = Smoothstep(NoiseA);
-        v4 CA = C0 * NoiseA;
         
-        r32 NoiseB = Noise3D((Pp / 75) + v3{Time * 0.5f, 0, 0});
+        r32 NoiseB = Noise3D((Pp / BaseGB) + v3{Time * 0.5f, 0, 0});
         NoiseB = PowR32(NoiseB, 3);
         NoiseB = Smoothstep(NoiseB);
-        v4 CB = C1 * NoiseB;
         
-        v4 C = (C0 * NoiseA) + (C1 * NoiseB);
-        C /= (NoiseA + NoiseB);
+#if 1
+        r32 NoiseC = Noise3D((Pp / BaseGC) + v3{Time * 0.5f, 0, 0});
+        NoiseC = PowR32(NoiseC, 3);
+        NoiseC = Smoothstep(NoiseC);
+#else
+        r32 NoiseC = 0;
+#endif
+        
+        v4 C = (C0 * NoiseA) + (C1 * NoiseB) + (C2 * NoiseC);
+        C /= (NoiseA + NoiseB + NoiseC);
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
+}
+
+internal void
+Pattern_Patchy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    DEBUG_TRACK_FUNCTION;
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
+    Time = Time * BLState->PatternSpeed;
+    Pattern_PatchyOptions(Leds, Range, Assembly, Time, Transient, UserData, 5, C0, C1, C2);
 }
 
 internal r32
@@ -412,33 +434,35 @@ Pattern_VerticalLines(led_buffer* Leds, led_buffer_range Range, assembly Assembl
 }
 
 internal void
-Pattern_Rotary(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+Pattern_RotaryOptions(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData, r32 Granularity, v4 BGColor, v4 FGColor)
 {
-    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    Time = Time * BLState->PatternSpeed;
+    DEBUG_TRACK_FUNCTION;
     
-    gs_random_series Random = InitRandomSeries(24601);
+    gs_random_series Random = InitRandomSeries((u32)(24601 * (Assembly.Center.x + 1.032f)));
     
 #define SphereCount 32
     v3 SphereCenter[SphereCount];
     
-    r32 MaxHeightOffset = 150;
+    r32 G = RemapR32(Granularity, 1, 5, .75f, 2);
+    r32 MaxHeightOffset = 250;
     r32 MaxSpeed = 10;
-    r32 SphereRadius = 2.0f;
+    r32 SphereRotationRadius = 3.0f;
+    r32 SphereRadius = 2.0f / G;
     for (u32 i = 0; i < SphereCount; i++)
     {
-        r32 SphereSeedA = NextRandomBilateral(&Random);
+        r32 SphereSeedA = NextRandomUnilateral(&Random);
+        SphereSeedA = PowR32(SphereSeedA, 2);
         r32 SphereSeedB = NextRandomBilateral(&Random);
         r32 SphereSpeed = NextRandomUnilateral(&Random) * MaxSpeed;
         
         r32 SphereTime = Time + SphereSpeed;
-        r32 HeightOffset = SphereTime + (SphereSeedA * MaxHeightOffset);
+        r32 HeightOffset = 150 - (SphereSeedA * MaxHeightOffset);
         r32 RotationOffset = SphereTime + SphereSeedB * TauR32;
         r32 SphereRotationDir = NextRandomBilateral(&Random) < 0 ? -1 : 1;
         v3 SpherePosOffset = v3{
-            SinR32(RotationOffset * SphereRotationDir) * (SphereRadius * 2), 
+            SinR32(RotationOffset * SphereRotationDir) * (SphereRotationRadius * 2), 
             HeightOffset, 
-            CosR32(RotationOffset * SphereRotationDir) * (SphereRadius * 2)
+            CosR32(RotationOffset * SphereRotationDir) * (SphereRotationRadius * 2)
         };
         SphereCenter[i] = Assembly.Center + SpherePosOffset;
     }
@@ -455,15 +479,25 @@ Pattern_Rotary(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
             Dist = Min(Dist, SphereSDF);
         }
         
-        v4 C = BlackV4;
+        v4 C = BGColor;
         if (Dist <= 1)
         {
             r32 Brightness = Clamp01(SphereRadius - Dist);
-            C = WhiteV4 * Brightness;
+            C = V4Lerp(Brightness, BGColor, FGColor);
         }
         
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
     }
+}
+
+internal void
+Pattern_Rotary(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    DEBUG_TRACK_FUNCTION;
+    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    Pattern_RotaryOptions(Leds, Range, Assembly, Time, Transient, UserData, 2, BlackV4, WhiteV4);
 }
 
 internal void
@@ -480,6 +514,8 @@ Pattern_AllOnMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r
 internal void
 Pattern_BulbMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     Time = Time * BLState->PatternSpeed;
     
@@ -571,26 +607,47 @@ GenVerticalLeaves(v3 P, r32 Time, v4 C0, v4 C1, v4 C2)
     return R;
 }
 
-internal r32
-GenLiquidBands(v3 P, r32 Offset, r32 Time)
+internal void
+AddIn_WavesPattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData, r32 Granularity, v4 C0, v4 C1, v4 C2)
 {
-    r32 Width = 30;
-    r32 VAcc = 0;
-    for (u32 i = 1; i < 3; i++)
-    {
-        v3 P0 = v3{P.x + (23.124f * i), 0, P.z - (-12.34f * i)};
-        
-        r32 Y = (P.y - Offset);
-        r32 S = Fbm3D(P0 * .005f, Time) * 250;
-        S += ModR32((Time * 100) - (150 * i), 400);
-        
-        r32 V = (Width - Abs(Y - S)) / Width;
-        V = Clamp01(V);
-        
-        VAcc += V;
-    }
+    DEBUG_TRACK_FUNCTION;
     
-    return VAcc;
+    v4 C2P = C2 * 255;
+    
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        v3 P = Leds->Positions[LedIndex].xyz;
+        
+        v4 C = v4{
+            (r32)Leds->Colors[LedIndex].R,
+            (r32)Leds->Colors[LedIndex].G,
+            (r32)Leds->Colors[LedIndex].B,
+            1
+        };
+        
+        r32 Offset = -250;
+        r32 Width = 30;
+        r32 Bands = 0;
+        for (u32 i = 1; i <= 1; i++)
+        {
+            P.x = FloorR32(P.x);
+            P.z = FloorR32(P.z);
+            
+            v3 P0 = v3{P.x + (23.124f * i), 0, P.z - (-12.34f * i) + Time};
+            r32 S = Fbm3D(P0 * .005f, Time) * 250;
+            S += ModR32((Time * 100) - (150 * i), 400);
+            
+            r32 Y = (P.y - Offset);
+            r32 V = (Width - Abs(Y - S)) / Width;
+            V = Clamp01(V);
+            
+            Bands += V;
+        }
+        
+        C = V4Lerp(Bands, C * .5f, C2P);
+        
+        Leds->Colors[LedIndex] = pixel{(u8)C.r, (u8)C.g, (u8)C.b};
+    }
 }
 
 internal r32
@@ -618,33 +675,69 @@ GenDotBands(v3 P, r32 Time)
 internal void
 Pattern_VoicePattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
-    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    Time = Time * BLState->PatternSpeed;
+    DEBUG_TRACK_FUNCTION;
     
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
     v4 C0 = RGBFromPhraseHue(Hue.Hue0);
     v4 C1 = RGBFromPhraseHue(Hue.Hue1);
     v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
-    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    Time = Time * BLState->PatternSpeed * Hue.Speed;;
+    
+    switch (Hue.Pattern)
     {
-        v3 P = Leds->Positions[LedIndex].xyz;
+        case HuePattern_Wavy:
+        {
+            Pattern_WavyOptions(Leds, Range, Assembly, Time, Transient, UserData, Hue.Granularity, C0, C1, C0);
+        }break;
         
-        v4 C = {};
-        C += GenPatchyColor(P, Time, C0, C2, {});
-        //C = GenVerticalLeaves((P - Assembly.Center) + v3{0, 150, 0}, Time, C0, C1, C2);
-        //r32 Bands = GenLiquidBands(P, -250, Time);
-        //C = V4Lerp(Bands, C * .5f, C1);
+        default:
+        {
+            Pattern_PatchyOptions(Leds, Range, Assembly, Time, Transient, UserData, Hue.Granularity, C0, C1, C2);
+        }break;
+    }
+    
+    
+}
+
+internal void
+Pattern_VoiceAddIns(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    DEBUG_TRACK_FUNCTION;
+    
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
+    
+    Time = Time * BLState->PatternSpeed * Hue.Speed;;
+    
+    switch (Hue.AddIn)
+    {
+        case AddIn_Rotary:
+        {
+            Pattern_RotaryOptions(Leds, Range, Assembly, Time, Transient, UserData, Hue.Granularity, BlackV4, C2);
+        }break;
         
-        //C = WhiteV4 * GenDotBands(P - Assembly.Center, Time);
+        case AddIn_Waves:
+        {
+            AddIn_WavesPattern(Leds, Range, Assembly, Time, Transient, UserData, Hue.Granularity, C0, C1, C2);
+        }break;
         
-        Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+        case AddIn_None:
+        default:
+        {
+        }break;
     }
 }
 
 internal void
 Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     
     pixel WhiteMask = V4ToRGBPixel(WhiteV4);
@@ -665,6 +758,8 @@ Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r
 internal void
 Pattern_PrimaryHue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     Time = Time * BLState->PatternSpeed;
     
@@ -683,6 +778,8 @@ Pattern_PrimaryHue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, 
 internal void
 Pattern_GrowFadeMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     Time = Time * BLState->PatternSpeed;
     
@@ -718,6 +815,8 @@ Pattern_GrowFadeMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly
 internal void
 Pattern_RainbowLoadingBar(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
+    DEBUG_TRACK_FUNCTION;
+    
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     Time = Time * BLState->PatternSpeed;
     
