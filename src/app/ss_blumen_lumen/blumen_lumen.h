@@ -214,6 +214,9 @@ struct blumen_lumen_state
     bool IgnoreTimeOfDay_MotorState;
     
     phrase_hue PendingPhrase;
+    
+    bool DebugOverrideHue;
+    phrase_hue DebugHue;
 };
 
 #include "message_queue.cpp"

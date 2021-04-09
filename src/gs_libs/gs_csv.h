@@ -201,7 +201,7 @@ CSVSheet_GetCell(gscsv_sheet Sheet, u64 Column, u64 Row)
 {
     gs_const_string Result = {};
     
-    if (Sheet.RowCount > Row && Sheet.ColumnCount > Column)
+    if (Row < Sheet.RowCount && Column < Sheet.ColumnCount)
     {
         u64 CellIndex = (Row * Sheet.ColumnCount) + Column;
         Result = Sheet.Cells[CellIndex].Value;

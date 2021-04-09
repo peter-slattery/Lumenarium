@@ -14,6 +14,8 @@ enum p_hue_pattern
 {
     HuePattern_Patchy,
     HuePattern_Wavy,
+    
+    HuePattern_Count,
 };
 
 enum p_hue_add_in
@@ -21,6 +23,8 @@ enum p_hue_add_in
     AddIn_None,
     AddIn_Waves,
     AddIn_Rotary,
+    
+    AddIn_Count,
 };
 
 typedef struct p_hue
@@ -147,6 +151,8 @@ internal phrase_hue_map
 PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
 {
     phrase_hue_map Result = {};
+    if (Sheet.RowCount == 0) return Result;
+    
     Result.CountMax = Sheet.RowCount - 1; // we don't include the header row
     Result.Phrases = PushArray(Arena, gs_const_string, Result.CountMax);
     Result.PhraseHashes = PushArray(Arena, u64, Result.CountMax);
@@ -158,6 +164,8 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
     Result.Speed = PushArray(Arena, r32,   Result.CountMax);
     Result.AddIn = PushArray(Arena, u8,    Result.CountMax);
     
+    // this lets us tightly pack phrase_hues even if there is a
+    // row in the csv that is empty or invalid
     s32 DestOffset = 0;
     for (u32 Row = 1; Row < Sheet.RowCount; Row++)
     {
@@ -166,7 +174,6 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         
         gs_const_string Phrase = CSVSheet_GetCell(Sheet,
                                                   0, Row);
-        
         gs_const_string Hue0Str     = CSVSheet_GetCell(Sheet, 1, Row);
         gs_const_string Hue1Str     = CSVSheet_GetCell(Sheet, 2, Row);
         gs_const_string Hue2Str     = CSVSheet_GetCell(Sheet, 3, Row);
@@ -176,6 +183,7 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         gs_const_string Pattern     = CSVSheet_GetCell(Sheet, 7, Row);
         gs_const_string AddIn       = CSVSheet_GetCell(Sheet, 8, Row);
         
+        // essential parameters
         if (Phrase.Length == 0 ||
             Hue0Str.Length == 0 ||
             Hue1Str.Length == 0 ||

@@ -376,13 +376,16 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     
     gs_file_handler FileHandler = Context.ThreadContext.FileHandler;
     gs_file ColorPhraseCSVFile = ReadEntireFile(FileHandler, PhraseMapCSVPath);
-    gs_const_string ColorPhraseMapStr = DataToString(ColorPhraseCSVFile.Data);
-    gscsv_sheet ColorPhraseSheet = CSV_Parse(ColorPhraseMapStr, 
-                                             { PhraseMapCSVSeparator },
-                                             State->Transient);
-    
-    BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, 
-                                                    &State->Permanent);
+    if (ColorPhraseCSVFile.Memory != 0)
+    {
+        gs_const_string ColorPhraseMapStr = DataToString(ColorPhraseCSVFile.Data);
+        gscsv_sheet ColorPhraseSheet = CSV_Parse(ColorPhraseMapStr, 
+                                                 { PhraseMapCSVSeparator },
+                                                 State->Transient);
+        
+        BLState->PhraseHueMap = PhraseHueMap_GenFromCSV(ColorPhraseSheet, 
+                                                        &State->Permanent);
+    }
     
 #if 0
     animation_handle DemoPatternsAnim = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
@@ -391,6 +394,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
                                                                               ConstString("data/demo_patterns.foldanim"));
     State->AnimationSystem.ActiveFadeGroup.From = DemoPatternsAnim;
 #else
+    
     BLState->ModeAnimations[BlumenPattern_Standard] = LoadAllAnimationsInDir(AmbientPatternFolder, BLState, State, Context);
     BLState->ModeAnimations[BlumenPattern_VoiceCommand] = LoadAllAnimationsInDir(VoicePatternFolder, BLState, State, Context);
     AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
@@ -405,6 +409,7 @@ BlumenLumen_CustomInit(app_state* State, context Context)
                                                                    State->Patterns,
                                                                    Context,
                                                                    ConstString("data/blumen_animations/off_anim.foldanim"));
+    
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -565,36 +570,46 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     BlumenLumen_AdvanceHueFade(BLState, *Context);
     
     // Update next frames Hues
-    r32 AnimTime = AnimationSystem_GetCurrentTime(State->AnimationSystem);
-    AnimTime = (r32)Context->TotalTime;
-    r32 BaseTime = AnimTime * BLState->PatternSpeed;
-    
-    r32 ColorSpeed = 1; //.001;
-    r32 ColorOscSpeed = .05 * ColorSpeed;
-    r32 ColorRelOscSpeed = 1 * ColorSpeed;;
-    r32 ColorOscillation = (SinR32(BaseTime * ColorOscSpeed) + 1) / 2;
-    r32 ColorRelationship = 30 + (((1 + SinR32(BaseTime * ColorRelOscSpeed)) / 2) * 300);
-    BLState->StandardPatternHues.Hue0.Hue = ModR32(ColorOscillation * 360, 360);
-    BLState->StandardPatternHues.Hue1.Hue = ModR32(BaseTime + ColorRelationship, 360);
-    BLState->StandardPatternHues.Hue2.Hue = LerpR32(.3f, BLState->StandardPatternHues.Hue0.Hue, BLState->StandardPatternHues.Hue1.Hue);
-    
-    // Transition back to standard mode after some time
-    if (BLState->PatternMode == BlumenPattern_VoiceCommand)
+    if (!BLState->DebugOverrideHue)
     {
-        u64 LastChangeClock = BLState->TimeLastSetToVoiceMode.NanosSinceEpoch;
-        u64 NowClocks = Context->SystemTime_Current.NanosSinceEpoch;
-        s64 NanosSinceChange = NowClocks - LastChangeClock;
-        r64 SecondsSinceChange = (r64)NanosSinceChange * NanosToSeconds;
+        r32 AnimTime = AnimationSystem_GetCurrentTime(State->AnimationSystem);
+        AnimTime = (r32)Context->TotalTime;
+        r32 BaseTime = AnimTime * BLState->PatternSpeed;
         
-        if (SecondsSinceChange > VoiceCommandSustainDuration)
+        r32 ColorSpeed = 1; //.001;
+        r32 ColorOscSpeed = .05 * ColorSpeed;
+        r32 ColorRelOscSpeed = 1 * ColorSpeed;;
+        r32 ColorOscillation = (SinR32(BaseTime * ColorOscSpeed) + 1) / 2;
+        r32 ColorRelationship = 30 + (((1 + SinR32(BaseTime * ColorRelOscSpeed)) / 2) * 300);
+        BLState->StandardPatternHues.Hue0.Hue = ModR32(ColorOscillation * 360, 360);
+        BLState->StandardPatternHues.Hue1.Hue = ModR32(BaseTime + ColorRelationship, 360);
+        BLState->StandardPatternHues.Hue2.Hue = LerpR32(.3f, BLState->StandardPatternHues.Hue0.Hue, BLState->StandardPatternHues.Hue1.Hue);
+        
+        // Transition back to standard mode after some time
+        if (BLState->PatternMode == BlumenPattern_VoiceCommand)
         {
-            BLState->PatternMode = BlumenPattern_Standard;
-            animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
-            AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
-                                      NewAnim,
-                                      VoiceCommandFadeDuration);
-            BLState->ShouldUpdateLog = true;
+            u64 LastChangeClock = BLState->TimeLastSetToVoiceMode.NanosSinceEpoch;
+            u64 NowClocks = Context->SystemTime_Current.NanosSinceEpoch;
+            s64 NanosSinceChange = NowClocks - LastChangeClock;
+            r64 SecondsSinceChange = (r64)NanosSinceChange * NanosToSeconds;
+            
+            if (SecondsSinceChange > VoiceCommandSustainDuration)
+            {
+                BLState->PatternMode = BlumenPattern_Standard;
+                animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
+                AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                          NewAnim,
+                                          VoiceCommandFadeDuration);
+                BLState->ShouldUpdateLog = true;
+            }
         }
+        
+    }
+    else
+    {
+        BLState->StandardPatternHues = BLState->DebugHue;
+        AnimationSystem_FadeToPlaylist(&State->AnimationSystem, BLState->ModeAnimations[BlumenPattern_VoiceCommand]);
+        
     }
     
     // Open / Close the Motor
@@ -927,6 +942,56 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
                 BLState->NextHotHue = BLState->PendingPhrase;
                 BlumenLumen_ApplyNextHotHue(BLState, Context, &DebugStr, State);
             }
+            
+            ui_Label(I, MakeString("Phrase Constructor"));
+            BLState->DebugOverrideHue = ui_ToggleText(I, MakeString("Override Hue"), BLState->DebugOverrideHue);
+            if (BLState->DebugOverrideHue)
+            {
+                phrase_hue PHue = BLState->DebugHue;
+                PHue.Hue0.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue0"), (r32)PHue.Hue0.Hue, 0, 360);
+                PHue.Hue1.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue1"), (r32)PHue.Hue1.Hue, 0, 360);
+                PHue.Hue2.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue2"), (r32)PHue.Hue2.Hue, 0, 360);
+                PHue.Granularity = (u32)ui_LabeledRangeSlider(I, MakeString("Granularity"), (r32)PHue.Granularity, 0, 5);
+                PHue.Speed = ui_LabeledRangeSlider(I, MakeString("Speed"), PHue.Speed, 0, 4);
+                
+                gs_string PatternOptions[HuePattern_Count] = {};
+                PatternOptions[HuePattern_Patchy] = MakeString("patchy");
+                PatternOptions[HuePattern_Wavy] = MakeString("wavy");
+                
+                gs_string CPattern = PatternOptions[PHue.Pattern];
+                if (ui_BeginLabeledDropdown(I, MakeString("Pattern"), CPattern))
+                {
+                    for (u32 i = 0; i < HuePattern_Count; i++)
+                    {
+                        if (ui_Button(I, PatternOptions[i]))
+                        {
+                            PHue.Pattern = i;
+                        }
+                    }
+                }
+                ui_EndLabeledDropdown(I);
+                
+                
+                gs_string AddInOptions[AddIn_Count] = {};
+                AddInOptions[AddIn_None] = MakeString("NA");
+                AddInOptions[AddIn_Waves] = MakeString("waves");
+                AddInOptions[AddIn_Rotary] = MakeString("rotary");
+                
+                gs_string CAddIn = AddInOptions[PHue.AddIn];
+                if (ui_BeginLabeledDropdown(I, MakeString("Add In"), CAddIn))
+                {
+                    for (u32 i = 0; i < AddIn_Count; i++)
+                    {
+                        if (ui_Button(I, AddInOptions[i]))
+                        {
+                            PHue.AddIn = i;
+                        }
+                    }
+                }
+                ui_EndLabeledDropdown(I);
+                BLState->DebugHue = PHue;
+            }
+            
             
             InterfaceAssert(I->PerFrameMemory);
         }break;
