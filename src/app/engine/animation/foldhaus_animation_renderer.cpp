@@ -8,7 +8,14 @@
 internal pixel
 LedBlend_Overwrite(pixel PixelA, pixel PixelB, u8* UserData)
 {
-    return PixelB;
+    pixel Result = PixelB;
+    if (PixelB.R == 0 && 
+        PixelB.G == 0 &&
+        PixelB.G == 0)
+    {
+        Result = PixelA;
+    }
+    return Result;
 }
 
 internal pixel

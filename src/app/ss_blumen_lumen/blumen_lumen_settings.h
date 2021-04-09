@@ -27,16 +27,26 @@ gs_const_string AmbientPatternFolder = ConstString("data/blumen_animations/ambie
 gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_responses/*.foldanim");
 
 // The times of day when the motors should be open.
+//
+// @TimeFormat: documentation follows
 // these are in the format { Start_Hour, Start_Minute, End_Hour, End_Minute }
 // Hours are in the range 0-23 inclusive
 // Minutes are in the range 0-59 inclusive
+//
 // NOTE: There is no need to modify the MotorOpenTimesCount variable -
 // it is a compile time constant that gets calculated automatically
 global time_range MotorOpenTimes[] = {
-    { 12, 45, 17, 45 },
-    { 19, 00, 23, 00 },
+    { 12, 45, 17, 45 }, // 12:45pm to 5:45pm
+    { 19, 00, 23, 00 }, // 7:00pm to 11:00pm
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
+
+// The times of day when the leds should be on
+// Search for @TimeFormat to find documentation
+global time_range LedOnTimes[] = {
+    { 00, 00, 23, 59 }, // literally always
+};
+global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
 
 // How long it takes to fade from the default pattern to the
 // voice activated pattern
@@ -104,6 +114,9 @@ r32 GlobalAnimSpeed = 1.0f;
 // as well as transitioning from Standard pattern mode to voice
 // activated mode
 r32 GlobalAnimTransitionSpeed = 0.1f;
+
+// how long it takes to fade from the old voice hue to the new one
+r32 PhraseHueFadeInDuration = 2.0f; // seconds
 
 r64 PhrasePriorityMessageGroupingTime = 1.0f;
 

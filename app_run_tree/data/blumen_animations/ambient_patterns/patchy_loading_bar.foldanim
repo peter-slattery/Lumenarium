@@ -1,36 +1,36 @@
 lumenarium_animation_file;
-animation_name: "voice_anim";
+animation_name: "patchy_loading_bar_0";
 layers_count: 2;
 blocks_count: 2;
 playable_range:{
     min: 0;
-    max: 3600;
+    max: 3350;
 };
 layers:{
     layer:{
-        name: "Base";
+        name: "[New Layer]";
         blend: "Add";
     };
     layer:{
-        name: "Add In";
-        blend: "Overwrite";
+        name: "[New Layer]";
+        blend: "Multiply";
     };
 };
 blocks:{
-    block:{
-        frame_range:{
-            min: 1;
-            max: 3599;
-        };
-        layer_index: 0;
-        animation_name: "Pattern_VoicePattern";
-    };
     block:{
         frame_range:{
             min: 0;
             max: 3600;
         };
         layer_index: 1;
-        animation_name: "Pattern_VoiceAddIns";
+        animation_name: "Pattern_Patchy";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 3600;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_GrowFadeMask";
     };
 };

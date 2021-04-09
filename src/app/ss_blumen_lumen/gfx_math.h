@@ -281,13 +281,14 @@ Fbm3D(v3 P, r32 T)
     r32 F = 0.0;
     
     F += 0.500000f * Noise3D(Pp + Tt); Pp = Pp * 2.02;
-    F += 0.031250f * Noise3D(Pp); Pp = Pp * 2.01;
-    F += 0.250000f * Noise3D(Pp - Tt); Pp = Pp * 2.03;
+    //F += 0.031250f * Noise3D(Pp); Pp = Pp * 2.01;
+    F += 0.300000f * Noise3D(Pp - Tt); Pp = Pp * 2.03;
     F += 0.125000f * Noise3D(Pp); Pp = Pp * 2.01;
     F += 0.062500f * Noise3D(Pp + Tt); Pp = Pp * 2.04;
-    F += 0.015625f * Noise3D(Pp + Tv);
+    //F += 0.015625f * Noise3D(Pp + Tv);
+    r32 D = 0.9875f;
     
-    F = F / 0.984375f;
+    F = F / D;
     return F;
 }
 
