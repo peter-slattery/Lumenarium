@@ -662,7 +662,7 @@ Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r
         v2_strip Strip = Assembly.Strips[StripIndex];
         for (u32 i = 0; i < Strip.LedCount; i++)
         {
-            v4 P = Leds->Positions[i];
+            v4 P = Leds->Positions[Strip.LedLUT[i]];
             Leds->Colors[i] = WhiteMask;
         }
     }
@@ -683,6 +683,41 @@ Pattern_PrimaryHue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, 
     for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
     {
         Leds->Colors[LedIndex] = HueOut;
+    }
+}
+
+internal void
+Pattern_GrowFadeMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    
+    r32 Period = 10.0f; // seconds
+    r32 ElapsedPct = FractR32(Time / Period);
+    
+    r32 ElapsedPctGrow = PowR32(ElapsedPct * 2, 2);
+    r32 ElapsedPctFade = Clamp01((ElapsedPct * 2) - 1);
+    
+    r32 Radius = 300 * ElapsedPctGrow;
+    
+    v3 Origin = Assembly.Center - v3{0, 150, 0};
+    
+    r32 Brightness = Smoothstep(1.0f - ElapsedPctFade);
+    
+    pixel COutside = V4ToRGBPixel(BlackV4);
+    pixel CInside = V4ToRGBPixel(WhiteV4 * Brightness);
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        v3 P = Leds->Positions[LedIndex].xyz;
+        r32 Dist = V3Mag(P - Origin);
+        if (Dist < Radius)
+        {
+            Leds->Colors[LedIndex] = CInside;
+        }
+        else
+        {
+            Leds->Colors[LedIndex] = COutside;
+        }
     }
 }
 

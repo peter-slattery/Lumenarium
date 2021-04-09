@@ -217,6 +217,8 @@ BlumenLumen_LoadPatterns(app_state* State)
     
     Patterns_PushPattern(Patterns, Pattern_StemSolid, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_PrimaryHue, PATTERN_MULTITHREADED);
+    
+    Patterns_PushPattern(Patterns, Pattern_GrowFadeMask, PATTERN_MULTITHREADED);
 }
 
 internal void
