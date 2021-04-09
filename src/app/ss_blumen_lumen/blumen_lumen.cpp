@@ -931,6 +931,7 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
                     if (ui_Button(I, Str))
                     {
                         BLState->PendingPhrase = PhraseHueMap_Get(BLState->PhraseHueMap, i);
+                        BLState->DebugHue = BLState->PendingPhrase;
                     }
                 }
                 ui_EndList(I);
