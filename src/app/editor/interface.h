@@ -1386,13 +1386,20 @@ ui_BeginDropdown(ui_interface* Interface, gs_string Text)
 internal void
 ui_EndDropdown(ui_interface* Interface)
 {
+    gs_string LayoutName = MakeString("DropdownLayout");
     ui_widget* Layout = Interface->ActiveLayout;
     ui_widget_retained_state* State = ui_GetRetainedState(Interface, Layout->WidgetReference);
     if (State)
     {
-        if (State->Value)
+        bool IsOpen = State->Value;
+        ui_widget* Widget = Interface->ActiveLayout;
+        bool IsStillHot = StringsEqualUpToLength(Widget->String, LayoutName, LayoutName.Length);
+        if (IsOpen && IsStillHot)
         {
-            ui_PopLayout(Interface, MakeString("DropdownLayout"));
+            ui_PopLayout(Interface, LayoutName);
+        } else if (IsOpen && !IsStillHot)
+        {
+            State->Value = false;
         }
     }
 }
