@@ -201,6 +201,7 @@ BlumenLumen_LoadPatterns(app_state* State)
     }
     
     Patterns->Count = 0;
+    Patterns_PushPattern(Patterns, Pattern_None, PATTERN_SINGLETHREADED);
     Patterns_PushPattern(Patterns, Pattern_HueShift, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_Rainbow, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_BasicFlowers, PATTERN_MULTITHREADED);
@@ -307,6 +308,7 @@ BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Con
     {
         case BlumenPattern_Standard: { PatternMode = "Standard"; } break;
         case BlumenPattern_VoiceCommand: { PatternMode = "Voice Command"; } break;
+        case BlumenPattern_NoControl: { PatternMode = "No Control: Someone's doing the Awaken sequence!"; } break;
     }
     AppendPrintF(&FileStr, "Pattern Mode: %s\n", PatternMode);
     
@@ -394,6 +396,15 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem, State->Patterns, Context, ConstString("data/blumen_animations/anim_demo.foldanim"));
     
     BlumenLumen_SetPatternMode(BlumenPattern_Standard, GlobalAnimTransitionSpeed, &State->AnimationSystem, BLState);
+    
+    BLState->AwakenHandle = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                  State->Patterns,
+                                                                  Context,
+                                                                  ConstString("data/blumen_animations/awaken.foldanim"));
+    BLState->OffAnimHandle = AnimationSystem_LoadAnimationFromFile(&State->AnimationSystem,
+                                                                   State->Patterns,
+                                                                   Context,
+                                                                   ConstString("data/blumen_animations/off_anim.foldanim"));
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
@@ -587,7 +598,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
     
     // Open / Close the Motor
-    if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue))
+    if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue) &&
+        !BLState->IgnoreTimeOfDay_MotorState)
     {
         for (u32 i = 0; i < MotorOpenTimesCount; i++)
         {
@@ -693,24 +705,26 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
-    bool TimelineShouldAdvance = false;
-    r32 OverrideBrightness = 0.0f;
-    for (u32 i = 0; i < LedOnTimesCount; i++)
+    if (!BLState->IgnoreTimeOfDay_LedDimming)
     {
-        time_range Range = LedOnTimes[i];
-        bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
-        if (CurrTimeInRange)
+        bool TimelineShouldAdvance = false;
+        r32 OverrideBrightness = 0.0f;
+        for (u32 i = 0; i < LedOnTimesCount; i++)
         {
-            // If we're in one of the specified time ranges,
-            // play animations and set brightness 
-            OverrideBrightness = BLState->BrightnessPercent;
-            TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
-            break;
+            time_range Range = LedOnTimes[i];
+            bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
+            if (CurrTimeInRange)
+            {
+                // If we're in one of the specified time ranges,
+                // play animations and set brightness 
+                OverrideBrightness = BLState->BrightnessPercent;
+                TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
+                break;
+            }
         }
+        State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;
+        BLState->BrightnessPercent = OverrideBrightness;
     }
-    State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;
-    BLState->BrightnessPercent = OverrideBrightness;
-    
     
     // Dim the leds based on temp data
     if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
@@ -769,131 +783,214 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
     ui_interface* I = &State->Interface;
     
-    motor_packet PendingPacket = BLState->DEBUG_PendingMotorPacket;
-    
-    for (u32 MotorIndex = 0; MotorIndex < BL_FLOWER_COUNT; MotorIndex++)
+    ui_BeginRow(I, BlumenDebug_Count);
+    for (u32 i = 0; i < BlumenDebug_Count; i++)
     {
-        gs_string Label = PushStringF(State->Transient, 32, "Motor %d", MotorIndex);
-        ui_BeginRow(I, 5);
+        if (ui_Button(I, MakeString(BlDebugUiModeStrings[i])))
         {
-            ui_Label(I, Label);
-            
-            bool IsClosed = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Closed;
-            if (ui_ToggleText(I, MakeString("Closed (1)"), IsClosed))
-            {
-                PendingPacket.FlowerPositions[MotorIndex] = MotorState_Closed;
-            }
-            bool IsHOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_HalfOpen;
-            if (ui_ToggleText(I, MakeString("Half Open (3)"), IsHOpen))
-            {
-                PendingPacket.FlowerPositions[MotorIndex] = MotorState_HalfOpen;
-            }
-            bool IsMOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_MostlyOpen;
-            if (ui_ToggleText(I, MakeString("Mostly Open (4)"), IsMOpen))
-            {
-                PendingPacket.FlowerPositions[MotorIndex] = MotorState_MostlyOpen;
-            }
-            bool IsOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Open;
-            if (ui_ToggleText(I, MakeString("Open (2)"), IsOpen))
-            {
-                PendingPacket.FlowerPositions[MotorIndex] = MotorState_Open;
-            }
-        }
-        ui_EndRow(I);
-    }
-    BLState->DEBUG_PendingMotorPacket = PendingPacket;
-    
-    if (ui_Button(I, MakeString("Send Motor Packet")))
-    {
-        blumen_packet Packet = {};
-        Packet.Type = PacketType_MotorState;
-        Packet.MotorPacket = BLState->DEBUG_PendingMotorPacket;
-        gs_data Msg = StructToData(&Packet, blumen_packet);
-        MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
-        
-        DEBUG_SentMotorCommand(Packet.MotorPacket, Context.ThreadContext);
-    }
-    
-    motor_packet MotorPos = BLState->LastKnownMotorState;
-    ui_Label(I, MakeString("Current Motor Positions"));
-    {
-        for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
-        {
-            ui_BeginRow(I, 2);
-            gs_string MotorStr = PushStringF(State->Transient, 32, 
-                                             "Motor %d", 
-                                             i);
-            ui_Label(I, MotorStr);
-            
-            gs_string StateStr = {};
-            switch (MotorPos.FlowerPositions[i])
-            {
-                case MotorState_Closed: { 
-                    StateStr = MakeString("Closed"); 
-                } break;
-                case MotorState_HalfOpen: { 
-                    StateStr = MakeString("Half Open"); 
-                } break;
-                case MotorState_MostlyOpen: { 
-                    StateStr = MakeString("Mostly Open"); 
-                } break;
-                case MotorState_Open: { 
-                    StateStr = MakeString("Open"); 
-                } break;
-            }
-            
-            ui_Label(I, StateStr);
-            ui_EndRow(I);
+            BLState->DebugMode = (bl_debug_ui_mode)i;
         }
     }
+    ui_EndRow(I);
     
-    BLState->DEBUG_IgnoreWeatherDimmingLeds = ui_LabeledToggle(I, MakeString("Ignore Weather Dimming Leds"), BLState->DEBUG_IgnoreWeatherDimmingLeds);
-    
-    ui_Label(I, MakeString("Set Internal Motor State:"));
-    if (ui_Button(I, MakeString("Closed")))
+    switch (BLState->DebugMode)
     {
-        motor_status_packet Motor = {};
-        Motor.Pos.FlowerPositions[0] = MotorState_Closed;
-        Motor.Pos.FlowerPositions[1] = MotorState_Closed;
-        Motor.Pos.FlowerPositions[2] = MotorState_Closed;
-        Motor.Temperature = 16;
-        
-        BlumenLumen_UpdateMotorState(BLState, Motor, Context);
-    }
-    if (ui_Button(I, MakeString("Open")))
-    {
-        motor_status_packet Motor = {};
-        Motor.Pos.FlowerPositions[0] = MotorState_Open;
-        Motor.Pos.FlowerPositions[1] = MotorState_Open;
-        Motor.Pos.FlowerPositions[2] = MotorState_Open;
-        Motor.Temperature = 16;
-        
-        BlumenLumen_UpdateMotorState(BLState, Motor, Context);
-    }
-    
-    if (ui_BeginLabeledDropdown(I, MakeString("Phrase"), MakeString(BLState->PendingPhrase.Phrase)))
-    {
-        u32 ListCount = BLState->PhraseHueMap.Count;
-        ui_BeginList(I, MakeString("Phrase List"), 5, ListCount);
-        for (u32 i = 0; i < ListCount; i++)
+        case BlumenDebug_Motors:
         {
-            gs_string Str = MakeString(BLState->PhraseHueMap.Phrases[i]);
-            if (ui_Button(I, Str))
+            motor_packet PendingPacket = BLState->DEBUG_PendingMotorPacket;
+            
+            BLState->IgnoreTimeOfDay_MotorState = ui_ToggleText(I, MakeString("Motors Ignore Time Limit"), BLState->IgnoreTimeOfDay_MotorState);
+            
+            for (u32 MotorIndex = 0; MotorIndex < BL_FLOWER_COUNT; MotorIndex++)
             {
-                BLState->PendingPhrase = PhraseHueMap_Get(BLState->PhraseHueMap, i);
+                gs_string Label = PushStringF(State->Transient, 32, "Motor %d", MotorIndex);
+                ui_BeginRow(I, 5);
+                {
+                    ui_Label(I, Label);
+                    
+                    bool IsClosed = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Closed;
+                    if (ui_ToggleText(I, MakeString("Closed (1)"), IsClosed))
+                    {
+                        PendingPacket.FlowerPositions[MotorIndex] = MotorState_Closed;
+                    }
+                    bool IsHOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_HalfOpen;
+                    if (ui_ToggleText(I, MakeString("Half Open (3)"), IsHOpen))
+                    {
+                        PendingPacket.FlowerPositions[MotorIndex] = MotorState_HalfOpen;
+                    }
+                    bool IsMOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_MostlyOpen;
+                    if (ui_ToggleText(I, MakeString("Mostly Open (4)"), IsMOpen))
+                    {
+                        PendingPacket.FlowerPositions[MotorIndex] = MotorState_MostlyOpen;
+                    }
+                    bool IsOpen = PendingPacket.FlowerPositions[MotorIndex] == MotorState_Open;
+                    if (ui_ToggleText(I, MakeString("Open (2)"), IsOpen))
+                    {
+                        PendingPacket.FlowerPositions[MotorIndex] = MotorState_Open;
+                    }
+                }
+                ui_EndRow(I);
             }
-        }
-        ui_EndList(I);
+            BLState->DEBUG_PendingMotorPacket = PendingPacket;
+            
+            if (ui_Button(I, MakeString("Send Motor Packet")))
+            {
+                blumen_packet Packet = {};
+                Packet.Type = PacketType_MotorState;
+                Packet.MotorPacket = BLState->DEBUG_PendingMotorPacket;
+                gs_data Msg = StructToData(&Packet, blumen_packet);
+                MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+                DEBUG_SentMotorCommand(Packet.MotorPacket, Context.ThreadContext);
+                
+            }
+            
+            motor_packet MotorPos = BLState->LastKnownMotorState;
+            ui_Label(I, MakeString("Current Motor Positions"));
+            {
+                for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
+                {
+                    ui_BeginRow(I, 2);
+                    gs_string MotorStr = PushStringF(State->Transient, 32, 
+                                                     "Motor %d", 
+                                                     i);
+                    ui_Label(I, MotorStr);
+                    
+                    gs_string StateStr = {};
+                    switch (MotorPos.FlowerPositions[i])
+                    {
+                        case MotorState_Closed: { 
+                            StateStr = MakeString("Closed"); 
+                        } break;
+                        case MotorState_HalfOpen: { 
+                            StateStr = MakeString("Half Open"); 
+                        } break;
+                        case MotorState_MostlyOpen: { 
+                            StateStr = MakeString("Mostly Open"); 
+                        } break;
+                        case MotorState_Open: { 
+                            StateStr = MakeString("Open"); 
+                        } break;
+                    }
+                    
+                    ui_Label(I, StateStr);
+                    ui_EndRow(I);
+                }
+            }
+            
+            ui_Label(I, MakeString("Set Internal Motor State:"));
+            if (ui_Button(I, MakeString("Closed")))
+            {
+                motor_status_packet Motor = {};
+                Motor.Pos.FlowerPositions[0] = MotorState_Closed;
+                Motor.Pos.FlowerPositions[1] = MotorState_Closed;
+                Motor.Pos.FlowerPositions[2] = MotorState_Closed;
+                Motor.Temperature = 16;
+                
+                BlumenLumen_UpdateMotorState(BLState, Motor, Context);
+            }
+            if (ui_Button(I, MakeString("Open")))
+            {
+                motor_status_packet Motor = {};
+                Motor.Pos.FlowerPositions[0] = MotorState_Open;
+                Motor.Pos.FlowerPositions[1] = MotorState_Open;
+                Motor.Pos.FlowerPositions[2] = MotorState_Open;
+                Motor.Temperature = 16;
+                
+                BlumenLumen_UpdateMotorState(BLState, Motor, Context);
+            }
+        } break;
+        
+        case BlumenDebug_Leds:
+        {
+            BLState->DEBUG_IgnoreWeatherDimmingLeds = ui_LabeledToggle(I, MakeString("Ignore Weather Dimming Leds"), BLState->DEBUG_IgnoreWeatherDimmingLeds);
+            
+            BLState->IgnoreTimeOfDay_LedDimming = ui_ToggleText(I, MakeString("Leds Ignore Time Limit"), BLState->IgnoreTimeOfDay_LedDimming);
+            
+            if (ui_BeginLabeledDropdown(I, MakeString("Phrase"), MakeString(BLState->PendingPhrase.Phrase)))
+            {
+                u32 ListCount = BLState->PhraseHueMap.Count;
+                ui_BeginList(I, MakeString("Phrase List"), 5, ListCount);
+                for (u32 i = 0; i < ListCount; i++)
+                {
+                    gs_string Str = MakeString(BLState->PhraseHueMap.Phrases[i]);
+                    if (ui_Button(I, Str))
+                    {
+                        BLState->PendingPhrase = PhraseHueMap_Get(BLState->PhraseHueMap, i);
+                    }
+                }
+                ui_EndList(I);
+            }
+            ui_EndLabeledDropdown(I);
+            if (ui_Button(I, MakeString("Say Phrase")))
+            {
+                gs_string DebugStr = PushString(State->Transient, 256);
+                BLState->NextHotHue = BLState->PendingPhrase;
+                BlumenLumen_ApplyNextHotHue(BLState, Context, &DebugStr, State);
+            }
+            
+            InterfaceAssert(I->PerFrameMemory);
+        }break;
+        
+        case BlumenDebug_Awaken:
+        {
+            ui_Label(I, MakeString("Step 1:"));
+            ui_Label(I, MakeString("Leds off, flowers closed"));
+            if (ui_Button(I, MakeString("Prepare")))
+            {
+                // motors closed
+                blumen_packet M = {};
+                M.Type = PacketType_MotorState;
+                M.MotorPacket.FlowerPositions[0] = MotorState_Closed;
+                M.MotorPacket.FlowerPositions[1] = MotorState_Closed;
+                M.MotorPacket.FlowerPositions[2] = MotorState_Closed;
+                gs_data D = StructToData(&M, blumen_packet);
+                MessageQueue_Write(&BLState->OutgoingMsgQueue, D);
+                
+                // animation
+                State->AnimationSystem.RepeatMode = AnimationRepeat_Single;
+                AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                          BLState->OffAnimHandle, 
+                                          VoiceCommandFadeDuration);
+                
+                BLState->PatternMode = BlumenPattern_NoControl;
+                BLState->IgnoreTimeOfDay_LedDimming = true;
+                BLState->IgnoreTimeOfDay_MotorState = true;
+            }
+            
+            ui_Label(I, MakeString("Step 2:"));
+            if (ui_Button(I, MakeString("Begin Light Show")))
+            {
+                AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
+                                          BLState->AwakenHandle, 
+                                          VoiceCommandFadeDuration);
+            }
+            
+            ui_Label(I, MakeString("Step 3:"));
+            if (ui_Button(I, MakeString("Open Flowers")))
+            {
+                // motors closed
+                blumen_packet M = {};
+                M.Type = PacketType_MotorState;
+                M.MotorPacket.FlowerPositions[0] = MotorState_Open;
+                M.MotorPacket.FlowerPositions[1] = MotorState_Open;
+                M.MotorPacket.FlowerPositions[2] = MotorState_Open;
+                gs_data D = StructToData(&M, blumen_packet);
+                MessageQueue_Write(&BLState->OutgoingMsgQueue, D);
+            }
+            
+            ui_Label(I, MakeString("Step 4:"));
+            ui_Label(I, MakeString("Resets Lumenarium"));
+            if (ui_Button(I, MakeString("Complete")))
+            {
+                BLState->IgnoreTimeOfDay_LedDimming = false;
+                BLState->IgnoreTimeOfDay_MotorState = false;
+                BlumenLumen_SetPatternMode(BlumenPattern_Standard, GlobalAnimTransitionSpeed, &State->AnimationSystem,
+                                           BLState);
+            }
+        }break;
+        
+        InvalidDefaultCase;
     }
-    ui_EndLabeledDropdown(I);
-    if (ui_Button(I, MakeString("Say Phrase")))
-    {
-        gs_string DebugStr = PushString(State->Transient, 256);
-        BLState->NextHotHue = BLState->PendingPhrase;
-        BlumenLumen_ApplyNextHotHue(BLState, Context, &DebugStr, State);
-    }
-    
-    InterfaceAssert(I->PerFrameMemory);
 }
 
 US_CUSTOM_CLEANUP(BlumenLumen_CustomCleanup)

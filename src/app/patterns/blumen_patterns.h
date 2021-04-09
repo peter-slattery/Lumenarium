@@ -8,6 +8,12 @@
 #define FLOWER_COLORS_COUNT 12
 
 internal void
+Pattern_None(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    // just here so you can fade in from black
+}
+
+internal void
 Pattern_AltBloomMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;

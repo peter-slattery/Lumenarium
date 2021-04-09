@@ -7,10 +7,26 @@
 
 #include "message_queue.h"
 
+enum bl_debug_ui_mode
+{
+    BlumenDebug_Motors,
+    BlumenDebug_Leds,
+    BlumenDebug_Awaken,
+    
+    BlumenDebug_Count,
+};
+
+char* BlDebugUiModeStrings[] = {
+    "Motors",
+    "Leds",
+    "Awaken",
+};
+
 enum bl_pattern_mode
 {
     BlumenPattern_Standard,
     BlumenPattern_VoiceCommand,
+    BlumenPattern_NoControl,
     
     BlumenPattern_Count,
 };
@@ -172,6 +188,8 @@ struct blumen_lumen_state
     
     bl_pattern_mode PatternMode;
     animation_handle_array ModeAnimations[BlumenPattern_Count];
+    animation_handle OffAnimHandle;
+    animation_handle AwakenHandle;
     
     phrase_hue_map PhraseHueMap;
     
@@ -186,10 +204,14 @@ struct blumen_lumen_state
     r32 PatternSpeed;
     
     // Debug
+    bl_debug_ui_mode DebugMode;
+    
     motor_packet DEBUG_PendingMotorPacket;
     bool DEBUG_IgnoreWeatherDimmingLeds;
     
     bool ShouldUpdateLog;
+    bool IgnoreTimeOfDay_LedDimming;
+    bool IgnoreTimeOfDay_MotorState;
     
     phrase_hue PendingPhrase;
 };
