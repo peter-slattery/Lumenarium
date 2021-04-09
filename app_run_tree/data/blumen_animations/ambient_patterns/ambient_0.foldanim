@@ -87,6 +87,6 @@ blocks:{
             max: 179;
         };
         layer_index: 1;
-        animation_name: "Pattern_Rainbow";
+        animation_name: "Pattern_StemSolid";
     };
 };

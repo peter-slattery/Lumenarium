@@ -52,6 +52,32 @@ Pattern_HueShift(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r3
     r32 CycleProgress = FractR32(Time / CycleLength);
     r32 CycleBlend = (SinR32(Time) * .5f) + .5f;
     
+#if 0
+    phrase_hue Hue = BLState->AssemblyColors[Assembly.AssemblyIndex % 3];
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
+    
+    v4 HSV = {};
+    if (CycleProgress < .25f)
+    {
+        r32 P = CycleProgress * 4;
+        HSV = V4Lerp(C0, 
+    }
+    else if (CycleProgress >= .25f && CycleProgress < .5f)
+    {
+        
+    }
+    else if (CycleProgress >= .5f && CycleProgress < .75f)
+    {
+        
+    }
+    else if (CycleProgress >= .75f)
+    {
+        
+    }
+#endif
+    
     v4 HSV = { CycleProgress * 360, 1, 1, 1 };
     v4 RGB = HSVToRGB(HSV);
     
@@ -627,6 +653,50 @@ Pattern_VoicePattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly
         //C = WhiteV4 * GenDotBands(P - Assembly.Center, Time);
         
         Leds->Colors[LedIndex] = V4ToRGBPixel(C);
+    }
+}
+
+internal void
+Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    
+    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
+    
+    pixel WhiteMask = V4ToRGBPixel(WhiteV4);
+    
+    led_strip_list Stem = BLState->StemStrips[Assembly.AssemblyIndex];
+    for (u32 s = 0; s < Stem.Count; s++)
+    {
+        u32 StripIndex = Stem.StripIndices[s];
+        v2_strip Strip = Assembly.Strips[StripIndex];
+        for (u32 i = 0; i < Strip.LedCount; i++)
+        {
+            v4 P = Leds->Positions[i];
+            Leds->Colors[i] = WhiteMask;
+        }
+    }
+}
+
+internal void
+Pattern_PrimaryHue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    
+    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
+    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
+    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
+    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
+    
+    pixel HueOut = V4ToRGBPixel(C0);
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        Leds->Colors[LedIndex] = HueOut;
     }
 }
 

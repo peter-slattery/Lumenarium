@@ -2751,6 +2751,7 @@ PushSize_(gs_memory_arena* Arena, u64 Size, char* Location)
         }
 #endif
         Assert(CursorEntry != 0);
+        Assert(CursorHasRoom(CursorEntry->Cursor, Size));
         Result = PushSizeOnCursor_(&CursorEntry->Cursor, Size, Location);
         Assert(Result.Memory != 0);
         
