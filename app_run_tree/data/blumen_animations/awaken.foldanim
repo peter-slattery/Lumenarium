@@ -1,0 +1,64 @@
+lumenarium_animation_file;
+animation_name: "awaken";
+layers_count: 3;
+blocks_count: 5;
+playable_range:{
+    min: 0;
+    max: 7200;
+};
+layers:{
+    layer:{
+        name: "[New Layer]";
+        blend: "Add";
+    };
+    layer:{
+        name: "[New Layer]";
+        blend: "Add";
+    };
+    layer:{
+        name: "[New Layer]";
+        blend: "Multiply";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 94;
+            max: 1363;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_Leafy";
+    };
+    block:{
+        frame_range:{
+            min: 1169;
+            max: 7200;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_BulbMask";
+    };
+    block:{
+        frame_range:{
+            min: 71;
+            max: 7200;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_Wavy";
+    };
+    block:{
+        frame_range:{
+            min: 2135;
+            max: 2555;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_None";
+    };
+    block:{
+        frame_range:{
+            min: 2470;
+            max: 7200;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_StemSolid";
+    };
+};

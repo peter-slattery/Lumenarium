@@ -1,0 +1,12 @@
+lumenarium_animation_file;
+animation_name: "off_anim";
+layers_count: 0;
+blocks_count: 0;
+playable_range:{
+    min: 0;
+    max: 2;
+};
+layers:{
+};
+blocks:{
+};
