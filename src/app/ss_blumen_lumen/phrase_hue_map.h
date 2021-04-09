@@ -85,7 +85,6 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         
         gs_const_string Phrase = CSVSheet_GetCell(Sheet,
                                                   0, Row);
-        u64 PhraseHash = HashDJB2ToU32(StringExpand(Phrase));
         
         gs_const_string Hue0Str  = CSVSheet_GetCell(Sheet, 1, Row);
         gs_const_string Hue1Str  = CSVSheet_GetCell(Sheet, 2, Row);
@@ -109,6 +108,8 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
                 Result.Phrases[Index].Str[i] = ToLower(C);
             }
         }
+        
+        u64 PhraseHash = HashDJB2ToU32(StringExpand(Result.Phrases[Index]));
         
         Result.PhraseHashes[Index] = PhraseHash;
         Result.Hue0[Index] = CreateHueFromString(Hue0Str);
