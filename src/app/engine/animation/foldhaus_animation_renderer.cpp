@@ -8,13 +8,22 @@
 internal pixel
 LedBlend_Overwrite(pixel PixelA, pixel PixelB, u8* UserData)
 {
+    r32 MagB = (r32)(PixelB.R + PixelB.G + PixelB.B) / (255 * 3);
+    
+    pixel Result = {};
+    Result.R = (u8)LerpR32(MagB, PixelA.R, PixelB.R);
+    Result.G = (u8)LerpR32(MagB, PixelA.G, PixelB.G);
+    Result.B = (u8)LerpR32(MagB, PixelA.B, PixelB.B);
+    
+#if 0
     pixel Result = PixelB;
     if (PixelB.R == 0 && 
         PixelB.G == 0 &&
-        PixelB.G == 0)
+        PixelB.B == 0)
     {
         Result = PixelA;
     }
+#endif
     return Result;
 }
 
