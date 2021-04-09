@@ -101,6 +101,15 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         }
         
         Result.Phrases[Index] = PushStringF(Arena, Phrase.Length, "%S", Phrase).ConstString;
+        for (u64 i = 0; i < Result.Phrases[Index].Length; i++)
+        {
+            char C = Result.Phrases[Index].Str[i];
+            if (IsAlpha(C))
+            {
+                Result.Phrases[Index].Str[i] = ToLower(C);
+            }
+        }
+        
         Result.PhraseHashes[Index] = PhraseHash;
         Result.Hue0[Index] = CreateHueFromString(Hue0Str);
         Result.Hue1[Index] = CreateHueFromString(Hue1Str);
