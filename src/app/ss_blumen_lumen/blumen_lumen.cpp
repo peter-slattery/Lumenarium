@@ -393,6 +393,25 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 }
 
 internal void
+BlumenLumen_UpdateMotorState(blumen_lumen_state* BLState, motor_status_packet Motor, context Context)
+{
+    motor_packet CurrPos = Motor.Pos;
+    motor_packet LastPos = BLState->LastKnownMotorState;
+    DEBUG_ReceivedMotorPositions(LastPos, Motor.Pos, Context.ThreadContext);
+    
+    for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
+    {
+        if (LastPos.FlowerPositions[i] != CurrPos.FlowerPositions[i])
+        {
+            BLState->LastTimeMotorStateChanged[i] = Context.SystemTime_Current.NanosSinceEpoch;
+        }
+    }
+    
+    BLState->LastKnownMotorState = Motor.Pos;
+    BLState->ShouldUpdateLog = true;
+}
+
+internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
@@ -444,20 +463,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 Motor.Temperature = (T[0] << 8 |
                                      T[1] << 0);
                 
-                motor_packet CurrPos = Motor.Pos;
-                motor_packet LastPos = BLState->LastKnownMotorState;
-                DEBUG_ReceivedMotorPositions(LastPos, Motor.Pos, Context->ThreadContext);
-                
-                for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
-                {
-                    if (LastPos.FlowerPositions[i] != CurrPos.FlowerPositions[i])
-                    {
-                        BLState->LastTimeMotorStateChanged[i] = Context->SystemTime_Current.NanosSinceEpoch;
-                    }
-                }
-                
-                BLState->LastKnownMotorState = Motor.Pos;
-                BLState->ShouldUpdateLog = true;
+                BlumenLumen_UpdateMotorState(BLState, Motor, *Context);
             }break;
             
             case PacketType_Temperature:
@@ -628,6 +634,11 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 BLState->ShouldDimUpperLeds[i] = true;
             }
         }
+        else if (MotorPos == MotorState_Closed ||
+                 MotorPos == MotorState_HalfOpen)
+        {
+            BLState->ShouldDimUpperLeds[i] = false;
+        }
     }
     
     // NOTE(PS): If the flowers are mostly open or full open
@@ -794,11 +805,23 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
         ui_Label(I, MakeString("Set Internal Motor State:"));
         if (ui_Button(I, MakeString("Closed")))
         {
+            motor_status_packet Motor = {};
+            Motor.Pos.FlowerPositions[0] = MotorState_Closed;
+            Motor.Pos.FlowerPositions[1] = MotorState_Closed;
+            Motor.Pos.FlowerPositions[2] = MotorState_Closed;
+            Motor.Temperature = 16;
             
+            BlumenLumen_UpdateMotorState(BLState, Motor, Context);
         }
         if (ui_Button(I, MakeString("Open")))
         {
+            motor_status_packet Motor = {};
+            Motor.Pos.FlowerPositions[0] = MotorState_Open;
+            Motor.Pos.FlowerPositions[1] = MotorState_Open;
+            Motor.Pos.FlowerPositions[2] = MotorState_Open;
+            Motor.Temperature = 16;
             
+            BlumenLumen_UpdateMotorState(BLState, Motor, Context);
         }
     }
 }
