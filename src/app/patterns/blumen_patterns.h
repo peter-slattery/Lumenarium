@@ -721,5 +721,50 @@ Pattern_GrowFadeMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly
     }
 }
 
+internal void
+Pattern_RainbowLoadingBar(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
+    Time = Time * BLState->PatternSpeed;
+    
+    // constants
+    r32 Period = 5.0f; // seconds
+    r32 CSpeed = 16.0f;
+    r32 HIncrement = CSpeed * Period;
+    r32 HOffset = CSpeed * Period;
+    r32 MaxSphereRadius = 300;
+    
+    // sphere
+    r32 ElapsedPct = FractR32(Time / Period);
+    r32 ElapsedPctGrow = PowR32(ElapsedPct, 2);
+    r32 Radius = MaxSphereRadius * ElapsedPctGrow;
+    v3 Origin = Assembly.Center - v3{0, 150, 0};
+    
+    // colors
+    r32 T = Time * CSpeed;
+    r32 TimeStep0 = T;
+    r32 TimeStep1 = T + HOffset;
+    r32 Hue0 = FloorR32(TimeStep0 / HIncrement) * HIncrement;
+    r32 Hue1 = FloorR32(TimeStep1 / HIncrement) * HIncrement;
+    v4 H0 = v4{ModR32(Hue0, 360), 1, 1, 1};
+    v4 H1 = v4{ModR32(Hue1, 360), 1, 1, 1};
+    pixel C0 = V4ToRGBPixel(HSVToRGB(H0));
+    pixel C1 = V4ToRGBPixel(HSVToRGB(H1));
+    
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        v3 P = Leds->Positions[LedIndex].xyz;
+        r32 Dist = V3Mag(P - Origin);
+        if (Dist < Radius)
+        {
+            Leds->Colors[LedIndex] = C1;
+        }
+        else
+        {
+            Leds->Colors[LedIndex] = C0;
+        }
+    }
+}
+
 #define BLUMEN_PATTERNS_H
 #endif // BLUMEN_PATTERNS_H
