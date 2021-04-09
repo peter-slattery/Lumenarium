@@ -67,7 +67,7 @@ r64 VoiceCommandSustainDuration = 30.0; // in seconds
 // NOTE: This is not a symmetric operation. When we send a 'motor open'
 // command, we want to immediately turn the upper leds on so they appear
 // to have been on the whole time.
-r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 5.0; // in seconds
+r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 3000.0; // in seconds
 
 
 // NOTE: Temperature & Time of Day Based Led Brightness Settings
@@ -85,7 +85,7 @@ s8 MinHighTemperature = 0;
 // This is multiplied by each pixels R, G, & B channels before being
 // sent. So if it is set to .1f, then the maximum brightness value sent
 // to any channel of any pixel will be 25 (255 * .1 = 25).
-r32 HighTemperatureBrightnessPercent = .25f;
+r32 HighTemperatureBrightnessPercent = 1.0f;
 
 // The percent brightness we set leds to when no other conditions apply
 // A value in the range 0:1 inclusive.
@@ -101,9 +101,9 @@ r32 GlobalAnimSpeed = 1.0f;
 
 // How long it takes to fade from one animation to the next.
 // This is used both for transitioning between animation files
-// as well as transitioning from Standard pattern mode to voice 
+// as well as transitioning from Standard pattern mode to voice
 // activated mode
-r32 GlobalAnimTransitionSpeed = 5.0f;
+r32 GlobalAnimTransitionSpeed = 0.1f;
 
 r64 PhrasePriorityMessageGroupingTime = 1.0f;
 
