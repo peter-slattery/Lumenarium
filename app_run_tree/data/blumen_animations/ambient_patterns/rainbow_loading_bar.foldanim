@@ -1,0 +1,28 @@
+lumenarium_animation_file;
+animation_name: "rainbow_loading_bar_0";
+layers_count: 2;
+blocks_count: 1;
+playable_range:{
+    min: 0;
+    max: 9000;
+};
+layers:{
+    layer:{
+        name: "[New Layer]";
+        blend: "Add";
+    };
+    layer:{
+        name: "[New Layer]";
+        blend: "Add";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 0;
+            max: 9000;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_RainbowLoadingBar";
+    };
+};
