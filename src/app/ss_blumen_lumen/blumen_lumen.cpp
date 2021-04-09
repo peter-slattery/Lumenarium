@@ -214,6 +214,9 @@ BlumenLumen_LoadPatterns(app_state* State)
     Patterns_PushPattern(Patterns, Pattern_AllOnMask, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_BulbMask, PATTERN_MULTITHREADED);
     Patterns_PushPattern(Patterns, Pattern_VoicePattern, PATTERN_MULTITHREADED);
+    
+    Patterns_PushPattern(Patterns, Pattern_StemSolid, PATTERN_MULTITHREADED);
+    Patterns_PushPattern(Patterns, Pattern_PrimaryHue, PATTERN_MULTITHREADED);
 }
 
 internal void
@@ -350,6 +353,12 @@ BlumenLumen_CustomInit(app_state* State, context Context)
     assembly* Flower0 = LoadAssembly(Flower0AssemblyPath, State, Context);
     assembly* Flower1 = LoadAssembly(Flower1AssemblyPath, State, Context);
     assembly* Flower2 = LoadAssembly(Flower2AssemblyPath, State, Context);
+    
+    for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
+    {
+        assembly Assembly = State->Assemblies.Values[i];
+        BLState->StemStrips[i] = AssemblyStripsGetWithTagValue(Assembly, ConstString("section"), ConstString("stem"), &State->Permanent);
+    }
     
     BLState->AssemblyNameToClearCoreMapCount = 3;
     BLState->AssemblyNameToClearCore_Names = PushArray(&State->Permanent, 

@@ -139,6 +139,8 @@ struct blumen_lumen_state
     
     temp_job_req JobReq;
     
+    led_strip_list StemStrips[BL_FLOWER_COUNT];
+    
     platform_thread_handle MicListenThread;
     mic_listen_job_data MicListenJobData;
     
