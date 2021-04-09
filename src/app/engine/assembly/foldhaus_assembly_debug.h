@@ -16,6 +16,7 @@ enum override_type
     ADS_Override_AllBlue,
     ADS_Override_AllOff,
     ADS_Override_AllWhite,
+    ADS_Override_AllHue,
     ADS_Override_TagWhite,
     ADS_Override_TagStripWhite,
     ADS_Override_ChannelWhite,
@@ -32,6 +33,7 @@ global gs_const_string OverrideTypeStrings[] = {
     LitString("Override_AllBlue" ),
     LitString("ADS_Override_AllOff" ),
     LitString("ADS_Override_AllWhite" ),
+    LitString("ADS_Override_AllHue" ),
     LitString("ADS_Override_TagWhite" ),
     LitString("ADS_Override_TagStripWhite" ),
     LitString("ADS_Override_ChannelWhite," ),
@@ -49,6 +51,7 @@ struct assembly_debug_state
     gs_string TagName;
     gs_string TagValue;
     
+    u32 TargetHue;
     pixel TargetColor;
     
     u32 TargetChannel;
@@ -156,6 +159,14 @@ AssemblyDebug_OverrideOutputForAssembly(assembly_debug_state State,  led_system 
         case ADS_Override_AllWhite:
         {
             AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, pixel{V, V, V});
+        }break;
+        
+        case ADS_Override_AllHue:
+        {
+            v4 HSV = v4{(r32)State.TargetHue, 1, 1, 1};
+            v4 RGB = HSVToRGB(HSV);
+            pixel P = V4ToRGBPixel(RGB);
+            AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, P);
         }break;
         
         case ADS_Override_TagWhite:

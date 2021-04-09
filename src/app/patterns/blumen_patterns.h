@@ -7,20 +7,6 @@
 
 #define FLOWER_COLORS_COUNT 12
 
-internal pixel
-V4ToRGBPixel(v4 C)
-{
-    C.x = Clamp01(C.x);
-    C.y = Clamp01(C.y);
-    C.z = Clamp01(C.z);
-    
-    pixel Result = {};
-    Result.R = (u8)(C.x * 255);
-    Result.G = (u8)(C.y * 255);
-    Result.B = (u8)(C.z * 255);
-    return Result;
-}
-
 internal void
 Pattern_AltBloomMask(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
@@ -647,7 +633,7 @@ Pattern_VoicePattern(led_buffer* Leds, led_buffer_range Range, assembly Assembly
         v4 C = {};
         C += GenPatchyColor(P, Time, C0, C2, {});
         //C = GenVerticalLeaves((P - Assembly.Center) + v3{0, 150, 0}, Time, C0, C1, C2);
-        r32 Bands = GenLiquidBands(P, -250, Time);
+        //r32 Bands = GenLiquidBands(P, -250, Time);
         //C = V4Lerp(Bands, C * .5f, C1);
         
         //C = WhiteV4 * GenDotBands(P - Assembly.Center, Time);
