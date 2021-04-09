@@ -50,7 +50,7 @@ global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
 
 // How long it takes to fade from the default pattern to the
 // voice activated pattern
-r32 VoiceCommandFadeDuration = 1.0f; // in seconds
+r32 VoiceCommandFadeDuration = 0.0f; // in seconds
 
 // How long the voice activated pattern will remain active
 // without additional voice commands, before fading back to
@@ -61,7 +61,7 @@ r32 VoiceCommandFadeDuration = 1.0f; // in seconds
 //    and then wait 30 seconds before fading back to the original
 //    pattern. If, in that 30 second window, another voice command
 //    is issued, lumenarium will reset the 30 second counter.
-r64 VoiceCommandSustainDuration = 30.0; // in seconds
+r64 VoiceCommandSustainDuration = 120.0; // in seconds
 
 // When we send a Motor Close command, we don't want the upper leds to
 // immediately turn off. Instead, we want to wait until the flower is
@@ -77,7 +77,7 @@ r64 VoiceCommandSustainDuration = 30.0; // in seconds
 // NOTE: This is not a symmetric operation. When we send a 'motor open'
 // command, we want to immediately turn the upper leds on so they appear
 // to have been on the whole time.
-r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 60.0; // in seconds
+r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 120.0; // in seconds
 
 
 // NOTE: Temperature & Time of Day Based Led Brightness Settings
@@ -113,12 +113,12 @@ r32 GlobalAnimSpeed = 1.0f;
 // This is used both for transitioning between animation files
 // as well as transitioning from Standard pattern mode to voice
 // activated mode
-r32 GlobalAnimTransitionSpeed = 0.1f;
+r32 GlobalAnimTransitionSpeed = 0.0f;
 
 // how long it takes to fade from the old voice hue to the new one
 r32 PhraseHueFadeInDuration = 2.0f; // seconds
 
-r64 PhrasePriorityMessageGroupingTime = 1.0f;
+r64 PhrasePriorityMessageGroupingTime = 0.0f;
 
 // How often should Lumenarium send its status to the python server?
 //
