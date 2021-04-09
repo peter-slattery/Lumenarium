@@ -693,6 +693,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
+    bool TimelineShouldAdvance = false;
+    r32 OverrideBrightness = 0.0f;
+    for (u32 i = 0; i < LedOnTimesCount; i++)
+    {
+        time_range Range = LedOnTimes[i];
+        bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
+        if (CurrTimeInRange)
+        {
+            // If we're in one of the specified time ranges,
+            // play animations and set brightness 
+            OverrideBrightness = BLState->BrightnessPercent;
+            TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
+            break;
+        }
+    }
+    State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;
+    BLState->BrightnessPercent = OverrideBrightness;
+    
+    
     // Dim the leds based on temp data
     if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
     {
