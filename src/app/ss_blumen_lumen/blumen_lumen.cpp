@@ -445,20 +445,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 u32 NameLen = CStringLength(Mic.AnimationFileName);
                 
                 phrase_hue NewHue = PhraseHueMap_Get(BLState->PhraseHueMap, NameHash);
-                if (NewHue.Phrase.Length > 0 && BLState->NextHotHue.Phrase.Length < NewHue.Phrase.Length)
+                if (NewHue.Phrase.Length > 0)
                 {
-                    PrintF(&DebugStr, "Queuing: %S\n", NewHue.Phrase);
-                    NullTerminate(&DebugStr);
-                    OutputDebugString(DebugStr.Str);
-                    
-                    BLState->NextHotHue = NewHue;
-                    if (SecondsElapsed(BLState->TimePhraseReceptionBegan,
-                                       Context->SystemTime_Current) > PhrasePriorityMessageGroupingTime)
+                    bool IsLonger = (BLState->NextHotHue.Phrase.Length < NewHue.Phrase.Length);
+                    bool IsntInPhraseReceptionMode = !BLState->InPhraseReceptionMode;
+                    if (IsLonger || IsntInPhraseReceptionMode)
                     {
-                        BLState->TimePhraseReceptionBegan = Context->SystemTime_Current;
-                        BLState->InPhraseReceptionMode = true;
+                        PrintF(&DebugStr, "Queuing: %S\n", NewHue.Phrase);
+                        NullTerminate(&DebugStr);
+                        OutputDebugString(DebugStr.Str);
+                        
+                        BLState->NextHotHue = NewHue;
+                        if (SecondsElapsed(BLState->TimePhraseReceptionBegan,
+                                           Context->SystemTime_Current) > PhrasePriorityMessageGroupingTime)
+                        {
+                            BLState->TimePhraseReceptionBegan = Context->SystemTime_Current;
+                            BLState->InPhraseReceptionMode = true;
+                        }
+                        BLState->TimeLastPhraseReceived = Context->SystemTime_Current;
                     }
-                    BLState->TimeLastPhraseReceived = Context->SystemTime_Current;
                 }
             }break;
             
