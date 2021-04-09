@@ -646,12 +646,6 @@ internal void
 Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
 {
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    Time = Time * BLState->PatternSpeed;
-    
-    phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
-    v4 C0 = RGBFromPhraseHue(Hue.Hue0);
-    v4 C1 = RGBFromPhraseHue(Hue.Hue1);
-    v4 C2 = RGBFromPhraseHue(Hue.Hue2);
     
     pixel WhiteMask = V4ToRGBPixel(WhiteV4);
     
@@ -662,8 +656,8 @@ Pattern_StemSolid(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r
         v2_strip Strip = Assembly.Strips[StripIndex];
         for (u32 i = 0; i < Strip.LedCount; i++)
         {
-            v4 P = Leds->Positions[Strip.LedLUT[i]];
-            Leds->Colors[i] = WhiteMask;
+            u32 LedIndex = Strip.LedLUT[i];
+            Leds->Colors[LedIndex] = WhiteMask;
         }
     }
 }
