@@ -43,11 +43,6 @@ typedef struct motor_packet
 typedef struct motor_status_packet
 {
     motor_packet Pos;
-    /*
-u8 Motor1Pos;
-u8 Motor2Pos;
-u8 Motor3Pos;
-*/
     u8 MotorStatus[3];
     u16 Temperature;
     

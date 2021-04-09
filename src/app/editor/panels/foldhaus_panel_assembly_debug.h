@@ -66,6 +66,8 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
     {
         InterfaceAssert(Interface->PerFrameMemory);
         
+        State->AssemblyDebugState.AllAssemblies = ui_ToggleText(Interface, MakeString("All Assemblies"), State->AssemblyDebugState.AllAssemblies);
+        
         gs_string OverrideStr = MakeString(OverrideTypeStrings[State->AssemblyDebugState.Override]);
         if (ui_BeginLabeledDropdown(Interface, MakeString("Override"), OverrideStr))
         {

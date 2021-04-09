@@ -67,7 +67,7 @@ r64 VoiceCommandSustainDuration = 30.0; // in seconds
 // NOTE: This is not a symmetric operation. When we send a 'motor open'
 // command, we want to immediately turn the upper leds on so they appear
 // to have been on the whole time.
-r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 5.0; // in seconds
+r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 30.0; // in seconds
 
 
 // NOTE: Temperature & Time of Day Based Led Brightness Settings
