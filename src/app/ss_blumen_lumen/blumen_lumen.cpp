@@ -616,6 +616,10 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     if (MessageQueue_CanWrite(BLState->OutgoingMsgQueue) &&
         !BLState->IgnoreTimeOfDay_MotorState)
     {
+        u64 NanosSinceLastSend = Context->SystemTime_Current.NanosSinceEpoch - BLState->LastSendTime.NanosSinceEpoch;
+        r32 SecondsSinceLastSend = (r64)NanosSinceLastSend * NanosToSeconds;
+        bool ShouldSendCurrentState = SecondsSinceLastSend >= MotorResendStatePeriod;
+        
         for (u32 i = 0; i < MotorOpenTimesCount; i++)
         {
             time_range Range = MotorOpenTimes[i];
@@ -626,9 +630,13 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             
             bool LastTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Last, Range);
             
+#if 0
             bool SendOpen = CurrTimeInRange && !LastSendTimeInRange;
             bool SendClose = !CurrTimeInRange && LastSendTimeInRange;
-            
+#else
+            bool SendOpen = CurrTimeInRange && ShouldSendCurrentState;
+            bool SendClose = !CurrTimeInRange && ShouldSendCurrentState;
+#endif
             //SendOpen = SecondsSinceLastSend > 2;
             if (SendOpen)
             {
@@ -643,6 +651,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 Packet.MotorPacket.FlowerPositions[1] = 2;
                 Packet.MotorPacket.FlowerPositions[2] = 2;
                 MotorCommand = Packet;
+                break;
             }
             else if (SendClose)
             {
@@ -656,6 +665,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 Packet.MotorPacket.FlowerPositions[1] = 1;
                 Packet.MotorPacket.FlowerPositions[2] = 1;
                 MotorCommand = Packet;
+                break;
             }
         }
         

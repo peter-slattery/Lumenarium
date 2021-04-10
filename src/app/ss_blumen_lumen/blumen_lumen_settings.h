@@ -41,6 +41,11 @@ global time_range MotorOpenTimes[] = {
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
 
+// Lumenarium repeatedly resends the current motor state to the python
+// server. This variable determines how much time elapses between each
+// message.
+global r32 MotorResendStatePeriod = 90.0f; // seconds
+
 // The times of day when the leds should be on
 // Search for @TimeFormat to find documentation
 global time_range LedOnTimes[] = {
