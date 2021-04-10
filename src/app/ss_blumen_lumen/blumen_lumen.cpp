@@ -457,7 +457,8 @@ BlumenLumen_ApplyNextHotHue(blumen_lumen_state* BLState, context Context, gs_str
     OutputDebugString(DebugStr->Str);
     
     
-    if (BLState->PatternMode == BlumenPattern_Standard)
+    if (BLState->PatternMode == BlumenPattern_Standard ||
+        NewHue.OverrideAll)
     {
         BlumenLumen_SetNextHue(BLState, 0, NewHue);
         BlumenLumen_SetNextHue(BLState, 1, NewHue);

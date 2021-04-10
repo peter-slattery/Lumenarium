@@ -45,6 +45,7 @@ typedef struct phrase_hue_map
     r32*   Speed;
     u8*    Pattern;
     u8*    AddIn;
+    bool*  OverrideAll;
 } phrase_hue_map;
 
 typedef struct phrase_hue
@@ -58,6 +59,7 @@ typedef struct phrase_hue
     r32   Speed;
     u8    Pattern;
     u8    AddIn;
+    bool  OverrideAll;
 } phrase_hue;
 
 internal p_hue
@@ -118,9 +120,9 @@ CreateHueFromString(gs_const_string Str)
 {
     p_hue Result = {};
     if (Str.Str[0] == 'b') {
-        Result.HSV = v4{0, 0, 1, 1 };
+        Result.HSV = v4{0, 0, 0, 1 };
     } else if (Str.Str[0] == 'w') {
-        Result.HSV = v4{0, 0, 0, 1 };;
+        Result.HSV = v4{0, 0, 1, 1 };;
     } else {
         parse_float_result Parsed = ValidateAndParseFloat(Str);
         if (!Parsed.Success)
@@ -158,6 +160,7 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
     Result.Pattern = PushArray(Arena, u8,   Result.CountMax);
     Result.Speed = PushArray(Arena, r32,   Result.CountMax);
     Result.AddIn = PushArray(Arena, u8,    Result.CountMax);
+    Result.OverrideAll = PushArray(Arena, bool, Result.CountMax);
     
     // this lets us tightly pack phrase_hues even if there is a
     // row in the csv that is empty or invalid
@@ -177,6 +180,7 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         gs_const_string Speed       = CSVSheet_GetCell(Sheet, 6, Row);
         gs_const_string Pattern     = CSVSheet_GetCell(Sheet, 7, Row);
         gs_const_string AddIn       = CSVSheet_GetCell(Sheet, 8, Row);
+        gs_const_string OverrideAll = CSVSheet_GetCell(Sheet, 9, Row);
         
         // essential parameters
         if (Phrase.Length == 0 ||
@@ -234,6 +238,8 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
             ParsedGranularity.Value = 1;
         }
         Result.Gran[Index] = ParsedGranularity.Value;
+        
+        Result.OverrideAll[Index] = StringsEqualUpToLength(OverrideAll, ConstString("yes"), 3);
     }
     
     Result.Count = Result.CountMax + DestOffset;
@@ -255,6 +261,7 @@ PhraseHueMap_Get(phrase_hue_map Map, u32 Index)
     Result.Speed = Map.Speed[Index];
     Result.AddIn = Map.AddIn[Index];
     Result.Pattern = Map.Pattern[Index];
+    Result.OverrideAll = Map.OverrideAll[Index];
     return Result;
 }
 
