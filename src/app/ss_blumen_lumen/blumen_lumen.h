@@ -257,6 +257,7 @@ BlumenLumen_GetCurrentHue(blumen_lumen_state* BLState, assembly Assembly)
     
     switch (BLState->PatternMode)
     {
+        case BlumenPattern_NoControl:
         case BlumenPattern_Standard:
         {
             Result = BLState->StandardPatternHues;

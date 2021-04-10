@@ -414,7 +414,7 @@ Pattern_VerticalLines(led_buffer* Leds, led_buffer_range Range, assembly Assembl
     r32 LightSpeedMin = 1;
     r32 LightSpeedMax = 5;
     
-    s32 LightTailLength = 10;
+    s32 LightTailLength = 60;
     for (u32 StripIndex = 0; StripIndex < Assembly.StripCount; StripIndex++)
     {
         v2_strip Strip = Assembly.Strips[StripIndex];
@@ -503,7 +503,7 @@ Pattern_Rotary(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 
     
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
     Time = Time * BLState->PatternSpeed;
-    Pattern_RotaryOptions(Leds, Range, Assembly, Time, Transient, UserData, 2, BlackV4, WhiteV4);
+    Pattern_RotaryOptions(Leds, Range, Assembly, Time, Transient, UserData, .25f, BlackV4, WhiteV4);
 }
 
 internal void

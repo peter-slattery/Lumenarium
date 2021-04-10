@@ -517,7 +517,7 @@ ui_GetRetainedState(ui_interface* Interface, ui_widget_id Id)
         {
             // NOTE(PS): If we are accessing a retained state, it shouldn't
             // have been accessed longer ago than the last frame
-            Assert(Interface->RetainedState[i].FramesSinceAccess <= 2);
+            //Assert(Interface->RetainedState[i].FramesSinceAccess <= 2);
             Interface->RetainedState[i].FramesSinceAccess = 0;
             Result = Interface->RetainedState + i;
             break;

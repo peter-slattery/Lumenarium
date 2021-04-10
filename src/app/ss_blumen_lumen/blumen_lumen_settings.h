@@ -16,7 +16,7 @@ gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 
 // The path to the phrase map CSV. Can be an absolute path, or relative
 // to the app_run_tree folder
-gs_const_string PhraseMapCSVPath = ConstString("data/flower_codes.tsv");
+gs_const_string PhraseMapCSVPath = ConstString("C:/projects/flowers-sound/flower_codes.tsv");
 char PhraseMapCSVSeparator = '\t';
 
 // Search Strings for which folders to find ambient animation files and
@@ -36,21 +36,23 @@ gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_r
 // NOTE: There is no need to modify the MotorOpenTimesCount variable -
 // it is a compile time constant that gets calculated automatically
 global time_range MotorOpenTimes[] = {
-    { 12, 45, 17, 45 }, // 12:45pm to 5:45pm
-    { 19, 00, 23, 00 }, // 7:00pm to 11:00pm
+    { 8, 00, 12, 00 },
+    { 12, 30, 13, 00 },
+    { 18, 00, 22, 00 }, // 7:00pm to 11:00pm
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
 
 // The times of day when the leds should be on
 // Search for @TimeFormat to find documentation
 global time_range LedOnTimes[] = {
-    { 00, 00, 23, 59 }, // literally always
+    { 17, 00, 23, 59 },
+    { 00, 00, 06, 30 },
 };
 global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
 
 // How long it takes to fade from the default pattern to the
 // voice activated pattern
-r32 VoiceCommandFadeDuration = 0.0f; // in seconds
+r32 VoiceCommandFadeDuration = 0.5f; // in seconds
 
 // How long the voice activated pattern will remain active
 // without additional voice commands, before fading back to
@@ -88,14 +90,14 @@ r64 TurnUpperLedsOffAfterMotorCloseCommandDelay = 120.0; // in seconds
 // NOTE: this is an 8bit signed integer so its range is
 // -128 to 127, not that we should need either of those extremes for
 // this, but just a note that you can't just put anything in here.
-s8 MinHighTemperature = 0;
+s8 MinHighTemperature = 26;
 
 // The percent brightness we set leds to during high temperatures.
 // A value in the range 0:1 inclusive
 // This is multiplied by each pixels R, G, & B channels before being
 // sent. So if it is set to .1f, then the maximum brightness value sent
 // to any channel of any pixel will be 25 (255 * .1 = 25).
-r32 HighTemperatureBrightnessPercent = 1.0f;
+r32 HighTemperatureBrightnessPercent = 0.7f;
 
 // The percent brightness we set leds to when no other conditions apply
 // A value in the range 0:1 inclusive.
@@ -116,9 +118,9 @@ r32 GlobalAnimSpeed = 1.0f;
 r32 GlobalAnimTransitionSpeed = 0.0f;
 
 // how long it takes to fade from the old voice hue to the new one
-r32 PhraseHueFadeInDuration = 2.0f; // seconds
+r32 PhraseHueFadeInDuration = 0.01f; // seconds
 
-r64 PhrasePriorityMessageGroupingTime = 0.0f;
+r64 PhrasePriorityMessageGroupingTime = 0.1f;
 
 // How often should Lumenarium send its status to the python server?
 //
