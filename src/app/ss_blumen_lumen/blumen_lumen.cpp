@@ -413,13 +413,14 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 #endif
     State->AnimationSystem.TimelineShouldAdvance = true;
     
-    BLState->StandardPatternHues.Hue0.Flags = Hue_Value;
-    BLState->StandardPatternHues.Hue1.Flags = Hue_Value;
-    BLState->StandardPatternHues.Hue2.Flags = Hue_Value;
     BLState->StandardPatternHues.Granularity = 1;
     BLState->StandardPatternHues.Speed = 1;
     BLState->StandardPatternHues.AddIn = AddIn_Rotary;
     BLState->StandardPatternHues.Pattern = HuePattern_Wavy;
+    
+    BLState->DebugHue.Hue0.HSV = v4{0, 1, 1, 1};
+    BLState->DebugHue.Hue1.HSV = v4{0, 1, 1, 1};
+    BLState->DebugHue.Hue2.HSV = v4{0, 1, 1, 1};
     
     BlumenLumen_AppendBootupLog(State, BLState, Context);
     return Result;
@@ -581,9 +582,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         r32 ColorRelOscSpeed = 1 * ColorSpeed;;
         r32 ColorOscillation = (SinR32(BaseTime * ColorOscSpeed) + 1) / 2;
         r32 ColorRelationship = 30 + (((1 + SinR32(BaseTime * ColorRelOscSpeed)) / 2) * 300);
-        BLState->StandardPatternHues.Hue0.Hue = ModR32(ColorOscillation * 360, 360);
-        BLState->StandardPatternHues.Hue1.Hue = ModR32(BaseTime + ColorRelationship, 360);
-        BLState->StandardPatternHues.Hue2.Hue = LerpR32(.3f, BLState->StandardPatternHues.Hue0.Hue, BLState->StandardPatternHues.Hue1.Hue);
+        
+        r32 H0 = ModR32(ColorOscillation * 360, 360);
+        r32 H1 = ModR32(BaseTime + ColorRelationship, 360);
+        // TODO(PS): use our new HSV lerp
+        r32 H2 = LerpR32(.3f, H0, H1);
+        
+        BLState->StandardPatternHues.Hue0.HSV = v4{ H0, 1, 1, 1 };
+        BLState->StandardPatternHues.Hue1.HSV = v4{ H1, 1, 1, 1 };
+        BLState->StandardPatternHues.Hue2.HSV = v4{ H2, 1, 1, 1 };
         
         // Transition back to standard mode after some time
         if (BLState->PatternMode == BlumenPattern_VoiceCommand)
@@ -963,9 +970,9 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
             if (BLState->DebugOverrideHue)
             {
                 phrase_hue PHue = BLState->DebugHue;
-                PHue.Hue0.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue0"), (r32)PHue.Hue0.Hue, 0, 360);
-                PHue.Hue1.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue1"), (r32)PHue.Hue1.Hue, 0, 360);
-                PHue.Hue2.Hue = (r64)ui_LabeledRangeSlider(I, MakeString("Hue2"), (r32)PHue.Hue2.Hue, 0, 360);
+                PHue.Hue0.HSV.x = (r64)ui_LabeledRangeSlider(I, MakeString("Hue0"), (r32)PHue.Hue0.HSV.x, 0, 360);
+                PHue.Hue1.HSV.x = (r64)ui_LabeledRangeSlider(I, MakeString("Hue1"), (r32)PHue.Hue1.HSV.x, 0, 360);
+                PHue.Hue2.HSV.x = (r64)ui_LabeledRangeSlider(I, MakeString("Hue2"), (r32)PHue.Hue2.HSV.x, 0, 360);
                 PHue.Granularity = (u32)ui_LabeledRangeSlider(I, MakeString("Granularity"), (r32)PHue.Granularity, 0, 5);
                 PHue.Speed = ui_LabeledRangeSlider(I, MakeString("Speed"), PHue.Speed, 0, 4);
                 

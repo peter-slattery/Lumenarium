@@ -121,7 +121,7 @@ r32 GlobalAnimSpeed = 1.0f;
 r32 GlobalAnimTransitionSpeed = 0.0f;
 
 // how long it takes to fade from the old voice hue to the new one
-r32 PhraseHueFadeInDuration = 2.0f; // seconds
+r32 PhraseHueFadeInDuration = 1.0f; // seconds
 
 r64 PhrasePriorityMessageGroupingTime = 0.0f;
 
