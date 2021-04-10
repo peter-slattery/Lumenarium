@@ -29,8 +29,7 @@ enum p_hue_add_in
 
 typedef struct p_hue
 {
-    r64 Hue;
-    p_hue_flag Flags;
+    v4 HSV;
 } p_hue;
 
 typedef struct phrase_hue_map
@@ -46,6 +45,7 @@ typedef struct phrase_hue_map
     r32*   Speed;
     u8*    Pattern;
     u8*    AddIn;
+    bool*  OverrideAll;
 } phrase_hue_map;
 
 typedef struct phrase_hue
@@ -59,6 +59,7 @@ typedef struct phrase_hue
     r32   Speed;
     u8    Pattern;
     u8    AddIn;
+    bool  OverrideAll;
 } phrase_hue;
 
 internal p_hue
@@ -66,22 +67,25 @@ LerpPHue(r32 T, p_hue A, p_hue B)
 {
     p_hue Result = {};
     
-    if (Abs(A.Hue - B.Hue) < 180.0f)
+    if (Abs(A.HSV.x - B.HSV.x) < 180.0f)
     {
-        Result.Hue = LerpR64(T, A.Hue, B.Hue);
+        Result.HSV.x = LerpR64(T, A.HSV.x, B.HSV.x);
     } 
+    else if (B.HSV.x > A.HSV.x)
+    {
+        Result.HSV.x = LerpR64(T, A.HSV.x, B.HSV.x - 360.0f);
+    }
     else
     {
-        Result.Hue = LerpR64(T, A.Hue + 360.0f, B.Hue);
-        Result.Hue = ModR32(Result.Hue, 360.0f);
+        Result.HSV.x = LerpR64(T, A.HSV.x - 360.0f, B.HSV.x);
     }
+    if (Result.HSV.x < 360) Result.HSV.x += 360;
+    if (Result.HSV.x > 360) Result.HSV.x -= 360;
+    Result.HSV.x = Clamp(0, Result.HSV.x, 360);
+    Result.HSV.y = LerpR32(T, A.HSV.y, B.HSV.y);
+    Result.HSV.z = LerpR32(T, A.HSV.z, B.HSV.z);
+    Result.HSV.w = LerpR32(T, A.HSV.w, B.HSV.w);
     
-    if (T < 0.5f)
-    {
-        Result.Flags = A.Flags;
-    } else {
-        Result.Flags = B.Flags;
-    }
     return Result;
 }
 
@@ -116,18 +120,18 @@ CreateHueFromString(gs_const_string Str)
 {
     p_hue Result = {};
     if (Str.Str[0] == 'b') {
-        Result.Flags = Hue_Black;
+        Result.HSV = v4{0, 0, 0, 1 };
     } else if (Str.Str[0] == 'w') {
-        Result.Flags = Hue_White;
+        Result.HSV = v4{0, 0, 1, 1 };;
     } else {
-        Result.Flags = Hue_Value;
         parse_float_result Parsed = ValidateAndParseFloat(Str);
         if (!Parsed.Success)
         {
             OutputDebugString("Failed to Parse CSV Float\n");
             Parsed.Value = 0.0;
         }
-        Result.Hue = Parsed.Value;
+        Result.HSV = v4{ (r32)Parsed.Value, 1, 1, 1 };
+        
     }
     return Result;
 }
@@ -135,14 +139,7 @@ CreateHueFromString(gs_const_string Str)
 internal v4
 RGBFromPhraseHue (p_hue H)
 {
-    v4 Result = {};
-    switch (H.Flags)
-    {
-        case Hue_Black: { Result = v4{1, 0, 0, 1}; } break;
-        case Hue_White: { Result = v4{1, 0, 1, 1}; } break;
-        case Hue_Value: { Result = v4{(r32)H.Hue, 1, 1, 1}; } break;
-        InvalidDefaultCase;
-    }
+    v4 Result = H.HSV;
     Result = HSVToRGB(Result);
     return Result;
 }
@@ -163,6 +160,7 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
     Result.Pattern = PushArray(Arena, u8,   Result.CountMax);
     Result.Speed = PushArray(Arena, r32,   Result.CountMax);
     Result.AddIn = PushArray(Arena, u8,    Result.CountMax);
+    Result.OverrideAll = PushArray(Arena, bool, Result.CountMax);
     
     // this lets us tightly pack phrase_hues even if there is a
     // row in the csv that is empty or invalid
@@ -182,6 +180,7 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
         gs_const_string Speed       = CSVSheet_GetCell(Sheet, 6, Row);
         gs_const_string Pattern     = CSVSheet_GetCell(Sheet, 7, Row);
         gs_const_string AddIn       = CSVSheet_GetCell(Sheet, 8, Row);
+        gs_const_string OverrideAll = CSVSheet_GetCell(Sheet, 9, Row);
         
         // essential parameters
         if (Phrase.Length == 0 ||
@@ -239,6 +238,8 @@ PhraseHueMap_GenFromCSV(gscsv_sheet Sheet, gs_memory_arena* Arena)
             ParsedGranularity.Value = 1;
         }
         Result.Gran[Index] = ParsedGranularity.Value;
+        
+        Result.OverrideAll[Index] = StringsEqualUpToLength(OverrideAll, ConstString("yes"), 3);
     }
     
     Result.Count = Result.CountMax + DestOffset;
@@ -260,6 +261,7 @@ PhraseHueMap_Get(phrase_hue_map Map, u32 Index)
     Result.Speed = Map.Speed[Index];
     Result.AddIn = Map.AddIn[Index];
     Result.Pattern = Map.Pattern[Index];
+    Result.OverrideAll = Map.OverrideAll[Index];
     return Result;
 }
 

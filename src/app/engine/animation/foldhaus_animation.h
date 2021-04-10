@@ -678,7 +678,7 @@ AnimationSystem_Init(animation_system_desc Desc)
     Result.ActiveFadeGroup.FadeElapsed = 0;
     
     // Settings
-    Result.Multithreaded = true;
+    Result.Multithreaded = false;
     
     return Result;
 }
