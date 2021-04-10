@@ -690,6 +690,10 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             {
                 BLState->ShouldDimUpperLeds[i] = true;
             }
+            else
+            {
+                BLState->ShouldDimUpperLeds[i] = false;
+            }
         }
         else if (MotorPos == MotorState_Closed ||
                  MotorPos == MotorState_HalfOpen)
