@@ -70,11 +70,17 @@ LerpPHue(r32 T, p_hue A, p_hue B)
     {
         Result.Hue = LerpR64(T, A.Hue, B.Hue);
     } 
+    else if (B.Hue > A.Hue)
+    {
+        Result.Hue = LerpR64(T, A.Hue, B.Hue - 360.0f);
+    }
     else
     {
-        Result.Hue = LerpR64(T, A.Hue + 360.0f, B.Hue);
-        Result.Hue = ModR32(Result.Hue, 360.0f);
+        Result.Hue = LerpR64(T, A.Hue - 360.0f, B.Hue);
     }
+    if (Result.Hue < 360) Result.Hue += 360;
+    if (Result.Hue > 360) Result.Hue -= 360;
+    Result.Hue = Clamp(0, Result.Hue, 360);
     
     if (T < 0.5f)
     {
