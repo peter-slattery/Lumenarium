@@ -245,11 +245,11 @@ Win32SocketPeek(platform_socket_manager* Manager, platform_socket* Socket)
     char Temp[4];
     u32 TempSize = 4;
     
-    //OutputDebugString("Pre Peek...");
+    //Log_Message(GlobalLogBuffer, "Pre Peek...");
     //s32 BytesQueued = recv(*Win32Sock, Temp, TempSize, Flags);
     u_long BytesQueued = 0;
     ioctlsocket(*Win32Sock, FIONREAD, &BytesQueued);
-    //OutputDebugString("Post Peek\n");
+    //Log_Message(GlobalLogBuffer, "Post Peek\n");
     
     if (BytesQueued != SOCKET_ERROR)
     {
@@ -327,7 +327,7 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
     
     s32 LengthSent = sendto(*Win32Sock, (char*)Data.Memory, Data.Size, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     
-    //OutputDebugString("Attempting To Send Network Data: ");
+    //Log_Message(GlobalLogBuffer, "Attempting To Send Network Data: ");
     if (LengthSent == SOCKET_ERROR)
     {
         s32 Error = WSAGetLastError();
@@ -338,7 +338,7 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
                 // NOTE(PS): This covers non-blocking sockets
                 // In this case the message should be tried again
                 LengthSent = 0;
-                //OutputDebugString("Not sent, buffered\n");
+                //Log_Message(GlobalLogBuffer, "Not sent, buffered\n");
             }break;
             
             case WSAECONNABORTED:
@@ -348,8 +348,8 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
             {
                 if (CloseSocket(Manager, Socket))
                 {
+                    Log_Error(GlobalLogBuffer, "Error: %d\n", Error);
                     Error = 0;
-                    OutputDebugString("Error\n");
                 }
             }break;
             
@@ -358,7 +358,7 @@ Win32SocketSend(platform_socket_manager* Manager, platform_socket* Socket, u32 A
     }
     else
     {
-        OutputDebugString("Sent\n");
+        Log_Message(GlobalLogBuffer, "Sent\n");
     }
     
     return LengthSent;
@@ -397,23 +397,28 @@ Win32Socket_SendTo(platform_socket_handle SocketHandle, u32 Address, u32 Port, c
     
     s32 LengthSent = sendto(Socket->Socket, Buffer, BufferLength, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
     
-    OutputDebugString("Attempting To Send Network Data: ");
+    Log_Message(GlobalLogBuffer, "Attempting To Send Network Data: ");
     if (LengthSent == SOCKET_ERROR)
     {
         s32 Error = WSAGetLastError();
-        OutputDebugString("Error\n");
-        if (Error == 10051)
+        switch (Error) 
         {
-        }
-        else
-        {
-            // TODO(Peter): :ErrorLogging
-            InvalidCodePath;
+            case WSAENETUNREACH:
+            {
+                Log_Message(GlobalLogBuffer, 
+                            "Non Critical Error: WSAENETUNREACH \n");
+            } break;
+            
+            default:
+            {
+                Log_Error(GlobalLogBuffer, "Error: %d \n", Error);
+                InvalidCodePath;
+            } break;
         }
     }
     else
     {
-        OutputDebugString("Sent\n");
+        Log_Message(GlobalLogBuffer, "Sent\n");
     }
     
     return LengthSent;

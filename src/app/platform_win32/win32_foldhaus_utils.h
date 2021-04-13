@@ -43,8 +43,7 @@ Error Code: %d\n
 
 DEBUG_PRINT(Win32DebugPrint)
 {
-    Assert(IsNullTerminated(Message));
-    OutputDebugStringA(Message.Str);
+    Log_Message(GlobalLogBuffer, "%S", Message);
 }
 
 #define PrintLastError() PrintLastError_(__FILE__, __LINE__)

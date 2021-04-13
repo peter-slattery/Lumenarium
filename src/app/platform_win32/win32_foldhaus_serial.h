@@ -207,7 +207,7 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
         Success = (BytesWritten == Buffer.Size);
         if (!Success)
         {
-            OutputDebugString("Error: Entire buffer not written.\n");
+            Log_Error(GlobalLogBuffer, "Error: Entire buffer not written.\n");
         }
     }
     else
