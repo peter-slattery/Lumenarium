@@ -631,15 +631,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             ShouldSendCurrentState = true;
         }
         
-        if (ShouldSendCurrentState) 
-        {
-            BLState->LastSendTime = Context->SystemTime_Current;
-            BLState->LastSendState = NewMotorState;
-            Log_Message(GlobalLogBuffer, 
-                        "Would send motor state: %s",
-                        NewMotorState == MotorState_Closed ? "Closed" : "Open");
-        }
-        ShouldSendCurrentState = false;
         if (ShouldSendCurrentState)
         {
             BLState->LastSendTime = Context->SystemTime_Current;
@@ -650,9 +641,9 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             Packet.MotorPacket.FlowerPositions[0] = NewMotorState;
             Packet.MotorPacket.FlowerPositions[1] = NewMotorState;
             Packet.MotorPacket.FlowerPositions[2] = NewMotorState;
-            
             gs_data Msg = StructToData(&Packet, blumen_packet);
             MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
+            
             DEBUG_SentMotorCommand(Packet.MotorPacket, Context->ThreadContext);
         }
     }
