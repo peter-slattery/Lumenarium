@@ -137,10 +137,23 @@ typedef struct time_range
 internal bool
 SystemTimeIsInTimeRange(system_time SysTime, time_range Range)
 {
-    bool Result = (SysTime.Hour >= Range.StartHour &&
-                   SysTime.Minute >= Range.StartMinute &&
-                   SysTime.Hour <= Range.EndHour &&
-                   SysTime.Minute <= Range.EndMinute);
+    bool Result = false;
+    if (SysTime.Hour >= Range.StartHour &&
+        SysTime.Hour <= Range.EndHour)
+    {
+        if (SysTime.Hour == Range.StartHour)
+        {
+            Result = (SysTime.Minute >= Range.StartMinute);
+        }
+        else if (SysTime.Hour == Range.EndHour)
+        {
+            Result = (SysTime.Minute <= Range.EndMinute);
+        }
+        else
+        {
+            Result = true;
+        }
+    }
     return Result;
 }
 
