@@ -171,6 +171,7 @@ struct blumen_lumen_state
     system_time LastStatusUpdateTime;
     
     system_time LastSendTime;
+    bl_motor_state_value LastSendState;
     
     phrase_hue StandardPatternHues;
     r32 AssemblyColorsTransitionTimeLeft[BL_FLOWER_COUNT];
