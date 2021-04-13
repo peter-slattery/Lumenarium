@@ -226,7 +226,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
              ErrorAt != 0;
              ErrorAt = ErrorAt->Next)
         {
-            OutputDebugString(ErrorAt->Message.Str);
+            Log_Error(GlobalLogBuffer, ErrorAt->Message.Str);
         }
         
     }

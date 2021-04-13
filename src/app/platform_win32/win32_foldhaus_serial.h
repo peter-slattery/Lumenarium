@@ -212,7 +212,7 @@ Win32SerialPort_Write(HANDLE PortHandle, gs_data Buffer)
     }
     else
     {
-        OutputDebugStringA("Error: Unable to write to port\n");
+        Log_Error(GlobalLogBuffer, "Error: Unable to write to port\n");
         s32 Error = GetLastError();
         switch (Error)
         {

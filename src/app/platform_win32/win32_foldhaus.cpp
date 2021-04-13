@@ -397,7 +397,8 @@ Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* 
             else
             {
 #if 0
-                OutputDebugStringA("Skipping data buffer because its COM Port isn't set");
+                Log_Message(GlobalLogBuffer, 
+                            "Skipping data buffer because its COM Port isn't set");
 #endif
             }
         }break;
@@ -422,11 +423,11 @@ ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQu
         SetApplicationLinks(Context, *DLL, WorkQueue);
         Context->ReloadStaticData(*Context, GlobalDebugServices, AppReady);
         Success = true;
-        OutputDebugStringA("Reloaded DLL\n");
+        Log_Message(GlobalLogBuffer, "Reloaded DLL\n");
     }
     else if(ShouldError)
     {
-        OutputDebugStringA("Unable to load application DLL at startup.\nAborting\n");
+        Log_Error(GlobalLogBuffer, "Unable to load application DLL at startup.\nAborting\n");
     }
     return Success;
 }
@@ -490,9 +491,9 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
     
     if (WorkingDirectory.Length > 0)
     {
-        OutputDebugStringA("Setting Working Directory\n");
-        OutputDebugStringA(WorkingDirectory.Str);
-        OutputDebugStringA("\n");
+        Log_Message(GlobalLogBuffer, 
+                    "Setting Working Directory \n%S \n",
+                    WorkingDirectory.ConstString);
         Result = SetCurrentDirectory(WorkingDirectory.Str);
         if (!Result)
         {
@@ -502,7 +503,7 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
     }
     else
     {
-        OutputDebugStringA("Error, no data folder found\n");
+        Log_Error(GlobalLogBuffer, "Error, no data folder found\n");
     }
     
     return Result;
@@ -601,7 +602,7 @@ WinMain (
     gs_const_string Args = ConstString((char*)CmdLineArgs);
     if (StringsEqual(Args, ConstString("-headless")))
     {
-        OutputDebugStringA("Running Headless\n");
+        Log_Message(GlobalLogBuffer, "Running Headless\n");
         Context.Headless = true;
     }
     
@@ -707,9 +708,10 @@ WinMain (
             u64 NanosElapsed = Context.SystemTime_Current.NanosSinceEpoch - StartTime.NanosSinceEpoch;
             r64 SecondsElapsed = (r64)NanosElapsed * NanosToSeconds;
             
-            PrintF(&T, "%lld %f Seconds\n", NanosElapsed, SecondsElapsed);
-            NullTerminate(&T);
-            OutputDebugStringA(T.Str);
+            Log_Message(GlobalLogBuffer,
+                        "%lld %f Seconds \n",
+                        NanosElapsed,
+                        SecondsElapsed);
 #endif
         }
         

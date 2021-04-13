@@ -11,7 +11,6 @@
 #include "engine/foldhaus_serializer.h"
 
 #include "../gs_libs/gs_font.h"
-#include "engine/foldhaus_log.h"
 
 #include "editor/interface.h"
 
@@ -47,8 +46,6 @@ typedef struct panel panel;
 #include "engine/user_space.h"
 #include "ss_blumen_lumen/phrase_hue_map.h"
 #include "ss_blumen_lumen/blumen_lumen.h"
-
-global log_buffer* GlobalLogBuffer;
 
 struct app_state
 {

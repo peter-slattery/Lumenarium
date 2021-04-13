@@ -29,6 +29,9 @@ Handle_IsValid(handle Handle)
 #include "..\gs_libs\gs_string.h"
 #include "..\gs_libs\gs_csv.h"
 
+#include "engine/foldhaus_log.h"
+global log_buffer* GlobalLogBuffer;
+
 #include "foldhaus_debug.h"
 global debug_services* GlobalDebugServices;
 

@@ -444,10 +444,7 @@ BlumenLumen_ApplyNextHotHue(blumen_lumen_state* BLState, context Context, gs_str
     // if we are in standard color mode, shift all flowers to the new color
     // otherwise, only shift the next flower in the sequence to the new color
     phrase_hue NewHue = BLState->NextHotHue;
-    
-    PrintF(DebugStr, "Switching To: %S\n", NewHue.Phrase);
-    NullTerminate(DebugStr);
-    OutputDebugString(DebugStr->Str);
+    Log_Message(GlobalLogBuffer, "Switching To: %S\n", NewHue.Phrase);
     
     
     if (BLState->PatternMode == BlumenPattern_Standard ||
@@ -499,9 +496,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                     bool IsntInPhraseReceptionMode = !BLState->InPhraseReceptionMode;
                     if (IsLonger || IsntInPhraseReceptionMode)
                     {
-                        PrintF(&DebugStr, "Queuing: %S\n", NewHue.Phrase);
-                        NullTerminate(&DebugStr);
-                        OutputDebugString(DebugStr.Str);
+                        Log_Message(GlobalLogBuffer, "Queueing: %S\n", NewHue.Phrase);
                         
                         BLState->NextHotHue = NewHue;
                         if (SecondsElapsed(BLState->TimePhraseReceptionBegan,

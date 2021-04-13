@@ -127,7 +127,7 @@ CreateHueFromString(gs_const_string Str)
         parse_float_result Parsed = ValidateAndParseFloat(Str);
         if (!Parsed.Success)
         {
-            OutputDebugString("Failed to Parse CSV Float\n");
+            Log_Error(GlobalLogBuffer, "Failed to Parse CSV Float\n");
             Parsed.Value = 0.0;
         }
         Result.HSV = v4{ (r32)Parsed.Value, 1, 1, 1 };
