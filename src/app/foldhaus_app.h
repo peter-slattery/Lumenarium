@@ -60,7 +60,6 @@ struct app_state
     assembly_array Assemblies;
     assembly_debug_state AssemblyDebugState;
     animation_system AnimationSystem;
-    log_buffer GlobalLog;
     animation_pattern_array Patterns;
     
     // Interface
@@ -92,7 +91,7 @@ LoadAssembly(gs_const_string Path, app_state* State, context Context)
                         State->Transient, 
                         Context, 
                         Path,
-                        &State->GlobalLog);
+                        GlobalLogBuffer);
 }
 
 #include "engine/user_space.cpp"

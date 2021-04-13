@@ -11,10 +11,10 @@
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     GlobalDebugServices = DebugServices;
+    GlobalLogBuffer = LogBuffer;
     if (AppReady)
     {
         app_state* State = (app_state*)Context.MemoryBase;
-        GlobalLogBuffer = &State->GlobalLog;
         State->PanelSystem.PanelDefs = GlobalPanelDefs;
         State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
         
@@ -38,8 +38,6 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Permanent = CreateMemoryArena(Context->ThreadContext.Allocator, "Permanent");
     State->Transient = Context->ThreadContext.Transient;
     State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
-    
-    State->GlobalLog = Log_Init(Context->ThreadContext.Allocator, 32);
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
@@ -78,7 +76,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     
     State->Modes = OperationModeSystemInit(&State->Permanent, Context->ThreadContext);
     
-    ReloadStaticData(*Context, GlobalDebugServices, true);
+    ReloadStaticData(*Context, GlobalDebugServices, GlobalLogBuffer, true);
     US_CustomInit(&State->UserSpaceDesc, State, *Context);
     
     if (!Context->Headless)

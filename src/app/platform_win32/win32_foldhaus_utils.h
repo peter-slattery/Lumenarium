@@ -54,8 +54,7 @@ PrintLastError_(char* File, u32 Line)
     char DebugStringData[256];
     gs_string DebugString = MakeString(DebugStringData, 0, 256);
     u32 Error = GetLastError();
-    PrintF(&DebugString, "%s Line %d: Win32 Error %d\n\0", File, Line, Error);
-    OutputDebugStringA(DebugString.Str);
+    Log_Error(GlobalLogBuffer, "%s Line %d: Win32 Error %d\n\0", File, Line, Error);
 }
 
 

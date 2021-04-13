@@ -6,13 +6,16 @@
 #ifndef FIRST_CPP
 
 
+#include <windows.h>
+#include <stdio.h>
+
 #include "../gs_libs/gs_types.h"
 #include "../gs_libs/gs_types.cpp"
+#include "../app/engine/foldhaus_log.h"
+global log_buffer* GlobalLogBuffer;
 
 #define DEBUG_TRACK_FUNCTION
 
-#include <windows.h>
-#include <stdio.h>
 
 //#include "../app/foldhaus_platform.h"
 //#include "../gs_libs/gs_win32.cpp"
@@ -92,6 +95,8 @@ CreateMessage(gs_data* Data, u8 Count)
 int main(int ArgCount, char** Args)
 {
     gs_thread_context Ctx = Win32CreateThreadContext();
+    GlobalLogBuffer = AllocatorAllocStruct(Ctx.Allocator, log_buffer);
+    *GlobalLogBuffer = Log_Init(Ctx.Allocator, 32);
     
     HANDLE SerialHandle = Win32SerialPort_Open("\\\\.\\COM9", Ctx.Transient);
     Win32SerialPort_SetState(SerialHandle, 2000000, 8, 0, 1);

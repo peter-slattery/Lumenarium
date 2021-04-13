@@ -10,6 +10,9 @@
 
 #include "../gs_libs/gs_types.h"
 #include "../gs_libs/gs_types.cpp"
+#include "../app/engine/foldhaus_log.h"
+global log_buffer* GlobalLogBuffer;
+
 #include "../app/platform_win32/win32_foldhaus_utils.h"
 #include "../app/platform_win32/win32_foldhaus_memory.h"
 #include "../app/platform_win32/win32_foldhaus_fileio.h"
@@ -174,6 +177,8 @@ FlowerStripToChannel(u8 Flower, u8 Channel)
 int main(int ArgCount, char** Args)
 {
     gs_thread_context Ctx = Win32CreateThreadContext();
+    GlobalLogBuffer = AllocatorAllocStruct(Ctx.Allocator, log_buffer);
+    *GlobalLogBuffer = Log_Init(Ctx.Allocator, 32);
     
     gs_string OutputBuffer0 = PushString(Ctx.Transient, MB(4));
     gs_string OutputBuffer1 = PushString(Ctx.Transient, MB(4));

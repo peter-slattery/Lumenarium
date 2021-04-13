@@ -77,7 +77,7 @@ typedef INITIALIZE_APPLICATION(initialize_application);
 #define UPDATE_AND_RENDER(name) void name(context* Context, input_queue InputQueue, render_command_buffer* RenderBuffer, addressed_data_buffer_list* OutputData)
 typedef UPDATE_AND_RENDER(update_and_render);
 
-#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices, bool AppReady)
+#define RELOAD_STATIC_DATA(name) void name(context Context, debug_services* DebugServices, log_buffer* LogBuffer, bool AppReady)
 typedef RELOAD_STATIC_DATA(reload_static_data);
 
 #define CLEANUP_APPLICATION(name) void name(context Context, addressed_data_buffer_list* OutputData)

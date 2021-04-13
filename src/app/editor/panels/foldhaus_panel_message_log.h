@@ -26,9 +26,9 @@ MessageLog_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Render
     ui_interface* Interface = &State->Interface;
     ui_widget* Layout = ui_PushLayout(Interface, PanelBounds, LayoutDirection_TopDown, MakeString("Message Log Layout"));
     
-    ui_BeginList(Interface, MakeString("Message Log List"), 10, State->GlobalLog.EntriesCount);
+    ui_BeginList(Interface, MakeString("Message Log List"), 10, GlobalLogBuffer->EntriesCount);
     
-    log_buffer_iter Iter = Log_GetIter(&State->GlobalLog);
+    log_buffer_iter Iter = Log_GetIter(GlobalLogBuffer);
     while (true)
     {
         log_entry* At = Iter.At;

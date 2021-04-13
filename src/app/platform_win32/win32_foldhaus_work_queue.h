@@ -71,9 +71,7 @@ PUSH_WORK_ON_QUEUE(Win32PushWorkOnQueue)
         gs_string DebugString = MakeString((char*)malloc(256), 256);
         for (u32 i = 0; i < Queue->JobsCount; i++)
         {
-            PrintF(&DebugString, "%d %s\n", i, Queue->Jobs[i].JobName);
-            NullTerminate(&DebugString);
-            OutputDebugStringA(DebugString.Str);
+            Log_Message(GlobalLogBuffer, "%d %s \n", i, Queue->Jobs[i].JobName);
         }
     }
 #endif

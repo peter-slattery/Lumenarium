@@ -67,24 +67,29 @@ Log_TakeNextEntry(log_buffer* Log)
     return Result;
 }
 
+internal void
+Log_PrintFVarArgs(log_buffer* Log, log_entry_type Type, char* Format, va_list Args)
+{
+    log_entry* NextEntry = Log_TakeNextEntry(Log);
+    NextEntry->String.Length = 0;
+    NextEntry->Type = Type;
+    PrintFArgsList(&NextEntry->String, Format, Args);
+    NullTerminate(&NextEntry->String);
+    
+#if DEBUG
+    OutputDebugStringA(NextEntry->String.Str);
+#endif
+}
+
 #define Log_Message(log, fmt, ...) Log_PrintF(log, LogEntry_Message, fmt, __VA_ARGS__)
 #define Log_Error(log, fmt, ...) Log_PrintF(log, LogEntry_Error, fmt, __VA_ARGS__)
 internal void
 Log_PrintF(log_buffer* Log, log_entry_type Type, char* Format, ...)
 {
-    log_entry* NextEntry = Log_TakeNextEntry(Log);
-    
     va_list Args;
     va_start(Args, Format);
-    NextEntry->String.Length = 0;
-    NextEntry->Type = Type;
-    PrintFArgsList(&NextEntry->String, Format, Args);
-    NullTerminate(&NextEntry->String);
+    Log_PrintFVarArgs(Log, Type, Format, Args);
     va_end(Args);
-    
-#if DEBUG
-    OutputDebugStringA(NextEntry->String.Str);
-#endif
 }
 
 internal log_buffer_iter

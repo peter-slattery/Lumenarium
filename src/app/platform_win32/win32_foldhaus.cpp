@@ -332,8 +332,7 @@ DebugPrint (char* Format, ...)
     gs_string StringBuffer = MakeString(Buffer, 256);
     va_list Args;
     va_start(Args, Format);
-    PrintF(&StringBuffer, Format, Args);
-    OutputDebugStringA(Buffer);
+    Log_PrintFVarArgs(GlobalLogBuffer, LogEntry_Message, Format, Args);
     va_end(Args);
 }
 
@@ -421,7 +420,7 @@ ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQu
     if (HotLoadDLL(DLL))
     {
         SetApplicationLinks(Context, *DLL, WorkQueue);
-        Context->ReloadStaticData(*Context, GlobalDebugServices, AppReady);
+        Context->ReloadStaticData(*Context, GlobalDebugServices, GlobalLogBuffer, AppReady);
         Success = true;
         Log_Message(GlobalLogBuffer, "Reloaded DLL\n");
     }
@@ -586,6 +585,8 @@ WinMain (
          )
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
+    GlobalLogBuffer = AllocatorAllocStruct(ThreadContext.Allocator, log_buffer);
+    *GlobalLogBuffer = Log_Init(ThreadContext.Allocator, 32);
     
     gs_allocator_debug AllocDebug = {};
     AllocDebug.AllocationsCountMax = 4096;

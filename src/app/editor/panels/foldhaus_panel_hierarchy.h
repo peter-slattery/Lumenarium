@@ -30,7 +30,7 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAssemblyCallback)
     file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
     gs_file_info FileInfo = FileViewState->SelectedFile;
     
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, FileInfo.Path, &State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, FileInfo.Path, GlobalLogBuffer);
 }
 
 GSMetaTag(panel_render);
