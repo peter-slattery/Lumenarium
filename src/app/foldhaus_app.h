@@ -11,7 +11,7 @@
 #include "engine/foldhaus_serializer.h"
 
 #include "../gs_libs/gs_font.h"
-#include "foldhaus_log.h"
+#include "engine/foldhaus_log.h"
 
 #include "editor/interface.h"
 
@@ -48,6 +48,8 @@ typedef struct panel panel;
 #include "ss_blumen_lumen/phrase_hue_map.h"
 #include "ss_blumen_lumen/blumen_lumen.h"
 
+global log_buffer* GlobalLogBuffer;
+
 struct app_state
 {
     gs_memory_arena Permanent;
@@ -61,7 +63,7 @@ struct app_state
     assembly_array Assemblies;
     assembly_debug_state AssemblyDebugState;
     animation_system AnimationSystem;
-    event_log* GlobalLog;
+    log_buffer GlobalLog;
     animation_pattern_array Patterns;
     
     // Interface
@@ -93,7 +95,7 @@ LoadAssembly(gs_const_string Path, app_state* State, context Context)
                         State->Transient, 
                         Context, 
                         Path,
-                        State->GlobalLog);
+                        &State->GlobalLog);
 }
 
 #include "engine/user_space.cpp"
@@ -117,6 +119,7 @@ EndCurrentOperationMode(app_state* State)
 #include "editor/panels/foldhaus_panel_animation_timeline.h"
 #include "editor/panels/foldhaus_panel_hierarchy.h"
 #include "editor/panels/foldhaus_panel_assembly_debug.h"
+#include "editor/panels/foldhaus_panel_message_log.h"
 
 #include "editor/panels/foldhaus_panel_types.cpp"
 

@@ -1562,9 +1562,10 @@ ui_BeginList(ui_interface* Interface, gs_string Text, u32 ViewportRows, u32 Elem
     s32 ScrollableElements = Max(0, ElementCount - ViewportRows);
     ui_widget_retained_state* ViewportState = ui_GetOrCreateRetainedState(Interface, ViewportLayout);
     ViewportState->ChildrenDrawOffset.x = 0;
-    r32 BaseOffset = Rect2Height(ViewportLayout->Bounds) - ViewportLayout->RowHeight;
+    r32 BaseOffset = 0;
     r32 ScrollPct = 1.0 - State->InitialValueR32;
-    r32 ScrollOffset = ScrollPct * ViewportLayout->RowHeight * ScrollableElements; 
+    r32 RowsOffset = ScrollPct * ScrollableElements;
+    r32 ScrollOffset = (ViewportLayout->RowHeight - (Interface->Style.Margin.y)) * RowsOffset; 
     ViewportState->ChildrenDrawOffset.y = BaseOffset + ScrollOffset;
 }
 

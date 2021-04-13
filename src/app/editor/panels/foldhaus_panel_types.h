@@ -12,6 +12,7 @@ enum panel_type {
     PanelType_HierarchyView,
     PanelType_ProfilerView,
     PanelType_AssemblyDebug,
+    PanelType_MessageLog
 };
 #define FOLDHAUS_PANEL_TYPES_H
 #endif // FOLDHAUS_PANEL_TYPES_H

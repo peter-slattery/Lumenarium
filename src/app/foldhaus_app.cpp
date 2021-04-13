@@ -11,10 +11,10 @@
 RELOAD_STATIC_DATA(ReloadStaticData)
 {
     GlobalDebugServices = DebugServices;
-    
     if (AppReady)
     {
         app_state* State = (app_state*)Context.MemoryBase;
+        GlobalLogBuffer = &State->GlobalLog;
         State->PanelSystem.PanelDefs = GlobalPanelDefs;
         State->PanelSystem.PanelDefsCount = GlobalPanelDefsCount;
         
@@ -39,7 +39,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
     State->Transient = Context->ThreadContext.Transient;
     State->Assemblies = AssemblyArray_Create(8, &State->Permanent);
     
-    State->GlobalLog = PushStruct(&State->Permanent, event_log);
+    State->GlobalLog = Log_Init(Context->ThreadContext.Allocator, 32);
     
     State->CommandQueue = CommandQueue_Create(&State->Permanent, 32);
     
@@ -97,7 +97,7 @@ INITIALIZE_APPLICATION(InitializeApplication)
         SplitPanel(LeftPanel, .5f, PanelSplit_Vertical, &State->PanelSystem, State, *Context);
         
         panel* Profiler = LeftPanel->Right;
-        Panel_SetType(Profiler, &State->PanelSystem, PanelType_ProfilerView, State, *Context);
+        Panel_SetType(Profiler, &State->PanelSystem, PanelType_MessageLog, State, *Context);
         
         panel* Hierarchy = LeftPanel->Left;
         Panel_SetType(Hierarchy, &State->PanelSystem, PanelType_AssemblyDebug, State, *Context);

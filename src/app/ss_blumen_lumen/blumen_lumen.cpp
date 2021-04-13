@@ -69,14 +69,11 @@ DEBUG_AppendText(gs_string Str, gs_thread_context Ctx)
 internal void
 DEBUG_SentMotorCommand(motor_packet Packet, gs_thread_context Ctx)
 {
-    gs_string Str = PushStringF(Ctx.Transient, 256, "Motor Command Sent\nRequested Positions: %d %d %d\n", 
-                                Packet.FlowerPositions[0],
-                                Packet.FlowerPositions[1],
-                                Packet.FlowerPositions[2]);
-    DEBUG_AppendText(Str, Ctx);
-    
-    NullTerminate(&Str);
-    OutputDebugStringA(Str.Str);
+    Log_Message(GlobalLogBuffer, 
+                "Motor Command Sent\nRequested Positions: %d %d %d\n", 
+                Packet.FlowerPositions[0],
+                Packet.FlowerPositions[1],
+                Packet.FlowerPositions[2]);
 }
 
 internal void
@@ -90,25 +87,20 @@ DEBUG_ReceivedMotorPositions(motor_packet NewPos,
     
     if (PosChanged) 
     {
-        gs_string Str = PushStringF(Ctx.Transient, 256, "Motor Status Received\nCurrent Positions: %d %d %d\n", 
-                                    NewPos.FlowerPositions[0],
-                                    NewPos.FlowerPositions[1],
-                                    NewPos.FlowerPositions[2]);
-        DEBUG_AppendText(Str, Ctx);
-        
-        NullTerminate(&Str);
-        OutputDebugStringA(Str.Str);
+        Log_Message(GlobalLogBuffer, 
+                    "Motor Status Received\nCurrent Positions: %d %d %d\n", 
+                    NewPos.FlowerPositions[0],
+                    NewPos.FlowerPositions[1],
+                    NewPos.FlowerPositions[2]);
     }
 }
 
 internal void
 DEBUG_ReceivedTemperature(temp_packet Temp, gs_thread_context Ctx)
 {
-    gs_string TempStr = PushStringF(Ctx.Transient, 256, 
-                                    "\nTemperature: %d\n",
-                                    Temp.Temperature);
-    NullTerminate(&TempStr);
-    OutputDebugStringA(TempStr.Str);
+    Log_Message(GlobalLogBuffer, 
+                "\nTemperature: %d\n",
+                Temp.Temperature);
 }
 
 internal void
@@ -136,13 +128,13 @@ BlumenLumen_MicListenJob(gs_thread_context* Ctx, u8* UserData)
             Data->IsConnected = false;
             if (SocketHandleIsValid(ListenSocket))
             {
-                OutputDebugStringA("Disconnected from Python Server\n");
+                Log_Message(GlobalLogBuffer, "Disconnected from Python Server\n");
                 CloseSocket(Data->SocketManager, ListenSocket);
             }
             ListenSocket = CreateSocket(Data->SocketManager, "127.0.0.1", "20185");
             if (ListenSocket.Index != 0)
             {
-                OutputDebugStringA("Connected to Python Server\n");
+                Log_Message(GlobalLogBuffer, "Connected to Python Server\n");
                 Data->IsConnected = true;
             }
         }

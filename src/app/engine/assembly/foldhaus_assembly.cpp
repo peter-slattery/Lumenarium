@@ -196,7 +196,7 @@ ConstructAssemblyFromDefinition (assembly* Assembly, led_system* LedSystem)
 }
 
 internal assembly*
-LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena* Scratch, context Context, gs_const_string Path, event_log* GlobalLog)
+LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena* Scratch, context Context, gs_const_string Path, log_buffer* GlobalLog)
 {
     assembly* NewAssembly = 0;
     
@@ -232,7 +232,7 @@ LoadAssembly (assembly_array* Assemblies, led_system* LedSystem, gs_memory_arena
     }
     else
     {
-        LogError(GlobalLog, "Unable to load assembly file");
+        Log_Error(GlobalLog, "Unable to load assembly file");
     }
     
     return NewAssembly;
