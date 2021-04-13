@@ -77,21 +77,22 @@ DEBUG_SentMotorCommand(motor_packet Packet, gs_thread_context Ctx)
 }
 
 internal void
-DEBUG_ReceivedMotorPositions(motor_packet NewPos, 
-                             motor_packet LastPos, 
+DEBUG_ReceivedMotorPositions(blumen_lumen_state* BLState, 
+                             motor_status_packet NewPos, 
                              gs_thread_context Ctx)
 {
-    bool PosChanged = (LastPos.FlowerPositions[0] != NewPos.FlowerPositions[0] ||
-                       LastPos.FlowerPositions[1] != NewPos.FlowerPositions[1] ||
-                       LastPos.FlowerPositions[2] != NewPos.FlowerPositions[2]);
+    motor_packet LastPos = BLState->LastKnownMotorState;
+    bool PosChanged = (LastPos.FlowerPositions[0] != NewPos.Pos.FlowerPositions[0] ||
+                       LastPos.FlowerPositions[1] != NewPos.Pos.FlowerPositions[1] ||
+                       LastPos.FlowerPositions[2] != NewPos.Pos.FlowerPositions[2]);
     
     if (PosChanged) 
     {
         Log_Message(GlobalLogBuffer, 
                     "Motor Status Received\nCurrent Positions: %d %d %d\n", 
-                    NewPos.FlowerPositions[0],
-                    NewPos.FlowerPositions[1],
-                    NewPos.FlowerPositions[2]);
+                    NewPos.Pos.FlowerPositions[0],
+                    NewPos.Pos.FlowerPositions[1],
+                    NewPos.Pos.FlowerPositions[2]);
     }
 }
 
@@ -421,10 +422,10 @@ BlumenLumen_CustomInit(app_state* State, context Context)
 internal void
 BlumenLumen_UpdateMotorState(blumen_lumen_state* BLState, motor_status_packet Motor, context Context)
 {
-    motor_packet CurrPos = Motor.Pos;
-    motor_packet LastPos = BLState->LastKnownMotorState;
-    DEBUG_ReceivedMotorPositions(LastPos, Motor.Pos, Context.ThreadContext);
+    DEBUG_ReceivedMotorPositions(BLState, Motor, Context.ThreadContext);
     
+    motor_packet LastPos = BLState->LastKnownMotorState;
+    motor_packet CurrPos = Motor.Pos;
     for (u32 i = 0; i < BL_FLOWER_COUNT; i++)
     {
         if (LastPos.FlowerPositions[i] != CurrPos.FlowerPositions[i])
@@ -635,6 +636,15 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             ShouldSendCurrentState = true;
         }
         
+        if (ShouldSendCurrentState) 
+        {
+            BLState->LastSendTime = Context->SystemTime_Current;
+            BLState->LastSendState = NewMotorState;
+            Log_Message(GlobalLogBuffer, 
+                        "Would send motor state: %s",
+                        NewMotorState == MotorState_Closed ? "Closed" : "Open");
+        }
+        ShouldSendCurrentState = false;
         if (ShouldSendCurrentState)
         {
             BLState->LastSendTime = Context->SystemTime_Current;
@@ -754,7 +764,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         if (SecondsSinceLastSend >= STATUS_PACKET_FREQ_SECONDS)
         {
             BLState->LastStatusUpdateTime = Context->SystemTime_Current;
-            OutputDebugString("Attempting to Send Lumenarium Status\n");
+            Log_Message(GlobalLogBuffer, "Attempting to Send Lumenarium Status\n");
             
             blumen_packet Packet = {};
             Packet.Type = PacketType_LumenariumStatus;
@@ -873,6 +883,11 @@ US_CUSTOM_DEBUG_UI(BlumenLumen_DebugUI)
                         } break;
                         case MotorState_Open: { 
                             StateStr = MakeString("Open"); 
+                        } break;
+                        
+                        default:
+                        {
+                            StateStr = MakeString("Invalid Value");
                         } break;
                     }
                     
