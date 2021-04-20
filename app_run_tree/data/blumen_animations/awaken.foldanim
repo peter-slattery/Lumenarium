@@ -1,7 +1,7 @@
 lumenarium_animation_file;
 animation_name: "awaken";
 layers_count: 3;
-blocks_count: 5;
+blocks_count: 8;
 playable_range:{
     min: 0;
     max: 7200;
@@ -23,7 +23,7 @@ layers:{
 blocks:{
     block:{
         frame_range:{
-            min: 94;
+            min: 0;
             max: 1363;
         };
         layer_index: 0;
@@ -39,7 +39,7 @@ blocks:{
     };
     block:{
         frame_range:{
-            min: 71;
+            min: 5525;
             max: 7200;
         };
         layer_index: 2;
@@ -60,5 +60,29 @@ blocks:{
         };
         layer_index: 1;
         animation_name: "Pattern_StemSolid";
+    };
+    block:{
+        frame_range:{
+            min: 0;
+            max: 1917;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_Blue";
+    };
+    block:{
+        frame_range:{
+            min: 1823;
+            max: 3803;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_RainbowLoadingBar";
+    };
+    block:{
+        frame_range:{
+            min: 3670;
+            max: 5720;
+        };
+        layer_index: 2;
+        animation_name: "Pattern_Rainbow";
     };
 };

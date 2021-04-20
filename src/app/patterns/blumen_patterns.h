@@ -865,5 +865,15 @@ Pattern_RainbowLoadingBar(led_buffer* Leds, led_buffer_range Range, assembly Ass
     }
 }
 
+internal void
+Pattern_Blue(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 Time, gs_memory_arena* Transient, u8* UserData)
+{
+    pixel Blue = pixel{0, 0, 255};
+    for (u32 LedIndex = Range.First; LedIndex < Range.OnePastLast; LedIndex++)
+    {
+        Leds->Colors[LedIndex] = Blue;
+    }
+}
+
 #define BLUMEN_PATTERNS_H
 #endif // BLUMEN_PATTERNS_H
