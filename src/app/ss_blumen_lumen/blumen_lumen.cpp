@@ -298,6 +298,21 @@ BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Con
     u8 MP2 = BLState->LastKnownMotorState.FlowerPositions[2];
     AppendPrintF(&FileStr, "Last Known Motor State: %d %d %d\n", MP0, MP1, MP2);
     
+    time_range MotorRange = {};
+    if (SystemTimeIsInTimeRangeList(Context.SystemTime_Current,
+                                    MotorOpenTimes,
+                                    MotorOpenTimesCount,
+                                    &MotorRange))
+    {
+        AppendPrintF(&FileStr, "\tIn Motor-Open Time Range: ( %d:%d - %d:%d)\n",
+                     MotorRange.StartHour, MotorRange.StartMinute,
+                     MotorRange.EndHour, MotorRange.EndMinute);
+    }
+    else
+    {
+        AppendPrintF(&FileStr, "\tIn Motor-Open Time Range: None\n");
+    }
+    
     char* PatternMode = 0;
     switch (BLState->PatternMode)
     {
