@@ -135,23 +135,56 @@ typedef struct time_range
 } time_range;
 
 internal bool
+SystemTimeIsBeforeTime(system_time SysTime, s32 Hour, s32 Minute)
+{
+    bool Result = false;
+    if (SysTime.Hour == Hour) {
+        Result = SysTime.Minute < Minute;
+    } else {
+        Result = SysTime.Hour < Hour;
+    }
+    return Result;
+}
+
+internal bool
+SystemTimeIsAfterTime(system_time SysTime, s32 Hour, s32 Minute)
+{
+    bool Result = false;
+    if (SysTime.Hour == Hour) {
+        Result = SysTime.Minute > Minute;
+    } else {
+        Result = SysTime.Hour > Hour;
+    }
+    return Result;
+}
+
+internal bool
 SystemTimeIsInTimeRange(system_time SysTime, time_range Range)
 {
     bool Result = false;
-    if (SysTime.Hour >= Range.StartHour &&
-        SysTime.Hour <= Range.EndHour)
+    
+    bool IsAfterStartTime = SystemTimeIsAfterTime(SysTime, Range.StartHour, Range.StartMinute);
+    bool IsBeforeEndTime = SystemTimeIsBeforeTime(SysTime, Range.EndHour, Range.EndMinute);
+    Result = IsAfterStartTime && IsBeforeEndTime;
+    
+    return Result;
+}
+
+internal bool
+SystemTimeIsInTimeRangeList(system_time SysTime, time_range* Ranges, u32 RangesCount, time_range* RangeOut = 0)
+{
+    bool Result = false;
+    for (u32 i = 0; i < RangesCount; i++)
     {
-        if (SysTime.Hour == Range.StartHour)
-        {
-            Result = (SysTime.Minute >= Range.StartMinute);
-        }
-        else if (SysTime.Hour == Range.EndHour)
-        {
-            Result = (SysTime.Minute <= Range.EndMinute);
-        }
-        else
+        time_range Range = Ranges[i];
+        bool CurrTimeInRange = SystemTimeIsInTimeRange(SysTime, Range);
+        if (CurrTimeInRange)
         {
             Result = true;
+            if (RangeOut != 0) {
+                *RangeOut = Range;
+            }
+            break;
         }
     }
     return Result;
@@ -232,6 +265,13 @@ struct blumen_lumen_state
     bool DebugOverrideHue;
     phrase_hue DebugHue;
 };
+
+internal bool
+Blumen_TempShouldDimLeds(blumen_lumen_state* BLState)
+{
+    bool Result = BLState->LastTemperatureReceived > MinHighTemperature;
+    return Result;
+}
 
 #include "message_queue.cpp"
 

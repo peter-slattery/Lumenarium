@@ -314,6 +314,24 @@ BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Con
     
     AppendPrintF(&FileStr, "Pattern Brightness: %f\n", BLState->BrightnessPercent);
     
+    time_range RangeIn = {};
+    if (SystemTimeIsInTimeRangeList(Context.SystemTime_Current,
+                                    LedOnTimes,
+                                    LedOnTimesCount,
+                                    &RangeIn))
+    {
+        AppendPrintF(&FileStr, "\tIn Leds-On Time Range: ( %d:%d - %d:%d)\n",
+                     RangeIn.StartHour, RangeIn.StartMinute,
+                     RangeIn.EndHour, RangeIn.EndMinute);
+    }
+    else
+    {
+        AppendPrintF(&FileStr, "\tIn Leds-On Time Range: None\n");
+    }
+    
+    AppendPrintF(&FileStr, "\tTemp Dimming: %s\n",
+                 Blumen_TempShouldDimLeds(BLState) ? "On" : "Off");
+    
     AppendPrintF(&FileStr, "Last Temp Received: %d\n", BLState->LastTemperatureReceived);
     
     gs_data LogMem = StringToData(FileStr);
@@ -528,8 +546,9 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             case PacketType_Temperature:
             {
                 temp_packet Temp = Packet.TempPacket;
+                BLState->LastTemperatureReceived = Temp.Temperature;
                 
-                if (Temp.Temperature > MinHighTemperature)
+                if (Blumen_TempShouldDimLeds(BLState))
                 {
                     BLState->BrightnessPercent = HighTemperatureBrightnessPercent;
                 }
@@ -537,7 +556,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                 {
                     BLState->BrightnessPercent = FullBrightnessPercent;
                 }
-                BLState->LastTemperatureReceived = Temp.Temperature;
                 
                 DEBUG_ReceivedTemperature(Temp, Context->ThreadContext);
                 BLState->ShouldUpdateLog = true;
@@ -711,19 +729,24 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     {
         bool TimelineShouldAdvance = false;
         r32 OverrideBrightness = 0.0f;
-        for (u32 i = 0; i < LedOnTimesCount; i++)
+        
+        time_range RangeIn = {};
+        if (SystemTimeIsInTimeRangeList(Context->SystemTime_Current,
+                                        LedOnTimes,
+                                        LedOnTimesCount,
+                                        &RangeIn))
         {
-            time_range Range = LedOnTimes[i];
-            bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
-            if (CurrTimeInRange)
-            {
-                // If we're in one of the specified time ranges,
-                // play animations and set brightness 
-                OverrideBrightness = BLState->BrightnessPercent;
-                TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
-                break;
-            }
+            // If we're in one of the specified time ranges,
+            // play animations and set brightness 
+            //
+            // The values of BrightnessPercent and TimelineShouldAdvance
+            // are set according to less strict rules above in this update
+            // function. All we are doing is saying "If we are in a valid
+            // time range, keep those values".
+            OverrideBrightness = BLState->BrightnessPercent;
+            TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
         }
+        
         State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;
         BLState->BrightnessPercent = OverrideBrightness;
     }
