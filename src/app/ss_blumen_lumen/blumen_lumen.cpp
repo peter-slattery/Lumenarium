@@ -566,16 +566,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             {
                 temp_packet Temp = Packet.TempPacket;
                 BLState->LastTemperatureReceived = Temp.Temperature;
-                
-                if (Blumen_TempShouldDimLeds(BLState))
-                {
-                    BLState->BrightnessPercent = HighTemperatureBrightnessPercent;
-                }
-                else
-                {
-                    BLState->BrightnessPercent = FullBrightnessPercent;
-                }
-                
                 DEBUG_ReceivedTemperature(Temp, Context->ThreadContext);
                 BLState->ShouldUpdateLog = true;
             }break;
@@ -751,15 +741,16 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
                                         LedOnTimesCount,
                                         &RangeIn))
         {
-            // If we're in one of the specified time ranges,
-            // play animations and set brightness 
-            //
-            // The values of BrightnessPercent and TimelineShouldAdvance
-            // are set according to less strict rules above in this update
-            // function. All we are doing is saying "If we are in a valid
-            // time range, keep those values".
-            OverrideBrightness = BLState->BrightnessPercent;
-            TimelineShouldAdvance = State->AnimationSystem.TimelineShouldAdvance;
+            
+            if (Blumen_TempShouldDimLeds(BLState))
+            {
+                OverrideBrightness = HighTemperatureBrightnessPercent;
+            }
+            else
+            {
+                OverrideBrightness = FullBrightnessPercent;
+            }
+            TimelineShouldAdvance = true;
         }
         
         State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;

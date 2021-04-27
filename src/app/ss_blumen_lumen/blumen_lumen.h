@@ -151,7 +151,7 @@ SystemTimeIsAfterTime(system_time SysTime, s32 Hour, s32 Minute)
 {
     bool Result = false;
     if (SysTime.Hour == Hour) {
-        Result = SysTime.Minute > Minute;
+        Result = SysTime.Minute >= Minute;
     } else {
         Result = SysTime.Hour > Hour;
     }
