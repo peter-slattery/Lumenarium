@@ -36,10 +36,9 @@ gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_r
 // NOTE: There is no need to modify the MotorOpenTimesCount variable -
 // it is a compile time constant that gets calculated automatically
 global time_range MotorOpenTimes[] = {
-    { 8, 00, 12, 00 },
-    { 12, 30, 13, 00 },
-    { 18, 00, 22, 00 }, // 6:00pm to 10:00pm
-    { 23, 05, 23, 53 },
+    { 8, 00, 12, 00 },  //  8:00am to 12:00pm
+    { 12, 30, 13, 00 }, // 12:30pm to 01:00pm
+    { 18, 00, 22, 00 }, //  6:00pm to 10:00pm
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
 

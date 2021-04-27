@@ -290,6 +290,10 @@ BlumenLumen_UpdateLog(app_state* State, blumen_lumen_state* BLState, context Con
     animation* CurrAnim = AnimationSystem_GetActiveAnimation(&State->AnimationSystem);
     AppendPrintF(&FileStr, "Curr Animation: %S\n", CurrAnim->Name);
     
+    bool IsPlaying = State->AnimationSystem.TimelineShouldAdvance;
+    AppendPrintF(&FileStr, "\tIs Playing: %s\n", 
+                 IsPlaying ? "True" : "False");
+    
     char* Connected = BLState->MicListenJobData.IsConnected ? "Connected" : "Disconnected";
     AppendPrintF(&FileStr, "Connected to Python: %s\n", Connected);
     
@@ -623,11 +627,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
             
             if (SecondsSinceChange > VoiceCommandSustainDuration)
             {
-                BLState->PatternMode = BlumenPattern_Standard;
-                animation_handle NewAnim = BLState->ModeAnimations[BlumenPattern_Standard].Handles[0];
-                AnimationFadeGroup_FadeTo(&State->AnimationSystem.ActiveFadeGroup,
-                                          NewAnim,
-                                          VoiceCommandFadeDuration);
+                BlumenLumen_SetPatternMode(BlumenPattern_Standard, GlobalAnimTransitionSpeed, &State->AnimationSystem, BLState);
                 BLState->ShouldUpdateLog = true;
             }
         }
