@@ -37,8 +37,8 @@ gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_r
 // it is a compile time constant that gets calculated automatically
 global time_range MotorOpenTimes[] = {
     { 8, 00, 12, 00 },  //  8:00am to 12:00pm
-    { 12, 30, 13, 00 }, // 12:30pm to 01:00pm
-    { 18, 00, 22, 00 }, //  6:00pm to 10:00pm
+    { 12, 30, 18, 00 }, // 12:30pm to 06:00pm
+    { 18, 30, 22, 00 }, //  6:30pm to 10:00pm
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
 
@@ -102,13 +102,13 @@ s8 MinHighTemperature = 26;
 // This is multiplied by each pixels R, G, & B channels before being
 // sent. So if it is set to .1f, then the maximum brightness value sent
 // to any channel of any pixel will be 25 (255 * .1 = 25).
-r32 HighTemperatureBrightnessPercent = 0.7f;
+r32 HighTemperatureBrightnessPercent = 0.25f;
 
 // The percent brightness we set leds to when no other conditions apply
 // A value in the range 0:1 inclusive.
 // Probably wants to be something high like 1 but we might want to
 // lower it for heat reasons?
-r32 FullBrightnessPercent = 1.0f;
+r32 FullBrightnessPercent = 0.50f;
 
 // A global modifier so Joerg can just slow all the patterns right down
 // XD
