@@ -166,6 +166,18 @@ UPDATE_AND_RENDER(UpdateAndRender)
     
     Assert(State->UserSpaceDesc.UserData.Memory != 0);
     BuildAssemblyData(State, *Context, OutputData);
+    
+    // NOTE(PS): We introduced this in order to test some things on the 
+    // blumen lumen circuit boards, to see if they were getting out
+    // of sync
+    if (State->SendEmptyPackets) {
+        for (addressed_data_buffer* At = OutputData->Root;
+             At != 0;
+             At = At->Next)
+        {
+            ZeroMemoryBlock(At->Memory, At->MemorySize);
+        }
+    }
 }
 
 CLEANUP_APPLICATION(CleanupApplication)

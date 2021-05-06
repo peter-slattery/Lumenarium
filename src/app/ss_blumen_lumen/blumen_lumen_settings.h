@@ -16,7 +16,7 @@ gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 
 // The path to the phrase map CSV. Can be an absolute path, or relative
 // to the app_run_tree folder
-gs_const_string PhraseMapCSVPath = ConstString("C:/projects/flowers-sound/flower_codes.tsv");
+gs_const_string PhraseMapCSVPath = ConstString("C:/projects/Lumenarium/app_run_tree/data/flower_codes.tsv");
 char PhraseMapCSVSeparator = '\t';
 
 // Search Strings for which folders to find ambient animation files and
@@ -50,6 +50,9 @@ global r32 MotorResendStatePeriod = 90.0f; // seconds
 // The times of day when the leds should be on
 // Search for @TimeFormat to find documentation
 global time_range LedOnTimes[] = {
+    { 14, 43, 14, 44 },
+    { 14, 45, 14, 46 },
+    
     { 17, 00, 23, 59 },
     { 00, 00, 06, 30 },
 };
