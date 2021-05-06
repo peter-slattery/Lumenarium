@@ -137,6 +137,8 @@ AssemblyDebug_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
             }break;
         }
     }
+    
+    State->SendEmptyPackets = ui_LabeledToggle(Interface, MakeString("Send Empty Packets"), State->SendEmptyPackets);
     ui_PopLayout(Interface, MakeString("Assembly Debug Layout"));
 }
 

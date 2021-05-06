@@ -77,6 +77,7 @@ struct app_state
     bool ShowingUserSpaceDebug;
     
     bool RunEditor;
+    bool SendEmptyPackets;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
