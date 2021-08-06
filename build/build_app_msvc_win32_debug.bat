@@ -37,7 +37,9 @@ cl %CommonCompilerFlags% %ProjectDevPath%\src\sculpture_gen\gen_blumen_lumen.cpp
 REM COMPILE AND RUN TESTS
 cl %CommonCompilerFlags% %ProjectDevPath%\src\tests\sanity_tests.cpp /Fesanity_tests.exe /link %CommonLinkerFlags% user32.lib winmm.lib gdi32.lib
 
+ECHO SANITY TESTS BEGIN
 sanity_tests.exe
+ECHO SANITY TESTS END
 
 popd
 
