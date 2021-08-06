@@ -1,36 +1,26 @@
-//
-// File: win32_foldhaus_memory.h
-// Author: Peter Slattery
-// Creation Date: 2020-02-04
-//
-//
-// NOTE: Relies on having imported foldhaus_platform.h prior to this file
-//
-#ifndef WIN32_FOLDHAUS_MEMORY_H
+/* date = May 10th 2021 11:48 pm */
 
-ALLOCATOR_ALLOC(Win32Alloc)
+#ifndef GS_MEMORY_WIN32_H
+#define GS_MEMORY_WIN32_H
+
+PLATFORM_ALLOC(Win32Alloc)
 {
-    u8* Result = (u8*)VirtualAlloc(NULL, Size,
-                                   MEM_COMMIT | MEM_RESERVE,
-                                   PAGE_EXECUTE_READWRITE);
-    if (ResultSize != 0)
-    {
-        *ResultSize = Size;
-    }
-    return Result;
+  u8* Result = (u8*)VirtualAlloc(NULL, Size,
+                                 MEM_COMMIT | MEM_RESERVE,
+                                 PAGE_EXECUTE_READWRITE);
+  if (ResultSize) *ResultSize = Size;
+  return Result;
 }
 
-ALLOCATOR_FREE(Win32Free)
+PLATFORM_FREE(Win32Free)
 {
-    b32 Result = VirtualFree(Ptr, 0, MEM_RELEASE);
-    if (!Result)
-    {
-        s32 Error = GetLastError();
-        // TODO(Peter): I'm waiting to see an error actually occur here
-        // to know what it could possibly be.
-        InvalidCodePath;
-    }
+  VirtualFree(Base, 0, MEM_RELEASE);
 }
 
-#define WIN32_FOLDHAUS_MEMORY_H
-#endif // WIN32_FOLDHAUS_MEMORY_H
+internal gs_allocator 
+CreatePlatformAllocator()
+{
+  return AllocatorCreate(Win32Alloc, Win32Free, 0);
+}
+
+#endif //GS_MEMORY_WIN32_H

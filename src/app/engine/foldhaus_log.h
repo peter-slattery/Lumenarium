@@ -5,79 +5,84 @@
 
 enum log_entry_type
 {
-    LogEntry_Message,
-    LogEntry_Error,
+  LogEntry_Message,
+  LogEntry_Error,
 };
 
 struct log_entry
 {
-    log_entry_type Type;
-    gs_string String;
+  log_entry_type Type;
+  gs_string String;
 };
 
 struct log_buffer
 {
-    gs_allocator Allocator;
-    
-    u64 EntriesCount;
-    u64 NextEntry;
-    log_entry* Entries;
+  gs_memory_arena* Arena;
+  
+  u64 EntriesCount;
+  u64 NextEntry;
+  log_entry* Entries;
 };
 
 struct log_buffer_iter
 {
-    log_buffer* Buffer;
-    u64 Start;
-    u64 IndexAt;
-    log_entry* At;
+  log_buffer* Buffer;
+  u64 Start;
+  u64 IndexAt;
+  log_entry* At;
 };
 
 internal log_buffer
-Log_Init(gs_allocator Allocator, u64 Count)
+Log_Init(gs_memory_arena* A, u64 Count)
 {
-    log_buffer Result = {};
-    Result.Allocator = Allocator;
-    Result.EntriesCount = Count;
-    Result.Entries = AllocatorAllocArray(Allocator, log_entry, Result.EntriesCount);
-    
-    for (u32 i = 0; i < Result.EntriesCount; i++)
-    {
-        Result.Entries[i].String = AllocatorAllocString(Allocator, 512);
-    }
-    
-    return Result;
+  log_buffer Result = {};
+  Result.Arena = A;
+  Result.EntriesCount = Count;
+  Result.Entries = PushArray(A, log_entry, Result.EntriesCount);
+  
+  u64 LogStringLength = 512;
+  u64 LogStringBufferSize = LogStringLength * Result.EntriesCount;
+  char* LogStringBuffer = PushArray(A, char, LogStringBufferSize);
+  char* LogStringBufferAt = LogStringBuffer;
+  for (u32 i = 0; i < Result.EntriesCount; i++)
+  {
+    Result.Entries[i].String = MakeString(LogStringBufferAt, 0, LogStringLength);
+    LogStringBufferAt += LogStringLength;
+  }
+  
+  return Result;
 }
 
 internal u64
 Log_GetNextIndex(log_buffer Log, u64 At)
 {
-    u64 Result = At + 1;
-    if (Result >= Log.EntriesCount) 
-    {
-        Result = 0;
-    }
-    return Result;
+  u64 Result = At + 1;
+  if (Result >= Log.EntriesCount) 
+  {
+    Result = 0;
+  }
+  return Result;
 }
 
 internal log_entry*
 Log_TakeNextEntry(log_buffer* Log)
 {
-    log_entry* Result = Log->Entries + Log->NextEntry;
-    Log->NextEntry = Log_GetNextIndex(*Log, Log->NextEntry);
-    return Result;
+  log_entry* Result = Log->Entries + Log->NextEntry;
+  Log->NextEntry = Log_GetNextIndex(*Log, Log->NextEntry);
+  return Result;
 }
 
 internal void
 Log_PrintFVarArgs(log_buffer* Log, log_entry_type Type, char* Format, va_list Args)
 {
-    log_entry* NextEntry = Log_TakeNextEntry(Log);
-    NextEntry->String.Length = 0;
-    NextEntry->Type = Type;
-    PrintFArgsList(&NextEntry->String, Format, Args);
-    NullTerminate(&NextEntry->String);
-    
+  log_entry* NextEntry = Log_TakeNextEntry(Log);
+  NextEntry->String.Length = 0;
+  NextEntry->Type = Type;
+  PrintFArgsList(&NextEntry->String, Format, Args);
+  NullTerminate(&NextEntry->String);
+  
 #if DEBUG
-    OutputDebugStringA(NextEntry->String.Str);
+  OutputDebugStringA(NextEntry->String.Str);
 #endif
 }
 
@@ -86,36 +91,36 @@ Log_PrintFVarArgs(log_buffer* Log, log_entry_type Type, char* Format, va_list Ar
 internal void
 Log_PrintF(log_buffer* Log, log_entry_type Type, char* Format, ...)
 {
-    va_list Args;
-    va_start(Args, Format);
-    Log_PrintFVarArgs(Log, Type, Format, Args);
-    va_end(Args);
+  va_list Args;
+  va_start(Args, Format);
+  Log_PrintFVarArgs(Log, Type, Format, Args);
+  va_end(Args);
 }
 
 internal log_buffer_iter
 Log_GetIter(log_buffer* Buffer)
 {
-    log_buffer_iter Result = {};
-    Result.Buffer = Buffer;
-    Result.Start = Buffer->NextEntry;
-    Result.IndexAt = Result.Start;
-    Result.At = Result.Buffer->Entries + Result.IndexAt;
-    return Result;
+  log_buffer_iter Result = {};
+  Result.Buffer = Buffer;
+  Result.Start = Buffer->NextEntry;
+  Result.IndexAt = Result.Start;
+  Result.At = Result.Buffer->Entries + Result.IndexAt;
+  return Result;
 }
 
 internal bool
 LogIter_CanAdvance(log_buffer_iter Iter)
 {
-    u64 Next = Log_GetNextIndex(*Iter.Buffer, Iter.IndexAt);
-    bool Result = Next != Iter.Start;
-    return Result;
+  u64 Next = Log_GetNextIndex(*Iter.Buffer, Iter.IndexAt);
+  bool Result = Next != Iter.Start;
+  return Result;
 }
 
 internal void
 LogIter_Advance(log_buffer_iter* Iter)
 {
-    Iter->IndexAt = Log_GetNextIndex(*Iter->Buffer, Iter->IndexAt);
-    Iter->At = Iter->Buffer->Entries + Iter->IndexAt;
+  Iter->IndexAt = Log_GetNextIndex(*Iter->Buffer, Iter->IndexAt);
+  Iter->At = Iter->Buffer->Entries + Iter->IndexAt;
 }
 
 #endif //FOLDHAUS_LOG_H

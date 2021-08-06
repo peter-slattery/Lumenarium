@@ -66,46 +66,46 @@ typedef double r64;
 
 enum gs_basic_type
 {
-    gs_BasicType_char,
-    gs_BasicType_b8,
-    gs_BasicType_b32,
-    gs_BasicType_b64,
-    gs_BasicType_u8,
-    gs_BasicType_u16,
-    gs_BasicType_u32,
-    gs_BasicType_u64,
-    gs_BasicType_s8,
-    gs_BasicType_s16,
-    gs_BasicType_s32,
-    gs_BasicType_s64,
-    gs_BasicType_r32,
-    gs_BasicType_r64,
-    
-    gs_BasicType_Count,
+  gs_BasicType_char,
+  gs_BasicType_b8,
+  gs_BasicType_b32,
+  gs_BasicType_b64,
+  gs_BasicType_u8,
+  gs_BasicType_u16,
+  gs_BasicType_u32,
+  gs_BasicType_u64,
+  gs_BasicType_s8,
+  gs_BasicType_s16,
+  gs_BasicType_s32,
+  gs_BasicType_s64,
+  gs_BasicType_r32,
+  gs_BasicType_r64,
+  
+  gs_BasicType_Count,
 };
 
 global_const u64 gs_BasicTypeSizes[] =
 {
-    sizeof(char),
-    sizeof(b8),
-    sizeof(b32),
-    sizeof(b64),
-    sizeof(u8),
-    sizeof(u16),
-    sizeof(u32),
-    sizeof(u64),
-    sizeof(s8),
-    sizeof(s16),
-    sizeof(s32),
-    sizeof(s64),
-    sizeof(r32),
-    sizeof(r64),
+  sizeof(char),
+  sizeof(b8),
+  sizeof(b32),
+  sizeof(b64),
+  sizeof(u8),
+  sizeof(u16),
+  sizeof(u32),
+  sizeof(u64),
+  sizeof(s8),
+  sizeof(s16),
+  sizeof(s32),
+  sizeof(s64),
+  sizeof(r32),
+  sizeof(r64),
 };
 
 internal u64
 BasicTypeSize(gs_basic_type Type)
 {
-    return gs_BasicTypeSizes[(u32)Type];
+  return gs_BasicTypeSizes[(u32)Type];
 }
 
 global_const u8  MaxU8  = 0xFF;
@@ -143,69 +143,69 @@ global_const r64 SecondsToNanos = 10000000.0;
 internal r32
 DegToRadR32(r32 Degrees)
 {
-    return (Degrees * (PiR32 / 180.0f));
+  return (Degrees * (PiR32 / 180.0f));
 }
 
 internal r32
 RadToDegR32(r32 Radians)
 {
-    return (Radians * (180.0f / PiR32));
+  return (Radians * (180.0f / PiR32));
 }
 
 struct s8_array
 {
-    s8* Values;
-    u32 Count;
-    u32 CountMax;
+  s8* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct s16_array
 {
-    s16* Values;
-    u32 Count;
-    u32 CountMax;
+  s16* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct s32_array
 {
-    s32* Values;
-    u32 Count;
-    u32 CountMax;
+  s32* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct s64_array
 {
-    s64* Values;
-    u32 Count;
-    u32 CountMax;
+  s64* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct u8_array
 {
-    u8* Values;
-    u32 Count;
-    u32 CountMax;
+  u8* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct u16_array
 {
-    u16* Values;
-    u32 Count;
-    u32 CountMax;
+  u16* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct u32_array
 {
-    u32* Values;
-    u32 Count;
-    u32 CountMax;
+  u32* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct u64_array
 {
-    u64* Values;
-    u32 Count;
-    u32 CountMax;
+  u64* Values;
+  u32 Count;
+  u32 CountMax;
 };
 
 
@@ -279,19 +279,19 @@ Glue(gs_AssertFail_, __LINE__) = 1 / (int)(!!(c)), \
 internal void
 ZeroMemory_(u8* Memory, u64 Size)
 {
-    for (u64 i = 0; i < Size; i++)
-    {
-        Memory[i] = 0;
-    }
+  for (u64 i = 0; i < Size; i++)
+  {
+    Memory[i] = 0;
+  }
 }
 
 internal void
 CopyMemory_(u8* From, u8* To, u64 Size)
 {
-    for (u64 i = 0; i < Size; i++)
-    {
-        To[i] = From[i];
-    }
+  for (u64 i = 0; i < Size; i++)
+  {
+    To[i] = From[i];
+  }
 }
 
 #define StaticArrayLength(arr) sizeof(arr) / sizeof((arr)[0])
@@ -309,8 +309,8 @@ CopyMemory_(u8* From, u8* To, u64 Size)
 #define SLLPop_(list_tail) list_tail=list_tail=list_tail->next
 #define SLLPop(list_tail) (SLLPop_((list_tail)))
 
-#define SLLNext(ele_at) ele_at = ele_at->Next;
-#define SLLPrev(ele_at) ele_at = ele_at->Prev;
+#define SLLNext(ele_at) ele_at = ele_at->Next
+#define SLLPrev(ele_at) ele_at = ele_at->Prev
 
 #define SLLInit(head,tail,first_ele) head=first_ele, tail=first_ele;
 
@@ -322,80 +322,80 @@ else { SLLInit(first,last,new_ele); }
 
 union v2
 {
-    struct
-    {
-        r32 x;
-        r32 y;
-    };
-    r32 E[2];
+  struct
+  {
+    r32 x;
+    r32 y;
+  };
+  r32 E[2];
 };
 
 union v3
 {
-    struct
-    {
-        r32 x;
-        r32 y;
-        r32 z;
-    };
-    struct
-    {
-        r32 r;
-        r32 g;
-        r32 b;
-    };
-    struct
-    {
-        v2 xy;
-        r32 _z0;
-    };
-    struct
-    {
-        r32 _x0;
-        v2 yz;
-    };
-    r32 E[3];
+  struct
+  {
+    r32 x;
+    r32 y;
+    r32 z;
+  };
+  struct
+  {
+    r32 r;
+    r32 g;
+    r32 b;
+  };
+  struct
+  {
+    v2 xy;
+    r32 _z0;
+  };
+  struct
+  {
+    r32 _x0;
+    v2 yz;
+  };
+  r32 E[3];
 };
 
 union v4
 {
-    struct
-    {
-        r32 x;
-        r32 y;
-        r32 z;
-        r32 w;
-    };
-    struct
-    {
-        r32 r;
-        r32 g;
-        r32 b;
-        r32 a;
-    };
-    struct
-    {
-        v2 xy;
-        v2 zw;
-    };
-    struct
-    {
-        r32 _x0;
-        v2 yz;
-        r32 _w0;
-    };
-    struct
-    {
-        v3 xyz;
-        r32 _w1;
-    };
-    r32 E[4];
+  struct
+  {
+    r32 x;
+    r32 y;
+    r32 z;
+    r32 w;
+  };
+  struct
+  {
+    r32 r;
+    r32 g;
+    r32 b;
+    r32 a;
+  };
+  struct
+  {
+    v2 xy;
+    v2 zw;
+  };
+  struct
+  {
+    r32 _x0;
+    v2 yz;
+    r32 _w0;
+  };
+  struct
+  {
+    v3 xyz;
+    r32 _w1;
+  };
+  r32 E[4];
 };
 
 struct v4_ray
 {
-    v4 Origin;
-    v4 Direction;
+  v4 Origin;
+  v4 Direction;
 };
 
 #define WhiteV4 v4{1, 1, 1, 1}
@@ -413,76 +413,76 @@ struct v4_ray
 
 struct v2_array
 {
-    v2* Vectors;
-    u32 Count;
-    u32 CountMax;
+  v2* Vectors;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct v3_array
 {
-    v3* Vectors;
-    u32 Count;
-    u32 CountMax;
+  v3* Vectors;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct v4_array
 {
-    v4* Vectors;
-    u32 Count;
-    u32 CountMax;
+  v4* Vectors;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct range1
 {
-    r32 Min;
-    r32 Max;
+  r32 Min;
+  r32 Max;
 };
 
 struct range2
 {
-    v2 Min;
-    v2 Max;
+  v2 Min;
+  v2 Max;
 };
 typedef range2 rect2;
 
 struct range3
 {
-    v3 Min;
-    v3 Max;
+  v3 Min;
+  v3 Max;
 };
 
 struct range4
 {
-    v4 Min;
-    v4 Max;
+  v4 Min;
+  v4 Max;
 };
 
 struct range1_array
 {
-    range1* Ranges;
-    u32 Count;
-    u32 CountMax;
+  range1* Ranges;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct range2_array
 {
-    range2* Ranges;
-    u32 Count;
-    u32 CountMax;
+  range2* Ranges;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct range3_array
 {
-    range3* Ranges;
-    u32 Count;
-    u32 CountMax;
+  range3* Ranges;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct range4_array
 {
-    range4* Ranges;
-    u32 Count;
-    u32 CountMax;
+  range4* Ranges;
+  u32 Count;
+  u32 CountMax;
 };
 
 #define Range1Expand(r) (r).Min, (r).Max
@@ -496,39 +496,39 @@ struct range4_array
 
 union m33
 {
-    float Array[9];
-    struct
-    {
-        r32 AXx; r32 AYx; r32 AZx;
-        r32 AXy; r32 AYy; r32 AZy;
-        r32 AXz; r32 AYz; r32 AZz;
-    };
+  float Array[9];
+  struct
+  {
+    r32 AXx; r32 AYx; r32 AZx;
+    r32 AXy; r32 AYy; r32 AZy;
+    r32 AXz; r32 AYz; r32 AZz;
+  };
 };
 
 union m44
 {
-    float Array[16];
-    struct
-    {
-        r32 AXx; r32 AYx; r32 AZx; r32 Tx;
-        r32 AXy; r32 AYy; r32 AZy; r32 Ty;
-        r32 AXz; r32 AYz; r32 AZz; r32 Tz;
-        r32 AXw; r32 AYw; r32 AZw; r32 Tw;
-    };
+  float Array[16];
+  struct
+  {
+    r32 AXx; r32 AYx; r32 AZx; r32 Tx;
+    r32 AXy; r32 AYy; r32 AZy; r32 Ty;
+    r32 AXz; r32 AYz; r32 AZz; r32 Tz;
+    r32 AXw; r32 AYw; r32 AZw; r32 Tw;
+  };
 };
 
 struct m33_array
 {
-    m33* Matrices;
-    u32 Count;
-    u32 CountMax;
+  m33* Matrices;
+  u32 Count;
+  u32 CountMax;
 };
 
 struct m44_array
 {
-    m44* Matrices;
-    u32 Count;
-    u32 CountMax;
+  m44* Matrices;
+  u32 Count;
+  u32 CountMax;
 };
 
 //////////////////////////
@@ -537,70 +537,70 @@ struct m44_array
 
 struct gs_const_string
 {
-    union
-    {
-        char* Str;
-        u8* Data;;
-    };
-    u64 Length;
+  union
+  {
+    char* Str;
+    u8* Data;;
+  };
+  u64 Length;
 };
 
 struct gs_string
 {
-    union
+  union
+  {
+    gs_const_string ConstString;
+    struct
     {
-        gs_const_string ConstString;
-        struct
-        {
-            char* Str;
-            u64 Length;
-        };
+      char* Str;
+      u64 Length;
     };
-    u64 Size;
+  };
+  u64 Size;
 };
 
 struct gs_const_string_array
 {
-    gs_const_string* Strings;
-    u64 Count;
-    u64 CountMax;
+  gs_const_string* Strings;
+  u64 Count;
+  u64 CountMax;
 };
 
 struct gs_string_array
 {
-    gs_string* Strings;
-    u64 Count;
-    u64 CountMax;
+  gs_string* Strings;
+  u64 Count;
+  u64 CountMax;
 };
 
 internal u64
 CStringLength(char* Str)
 {
-    char* At = Str;
-    while (*At) { At++; }
-    u64 Result = PointerDifference(At, Str);
-    return Result;
+  char* At = Str;
+  while (*At) { At++; }
+  u64 Result = PointerDifference(At, Str);
+  return Result;
 }
 
 internal bool
 CStringsEqual(char* A, char* B)
 {
-    bool Result = true;
-    
-    char* AAt = A;
-    char* BAt = B;
-    while (AAt[0] && BAt[0])
+  bool Result = true;
+  
+  char* AAt = A;
+  char* BAt = B;
+  while (AAt[0] && BAt[0])
+  {
+    if (AAt[0] != BAt[0])
     {
-        if (AAt[0] != BAt[0])
-        {
-            Result = false;
-            break;
-        }
-        AAt++;
-        BAt++;
+      Result = false;
+      break;
     }
-    if (AAt[0] != 0 || BAt[0] != 0) { Result = false; }
-    return Result;
+    AAt++;
+    BAt++;
+  }
+  if (AAt[0] != 0 || BAt[0] != 0) { Result = false; }
+  return Result;
 }
 
 #define StringExpand(str) (int)(str).Length, (str).Str
@@ -626,120 +626,35 @@ typedef struct gs_thread_context gs_thread_context;
 
 struct gs_data
 {
-    u8* Memory;
-    u64 Size;
+  u8* Memory;
+  u64 Size;
 };
 
 struct gs_data_array
 {
-    gs_data* Data;
-    u64 Count;
-    u64 CountMax;
+  gs_data* Data;
+  u64 Count;
+  u64 CountMax;
 };
 
 enum gs_access_flag
 {
-    gs_AccessFlag_Read  = 1 << 0,
-    gs_AccessFlag_Write = 1 << 1,
-    gs_AccessFlag_Exec  = 1 << 2,
+  gs_AccessFlag_Read  = 1 << 0,
+  gs_AccessFlag_Write = 1 << 1,
+  gs_AccessFlag_Exec  = 1 << 2,
 };
 
 typedef s32 gs_scan_direction;
 enum
 {
-    gs_Scan_Backward = -1,
-    gs_Scan_Forward  = 1,
+  gs_Scan_Backward = -1,
+  gs_Scan_Forward  = 1,
 };
 
-#define ALLOCATOR_ALLOC(name) void* name(u64 Size, u64* ResultSize)
-typedef ALLOCATOR_ALLOC(allocator_allocate);
 
-#define ALLOCATOR_FREE(name) void name(void* Ptr, u64 Size)
-typedef ALLOCATOR_FREE(allocator_free);
+internal u64 RoundUpTo64(u64 Value, u64 Alignment);
 
-struct gs_debug_allocation
-{
-    gs_const_string Location;
-    u64 Size;
-};
-
-struct gs_allocator_debug
-{
-    u64 TotalAllocSize;
-    
-    u64 AllocationsCount;
-    u64 AllocationsCountMax;
-    gs_debug_allocation* Allocations;
-};
-
-struct gs_allocator
-{
-    allocator_allocate* Alloc;
-    allocator_free* Free;
-    
-    gs_allocator_debug* Debug;
-};
-
-struct gs_memory_cursor
-{
-    gs_data Data;
-    u64 Position;
-};
-
-/* TODO(pjs): Setting MEMORY_CURSOR_STATIC_ARRAY will still compile,
- However, it introduces a bug that I haven't fully diagnosed.
-The problem seems to occur when trying to push to a cleared memory arena
-Where the FirstCursor doesn't have enough room for the allocation, but
-also FirstCursor->Next points to a valid cursor. The new cursor is put
-in the middle however we seem to continually keep allocating new
-cursors forever and losing old ones.
-The problem in Lumenarium is found in the OutputData structure
-
-Leaving this in a simplified state for now
-*/
-#define MEMORY_CURSOR_STATIC_ARRAY 1
-
-struct gs_memory_cursor_list
-{
-    gs_memory_cursor  Cursor;
-#if !MEMORY_CURSOR_STATIC_ARRAY
-    gs_memory_cursor_list* Next;
-    gs_memory_cursor_list* Prev;
-#endif
-};
-
-enum arena_type
-{
-    Arena_BaseArena,
-    Arena_SubArena,
-};
-
-struct gs_memory_arena
-{
-    arena_type Type;
-    gs_allocator Allocator;
-    gs_memory_arena* Parent;
-    
-#if MEMORY_CURSOR_STATIC_ARRAY
-    gs_memory_cursor_list* Cursors;
-    u64 CursorsCount;
-    u64 CursorsCountMax;
-#else
-    gs_memory_cursor_list* CursorList;
-#endif
-    
-    u64 MemoryChunkSize;
-    u64 MemoryAlignment;
-    
-    char* ArenaName;
-};
-
-struct gs_memory_arena_array
-{
-    gs_memory_arena* Arenas;
-    u32 Count;
-    u32 Size;
-};
+#include "gs_memory.h"
 
 ///////////////////////////////
 //
@@ -748,16 +663,16 @@ struct gs_memory_arena_array
 
 struct gs_string_builder_buffer
 {
-    gs_string String;
-    gs_string_builder_buffer* Next;
+  gs_string String;
+  gs_string_builder_buffer* Next;
 };
 
 struct gs_string_builder
 {
-    gs_memory_arena* Arena;
-    u32 BufferSize;
-    gs_string_builder_buffer* Root;
-    gs_string_builder_buffer* Head;
+  gs_memory_arena* Arena;
+  u32 BufferSize;
+  gs_string_builder_buffer* Root;
+  gs_string_builder_buffer* Head;
 };
 
 ///////////////////////////////
@@ -772,8 +687,8 @@ typedef DEBUG_PRINT(debug_print);
 
 struct debug_output
 {
-    gs_memory_arena* Storage;
-    debug_print* Print;
+  gs_memory_arena* Storage;
+  debug_print* Print;
 };
 
 ///////////////////////////////
@@ -788,34 +703,34 @@ struct debug_output
 
 struct gs_dynarray_buffer
 {
-    u8* Memory;
+  u8* Memory;
 };
 
 struct gs_dynarray
 {
-    gs_memory_arena Arena;
-    
-    gs_dynarray_buffer* Buffers;
-    u64 BuffersCount;
-    u64 ElementCount;
-    
-    u64 ElementSize;
-    u64 ElementsPerBuffer;
+  gs_memory_arena Arena;
+  
+  gs_dynarray_buffer* Buffers;
+  u64 BuffersCount;
+  u64 ElementCount;
+  
+  u64 ElementSize;
+  u64 ElementsPerBuffer;
 };
 
 struct gs_dynarray_handle
 {
-    u64 BufferIndex;
-    u64 IndexInBuffer;
+  u64 BufferIndex;
+  u64 IndexInBuffer;
 };
 
 #define INVALID_DYNARRAY_HANDLE gs_dynarray_handle{0, 0}
 
 struct gs_dynarray_handle_list
 {
-    gs_dynarray_handle* Handles;
-    u32 Count;
-    u32 Size;
+  gs_dynarray_handle* Handles;
+  u32 Count;
+  u32 Size;
 };
 
 ///////////////////////////////
@@ -828,39 +743,39 @@ struct gs_dynarray_handle_list
 
 enum enumerate_directory_flag
 {
-    EnumerateDirectory_Recurse = 1 << 0,
-    EnumerateDirectory_IncludeDirectories = 1 << 1,
+  EnumerateDirectory_Recurse = 1 << 0,
+  EnumerateDirectory_IncludeDirectories = 1 << 1,
 };
 
 struct gs_file_info
 {
-    gs_const_string Path;
-    gs_const_string AbsolutePath;
-    u64 FileSize;
-    u64 CreationTime;
-    u64 LastWriteTime;
-    b32 IsDirectory;
+  gs_const_string Path;
+  gs_const_string AbsolutePath;
+  u64 FileSize;
+  u64 CreationTime;
+  u64 LastWriteTime;
+  b32 IsDirectory;
 };
 
 struct gs_file_info_array
 {
-    gs_file_info* Values;
-    u32 Count;
-    u32 MaxCount;
+  gs_file_info* Values;
+  u32 Count;
+  u32 MaxCount;
 };
 
 struct gs_file
 {
-    union
+  union
+  {
+    gs_data Data;
+    struct
     {
-        gs_data Data;
-        struct
-        {
-            u8* Memory;
-            u64 Size;
-        };
+      u8* Memory;
+      u64 Size;
     };
-    gs_file_info FileInfo;
+  };
+  gs_file_info FileInfo;
 };
 
 typedef struct gs_file_handler gs_file_handler;
@@ -879,11 +794,11 @@ typedef ENUMERATE_DIRECTORY(file_handler_enumerate_directory);
 
 struct gs_file_handler
 {
-    file_handler_get_file_info* GetFileInfo;
-    file_handler_read_entire_file* ReadEntireFile;
-    file_handler_write_entire_file* WriteEntireFile;
-    file_handler_enumerate_directory* EnumerateDirectory;
-    gs_memory_arena* Transient;
+  file_handler_get_file_info* GetFileInfo;
+  file_handler_read_entire_file* ReadEntireFile;
+  file_handler_write_entire_file* WriteEntireFile;
+  file_handler_enumerate_directory* EnumerateDirectory;
+  gs_memory_arena* Transient;
 };
 
 
@@ -899,8 +814,8 @@ typedef GET_SECONDS_ELAPSED(get_seconds_elapsed);
 
 struct gs_time_handler
 {
-    get_wall_clock* GetWallClock;
-    get_seconds_elapsed* GetSecondsElapsed;
+  get_wall_clock* GetWallClock;
+  get_seconds_elapsed* GetSecondsElapsed;
 };
 
 ///////////////////////////////
@@ -909,7 +824,7 @@ struct gs_time_handler
 
 struct gs_random_series
 {
-    u32 Value;
+  u32 Value;
 };
 
 ///////////////////////////////
@@ -918,8 +833,8 @@ struct gs_random_series
 
 struct gs_radix_list
 {
-    u64_array Radixes;
-    u64_array IDs;
+  u64_array Radixes;
+  u64_array IDs;
 };
 
 
@@ -929,115 +844,115 @@ struct gs_radix_list
 
 enum gs_event_type
 {
-    gs_EventType_Unknown,
-    
-    // Reached end of event stream
-    gs_EventType_NoMoreEvents,
-    // There was an event but it requires no action from the using program
-    gs_EventType_NoEvent,
-    
-    gs_EventType_KeyPressed,
-    gs_EventType_KeyReleased,
-    
-    gs_EventType_MouseMoved,
-    gs_EventType_MouseWheel,
-    
-    gs_EventType_Count,
+  gs_EventType_Unknown,
+  
+  // Reached end of event stream
+  gs_EventType_NoMoreEvents,
+  // There was an event but it requires no action from the using program
+  gs_EventType_NoEvent,
+  
+  gs_EventType_KeyPressed,
+  gs_EventType_KeyReleased,
+  
+  gs_EventType_MouseMoved,
+  gs_EventType_MouseWheel,
+  
+  gs_EventType_Count,
 };
 
 enum gs_key
 {
-    gs_Key_Invalid,
-    
-    gs_Key_Esc,
-    
-    gs_Key_Space,
-    gs_Key_Tab,
-    gs_Key_CapsLock,
-    gs_Key_Shift, gs_Key_LeftShift, gs_Key_RightShift,
-    gs_Key_Control, gs_Key_LeftCtrl, gs_Key_RightCtrl,
-    gs_Key_Fn,
-    gs_Key_Alt,
-    gs_Key_PageUp, gs_Key_PageDown,
-    gs_Key_End, gs_Key_Home, gs_Key_Select,
-    gs_Key_Backspace, gs_Key_Delete,
-    gs_Key_Enter,
-    
-    // Function Keys
-    gs_Key_F0, gs_Key_F1, gs_Key_F2, gs_Key_F3, gs_Key_F4, gs_Key_F5, gs_Key_F6, gs_Key_F7,
-    gs_Key_F8, gs_Key_F9, gs_Key_F10, gs_Key_F11, gs_Key_F12,
-    
-    // Letters
-    gs_Key_a, gs_Key_b, gs_Key_c, gs_Key_d, gs_Key_e, gs_Key_f, gs_Key_g, gs_Key_h,
-    gs_Key_i, gs_Key_j, gs_Key_k, gs_Key_l, gs_Key_m, gs_Key_n, gs_Key_o, gs_Key_p,
-    gs_Key_q, gs_Key_r, gs_Key_s, gs_Key_t, gs_Key_u, gs_Key_v, gs_Key_w, gs_Key_x,
-    gs_Key_y, gs_Key_z,
-    
-    gs_Key_A, gs_Key_B, gs_Key_C, gs_Key_D, gs_Key_E, gs_Key_F, gs_Key_G, gs_Key_H,
-    gs_Key_I, gs_Key_J, gs_Key_K, gs_Key_L, gs_Key_M, gs_Key_N, gs_Key_O, gs_Key_P,
-    gs_Key_Q, gs_Key_R, gs_Key_S, gs_Key_T, gs_Key_U, gs_Key_V, gs_Key_W, gs_Key_X,
-    gs_Key_Y, gs_Key_Z,
-    
-    // Numbers
-    gs_Key_0, gs_Key_1, gs_Key_2, gs_Key_3, gs_Key_4, gs_Key_5, gs_Key_6, gs_Key_7,
-    gs_Key_8, gs_Key_9,
-    
-    gs_Key_Num0, gs_Key_Num1, gs_Key_Num2, gs_Key_Num3, gs_Key_Num4, gs_Key_Num5,
-    gs_Key_Num6, gs_Key_Num7, gs_Key_Num8, gs_Key_Num9,
-    
-    // Symbols
-    gs_Key_Bang, gs_Key_At, gs_Key_Pound, gs_Key_Dollar, gs_Key_Percent, gs_Key_Carrot,
-    gs_Key_Ampersand, gs_Key_Star, gs_Key_LeftParen, gs_Key_RightParen, gs_Key_Minus, gs_Key_Plus,
-    gs_Key_Equals, gs_Key_Underscore, gs_Key_OpenSquareBracket, gs_Key_CloseSquareBracket, gs_Key_OpenCurlyBracket,
-    gs_Key_CloseCurlyBracket, gs_Key_Colon, gs_Key_SemiColon, gs_Key_SingleQuote, gs_Key_DoubleQuote,
-    gs_Key_ForwardSlash, gs_Key_Backslash, gs_Key_Pipe, gs_Key_Comma, gs_Key_Period,
-    gs_Key_QuestionMark, gs_Key_LessThan, gs_Key_GreaterThan, gs_Key_Tilde, gs_Key_BackQuote,
-    
-    // Arrows
-    gs_Key_UpArrow,
-    gs_Key_DownArrow,
-    gs_Key_LeftArrow,
-    gs_Key_RightArrow,
-    
-    // Mouse
-    // NOTE(Peter): Including this here so we can utilize the same KeyDown, KeyUp etc. functions
-    gs_Key_MouseLeftButton,
-    gs_Key_MouseMiddleButton,
-    gs_Key_MouseRightButton,
-    gs_Key_MouseX1Button,
-    gs_Key_MouseX2Button,
-    
-    gs_Key_Count,
+  gs_Key_Invalid,
+  
+  gs_Key_Esc,
+  
+  gs_Key_Space,
+  gs_Key_Tab,
+  gs_Key_CapsLock,
+  gs_Key_Shift, gs_Key_LeftShift, gs_Key_RightShift,
+  gs_Key_Control, gs_Key_LeftCtrl, gs_Key_RightCtrl,
+  gs_Key_Fn,
+  gs_Key_Alt,
+  gs_Key_PageUp, gs_Key_PageDown,
+  gs_Key_End, gs_Key_Home, gs_Key_Select,
+  gs_Key_Backspace, gs_Key_Delete,
+  gs_Key_Enter,
+  
+  // Function Keys
+  gs_Key_F0, gs_Key_F1, gs_Key_F2, gs_Key_F3, gs_Key_F4, gs_Key_F5, gs_Key_F6, gs_Key_F7,
+  gs_Key_F8, gs_Key_F9, gs_Key_F10, gs_Key_F11, gs_Key_F12,
+  
+  // Letters
+  gs_Key_a, gs_Key_b, gs_Key_c, gs_Key_d, gs_Key_e, gs_Key_f, gs_Key_g, gs_Key_h,
+  gs_Key_i, gs_Key_j, gs_Key_k, gs_Key_l, gs_Key_m, gs_Key_n, gs_Key_o, gs_Key_p,
+  gs_Key_q, gs_Key_r, gs_Key_s, gs_Key_t, gs_Key_u, gs_Key_v, gs_Key_w, gs_Key_x,
+  gs_Key_y, gs_Key_z,
+  
+  gs_Key_A, gs_Key_B, gs_Key_C, gs_Key_D, gs_Key_E, gs_Key_F, gs_Key_G, gs_Key_H,
+  gs_Key_I, gs_Key_J, gs_Key_K, gs_Key_L, gs_Key_M, gs_Key_N, gs_Key_O, gs_Key_P,
+  gs_Key_Q, gs_Key_R, gs_Key_S, gs_Key_T, gs_Key_U, gs_Key_V, gs_Key_W, gs_Key_X,
+  gs_Key_Y, gs_Key_Z,
+  
+  // Numbers
+  gs_Key_0, gs_Key_1, gs_Key_2, gs_Key_3, gs_Key_4, gs_Key_5, gs_Key_6, gs_Key_7,
+  gs_Key_8, gs_Key_9,
+  
+  gs_Key_Num0, gs_Key_Num1, gs_Key_Num2, gs_Key_Num3, gs_Key_Num4, gs_Key_Num5,
+  gs_Key_Num6, gs_Key_Num7, gs_Key_Num8, gs_Key_Num9,
+  
+  // Symbols
+  gs_Key_Bang, gs_Key_At, gs_Key_Pound, gs_Key_Dollar, gs_Key_Percent, gs_Key_Carrot,
+  gs_Key_Ampersand, gs_Key_Star, gs_Key_LeftParen, gs_Key_RightParen, gs_Key_Minus, gs_Key_Plus,
+  gs_Key_Equals, gs_Key_Underscore, gs_Key_OpenSquareBracket, gs_Key_CloseSquareBracket, gs_Key_OpenCurlyBracket,
+  gs_Key_CloseCurlyBracket, gs_Key_Colon, gs_Key_SemiColon, gs_Key_SingleQuote, gs_Key_DoubleQuote,
+  gs_Key_ForwardSlash, gs_Key_Backslash, gs_Key_Pipe, gs_Key_Comma, gs_Key_Period,
+  gs_Key_QuestionMark, gs_Key_LessThan, gs_Key_GreaterThan, gs_Key_Tilde, gs_Key_BackQuote,
+  
+  // Arrows
+  gs_Key_UpArrow,
+  gs_Key_DownArrow,
+  gs_Key_LeftArrow,
+  gs_Key_RightArrow,
+  
+  // Mouse
+  // NOTE(Peter): Including this here so we can utilize the same KeyDown, KeyUp etc. functions
+  gs_Key_MouseLeftButton,
+  gs_Key_MouseMiddleButton,
+  gs_Key_MouseRightButton,
+  gs_Key_MouseX1Button,
+  gs_Key_MouseX2Button,
+  
+  gs_Key_Count,
 };
 
 enum gs_modifier_key_flags
 {
-    gs_ModifierKeyFlag_Shift = 1 << 0,
-    gs_ModifierKeyFlag_Ctrl = 1 << 1,
-    gs_ModifierKeyFlag_Alt = 1 << 2,
+  gs_ModifierKeyFlag_Shift = 1 << 0,
+  gs_ModifierKeyFlag_Ctrl = 1 << 1,
+  gs_ModifierKeyFlag_Alt = 1 << 2,
 };
 
 struct gs_input_event
 {
-    gs_event_type Type;
-    gs_key Key;
-    v2 Position;
-    r32 Amount;
-    b32 Modifiers;
+  gs_event_type Type;
+  gs_key Key;
+  v2 Position;
+  r32 Amount;
+  b32 Modifiers;
 };
 
 struct gs_input_event_buffer
 {
-    gs_input_event* Values;
-    u32 Count;
-    u32 MaxCount;
+  gs_input_event* Values;
+  u32 Count;
+  u32 MaxCount;
 };
 
 struct gs_mouse_state
 {
-    v2 Position;
-    b32 ButtonStates[3];
-    v2 DownPosition;
+  v2 Position;
+  b32 ButtonStates[3];
+  v2 DownPosition;
 };
 
 #define MouseButton_IsDownBit 0
@@ -1053,29 +968,29 @@ struct gs_mouse_state
 
 struct gs_thread_info
 {
-    u32 ThreadID;
+  u32 ThreadID;
 };
 
 struct gs_thread_context
 {
-    gs_thread_info ThreadInfo;
-    
-    // TODO(Peter): Pull these handlers out into just a gs_context struct so
-    // they can be shared across threads.
-    // specifically the allocator
-    gs_allocator Allocator;
-    gs_file_handler FileHandler;
-    debug_output DebugOutput;
-    gs_time_handler TimeHandler;
-    
-    gs_memory_arena* Transient;
+  gs_thread_info ThreadInfo;
+  
+  // TODO(Peter): Pull these handlers out into just a gs_context struct so
+  // they can be shared across threads.
+  // specifically the allocator
+  gs_allocator Allocator;
+  gs_file_handler FileHandler;
+  debug_output DebugOutput;
+  gs_time_handler TimeHandler;
+  
+  gs_memory_arena* Transient;
 };
 
 // Threads
 
 typedef struct platform_thread_handle
 {
-    u32 Index;
+  u32 Index;
 } platform_thread_handle;
 
 typedef struct platform_thread_manager platform_thread_manager;
@@ -1085,9 +1000,9 @@ typedef THREAD_PROC_(thread_proc_);
 
 typedef struct platform_thread
 {
-    u8* PlatformHandle;
-    thread_proc_* Proc;
-    u8* UserData;
+  u8* PlatformHandle;
+  thread_proc_* Proc;
+  u8* UserData;
 } platform_thread;
 
 #define CREATE_THREAD(name) bool name(platform_thread* Thread, thread_proc_* Proc, u8* UserData, gs_thread_context Ctx)
@@ -1099,11 +1014,11 @@ typedef KILL_THREAD(platform_kill_thread);
 #define THREADS_MAX 32
 typedef struct platform_thread_manager
 {
-    b8 ThreadsUsed[THREADS_MAX];
-    platform_thread Threads[THREADS_MAX];
-    
-    platform_create_thread* CreateThreadProc;
-    platform_kill_thread*   KillThreadProc;
+  b8 ThreadsUsed[THREADS_MAX];
+  platform_thread Threads[THREADS_MAX];
+  
+  platform_create_thread* CreateThreadProc;
+  platform_kill_thread*   KillThreadProc;
 } platform_thread_manager;
 
 // Work Queue
@@ -1112,9 +1027,9 @@ typedef struct gs_work_queue gs_work_queue;
 
 typedef struct gs_worker_thread
 {
-    gs_thread_context Context;
-    gs_work_queue* Queue;
-    b32 ShouldExit;
+  gs_thread_context Context;
+  gs_work_queue* Queue;
+  b32 ShouldExit;
 } gs_worker_thread;
 
 #define THREAD_PROC(name) void name(gs_thread_context Context, gs_data Data)
@@ -1122,9 +1037,9 @@ typedef THREAD_PROC(thread_proc);
 
 struct gs_threaded_job
 {
-    thread_proc* WorkProc;
-    gs_data Data;
-    gs_const_string JobName;
+  thread_proc* WorkProc;
+  gs_data Data;
+  gs_const_string JobName;
 };
 
 #define PUSH_WORK_ON_QUEUE(name) void name(gs_work_queue* Queue, thread_proc* WorkProc, gs_data Data, gs_const_string JobName)
@@ -1138,32 +1053,32 @@ typedef RESET_WORK_QUEUE(reset_work_queue);
 
 struct gs_work_queue
 {
-    void* SemaphoreHandle;
-    
-    u32 JobsMax;
-    u32 volatile JobsCount;
-    u32 volatile NextJobIndex;
-    u32 volatile JobsCompleted;
-    gs_threaded_job* Jobs;
-    
-    // Work Queue
-    push_work_on_queue* PushWorkOnQueue;
-    complete_queue_work* CompleteQueueWork;
+  void* SemaphoreHandle;
+  
+  u32 JobsMax;
+  u32 volatile JobsCount;
+  u32 volatile NextJobIndex;
+  u32 volatile JobsCompleted;
+  gs_threaded_job* Jobs;
+  
+  // Work Queue
+  push_work_on_queue* PushWorkOnQueue;
+  complete_queue_work* CompleteQueueWork;
 };
 
 // Sockets
 
 typedef struct platform_socket_handle_
 {
-    u32 Index;
+  u32 Index;
 } platform_socket_handle_;
 
 typedef struct platform_socket
 {
-    platform_socket_handle_ Handle;
-    char Addr[128];
-    char Port[32];
-    u8* PlatformHandle;
+  platform_socket_handle_ Handle;
+  char Addr[128];
+  char Port[32];
+  u8* PlatformHandle;
 } platform_socket;
 
 typedef struct platform_socket_manager platform_socket_manager;
@@ -1193,15 +1108,15 @@ typedef SOCKET_SEND(platform_socket_send);
 #define SOCKETS_COUNT_MAX 32
 typedef struct platform_socket_manager
 {
-    b8 SocketsUsed[SOCKETS_COUNT_MAX];
-    platform_socket Sockets[SOCKETS_COUNT_MAX];
-    
-    platform_connect_socket* ConnectSocketProc;
-    platform_close_socket* CloseSocketProc;
-    platform_socket_query_status* SocketQueryStatusProc;
-    platform_socket_peek* SocketPeekProc;
-    platform_socket_receive* SocketRecieveProc;
-    platform_socket_send* SocketSendProc;
+  b8 SocketsUsed[SOCKETS_COUNT_MAX];
+  platform_socket Sockets[SOCKETS_COUNT_MAX];
+  
+  platform_connect_socket* ConnectSocketProc;
+  platform_close_socket* CloseSocketProc;
+  platform_socket_query_status* SocketQueryStatusProc;
+  platform_socket_peek* SocketPeekProc;
+  platform_socket_receive* SocketRecieveProc;
+  platform_socket_send* SocketSendProc;
 } platform_socket_manager;
 
 #define GS_TYPES_H

@@ -14,11 +14,10 @@
 #include "../gs_libs/gs_path.h"
 #include "../gs_libs/gs_csv.h"
 
+#include "../app/platform_win32/win32_foldhaus_memory.h"
 #include "./memory_arena_tests.cpp"
 
 gs_memory_arena Scratch = {};
-void* Alloc(u64 Size, u64* ResultSize) { *ResultSize = Size; return malloc(Size); }
-void Free(void* Ptr, u64 Size) { return free(Ptr); }
 
 bool StringTest (gs_const_string StrA, gs_const_string StrB)
 {
@@ -38,9 +37,76 @@ Flower A	55	32	128	foo, bar, blah, baz, whatever
 Flower B	123	344	32	foo, bar, blah, baz, whatever
 Flower C	55	32	128	foo, bar, blah, baz, whatever)FOO";
 
+struct test_sll
+{
+  u32 Val;
+  test_sll* Next;
+};
+
 int main (int ArgCount, char** Args)
 {
-  Scratch = CreateMemoryArena(CreateAllocator(Alloc, Free), "Scratch");
+  gs_allocator Al = CreatePlatformAllocator();
+  Scratch = MemoryArenaCreate(KB(4), Bytes(8), Al, 0, 0, "Scratch");
+  
+  Test("SLL 1")
+  {
+    test_sll* Root = 0;
+    test_sll* Head = 0;
+    
+    test_sll* First = PushStruct(&Scratch, test_sll);
+    First->Val = 0;
+    SLLInit(Root, Head, First);
+    TestResult((Root == First) && (Head == First));
+    
+    for (u32 i = 1; i < 4; i++)
+    {
+      test_sll* New = PushStruct(&Scratch, test_sll);
+      New->Val = i;
+      SLLPush(Head, New);
+      TestResult((Root == First) && (Head == New));
+    }
+    
+    bool Success = true;
+    u32 i = 0;
+    for (test_sll* At = Root;
+         At && At->Next != 0;
+         SLLNext(At))
+    {
+      Success &= (At->Val == i);
+      i += 1;
+    }
+    TestResult(Success);
+  }
+  
+  Test("SLL Push Or Init")
+  {
+    test_sll* Root = 0;
+    test_sll* Head = 0;
+    
+    test_sll* First = PushStruct(&Scratch, test_sll);
+    First->Val = 0;
+    SLLPushOrInit(Root, Head, First);
+    TestResult((Root == First) && (Head == First));
+    
+    for (u32 i = 1; i < 4; i++)
+    {
+      test_sll* New = PushStruct(&Scratch, test_sll);
+      New->Val = i;
+      SLLPushOrInit(Root, Head, New);
+      TestResult((Root == First) && (Head == New));
+    }
+    
+    bool Success = true;
+    u32 i = 0;
+    for (test_sll* At = Root;
+         At && At->Next != 0;
+         SLLNext(At))
+    {
+      Success &= (At->Val == i);
+      i += 1;
+    }
+    TestResult(Success);
+  }
   
   Test("gs_string")
   {
