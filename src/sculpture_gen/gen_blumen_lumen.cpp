@@ -61,7 +61,10 @@ BuildLoop(gs_string* OutputBuffer, loop_desc Desc)
       Channel = Desc.ChannelStart + i;
     }
     
-    WriteLedStripOpen(OutputBuffer, Channel, Desc.ComPort);
+    u32 SACNUniverseStart = 0;
+    u32 SACNChannelStart = 0;
+    WriteLedStripOpen(OutputBuffer, Channel, Desc.ComPort,
+                      SACNUniverseStart, SACNChannelStart);
     WriteSegmentSequenceOpen(OutputBuffer, Desc.SubsegmentsCount);
     
     for (u32 j = 0; j < Desc.SubsegmentsCount; j++)
@@ -184,6 +187,7 @@ int main(int ArgCount, char** Args)
   gs_string OutputBuffer1 = PushString(Ctx.Transient, MB(4));
   gs_string OutputBuffer2 = PushString(Ctx.Transient, MB(4));
   
+#if 0
   WriteAssemblyUARTOpen(&OutputBuffer0,
                         "Blumen Lumen - Silver Spring - 00",
                         100,
@@ -202,6 +206,23 @@ int main(int ArgCount, char** Args)
                         v3{1, 0, 0},
                         21,
                         "");
+#else
+  WriteAssemblySACNOpen(&OutputBuffer0,
+                        "Blumen Lumen - Silver Spring - 00",
+                        100,
+                        v3{-1, 0, 0},
+                        21);
+  WriteAssemblySACNOpen(&OutputBuffer1,
+                        "Blumen Lumen - Silver Spring - 01",
+                        100,
+                        v3{0, 0, 0},
+                        21);
+  WriteAssemblySACNOpen(&OutputBuffer2,
+                        "Blumen Lumen - Silver Spring - 02",
+                        100,
+                        v3{1, 0, 0},
+                        21);
+#endif
   
   u32 StripCount = 0;
   
