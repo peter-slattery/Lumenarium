@@ -397,7 +397,6 @@ Win32Socket_SendTo(platform_socket_handle SocketHandle, u32 Address, u32 Port, c
   
   s32 LengthSent = sendto(Socket->Socket, Buffer, BufferLength, Flags, (sockaddr*)&SockAddress, sizeof(sockaddr_in));
   
-  Log_Message(GlobalLogBuffer, "Attempting To Send Network Data: ");
   if (LengthSent == SOCKET_ERROR)
   {
     s32 Error = WSAGetLastError();
@@ -415,10 +414,6 @@ Win32Socket_SendTo(platform_socket_handle SocketHandle, u32 Address, u32 Port, c
         InvalidCodePath;
       } break;
     }
-  }
-  else
-  {
-    Log_Message(GlobalLogBuffer, "Sent\n");
   }
   
   return LengthSent;

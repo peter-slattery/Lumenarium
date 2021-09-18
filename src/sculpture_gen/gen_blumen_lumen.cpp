@@ -29,6 +29,11 @@ typedef struct
   u32 SubsegmentsCount;
   u32 SubsegmentLeds;
   
+  // SACN
+  u32 SACNUniverseStart;
+  u32 SACNChannelStart;
+  
+  // UART
   // Only one of these two values is needed.
   // If ChannelsArray != 0, then it will be used, and assumed to
   // have SegmentsCount values
@@ -61,10 +66,8 @@ BuildLoop(gs_string* OutputBuffer, loop_desc Desc)
       Channel = Desc.ChannelStart + i;
     }
     
-    u32 SACNUniverseStart = 0;
-    u32 SACNChannelStart = 0;
     WriteLedStripOpen(OutputBuffer, Channel, Desc.ComPort,
-                      SACNUniverseStart, SACNChannelStart);
+                      Desc.SACNUniverseStart, Desc.SACNChannelStart);
     WriteSegmentSequenceOpen(OutputBuffer, Desc.SubsegmentsCount);
     
     for (u32 j = 0; j < Desc.SubsegmentsCount; j++)
@@ -100,6 +103,13 @@ typedef struct
   v3 Pos;
   char* ComPort;
   char* FlowerTagValue;
+  
+  // SACN
+  u32 SACNStemInnerStartUniverse;
+  u32 SACNStemOuterStartUniverse;
+  u32 SACNFlowerStemStartUniverse;
+  
+  // UART
   u32* StemChannels;
   u32* BloomOuterChannels;
   u32* BloomInnerChannels;
@@ -115,9 +125,12 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
   BloomStemInner.CenterStart = v3{0, 1.4f, 0};
   BloomStemInner.CenterEnd = v3{0, .9f, 0};
   BloomStemInner.Radius = .05f;
-  BloomStemInner.SegmentsCount = 6;
+  //BloomStemInner.SegmentsCount = 6;
+  BloomStemInner.SegmentsCount = 1;
   BloomStemInner.SubsegmentsCount = 3;
   BloomStemInner.SubsegmentLeds = 35;
+  BloomStemInner.SACNUniverseStart = Desc.SACNStemInnerStartUniverse;
+  BloomStemInner.SACNChannelStart = 1;
   BloomStemInner.ChannelsArray = Desc.BloomInnerChannels;
   BloomStemInner.ComPort = Desc.ComPort;
   BloomStemInner.SectionTagValue = "inner_bloom";
@@ -129,9 +142,12 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
   BloomStemOuter.CenterStart = v3{0, .5f, 0};
   BloomStemOuter.CenterEnd = v3{0, .9f, 0};
   BloomStemOuter.Radius = .07f;
-  BloomStemOuter.SegmentsCount = 9;
+  //BloomStemOuter.SegmentsCount = 9;
+  BloomStemOuter.SegmentsCount = 1;
   BloomStemOuter.SubsegmentsCount = 3;
   BloomStemOuter.SubsegmentLeds = 41;
+  BloomStemOuter.SACNUniverseStart = Desc.SACNStemOuterStartUniverse;
+  BloomStemOuter.SACNChannelStart = 1;
   BloomStemOuter.ChannelsArray = Desc.BloomOuterChannels;
   BloomStemOuter.ComPort = Desc.ComPort;
   BloomStemOuter.SectionTagValue = "outer_bloom";
@@ -145,9 +161,12 @@ BuildFlower(gs_string* OutputBuffer, flower_desc Desc)
   FlowerStem.CenterStart = v3{0, -1.5f, 0};
   FlowerStem.CenterEnd = v3{0, .5f, 0};
   FlowerStem.Radius = .05f;
-  FlowerStem.SegmentsCount = 6;
+  //FlowerStem.SegmentsCount = 6;
+  FlowerStem.SegmentsCount = 1;
   FlowerStem.SubsegmentsCount = 1;
   FlowerStem.SubsegmentLeds = 300;
+  FlowerStem.SACNUniverseStart = Desc.SACNFlowerStemStartUniverse;
+  FlowerStem.SACNChannelStart = 1;
   FlowerStem.ChannelsArray = Desc.StemChannels;
   FlowerStem.ComPort = Desc.ComPort;
   FlowerStem.SectionTagValue = "stem";
@@ -187,44 +206,45 @@ int main(int ArgCount, char** Args)
   gs_string OutputBuffer1 = PushString(Ctx.Transient, MB(4));
   gs_string OutputBuffer2 = PushString(Ctx.Transient, MB(4));
   
+  u32 StripCount = 3; // used to be 21
 #if 0
   WriteAssemblyUARTOpen(&OutputBuffer0,
                         "Blumen Lumen - Silver Spring - 00",
                         100,
                         v3{-1, 0, 0},
-                        21,
+                        StripCount,
                         "");
   WriteAssemblyUARTOpen(&OutputBuffer1,
                         "Blumen Lumen - Silver Spring - 01",
                         100,
                         v3{0, 0, 0},
-                        21,
+                        StripCount,
                         "");
   WriteAssemblyUARTOpen(&OutputBuffer2,
                         "Blumen Lumen - Silver Spring - 02",
                         100,
                         v3{1, 0, 0},
-                        21,
+                        StripCount,
                         "");
 #else
   WriteAssemblySACNOpen(&OutputBuffer0,
                         "Blumen Lumen - Silver Spring - 00",
                         100,
                         v3{-1, 0, 0},
-                        21);
+                        StripCount);
   WriteAssemblySACNOpen(&OutputBuffer1,
                         "Blumen Lumen - Silver Spring - 01",
                         100,
                         v3{0, 0, 0},
-                        21);
+                        StripCount);
   WriteAssemblySACNOpen(&OutputBuffer2,
                         "Blumen Lumen - Silver Spring - 02",
                         100,
                         v3{1, 0, 0},
-                        21);
+                        StripCount);
 #endif
   
-  u32 StripCount = 0;
+  u32 StripCountOut = 0;
   
   u32 StemChannels[] = { FSC(2, 1), FSC(2, 2), FSC(2, 3), FSC(2, 4), FSC(2, 5), FSC(2, 6) };
   u32 BloomOuterChannels[] = { FSC(1, 0), FSC(1, 1), FSC(1, 2), FSC(1, 3), FSC(1, 4), FSC(1, 5), FSC(1, 6), FSC(1, 7), FSC(2, 0) };
@@ -233,28 +253,37 @@ int main(int ArgCount, char** Args)
   F0.Pos = v3{0, 0, 0};
   F0.ComPort = "\\\\.\\COM11";
   F0.FlowerTagValue = "left";
+  F0.SACNStemInnerStartUniverse = 1;
+  F0.SACNStemOuterStartUniverse = 2;
+  F0.SACNFlowerStemStartUniverse = 3;
   F0.StemChannels = StemChannels;
   F0.BloomOuterChannels = BloomOuterChannels;
   F0.BloomInnerChannels = BloomInnerChannels;
-  StripCount += BuildFlower(&OutputBuffer0, F0);
+  StripCountOut += BuildFlower(&OutputBuffer0, F0);
   
   flower_desc F1 = {};
   F1.Pos = v3{0, 0, 0};
   F1.ComPort = "\\\\.\\COM12";
   F1.FlowerTagValue = "center";
+  F1.SACNStemInnerStartUniverse = 6;
+  F1.SACNStemOuterStartUniverse = 7;
+  F1.SACNFlowerStemStartUniverse = 8;
   F1.StemChannels = StemChannels;
   F1.BloomInnerChannels = BloomInnerChannels;
   F1.BloomOuterChannels = BloomOuterChannels;
-  StripCount += BuildFlower(&OutputBuffer1, F1);
+  StripCountOut += BuildFlower(&OutputBuffer1, F1);
   
   flower_desc F2 = {};
   F2.Pos = v3{0, 0, 0};
   F2.ComPort = "\\\\.\\COM6";
   F2.FlowerTagValue = "right";
+  F2.SACNStemInnerStartUniverse = 11;
+  F2.SACNStemOuterStartUniverse = 12;
+  F2.SACNFlowerStemStartUniverse = 13;
   F2.StemChannels = StemChannels;
   F2.BloomInnerChannels = BloomInnerChannels;
   F2.BloomOuterChannels = BloomOuterChannels;
-  StripCount += BuildFlower(&OutputBuffer2, F2);
+  StripCountOut += BuildFlower(&OutputBuffer2, F2);
   
   WriteEntireFile(Ctx.FileHandler, ConstString("data/ss_blumen_one.fold"), StringToData(OutputBuffer0));
   WriteEntireFile(Ctx.FileHandler, ConstString("data/ss_blumen_two.fold"), StringToData(OutputBuffer1));
