@@ -253,9 +253,9 @@ int main(int ArgCount, char** Args)
   F0.Pos = v3{0, 0, 0};
   F0.ComPort = "\\\\.\\COM11";
   F0.FlowerTagValue = "left";
-  F0.SACNStemInnerStartUniverse = 1;
+  F0.SACNStemInnerStartUniverse = 3;
   F0.SACNStemOuterStartUniverse = 2;
-  F0.SACNFlowerStemStartUniverse = 3;
+  F0.SACNFlowerStemStartUniverse = 1;
   F0.StemChannels = StemChannels;
   F0.BloomOuterChannels = BloomOuterChannels;
   F0.BloomInnerChannels = BloomInnerChannels;
@@ -265,9 +265,9 @@ int main(int ArgCount, char** Args)
   F1.Pos = v3{0, 0, 0};
   F1.ComPort = "\\\\.\\COM12";
   F1.FlowerTagValue = "center";
-  F1.SACNStemInnerStartUniverse = 6;
+  F1.SACNStemInnerStartUniverse = 8;
   F1.SACNStemOuterStartUniverse = 7;
-  F1.SACNFlowerStemStartUniverse = 8;
+  F1.SACNFlowerStemStartUniverse = 6;
   F1.StemChannels = StemChannels;
   F1.BloomInnerChannels = BloomInnerChannels;
   F1.BloomOuterChannels = BloomOuterChannels;
@@ -277,9 +277,9 @@ int main(int ArgCount, char** Args)
   F2.Pos = v3{0, 0, 0};
   F2.ComPort = "\\\\.\\COM6";
   F2.FlowerTagValue = "right";
-  F2.SACNStemInnerStartUniverse = 11;
+  F2.SACNStemInnerStartUniverse = 13;
   F2.SACNStemOuterStartUniverse = 12;
-  F2.SACNFlowerStemStartUniverse = 13;
+  F2.SACNFlowerStemStartUniverse = 11;
   F2.StemChannels = StemChannels;
   F2.BloomInnerChannels = BloomInnerChannels;
   F2.BloomOuterChannels = BloomOuterChannels;
