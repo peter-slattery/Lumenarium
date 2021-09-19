@@ -16,7 +16,7 @@ gs_const_string Flower2AssemblyPath = ConstString("data/ss_blumen_three.fold");
 
 // The path to the phrase map CSV. Can be an absolute path, or relative
 // to the app_run_tree folder
-gs_const_string PhraseMapCSVPath = ConstString("C:/projects/Lumenarium/app_run_tree/data/flower_codes.tsv");
+gs_const_string PhraseMapCSVPath = ConstString("C:/projects/flowers-sound/flower_codes.tsv");
 char PhraseMapCSVSeparator = '\t';
 
 // Search Strings for which folders to find ambient animation files and
@@ -57,6 +57,7 @@ global time_range LedOnTimes[] = {
     { 00, 00, 06, 30 },
 };
 global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
+global b8  DEBUGIgnoreLedOnTimeRange = true;
 
 // How long it takes to fade from the default pattern to the
 // voice activated pattern
