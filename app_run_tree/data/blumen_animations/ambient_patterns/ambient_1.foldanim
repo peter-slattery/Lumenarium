@@ -4,7 +4,7 @@ layers_count: 3;
 blocks_count: 4;
 playable_range:{
     min: 0;
-    max: 2000;
+    max: 10000;
 };
 layers:{
     layer:{
@@ -24,7 +24,7 @@ blocks:{
     block:{
         frame_range:{
             min: 0;
-            max: 2000;
+            max: 19;
         };
         layer_index: 0;
         animation_name: "Pattern_BulbMask";
@@ -32,7 +32,7 @@ blocks:{
     block:{
         frame_range:{
             min: 0;
-            max: 2000;
+            max: 10000;
         };
         layer_index: 1;
         animation_name: "Pattern_Leafy";
@@ -40,15 +40,15 @@ blocks:{
     block:{
         frame_range:{
             min: 0;
-            max: 1032;
+            max: 5156;
         };
         layer_index: 2;
         animation_name: "Pattern_Rainbow";
     };
     block:{
         frame_range:{
-            min: 959;
-            max: 2000;
+            min: 5040;
+            max: 10000;
         };
         layer_index: 2;
         animation_name: "Pattern_Wavy";

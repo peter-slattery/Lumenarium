@@ -574,6 +574,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         }
     }
     
+    
+    
     if (BLState->InPhraseReceptionMode)
     {
         r32 SecondsSincePhraseBegan = SecondsElapsed(BLState->TimePhraseReceptionBegan, Context->SystemTime_Current);
@@ -759,7 +761,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     }
     
     // Dim the leds based on temp data
-    if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
+    if (false && !BLState->DEBUG_IgnoreWeatherDimmingLeds)
     {
         for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
         {

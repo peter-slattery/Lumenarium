@@ -57,7 +57,7 @@ global time_range LedOnTimes[] = {
     { 00, 00, 06, 30 },
 };
 global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
-global b8  DEBUGIgnoreLedOnTimeRange = true;
+global b8  DEBUGIgnoreLedOnTimeRange = false;
 
 // How long it takes to fade from the default pattern to the
 // voice activated pattern

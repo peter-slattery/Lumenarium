@@ -1,7 +1,7 @@
 lumenarium_animation_file;
 animation_name: "wavy_0";
 layers_count: 2;
-blocks_count: 1;
+blocks_count: 2;
 playable_range:{
     min: 0;
     max: 7200;
@@ -9,11 +9,11 @@ playable_range:{
 layers:{
     layer:{
         name: "[New Layer]";
-        blend: "Add";
+        blend: "Overwrite";
     };
     layer:{
         name: "Color";
-        blend: "Add";
+        blend: "Multiply";
     };
 };
 blocks:{
@@ -24,5 +24,13 @@ blocks:{
         };
         layer_index: 1;
         animation_name: "Pattern_Wavy";
+    };
+    block:{
+        frame_range:{
+            min: 78;
+            max: 3571;
+        };
+        layer_index: 0;
+        animation_name: "Pattern_Leafy";
     };
 };

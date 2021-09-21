@@ -328,7 +328,7 @@ Pattern_Leafy(led_buffer* Leds, led_buffer_range Range, assembly Assembly, r32 T
 {
     DEBUG_TRACK_FUNCTION;
     blumen_lumen_state* BLState = (blumen_lumen_state*)UserData;
-    Time = Time * BLState->PatternSpeed;
+    Time = Time * BLState->PatternSpeed * .3f;
     
     phrase_hue Hue = BlumenLumen_GetCurrentHue(BLState, Assembly);
     v4 C0 = RGBFromPhraseHue(Hue.Hue0);
