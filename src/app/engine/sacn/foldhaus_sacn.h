@@ -81,14 +81,14 @@ const u8 VHD_D_FLAG = 0x10;
 #define CID_Bytes 16
 struct cid
 {
-    u8 Bytes[CID_Bytes];
+  u8 Bytes[CID_Bytes];
 };
 
 struct streaming_acn
 {
-    platform_socket_handle SendSocket;
-    cid CID;
-    s32 SequenceIterator;
+  platform_socket_handle SendSocket;
+  cid CID;
+  s32 SequenceIterator;
 };
 
 ///////////////////////////////////////////////
@@ -100,100 +100,100 @@ struct streaming_acn
 internal void
 SetStreamHeaderSequence_ (u8* Buffer, u8 Sequence, b32 Draft)
 {
-    DEBUG_TRACK_FUNCTION;
-    PackB1(Buffer + SEQ_NUM_ADDR, Sequence);
+  DEBUG_TRACK_FUNCTION;
+  PackB1(Buffer + SEQ_NUM_ADDR, Sequence);
 }
 
 internal void
 VHD_PackFlags_(u8* Buffer, b32 InheritVec, b32 InheritHead, b32 InheritData)
 {
-    u8* Cursor = Buffer;
-    u8 NewByte = UpackB1(Cursor) & 0x8f;
-    
-    if (!InheritVec) { NewByte |= VHD_V_FLAG; }
-    if (!InheritHead) { NewByte |= VHD_H_FLAG; }
-    if (!InheritData) { NewByte |= VHD_D_FLAG; }
-    
-    PackB1(Cursor, NewByte);
+  u8* Cursor = Buffer;
+  u8 NewByte = UpackB1(Cursor) & 0x8f;
+  
+  if (!InheritVec) { NewByte |= VHD_V_FLAG; }
+  if (!InheritHead) { NewByte |= VHD_H_FLAG; }
+  if (!InheritData) { NewByte |= VHD_D_FLAG; }
+  
+  PackB1(Cursor, NewByte);
 }
 
 internal u8*
 VHD_PackLength_(u8* Buffer, u32 Length, b32 IncludeLength)
 {
-    u8* Cursor = Buffer;
-    u32 AdjustedLength = Length;
-    if (IncludeLength)
+  u8* Cursor = Buffer;
+  u32 AdjustedLength = Length;
+  if (IncludeLength)
+  {
+    if (Length + 1 > VHD_MAXMINLENGTH)
     {
-        if (Length + 1 > VHD_MAXMINLENGTH)
-        {
-            AdjustedLength += 2;
-        }
-        else
-        {
-            AdjustedLength += 1;
-        }
-    }
-    
-    // Mask out the length bits to keep flags intact
-    u8 NewByte = UpackB1(Cursor) & 0x70;
-    if (AdjustedLength > VHD_MAXMINLENGTH)
-    {
-        NewByte |= VHD_L_FLAG;
-    }
-    
-    u8 PackBuffer[4];
-    PackB4(PackBuffer, AdjustedLength);
-    if (AdjustedLength <= VHD_MAXMINLENGTH)
-    {
-        NewByte |= (PackBuffer[2] & 0x0f);
-        Cursor = PackB1(Cursor, NewByte);
-        Cursor = PackB1(Cursor, PackBuffer[3]);
+      AdjustedLength += 2;
     }
     else
     {
-        NewByte |= (PackBuffer[1] & 0x0f);
-        Cursor = PackB1(Cursor, PackBuffer[2]);
-        Cursor = PackB1(Cursor, PackBuffer[3]);
+      AdjustedLength += 1;
     }
-    
-    return Cursor;
+  }
+  
+  // Mask out the length bits to keep flags intact
+  u8 NewByte = UpackB1(Cursor) & 0x70;
+  if (AdjustedLength > VHD_MAXMINLENGTH)
+  {
+    NewByte |= VHD_L_FLAG;
+  }
+  
+  u8 PackBuffer[4];
+  PackB4(PackBuffer, AdjustedLength);
+  if (AdjustedLength <= VHD_MAXMINLENGTH)
+  {
+    NewByte |= (PackBuffer[2] & 0x0f);
+    Cursor = PackB1(Cursor, NewByte);
+    Cursor = PackB1(Cursor, PackBuffer[3]);
+  }
+  else
+  {
+    NewByte |= (PackBuffer[1] & 0x0f);
+    Cursor = PackB1(Cursor, PackBuffer[2]);
+    Cursor = PackB1(Cursor, PackBuffer[3]);
+  }
+  
+  return Cursor;
 }
 
 internal cid
 gs_stringToCID_ (const char* gs_string)
 {
-    cid Result = {};
+  cid Result = {};
+  
+  const char* Src = gs_string;
+  u8* Dest = &Result.Bytes[0];
+  b32 FirstNibble = true;
+  
+  while(*Src && (Dest - &Result.Bytes[0] < CID_Bytes))
+  {
+    u8 Offset = 0;
+    if ((*Src >= 0x30) && (*Src <= 0x39)){ Offset = 0x30; }
+    else if ((*Src >= 0x41) && (*Src <= 0x46)) { Offset = 0x37; }
+    else if ((*Src >= 0x61) && (*Src <= 0x66)) { Offset = 0x66; }
     
-    const char* Src = gs_string;
-    u8* Dest = &Result.Bytes[0];
-    b32 FirstNibble = true;
-    
-    while(*Src && (Dest - &Result.Bytes[0] < CID_Bytes))
+    if (Offset != 0)
     {
-        u8 Offset = 0;
-        if ((*Src >= 0x30) && (*Src <= 0x39)){ Offset = 0x30; }
-        else if ((*Src >= 0x41) && (*Src <= 0x46)) { Offset = 0x37; }
-        else if ((*Src >= 0x61) && (*Src <= 0x66)) { Offset = 0x66; }
-        
-        if (Offset != 0)
-        {
-            if (FirstNibble)
-            {
-                *Dest = (u8)(*Src - Offset);
-                *Dest <<= 4;
-                FirstNibble = false;
-            }
-            else
-            {
-                *Dest |= (*Src - Offset);
-                Dest++;
-                FirstNibble = true;
-            }
-        }
-        Src++;
+      if (FirstNibble)
+      {
+        *Dest = (u8)(*Src - Offset);
+        *Dest <<= 4;
+        FirstNibble = false;
+      }
+      else
+      {
+        *Dest |= (*Src - Offset);
+        Dest++;
+        FirstNibble = true;
+      }
     }
-    
-    return Result;
+    Src++;
+  }
+  
+  return Result;
 }
 
 internal void
@@ -208,85 +208,85 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
                   cid CID
                   )
 {
-    // TODO(pjs): Replace packing with gs_memory_cursor
-    
-    u8* Cursor = Buffer;
-    
-    // Preamble Size
-    Cursor = PackB2(Cursor, RLP_PREAMBLE_SIZE);
-    Cursor = PackB2(Cursor, RLP_POSTAMBLE_SIZE);
-    
-    CopyMemoryTo(ACN_IDENTIFIER, Cursor, ACN_IDENTIFIER_SIZE);
-    Cursor += ACN_IDENTIFIER_SIZE;
-    
-    // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
-    VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor,
-                             STREAM_HEADER_SIZE - RLP_PREAMBLE_SIZE + SlotCount,
-                             false);
-    
-    // root vector
-    Cursor = PackB4(Cursor, ROOT_VECTOR);
-    
-    // CID Pack
-    for (s32 i = 0; i < CID_Bytes; i++)
-    {
-        *Cursor++ = CID.Bytes[i];
-    }
-    
-    VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor,
-                             STREAM_HEADER_SIZE - FRAMING_FLAGS_AND_LENGTH_ADDR + SlotCount,
-                             false);
-    
-    // framing vector
-    Cursor = PackB4(Cursor, FRAMING_VECTOR);
-    
-    // framing source name
-    // :Check
-    CopyMemoryTo(SourceName, (char*)Cursor, SOURCE_NAME_SIZE);
-    Cursor[SOURCE_NAME_SIZE - 1] = '\0';
-    Cursor += SOURCE_NAME_SIZE;
-    
-    // priority
-    Cursor = PackB1(Cursor, Priority);
-    
-    // reserved
-    Cursor = PackB2(Cursor, Reserved);
-    
-    // Sequence # is always set to 0/NONE at the beginning, but it is incremented when sending data
-    Cursor = PackB1(Cursor, 0);
-    
-    // Options
-    Cursor = PackB1(Cursor, Options);
-    
-    // Universe
-    Cursor = PackB2(Cursor, Universe);
-    
-    VHD_PackFlags_(Cursor, false, false, false);
-    Cursor = VHD_PackLength_(Cursor,
-                             STREAM_HEADER_SIZE - DMP_FLAGS_AND_LENGTH_ADDR + SlotCount,
-                             false);
-    
-    // DMP Vector
-    Cursor = PackB1(Cursor, DMP_VECTOR);
-    
-    // DMP Address and data type
-    Cursor = PackB1(Cursor, ADDRESS_AND_DATA_FORMAT);
-    
-    // DMP first property address
-    Cursor = PackB2(Cursor, 0);
-    
-    // DMP Address Increment
-    Cursor = PackB2(Cursor, ADDRESS_INC);
-    
-    // Property Value Count -- Includes one byte for start code
-    Cursor = PackB2(Cursor, SlotCount + 1);
-    
-    Cursor = PackB1(Cursor, StartCode);
-    
-    Assert(Cursor - Buffer == STREAM_HEADER_SIZE);
-    
+  // TODO(pjs): Replace packing with gs_memory_cursor
+  
+  u8* Cursor = Buffer;
+  
+  // Preamble Size
+  Cursor = PackB2(Cursor, RLP_PREAMBLE_SIZE);
+  Cursor = PackB2(Cursor, RLP_POSTAMBLE_SIZE);
+  
+  CopyMemoryTo(ACN_IDENTIFIER, Cursor, ACN_IDENTIFIER_SIZE);
+  Cursor += ACN_IDENTIFIER_SIZE;
+  
+  // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
+  VHD_PackFlags_(Cursor, false, false, false);
+  Cursor = VHD_PackLength_(Cursor,
+                           STREAM_HEADER_SIZE - RLP_PREAMBLE_SIZE + SlotCount,
+                           false);
+  
+  // root vector
+  Cursor = PackB4(Cursor, ROOT_VECTOR);
+  
+  // CID Pack
+  for (s32 i = 0; i < CID_Bytes; i++)
+  {
+    *Cursor++ = CID.Bytes[i];
+  }
+  
+  VHD_PackFlags_(Cursor, false, false, false);
+  Cursor = VHD_PackLength_(Cursor,
+                           STREAM_HEADER_SIZE - FRAMING_FLAGS_AND_LENGTH_ADDR + SlotCount,
+                           false);
+  
+  // framing vector
+  Cursor = PackB4(Cursor, FRAMING_VECTOR);
+  
+  // framing source name
+  // :Check
+  CopyMemoryTo(SourceName, (char*)Cursor, SOURCE_NAME_SIZE);
+  Cursor[SOURCE_NAME_SIZE - 1] = '\0';
+  Cursor += SOURCE_NAME_SIZE;
+  
+  // priority
+  Cursor = PackB1(Cursor, Priority);
+  
+  // reserved
+  Cursor = PackB2(Cursor, Reserved);
+  
+  // Sequence # is always set to 0/NONE at the beginning, but it is incremented when sending data
+  Cursor = PackB1(Cursor, 0);
+  
+  // Options
+  Cursor = PackB1(Cursor, Options);
+  
+  // Universe
+  Cursor = PackB2(Cursor, Universe);
+  
+  VHD_PackFlags_(Cursor, false, false, false);
+  Cursor = VHD_PackLength_(Cursor,
+                           STREAM_HEADER_SIZE - DMP_FLAGS_AND_LENGTH_ADDR + SlotCount,
+                           false);
+  
+  // DMP Vector
+  Cursor = PackB1(Cursor, DMP_VECTOR);
+  
+  // DMP Address and data type
+  Cursor = PackB1(Cursor, ADDRESS_AND_DATA_FORMAT);
+  
+  // DMP first property address
+  Cursor = PackB2(Cursor, 0);
+  
+  // DMP Address Increment
+  Cursor = PackB2(Cursor, ADDRESS_INC);
+  
+  // Property Value Count -- Includes one byte for start code
+  Cursor = PackB2(Cursor, SlotCount + 1);
+  
+  Cursor = PackB1(Cursor, StartCode);
+  
+  Assert(Cursor - Buffer == STREAM_HEADER_SIZE);
+  
 }
 
 //
@@ -296,13 +296,13 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
 internal streaming_acn
 SACN_Initialize (context Context)
 {
-    streaming_acn SACN = {};
-    
-    s32 Multicast_TimeToLive = 20;
-    SACN.SendSocket = Context.PlatformGetSocketHandle(Multicast_TimeToLive);
-    SACN.CID = gs_stringToCID_ ("{67F9D986-544E-4abb-8986-D5F79382586C}");
-    
-    return SACN;
+  streaming_acn SACN = {};
+  
+  s32 Multicast_TimeToLive = 20;
+  SACN.SendSocket = Context.PlatformGetSocketHandle(Multicast_TimeToLive);
+  SACN.CID = gs_stringToCID_ ("{67F9D986-544E-4abb-8986-D5F79382586C}");
+  
+  return SACN;
 }
 
 internal void
@@ -313,82 +313,98 @@ SACN_Cleanup(streaming_acn* SACN, context Context)
 internal void
 SACN_UpdateSequence (streaming_acn* SACN)
 {
-    // Never use 0 after the first one
-    if (++SACN->SequenceIterator == 0)
-    {
-        ++SACN->SequenceIterator;
-    }
+  // Never use 0 after the first one
+  if (++SACN->SequenceIterator == 0)
+  {
+    ++SACN->SequenceIterator;
+  }
 }
 
 internal void
 SACN_PrepareBufferHeader (s32 Universe, u8* Buffer, s32 BufferSize, s32 SizeReservedForHeader, streaming_acn SACN)
 {
-    Assert(SizeReservedForHeader == STREAM_HEADER_SIZE);
-    Assert(Buffer && BufferSize > 0);
-    
-    s32 Priority = 0;
-    InitStreamHeader(Buffer, BufferSize, STREAM_BODY_SIZE, STARTCODE_DMX, Universe, Priority, 0, 0, "Lumenarium", SACN.CID);
-    SetStreamHeaderSequence_(Buffer, SACN.SequenceIterator, false);
+  Assert(SizeReservedForHeader == STREAM_HEADER_SIZE);
+  Assert(Buffer && BufferSize > 0);
+  
+  s32 Priority = 0;
+  InitStreamHeader(Buffer, BufferSize, STREAM_BODY_SIZE, STARTCODE_DMX, Universe, Priority, 0, 0, "Lumenarium", SACN.CID);
+  SetStreamHeaderSequence_(Buffer, SACN.SequenceIterator, false);
 }
 
 internal u32
 SACN_GetUniverseSendAddress(s32 Universe)
 {
-    u8 MulticastAddressBuffer[4] = {};
-    MulticastAddressBuffer[0] = 239;
-    MulticastAddressBuffer[1] = 255;
-    MulticastAddressBuffer[2] = (u8)((Universe & 0xff00) >> 8); // high bit
-    MulticastAddressBuffer[3] = (u8)((Universe & 0x00ff)); // low bit
-    
-    u32 V4Address = (u32)UpackB4(MulticastAddressBuffer);
-    return V4Address;
+  u8 MulticastAddressBuffer[4] = {};
+  MulticastAddressBuffer[0] = 239;
+  MulticastAddressBuffer[1] = 255;
+  MulticastAddressBuffer[2] = (u8)((Universe & 0xff00) >> 8); // high bit
+  MulticastAddressBuffer[3] = (u8)((Universe & 0x00ff)); // low bit
+  
+  u32 V4Address = (u32)UpackB4(MulticastAddressBuffer);
+  return V4Address;
 }
 
-internal void
-SACN_FillBufferWithLeds(u8* BufferStart, u32 BufferSize, v2_strip Strip, led_buffer LedBuffer)
+internal u64
+SACN_FillBufferWithLeds(u8* BufferStart, u32 BufferSize, v2_strip Strip, u64 LedsPlaced, led_buffer LedBuffer)
 {
-    u8* DestChannel = BufferStart;
-    for (u32 i = 0; i < Strip.LedCount; i++)
-    {
-        u32 LedIndex = Strip.LedLUT[i];
-        pixel Color = LedBuffer.Colors[LedIndex];
-        
-        DestChannel[0] = Color.R;
-        DestChannel[1] = Color.G;
-        DestChannel[2] = Color.B;
-        DestChannel += 3;
-    }
+  u8* DestChannel = BufferStart;
+  u64 FirstLed = LedsPlaced;
+  u64 LedsToAdd = Min(Strip.LedCount - LedsPlaced, STREAM_BODY_SIZE / 3);
+  u64 OnePastLastLed = FirstLed + LedsToAdd;
+  for (u32 i = FirstLed; i < OnePastLastLed; i++)
+  {
+    u32 LedIndex = Strip.LedLUT[i];
+    pixel Color = LedBuffer.Colors[LedIndex];
+    
+    DestChannel[0] = Color.R;
+    DestChannel[1] = Color.G;
+    DestChannel[2] = Color.B;
+    DestChannel += 3;
+  }
+  return LedsToAdd;
 }
 
 internal void
 SACN_BuildOutputData(streaming_acn* SACN, addressed_data_buffer_list* Output, assembly_array Assemblies, led_system* LedSystem)
 {
-    SACN_UpdateSequence(SACN);
+  SACN_UpdateSequence(SACN);
+  
+  // TODO(pjs): 512 is a magic number - make it a constant?
+  s32 BufferHeaderSize = STREAM_HEADER_SIZE;
+  s32 BufferBodySize = STREAM_BODY_SIZE;
+  s32 BufferSize = BufferHeaderSize + BufferBodySize;
+  
+  for (u32 AssemblyIdx = 0; AssemblyIdx < Assemblies.Count; AssemblyIdx++)
+  {
+    assembly Assembly = Assemblies.Values[AssemblyIdx];
+    led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
     
-    // TODO(pjs): 512 is a magic number - make it a constant?
-    s32 BufferHeaderSize = STREAM_HEADER_SIZE;
-    s32 BufferBodySize = 512;
-    s32 BufferSize = BufferHeaderSize + BufferBodySize;
-    
-    for (u32 AssemblyIdx = 0; AssemblyIdx < Assemblies.Count; AssemblyIdx++)
+    for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)
     {
-        assembly Assembly = Assemblies.Values[AssemblyIdx];
-        led_buffer* LedBuffer = LedSystemGetBuffer(LedSystem, Assembly.LedBufferIndex);
+      v2_strip StripAt = Assembly.Strips[StripIdx];
+      
+      // NOTE(PS): This isn't actually invalid, we just haven't needed to implement
+      // something more complex than only allowing strips to start at the first 
+      // channel of a universe
+      Assert(StripAt.SACNAddr.StartChannel == 1);
+      
+      u32 UniverseAt = StripAt.SACNAddr.StartUniverse;
+      u64 LedsPlaced = 0;
+      while (LedsPlaced < StripAt.LedCount) 
+      {
+        u32 V4SendAddress = SACN_GetUniverseSendAddress(UniverseAt);
+        u32 SendPort = DEFAULT_STREAMING_ACN_PORT;
         
-        for (u32 StripIdx = 0; StripIdx < Assembly.StripCount; StripIdx++)
-        {
-            v2_strip StripAt = Assembly.Strips[StripIdx];
-            
-            u32 V4SendAddress = SACN_GetUniverseSendAddress(StripAt.SACNAddr.StartUniverse);
-            u32 SendPort = DEFAULT_STREAMING_ACN_PORT;
-            
-            addressed_data_buffer* Data = AddressedDataBufferList_Push(Output, BufferSize);
-            AddressedDataBuffer_SetNetworkAddress(Data, SACN->SendSocket, V4SendAddress, SendPort);
-            
-            SACN_PrepareBufferHeader(StripAt.SACNAddr.StartUniverse, Data->Memory, Data->MemorySize, BufferHeaderSize, *SACN);
-            SACN_FillBufferWithLeds(Data->Memory + BufferHeaderSize, BufferBodySize, StripAt, *LedBuffer);
-        }
+        addressed_data_buffer* Data = AddressedDataBufferList_Push(Output, BufferSize);
+        AddressedDataBuffer_SetNetworkAddress(Data, SACN->SendSocket, V4SendAddress, SendPort);
+        
+        SACN_PrepareBufferHeader(UniverseAt, Data->Memory, Data->MemorySize, BufferHeaderSize, *SACN);
+        LedsPlaced += SACN_FillBufferWithLeds(Data->Memory + BufferHeaderSize, BufferBodySize, StripAt, LedsPlaced, *LedBuffer);
+        
+        UniverseAt += 1;
+      }
     }
+  }
 }
 
 #define SACN_H

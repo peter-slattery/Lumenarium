@@ -36,9 +36,9 @@ gs_const_string VoicePatternFolder = ConstString("data/blumen_animations/audio_r
 // NOTE: There is no need to modify the MotorOpenTimesCount variable -
 // it is a compile time constant that gets calculated automatically
 global time_range MotorOpenTimes[] = {
-    { 8, 00, 12, 00 },  //  8:00am to 12:00pm
-    { 12, 30, 18, 00 }, // 12:30pm to 06:00pm
-    { 18, 30, 22, 00 }, //  6:30pm to 10:00pm
+  { 8, 00, 12, 00 },  //  8:00am to 12:00pm
+  { 12, 30, 18, 00 }, // 12:30pm to 06:00pm
+  { 18, 30, 22, 00 }, //  6:30pm to 10:00pm
 };
 global u32 MotorOpenTimesCount = CArrayLength(MotorOpenTimes); // do not edit
 
@@ -50,11 +50,11 @@ global r32 MotorResendStatePeriod = 90.0f; // seconds
 // The times of day when the leds should be on
 // Search for @TimeFormat to find documentation
 global time_range LedOnTimes[] = {
-    { 14, 43, 14, 44 },
-    { 14, 45, 14, 46 },
-    
-    { 17, 00, 23, 59 },
-    { 00, 00, 06, 30 },
+  { 14, 43, 14, 44 },
+  { 14, 45, 14, 46 },
+  
+  { 17, 00, 23, 59 },
+  { 00, 00, 06, 30 },
 };
 global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
 global b8  DEBUGIgnoreLedOnTimeRange = false;
