@@ -4,7 +4,7 @@ layers_count: 3;
 blocks_count: 1;
 playable_range:{
     min: 0;
-    max: 3600;
+    max: 36000;
 };
 layers:{
     layer:{
@@ -24,7 +24,7 @@ blocks:{
     block:{
         frame_range:{
             min: 0;
-            max: 3600;
+            max: 36000;
         };
         layer_index: 1;
         animation_name: "Pattern_Rainbow";

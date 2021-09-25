@@ -50,11 +50,8 @@ global r32 MotorResendStatePeriod = 90.0f; // seconds
 // The times of day when the leds should be on
 // Search for @TimeFormat to find documentation
 global time_range LedOnTimes[] = {
-  { 14, 43, 14, 44 },
-  { 14, 45, 14, 46 },
-  
-  { 17, 00, 23, 59 },
-  { 00, 00, 06, 30 },
+    { 17, 00, 23, 59 },
+    { 00, 00, 06, 30 },
 };
 global u32 LedOnTimesCount = CArrayLength(LedOnTimes); // do not edit
 global b8  DEBUGIgnoreLedOnTimeRange = false;
