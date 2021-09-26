@@ -510,6 +510,8 @@ BlumenLumen_ApplyNextHotHue(blumen_lumen_state* BLState, context Context, gs_str
 internal void
 BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
 {
+  DEBUG_TRACK_FUNCTION;
+  
   blumen_lumen_state* BLState = (blumen_lumen_state*)UserData.Memory;
   BLState->ShouldUpdateLog = false;
   
@@ -785,31 +787,25 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
       if (Blumen_TempShouldDimLeds(BLState))
       {
         OverrideBrightness = HighTemperatureBrightnessPercent;
-        OutputDebugString("Set Brightness High Temp");
       }
       else
       {
-        OverrideBrightness = FullBrightnessPercent;
-        OutputDebugString("Set Brightness Full");
+        OverrideBrightness = FullBrightnessPercent;        
       }
       TimelineShouldAdvance = true;
-    }
-    else
-    {
-      OutputDebugString("Skipped Time Range Dimming");
     }
     
     State->AnimationSystem.TimelineShouldAdvance = TimelineShouldAdvance;
     BLState->BrightnessPercent = OverrideBrightness;
   }
-  else
-  {
-    OutputDebugString("Skipped Dimming Altogether");
-  }
   
   // Dim the leds based on temp data
-  if (false && !BLState->DEBUG_IgnoreWeatherDimmingLeds)
+  if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
   {
+    Log_Message(GlobalLogBuffer, "Dimming: %f %d %d\n",
+                BLState->BrightnessPercent,
+                State->LedSystem.BuffersCount,
+                State->LedSystem.LedsCountTotal);
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
       led_buffer Buffer = State->LedSystem.Buffers[i];
