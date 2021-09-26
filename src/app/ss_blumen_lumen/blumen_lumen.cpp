@@ -802,10 +802,9 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
   // Dim the leds based on temp data
   if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
   {
-    Log_Message(GlobalLogBuffer, "Dimming: %f %d %d\n",
-                BLState->BrightnessPercent,
-                State->LedSystem.BuffersCount,
-                State->LedSystem.LedsCountTotal);
+    led_buffer B0 = State->LedSystem.Buffers[0];
+    pixel P0 = B0.Colors[0];
+    
     for (u32 i = 0; i < State->LedSystem.BuffersCount; i++)
     {
       led_buffer Buffer = State->LedSystem.Buffers[i];
@@ -817,6 +816,14 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
         Color->B = Color->B * BLState->BrightnessPercent;
       }
     }
+    
+    led_buffer B1 = State->LedSystem.Buffers[0];
+    pixel P1 = B1.Colors[0];
+    
+    Log_Message(GlobalLogBuffer, "Dimming: %f %d %d %d - %d %d %d\n",
+                BLState->BrightnessPercent,
+                P0.R, P0.G, P0.B,
+                P1.R, P1.G, P1.B);
   }
   
   // Send Status Packet
