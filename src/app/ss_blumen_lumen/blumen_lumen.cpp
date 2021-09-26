@@ -706,45 +706,44 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     else if (MotorPos == MotorState_Closed ||
              MotorPos == MotorState_HalfOpen)
     {
-        bool SendMotorCommand = false;
-        
-        u64 NanosSinceLastSend = Context->SystemTime_Current.NanosSinceEpoch - BLState->LastSendTime.NanosSinceEpoch;
-        r32 SecondsSinceLastSend = (r64)NanosSinceLastSend * NanosToSeconds;
-        bool ShouldSendCurrentState = SecondsSinceLastSend >= MotorResendStatePeriod;
-        
-        bl_motor_state_value NewMotorState = MotorState_Closed;
-        bool SendOpen = false;
-        for (u32 i = 0; i < MotorOpenTimesCount; i++)
-        {
-            time_range Range = MotorOpenTimes[i];
-            bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
-            if (CurrTimeInRange) {
-                NewMotorState = MotorState_Open;
-            }
+      bool SendMotorCommand = false;
+      
+      u64 NanosSinceLastSend = Context->SystemTime_Current.NanosSinceEpoch - BLState->LastSendTime.NanosSinceEpoch;
+      r32 SecondsSinceLastSend = (r64)NanosSinceLastSend * NanosToSeconds;
+      bool ShouldSendCurrentState = SecondsSinceLastSend >= MotorResendStatePeriod;
+      
+      bl_motor_state_value NewMotorState = MotorState_Closed;
+      bool SendOpen = false;
+      for (u32 j = 0; j < MotorOpenTimesCount; j++)
+      {
+        time_range Range = MotorOpenTimes[j];
+        bool CurrTimeInRange = SystemTimeIsInTimeRange(Context->SystemTime_Current, Range);
+        if (CurrTimeInRange) {
+          NewMotorState = MotorState_Open;
         }
+      }
+      
+      
+      if (NewMotorState != BLState->LastSendState) 
+      {
+        ShouldSendCurrentState = true;
+      }
+      
+      if (ShouldSendCurrentState)
+      {
+        BLState->LastSendTime = Context->SystemTime_Current;
+        BLState->LastSendState = NewMotorState;
         
+        blumen_packet Packet = {};
+        Packet.Type = PacketType_MotorState;
+        Packet.MotorPacket.FlowerPositions[0] = NewMotorState;
+        Packet.MotorPacket.FlowerPositions[1] = NewMotorState;
+        Packet.MotorPacket.FlowerPositions[2] = NewMotorState;
+        gs_data Msg = StructToData(&Packet, blumen_packet);
+        MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
         
-        if (NewMotorState != BLState->LastSendState) 
-        {
-            ShouldSendCurrentState = true;
-        }
-        
-        
-        if (ShouldSendCurrentState)
-        {
-            BLState->LastSendTime = Context->SystemTime_Current;
-            BLState->LastSendState = NewMotorState;
-            
-            blumen_packet Packet = {};
-            Packet.Type = PacketType_MotorState;
-            Packet.MotorPacket.FlowerPositions[0] = NewMotorState;
-            Packet.MotorPacket.FlowerPositions[1] = NewMotorState;
-            Packet.MotorPacket.FlowerPositions[2] = NewMotorState;
-            gs_data Msg = StructToData(&Packet, blumen_packet);
-            MessageQueue_Write(&BLState->OutgoingMsgQueue, Msg);
-            
-            DEBUG_SentMotorCommand(Packet.MotorPacket, Context->ThreadContext);
-        }
+        DEBUG_SentMotorCommand(Packet.MotorPacket, Context->ThreadContext);
+      }
     }
   }
   
