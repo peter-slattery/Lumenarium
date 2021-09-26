@@ -819,11 +819,6 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     
     led_buffer B1 = State->LedSystem.Buffers[0];
     pixel P1 = B1.Colors[0];
-    
-    Log_Message(GlobalLogBuffer, "Dimming: %f %d %d %d - %d %d %d\n",
-                BLState->BrightnessPercent,
-                P0.R, P0.G, P0.B,
-                P1.R, P1.G, P1.B);
   }
   
   // Send Status Packet
