@@ -800,7 +800,7 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
   }
   
   // Dim the leds based on temp data
-  if (!BLState->DEBUG_IgnoreWeatherDimmingLeds)
+  if (State->AnimationSystem.UpdatesThisFrame > 0 && !BLState->DEBUG_IgnoreWeatherDimmingLeds)
   {
     led_buffer B0 = State->LedSystem.Buffers[0];
     pixel P0 = B0.Colors[0];
