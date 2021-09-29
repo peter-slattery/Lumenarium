@@ -708,6 +708,8 @@ BlumenLumen_CustomUpdate(gs_data UserData, app_state* State, context* Context)
     else if (MotorPos == MotorState_Closed ||
              MotorPos == MotorState_HalfOpen)
     {
+      BLState->ShouldDimUpperLeds[i] = false;
+      
       bool SendMotorCommand = false;
       
       u64 NanosSinceLastSend = Context->SystemTime_Current.NanosSinceEpoch - BLState->LastSendTime.NanosSinceEpoch;
