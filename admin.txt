@@ -1,0 +1,22 @@
+# Project Admin Stuff
+
+## Priorities
+
+1. Upgrade Lumenarium's plumbing
+2. Begin work on Incenter
+
+## TODO
+
+1. Upgrade Lumenarium's plubming
+  1. switch over to compiling with clang & bash based build scripts
+  2. better platform layer separation
+  3. osx and webgl layers, possibly linux?
+  4. remove dll compiling, just build all in one go
+  5. improve ui
+    1. default to using a basic layout object
+    2. improve widget handling (see a_trick_of_fate)
+
+2. Incenter
+  1. Sculpture generation from list of lat-long coordinates
+  2. 
+
