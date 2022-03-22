@@ -11,33 +11,33 @@
 internal s64
 GetPerformanceFrequency ()
 {
-    LARGE_INTEGER Frequency;
-    if (!QueryPerformanceFrequency(&Frequency))
-    {
-        s32 Error = GetLastError();
-        // TODO(Peter): I'm waiting to see an error actually occur here
-        // to know what it could possibly be.
-        InvalidCodePath;
-    }
-    return (s64)Frequency.QuadPart;
+  LARGE_INTEGER Frequency;
+  if (!QueryPerformanceFrequency(&Frequency))
+  {
+    s32 Error = GetLastError();
+    // TODO(Peter): I'm waiting to see an error actually occur here
+    // to know what it could possibly be.
+    InvalidCodePath;
+  }
+  return (s64)Frequency.QuadPart;
 }
 
 internal s64
 GetWallClock ()
 {
 #if 0
-    s64 Result = __rdtsc();
-    return Result;
+  s64 Result = __rdtsc();
+  return Result;
 #else
-    LARGE_INTEGER Time;
-    if (!QueryPerformanceCounter(&Time))
-    {
-        s32 Error = GetLastError();
-        // TODO(Peter): I'm waiting to see an error actually occur here
-        // to know what it could possibly be.
-        InvalidCodePath;
-    }
-    return (s64)Time.QuadPart;
+  LARGE_INTEGER Time;
+  if (!QueryPerformanceCounter(&Time))
+  {
+    s32 Error = GetLastError();
+    // TODO(Peter): I'm waiting to see an error actually occur here
+    // to know what it could possibly be.
+    InvalidCodePath;
+  }
+  return (s64)Time.QuadPart;
 #endif
 }
 

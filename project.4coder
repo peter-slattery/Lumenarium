@@ -14,6 +14,7 @@ blacklist_patterns = {
 };
 load_paths_base = {
     { "src", .relative = true, .recursive = true, },
+    { "src_v2", .relative = true, .recursive = true, },
     { "meta", .relative = true, .recursive = true, },
     { "gs_libs", .relative = true, .recursive = true, },
 };
@@ -22,6 +23,7 @@ load_paths = {
     { load_paths_base, .os = "linux", },
     { load_paths_base, .os = "mac", },
 };
+enable_virtual_whitespace=true;
 
 command_list = {
     { .name = "build_application",
@@ -34,6 +36,11 @@ command_list = {
         .cmd = { { "build\build_meta_msvc_win32_debug.bat" , .os = "win"   },
             { "./build_meta.sh", .os = "linux" },
             { "./build_meta.sh", .os = "mac"   }, }, },
+    { .name = "build_v2",
+        .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
+        .cmd = { { "bash build\build.sh debug win32 intel" , .os = "win"   },
+            { "./build_meta.sh", .os = "linux" },
+            { "./build_meta.sh", .os = "mac"   }, }, },
 };
-fkey_command[1] = "build_application";
+fkey_command[1] = "build_v2";
 fkey_command[2] = "build_meta";

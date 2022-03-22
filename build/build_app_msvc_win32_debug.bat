@@ -20,7 +20,7 @@ del *.pdb > NUL 2> NUL
 
 echo WAITING FOR PDB TO WRITE > lock.tmp
 
-cl %CommonCompilerFlags% %SourceCodePath%\foldhaus_app.cpp /Fefoldhaus.dll /LD /link %CommonLinkerFlags% %DLLExports%
+cl %CommonCompilerFlags% %SourceCodePath%\foldhaus_app.cpp /Fefoldhaus.dll /LD /link %CommoLinkerFlags% %DLLExports%
 SET LastError=%ERRORLEVEL%
 
 del lock.tmp

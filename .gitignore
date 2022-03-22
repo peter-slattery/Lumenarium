@@ -1,6 +1,10 @@
 app_run_tree/
 meta_run_tree/
+*.exe
+*.pdb
+*.o
 process/
 reference/
 working_data/
 nssm_log.log
+sysroot/
