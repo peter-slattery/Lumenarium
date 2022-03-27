@@ -10,7 +10,7 @@
 # pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG)
 # define USE_ASSERTS 1
 #endif
 

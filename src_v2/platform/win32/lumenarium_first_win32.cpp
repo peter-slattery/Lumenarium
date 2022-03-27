@@ -2,8 +2,9 @@
 #include "../lumenarium_compiler_flags.h"
 #include "../lumenarium_platform_common_includes.h"
 
-#include "windows.h"
+#include <windows.h>
 #include <gl/gl.h>
+#include <stdio.h>
 
 #include "../../lumenarium_types.h"
 #include "../lumenarium_platform.h"
@@ -16,11 +17,18 @@ win32_get_last_error()
   win32_last_error = GetLastError();
 }
 
+global bool running = true;
+
+#include "lumenarium_win32_opengl.h"
+
+global Win32_OpenGL_Extensions gl;
+
 #include "lumenarium_win32_memory.cpp"
 #include "lumenarium_win32_window.cpp"
 #include "lumenarium_win32_time.cpp"
 #include "lumenarium_win32_file.cpp"
 #include "lumenarium_win32_thread.cpp"
+#include "lumenarium_win32_graphics.cpp"
 
 internal Platform_Key_Flags
 win32_get_key_flags_mod()
@@ -172,22 +180,25 @@ WinMain(
         PSTR lpCmdLine, 
         INT nCmdShow)
 {
-  
-  App_State* state = lumenarium_init();
-  if (!has_flag(state->flags, AppState_IsRunning)) return 0;
-  
   // Window Setup
-  win32_main_window = win32_window_create(
-                                          hInstance, "Lumenarium", 1600, 900, win32_window_event_handler
-                                          );
-  win32_window_opengl_ctx_create(&win32_main_window, { 32, 8, 0 });
+  win32_window_create(
+                      &win32_main_window, 
+                      hInstance, 
+                      "Lumenariumtest0", 
+                      1600, 
+                      900, 
+                      win32_window_event_handler
+                      );
   
   win32_time_init();
   win32_files_init();
   win32_threads_init();
   
+  App_State* state = lumenarium_init();
+  if (!has_flag(state->flags, AppState_IsRunning)) return 0;
+  
   Platform_Ticks ticks_start = platform_get_ticks();
-  while (has_flag(state->flags, AppState_IsRunning))
+  while (running && has_flag(state->flags, AppState_IsRunning))
   {
     win32_threads_reclaim();
     lumenarium_frame_prepare(state);
@@ -213,9 +224,14 @@ WinMain(
       win32_window_handle_event(window_msg, &win32_main_window, state);
     }
     
+    // NOTE(PS): WM_CLOSE and WM_DESTROY can both be issued 
+    // the same frame, meaning our drawing context is destroyed
+    // before calling lumenarium_frame so skipping here to avoid
+    // using invalid resources
+    if (!running || !has_flag(state->flags, AppState_IsRunning)) continue;
+    
     lumenarium_frame(state);
     
-    // Swap Render Buffers
     SwapBuffers(win32_main_window.dc);
     
     ////////////////////////////////////////
@@ -236,7 +252,6 @@ WinMain(
   
   lumenarium_cleanup(state);
   
-  
   // threads cleanup
   for (u32 i = 1; i < win32_threads_cap; i++)
   {
@@ -244,6 +259,8 @@ WinMain(
     TerminateThread(win32_threads[i], 0);
   }
   
-  ExitProcess(0);
+  // windows cleanup
+  UnregisterClass(win32_main_window.window_class.lpszClassName, hInstance);
+  return 0;
 }
 

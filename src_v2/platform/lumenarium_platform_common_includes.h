@@ -11,6 +11,12 @@
 
 #include <math.h>
 
+#include "lumenarium_assert.h"
+
+#include "glcorearb.h"
+#include "glext.h"
+#include "wglext.h"
+
 #if 0
 #define HMM_SINF sin
 #define HMM_COSF cos

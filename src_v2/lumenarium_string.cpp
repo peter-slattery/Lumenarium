@@ -61,7 +61,7 @@ string_substring(String s, u64 min, u64 max)
   if (min > max) {
     u64 t = min;
     min = max;
-    max = min;
+    max = t;
   }
   String result = {};
   result.str = s.str + min;

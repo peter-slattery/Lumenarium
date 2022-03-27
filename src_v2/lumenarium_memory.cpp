@@ -138,11 +138,16 @@ bump_allocator_alloc(Allocator* allocator, u64 size)
     }
     else
     {
-      if (new_size < bump->size_reserved)
+      if (new_size <= bump->size_reserved)
       {
         u64 next_page = size_to_pages(bump->at);
+        if (bump->at == 0 && bump->size_committed == 0) next_page = 0;
         u64 commit_amt = new_size - next_page;
-        bump->base = platform_mem_commit(bump->base + next_page, commit_amt);
+        u8* new_page = platform_mem_commit(bump->base + next_page, commit_amt);
+        if (new_page != 0) 
+        {
+          bump->size_committed = new_size;
+        }
       }
       else
       {
@@ -151,7 +156,7 @@ bump_allocator_alloc(Allocator* allocator, u64 size)
     }
   }
   
-  u8* result = bump->base;
+  u8* result = bump->base + bump->at;
   bump->at = at_after;
   
   return result;

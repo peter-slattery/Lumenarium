@@ -1,6 +1,7 @@
 version(1);
 project_name = "main.exe";
 patterns = {
+    "*.js",
     "*.c",
     "*.cpp",
     "*.h",
@@ -13,6 +14,8 @@ blacklist_patterns = {
     ".*",
 };
 load_paths_base = {
+    { ".", .relative = true, .recursive = false, },
+    { "build", .relative = true, .recursive = false, },
     { "src", .relative = true, .recursive = true, },
     { "src_v2", .relative = true, .recursive = true, },
     { "meta", .relative = true, .recursive = true, },
@@ -23,7 +26,7 @@ load_paths = {
     { load_paths_base, .os = "linux", },
     { load_paths_base, .os = "mac", },
 };
-enable_virtual_whitespace=true;
+enable_virtual_whitespace = true;
 
 command_list = {
     { .name = "build_application",
@@ -38,7 +41,7 @@ command_list = {
             { "./build_meta.sh", .os = "mac"   }, }, },
     { .name = "build_v2",
         .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
-        .cmd = { { "bash build\build.sh debug win32 intel" , .os = "win"   },
+        .cmd = { { "bash build\build.sh" , .os = "win"   },
             { "./build_meta.sh", .os = "linux" },
             { "./build_meta.sh", .os = "mac"   }, }, },
 };

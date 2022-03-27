@@ -76,7 +76,11 @@ void
 platform_thread_end(Platform_Thread_Handle thread)
 {
   HANDLE thread_handle = win32_threads[thread.value];
-  TerminateThread(thread_handle, 0);
+  bool result = TerminateThread(thread_handle, 0);
+  if (!result) {
+    win32_get_last_error();
+    invalid_code_path;
+  }
   win32_threads[thread.value] = INVALID_HANDLE_VALUE;
 }
 

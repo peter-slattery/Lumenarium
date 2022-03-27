@@ -1,8 +1,8 @@
 
 internal void
-en_init(App_State* state)
+en_init(App_State* state, App_Init_Desc desc)
 {
-  
+  state->assemblies = assembly_array_create(permanent, desc.assembly_cap);
 }
 
 internal void

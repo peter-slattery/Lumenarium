@@ -5,15 +5,16 @@
 
 typedef struct App_State App_State;
 
+// Environment
 #include "lumenarium_memory.cpp"
 #include "lumenarium_string.cpp"
 #include "lumenarium_input.cpp"
 
+// Engine
 #include "engine/lumenarium_engine_assembly.h"
-#include "engine/lumenarium_engine.cpp"
 
-#include "editor/lumenarium_editor_renderer.cpp"
-#include "editor/lumenarium_editor.cpp"
+// Editor
+#include "editor/lumenarium_editor_renderer.h"
 
 //////////////////////////////////////////////
 //    Lumenarium Runtime Environment
@@ -38,11 +39,24 @@ enum
   AppState_NoEditor = 2,
 };
 
+struct App_Init_Desc
+{
+  u32 assembly_cap;
+};
+
 struct App_State
 {
   App_State_Flags flags;
   
   Input_State input_state;
+  Assembly_Array assemblies;
 };
+
+#include "engine/lumenarium_engine_assembly.cpp"
+#include "engine/lumenarium_engine.cpp"
+
+#include "editor/lumenarium_editor_renderer.cpp"
+#include "editor/lumenarium_editor.cpp"
+
 
 #endif //LUMENARIUM_FIRST_H

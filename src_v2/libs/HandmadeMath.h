@@ -443,9 +443,17 @@ extern "C"
         {
           float R, G, B;
         };
+        struct
+        {
+          float r, g, b;
+        };
       };
       
-      float A;
+      union
+      {
+        float A;
+        float a;
+      };
     };
     
     struct

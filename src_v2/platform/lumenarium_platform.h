@@ -77,6 +77,8 @@ void                 platform_file_close(Platform_File_Handle file_handle);
 Platform_File_Info   platform_file_get_info(Platform_File_Handle file_handle, Allocator* allocator);
 Data platform_file_read_all(Platform_File_Handle file_handle, Allocator* allocator);
 bool platform_file_write_all(Platform_File_Handle file_handle, Data file_data);
+String platform_get_exe_path(Allocator* allocator);
+bool platform_pwd_set(String path);
 
 typedef u32 Platform_Enum_Dir_Flags;
 enum
@@ -291,4 +293,44 @@ s32                    platform_Socket_set_opt();
 ///////////////////////////////////////
 //    Graphics Integration
 
+#define PLATFORM_SHADER_MAX_ATTRS 8
+#define PLATFORM_SHADER_ATTR_LAST (u32)(1 << 31)
+struct Platform_Shader 
+{ 
+  u32 id; 
+  u32 attrs[PLATFORM_SHADER_MAX_ATTRS];
+};
+
+struct Platform_Geometry_Buffer 
+{
+  u32 buffer_id_vao;
+  u32 buffer_id_vertices;
+  u32 buffer_id_indices;
+  u32 indices_len;
+};
+
+struct Platform_Graphics_Frame_Desc
+{
+  v4 clear_color;
+  v2 viewport_min;
+  v2 viewport_max;
+};
+
+void platform_frame_begin(Platform_Graphics_Frame_Desc desc);
+void platform_frame_clear();
+
+Platform_Geometry_Buffer platform_geometry_buffer_create(r32* vertices, u32 vertices_len, u32* indices, u32 indices_len);
+Platform_Shader platform_shader_create(
+                                       String code_vert, String code_frag, String* attribs, u32 attribs_len
+                                       );
+void platform_vertex_attrib_pointer(
+                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 attrib_index
+                                    );
+
+void platform_geometry_bind(Platform_Geometry_Buffer geo);
+void platform_shader_bind(Platform_Shader shader);
+void platform_geometry_draw(Platform_Geometry_Buffer geo);
+void platform_vertex_attrib_pointer(
+                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 attr_index
+                                    );
 #endif //LUMENARIUM_PLATFORM_H
