@@ -126,6 +126,7 @@ add_flag CompilerFlags_win32 "-wd4505" #
 add_flag CompilerFlags_win32 "-wd4100" #
 add_flag CompilerFlags_win32 "-wd4189" #
 add_flag CompilerFlags_win32 "-wd4702" #
+add_flag CompilerFlags_win32 "-wd4996" # _CRT_SECURE_NO_WARNINGS
 
 CompilerFlags_osx=""
 
@@ -143,6 +144,7 @@ CompilerFlags_DEBUG_win32=""
 add_flag CompilerFlags_DEBUG_win32 "-Od" #
 add_flag CompilerFlags_DEBUG_win32 "-Zi" #
 add_flag CompilerFlags_DEBUG_win32 "-DDEBUG" #
+add_flag CompilerFlags_DEBUG_win32 "-DPRINT_ASSERTS"
 
 CompilerFlags_DEBUG="-O0"
 add_flag CompilerFlags_DEBUG "-g" #

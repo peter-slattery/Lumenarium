@@ -7,7 +7,8 @@ c_str_len(char* s)
   return result;
 }
 
-#define str_varg(str) (int)(str).len, (char*)(str).str
+#define str_varg(s) (int)(s).len, (char*)(s).str
+#define str_expand(s) (char*)(s).str, (u64)(s).len
 #define lit_str(s) String{ (u8*)(s), (u64)sizeof(s)-1, (u64)sizeof(s)-1 } 
 
 internal String

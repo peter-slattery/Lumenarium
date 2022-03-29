@@ -1,12 +1,16 @@
 
-#define win32_gl_no_error() win32_gl_no_error_()
-void win32_gl_no_error_() { 
+#define win32_gl_no_error() win32_gl_no_error_(__FILE__, __LINE__)
+void win32_gl_no_error_(char* file, u32 line) { 
   u32 error = glGetError();
   char* str = 0;
   if (error) {
     str = win32_gl_error_to_string(error);
   }
-  assert(error == 0);
+  if (error != 0)
+  {
+    err_write("OpenGL error: %s:%d\n\t%s :: %d\n", file, line, str, error);
+    invalid_code_path;
+  }
 }
 
 Platform_Geometry_Buffer 
@@ -64,7 +68,7 @@ platform_shader_create(
   { // errors
     GLint shader_vert_compiled;
     gl.glGetShaderiv(shader_vert, GL_COMPILE_STATUS, &shader_vert_compiled);
-    if (shader_vert_compiled != GL_TRUE)
+    if (!shader_vert_compiled)
     {
       GLsizei log_length = 0;
       GLchar message[1024];
@@ -79,7 +83,7 @@ platform_shader_create(
   { // errors
     GLint shader_frag_compiled;
     gl.glGetShaderiv(shader_frag, GL_COMPILE_STATUS, &shader_frag_compiled);
-    if (shader_frag_compiled != GL_TRUE)
+    if (!shader_frag_compiled)
     {
       GLsizei log_length = 0;
       GLchar message[1024];
@@ -122,7 +126,7 @@ platform_shader_create(
 void
 platform_geometry_bind(Platform_Geometry_Buffer geo)
 {
-  gl.glBindVertexArray(geo.buffer_id_vertices);
+  gl.glBindVertexArray(geo.buffer_id_vao);
   win32_gl_no_error();
   
   gl.glBindBuffer(GL_ARRAY_BUFFER, geo.buffer_id_vertices);
@@ -155,15 +159,76 @@ platform_geometry_draw(
 }
 
 void platform_vertex_attrib_pointer(
-                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 attr_index
+                                    Platform_Geometry_Buffer geo, Platform_Shader shader, GLuint count, GLuint attr_index, GLuint stride, GLuint offset
                                     ){
   platform_geometry_bind(geo);
-  gl.glVertexAttribPointer(shader.attrs[attr_index], 4, GL_FLOAT, false, 0, 0);
+  gl.glVertexAttribPointer(shader.attrs[attr_index], count, GL_FLOAT, false, stride * sizeof(float), (void*)(offset * sizeof(float)));
   win32_gl_no_error();
   gl.glEnableVertexAttribArray(shader.attrs[attr_index]);
   win32_gl_no_error();
 }
 
+Platform_Texture
+platform_texture_create(u8* pixels, u32 width, u32 height, u32 stride)
+{
+  Platform_Texture result = {};
+  glGenTextures(1, &result.id);
+  win32_gl_no_error();
+  
+  glBindTexture(GL_TEXTURE_2D, result.id);
+  win32_gl_no_error();
+  
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  win32_gl_no_error();
+  
+  glTexImage2D(
+               GL_TEXTURE_2D, 
+               0, 
+               GL_RGBA, 
+               width, 
+               height, 
+               0, 
+               GL_RGBA, 
+               GL_UNSIGNED_BYTE, 
+               pixels
+               );
+  win32_gl_no_error();
+  
+  result.w = width;
+  result.h = height;
+  result.s = stride;
+  
+  return result;
+}
+
+void
+platform_texture_update(Platform_Texture tex, u8* new_pixels, u32 width, u32 height, u32 stride)
+{
+  // NOTE(PS): this function simply replaces the entire image
+  // we can write a more granular version if we need it
+  
+  assert(tex.w == width && tex.h == height && tex.s == stride);
+  platform_texture_bind(tex);
+  glTexSubImage2D(
+                  GL_TEXTURE_2D,
+                  0,
+                  0, 0, // offset
+                  width, height, 
+                  GL_RGBA,
+                  GL_UNSIGNED_BYTE,
+                  new_pixels
+                  );
+}
+
+void
+platform_texture_bind(Platform_Texture tex)
+{
+  glBindTexture(GL_TEXTURE_2D, tex.id);
+  win32_gl_no_error();
+}
 
 void 
 platform_frame_begin(Platform_Graphics_Frame_Desc desc)
@@ -180,10 +245,10 @@ platform_frame_begin(Platform_Graphics_Frame_Desc desc)
   
   glDisable(GL_CULL_FACE);
   
-  //glDisable(GL_TEXTURE_2D);
-  
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
+  
+  win32_gl_no_error();
 }
 
 void

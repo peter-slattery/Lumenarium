@@ -25,6 +25,8 @@ WASM_EXTERN void print(const char* text, int len);
 typedef void wasm_animation_frame_cb(u32 time_elapsed);
 WASM_EXTERN void wasm_request_animation_frame(wasm_animation_frame_cb* cb);
 
+WASM_EXTERN void wasm_get_canvas_dim(u32* w_ptr, u32* h_ptr);
+
 EXTERN_C_BEGIN;
 
 int 
@@ -46,14 +48,25 @@ update(u32 time_elapsed)
   lumenarium_frame(wasm_app_state);
   
   // TODO(PS): check for app running flags
-  wasm_request_animation_frame(update);
+  if (!glHadError())
+  {
+    wasm_request_animation_frame(update);
+  }
 }
 
 WASM_EXPORT int
 main(void) 
 { 
   wasm_app_state = lumenarium_init();
-  //wasm_request_animation_frame(update);
+  if (has_flag(wasm_app_state->flags, AppState_RunEditor))
+  {
+    u32 w, h;
+    wasm_get_canvas_dim(&w, &h);
+    wasm_app_state->editor->window_dim = v2{
+      (r32)w, (r32)h
+    };
+  }
+  wasm_request_animation_frame(update);
   return 0;
   
 #if 0

@@ -6,6 +6,7 @@
 // TODO(PS):  you guessed the data types and names of ALL of this
 // fix it!
 
+typedef int GLint;
 typedef unsigned int GLuint;
 typedef float GLfloat;
 typedef unsigned int GLenum;
@@ -35,9 +36,19 @@ typedef unsigned int GLsizei;
 #define GL_FRAGMENT_SHADER                0x8b30 
 #define GL_VERTEX_SHADER                  0x8b31 
 #define GL_TRIANGLES                      0x0004
-#define GL_UNSIGNED_INT                   0x1406
-#define GL_FLOAT                          0x1405
+#define GL_UNSIGNED_INT                   0x1405
+#define GL_FLOAT                          0x1406
+#define GL_TEXTURE_WRAP_S                 0x2802
+#define GL_TEXTURE_WRAP_T                 0x2803
+#define GL_REPEAT                         0x2901
+#define GL_TEXTURE_MIN_FILTER             0x2801
+#define GL_TEXTURE_MAG_FILTER             0x2800
+#define GL_LINEAR                         0x2601
+#define GL_RGB                            0x1907
+#define GL_RGBA                           0x1908
+#define GL_UNSIGNED_BYTE                  0x1401
 
+WASM_EXTERN bool glHadError();
 WASM_EXTERN void glClearColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a);
 WASM_EXTERN void glEnable(GLuint i);
 WASM_EXTERN void glDisable(GLuint i);
@@ -60,6 +71,12 @@ WASM_EXTERN GLuint glGetAttribLocation(GLuint program, const char* name, GLuint 
 WASM_EXTERN void glVertexAttribPointer(GLuint attr, GLuint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 WASM_EXTERN void glEnableVertexAttribArray(GLuint index);
 WASM_EXTERN void glDrawElements(GLenum type, GLuint count, GLenum ele_type, void* indices);
+WASM_EXTERN void glGenTextures(GLuint count, GLuint* ids, u32 ids_size);
+WASM_EXTERN void glBindTexture(GLenum slot, GLuint id);
+WASM_EXTERN void glTexParameteri(GLenum slot, GLenum param, GLenum value);
+WASM_EXTERN void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data, u32 data_size);
+WASM_EXTERN void glBindTexture(GLenum target, GLuint id);
+WASM_EXTERN void glTexSubImage2D(GLenum target, GLint level, GLuint offsetx, GLuint offsety, GLuint w, GLuint h, GLenum format, GLenum type, void* ptr, u32 ptr_size);
 
 Platform_Geometry_Buffer 
 platform_geometry_buffer_create(
@@ -97,13 +114,11 @@ platform_shader_create(
   Platform_Shader result = {};
   
   GLuint shader_vert = glCreateShader(GL_VERTEX_SHADER);
-  GLuint vert_len = (GLuint)code_vert.len;
-  glShaderSource(shader_vert, (char*)&code_vert.str, vert_len);
+  glShaderSource(shader_vert, str_expand(code_vert));
   glCompileShader(shader_vert);
   
   GLuint shader_frag = glCreateShader(GL_FRAGMENT_SHADER);
-  GLuint frag_len = (GLuint)code_frag.len;
-  glShaderSource(shader_frag, (char*)&code_frag.str, frag_len);
+  glShaderSource(shader_frag, str_expand(code_frag));
   glCompileShader(shader_frag);
   
   result.id = (GLuint)glCreateProgram();
@@ -138,7 +153,7 @@ void
 platform_shader_bind(Platform_Shader shader)
 {
   glUseProgram(shader.id);
-  for (GLuint i = 0; i < PLATFORM_SHADER_MAX_ATTRS && shader.attrs[i] != PLATFORM_SHADER_MAX_ATTRS; i++)
+  for (GLuint i = 0; i < PLATFORM_SHADER_MAX_ATTRS && shader.attrs[i] != PLATFORM_SHADER_ATTR_LAST; i++)
   {
     glEnableVertexAttribArray(shader.attrs[i]);
   }
@@ -152,11 +167,70 @@ platform_geometry_draw(
 }
 
 void platform_vertex_attrib_pointer(
-                                    Platform_Geometry_Buffer geo, Platform_Shader shader, GLuint attr_index
+                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 count, u32 attr_index, u32 stride, u32 offset
                                     ){
-  platform_shader_bind(shader);
+  //platform_shader_bind(shader);
   platform_geometry_bind(geo);
-  glVertexAttribPointer(shader.attrs[attr_index], 4, GL_FLOAT, false, 0, 0);
+  glVertexAttribPointer(shader.attrs[attr_index], count, GL_FLOAT, false, stride * sizeof(float), (void*)(offset * sizeof(float)));
+}
+
+Platform_Texture
+platform_texture_create(u8* pixels, u32 width, u32 height, u32 stride)
+{
+  Platform_Texture result = {};
+  glGenTextures(1, &result.id, sizeof(u32));
+  glBindTexture(GL_TEXTURE_2D, result.id);
+  
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  
+  glTexImage2D(
+               GL_TEXTURE_2D, 
+               0, 
+               GL_RGBA, 
+               width, 
+               height, 
+               0,
+               GL_RGBA, 
+               GL_UNSIGNED_BYTE, 
+               pixels,
+               (width * height) * sizeof(u32) 
+               );
+  
+  result.w = width;
+  result.h = height;
+  result.s = stride;
+  
+  return result;
+}
+
+void
+platform_texture_update(Platform_Texture tex, u8* new_pixels, u32 width, u32 height, u32 stride)
+{
+  // NOTE(PS): this function simply replaces the entire image
+  // we can write a more granular version if we need it
+  
+  assert(tex.w == width && tex.h == height && tex.s == stride);
+  platform_texture_bind(tex);
+  glTexSubImage2D(
+                  GL_TEXTURE_2D,
+                  0,
+                  0, 0, // offset
+                  width, height, 
+                  GL_RGBA,
+                  GL_UNSIGNED_BYTE,
+                  new_pixels,
+                  width * height * sizeof(u32)
+                  );
+}
+
+
+void
+platform_texture_bind(Platform_Texture tex)
+{
+  glBindTexture(GL_TEXTURE_2D, tex.id);
 }
 
 void 

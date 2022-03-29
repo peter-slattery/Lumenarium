@@ -34,6 +34,35 @@ function wasm_get_proc(inst, proc_ptr)
 
 function fract (v) { return v % 1; }
 
+function u32_to_byte_array_32 (v) 
+{
+  let result = [0, 0, 0, 0];
+  result[0] = (v & 0xff);
+  result[1] = (((v - result[0]) >> 8 ) & 0xff);
+  result[2] = (((v - result[1]) >> 16) & 0xff);
+  result[3] = (((v - result[2]) >> 24) & 0xff);
+  return result;
+}
+
+function byte_array_32_to_u32 (arr)
+{
+  // NOTE(PS): the '>>>' operators in this function deal with the fact
+  // that bit shift operators convert numbers to s32's. The >>> just
+  // converts them back to u32s
+  let r0 =  ((arr[0] & 0xff) << 0 );
+  let r1 =  ((arr[1] & 0xff) << 8 );
+  let r2 =  ((arr[2] & 0xff) << 16);
+  let r3 = (((arr[3] & 0xff) << 24) >>> 0);
+  let result = (r0 | r1 | r2 | r3) >>> 0;
+  return result;
+}
+
+function put_u32 (ptr, value)
+{
+  let src = u32_to_byte_array_32(value);
+  wasm_write_bytes(lumenarium_wasm_instance, src, ptr, 4);
+}
+
 var lumenarium_wasm_imports = {
   
   memset: (dst, size, value) => {
@@ -122,12 +151,46 @@ var lumenarium_wasm_imports = {
     let string = wasm_read_string(lumenarium_wasm_instance, str_base, len);
     console.log(string);
   },
+  
+  wasm_get_canvas_dim: (w_ptr, h_ptr) => {
+    const canvas = document.querySelector("#gl_canvas");
+    
+    let w_view = wasm_mem_get_u8_arr(lumenarium_wasm_instance, w_ptr, 4);
+    let w = canvas.width;
+    let wb = u32_to_byte_array_32(w);
+    for (let i = 0; i < 4; i++) w_view[i] = wb[i];
+    
+    let h_view = wasm_mem_get_u8_arr(lumenarium_wasm_instance, h_ptr, 4);
+    let h = canvas.height;
+    let hb = u32_to_byte_array_32(h);
+    for (let i = 0; i < 4; i++) h_view[i] = hb[i];
+  },
 };
 
 ///////////////////////////////////////
 // Web GL Imports
 
 let gl = null;
+let gl_error = false;
+
+function glErrorReport(outer_args) { 
+  const err = gl.getError();
+  if (err == gl.NO_ERROR) return;
+  
+  gl_error = true;
+  let msg = "";
+  switch (err) {
+    case gl.NO_ERROR:                      { msg = "NO_ERROR"; } break;
+    case gl.INVALID_ENUM:                  { msg = "INVALID_ENUM"; } break;
+    case gl.INVALID_VALUE:                 { msg = "INVALID_VALUE"; } break;
+    case gl.INVALID_OPERATION:             { msg = "INVALID_OPERATION"; } break;
+    case gl.INVALID_FRAMEBUFFER_OPERATION: { msg = "INVALID_FRAMEBUFFER_OPERATION"; } break;
+    case gl.OUT_OF_MEMORY:                 { msg = "OUT_OF_MEMORY"; } break;
+    case gl.CONTEXT_LOST_WEBGL:            { msg = "CONTEXT_LOST_WEBGL"; } break;
+    default:                               { msg = "Uknown error"; } break;
+  }
+  console.error(`WebGL Error: ${msg} ${err}`, outer_args);
+}
 
 // NOTE(PS): it seems like its not enough to set 
 // the values of imports to gl.function
@@ -135,16 +198,37 @@ let gl = null;
 // instead we need to wrap them for some reason. 
 // Not sure why
 function glClearColor (r, g, b, a) { return gl.clearColor(r,g,b,a); }
-function glEnable(v) { return gl.enable(v); }
-function glDisable(v) { return gl.disable(v); }
-function glBlendFunc(a,b) { return gl.blendFunc(a,b); }
+function glEnable(v) { 
+  const r = gl.enable(v); 
+  glErrorReport(arguments);
+  return r;
+}
+function glDisable(v) { 
+  const r = gl.disable(v); 
+  glErrorReport(arguments);
+  return r;
+}
+function glBlendFunc(a,b) { 
+  const r = gl.blendFunc(a,b); 
+  glErrorReport(arguments);
+  return r;
+}
 function glViewport(xmin, ymin, xmax, ymax) { return gl.viewport(xmin,ymin,xmax,ymax); }
-function glDepthFunc(v) { return gl.depthFunc(v); }
-function glClear(mask) { return gl.clear(mask); }
+function glDepthFunc(v) { 
+  const r = gl.depthFunc(v); 
+  glErrorReport(arguments);
+  return r;
+}
+function glClear(mask) { 
+  const r = gl.clear(mask); 
+  glErrorReport(arguments);
+  return r;
+}
 
 let glBuffers = [];
 let glShaders = [];
 let glPrograms = [];
+let glTextures = [];
 function gl_get_managed_resource(arr, id) {
   if (id == 0) return null;
   return arr[id - 1];
@@ -152,55 +236,76 @@ function gl_get_managed_resource(arr, id) {
 function gl_get_buffer(id) { return gl_get_managed_resource(glBuffers, id); }
 function gl_get_shader(id) { return gl_get_managed_resource(glShaders, id); }
 function gl_get_program(id) { return gl_get_managed_resource(glPrograms, id); }
+function gl_get_texture(id) { return gl_get_managed_resource(glTextures, id); }
 
 function glCreateBuffer() { 
   let buffer = gl.createBuffer(); 
+  glErrorReport(arguments);
   let new_len = glBuffers.push(buffer);
   return new_len;
 }
+
 function glBindBuffer(buffer_kind, buffer_id) 
 {
-  return gl.bindBuffer(buffer_kind, gl_get_buffer(buffer_id));
+  const r = gl.bindBuffer(buffer_kind, gl_get_buffer(buffer_id));
+  glErrorReport(arguments);
+  return r;
 }
+
 function glBufferData(target, size, ptr, usage)
 {
   let data = wasm_mem_get_u8_arr(lumenarium_wasm_instance, ptr, size);
-  return gl.bufferData(target, data, usage);
+  const r = gl.bufferData(target, data, usage);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glCreateShader(kind)
 {
   let shader = gl.createShader(kind);
+  glErrorReport(arguments);
   let new_len = glShaders.push(shader);
   return new_len;
 }
+
 function glShaderSource(shader_id, shader_code, shader_code_len)
 {
   let str = wasm_read_string(lumenarium_wasm_instance, shader_code, shader_code_len);
-  console.error("For some reason, str isn't getting the correct data out of here", str);
-  return gl.shaderSource(gl_get_shader(shader_id), str);
+  const r = gl.shaderSource(gl_get_shader(shader_id), str);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glCompileShader(shader_id)
 {
   let s = gl_get_shader(shader_id);
   let r = gl.compileShader(s);
+  glErrorReport(arguments);
   let m = gl.getShaderInfoLog(s);
+  glErrorReport(arguments);
   if (m.length > 0)
   {
     console.error("glCompileShader: \n\n" + m);
   }
 }
+
 function glCreateProgram()
 {
   let prog = gl.createProgram();
+  glErrorReport(arguments);
   let new_len = glPrograms.push(prog);
   return new_len;
 }
+
 function glAttachShader(program, shader)
 {
   let s = gl_get_shader(shader);
   let p = gl_get_program(program);
-  return gl.attachShader(p, s);
+  const r = gl.attachShader(p, s);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glLinkProgram(program)
 {
   let p = gl_get_program(program);
@@ -210,43 +315,94 @@ function glLinkProgram(program)
     console.error("Failed to compile WebGL program. \n\n"+info);
   }
 }
+
 function glUseProgram(program)
 {
   let p = gl_get_program(program);
-  return gl.useProgram(p);
+  const r = gl.useProgram(p);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glGetAttribLocation(program, name, name_len)
 {
   let str = wasm_read_string(lumenarium_wasm_instance, name, name_len);
-  return gl.getAttribLocation(gl_get_program(program), str);
+  const r = gl.getAttribLocation(gl_get_program(program), str);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glVertexAttribPointer(attr, size, type, normalized, stride, pointer)
 {
-  return gl.vertexAttribPointer(attr, size, type, normalized, stride, pointer);
+  const r = gl.vertexAttribPointer(attr, size, type, normalized, stride, pointer);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glEnableVertexAttribArray(index)
 {
-  return gl.enableVertexAttribArray(index);
+  const r = gl.enableVertexAttribArray(index);
+  glErrorReport(arguments);
+  return r;
 }
+
 function glDrawElements(type, index_count, ele_type, indices)
 {
-  return gl.drawElements(type, index_count, ele_type, indices);
+  const r = gl.drawElements(type, index_count, ele_type, indices);
+  glErrorReport(arguments);
+  return r;
+}
+
+function glGenTextures(count, ids_ptr, ids_size)
+{
+  for (let i = 0; i < count; i++)
+  {
+    const tex = gl.createTexture();
+    glErrorReport(arguments);
+    let new_len = glTextures.push(tex);
+    put_u32(ids_ptr + (i * 4), new_len);
+  }
+}
+
+function glBindTexture(slot, id)
+{
+  let tex = gl_get_texture(id);
+  const r = gl.bindTexture(slot, tex);
+  glErrorReport(arguments);
+  return r;
+}
+
+function glTexParameteri(slot, param, value)
+{
+  const r = gl.texParameteri(slot, param, value);
+  glErrorReport(arguments);
+  return r;
+}
+
+function glTexImage2D(target, level, internalformat, width, height, border, format, type, data_ptr, data_size)
+{
+  const data = wasm_mem_get_u8_arr(lumenarium_wasm_instance, data_ptr, data_size);
+  const r = gl.texImage2D(target, level, internalformat, width, height, border, format, type, data);
+  glErrorReport(arguments);
+  return r;
+}
+
+function glTexSubImage2D(target, level, offsetx, offsety, width, height, format, type, data_ptr, data_size)
+{
+  const data = wasm_mem_get_u8_arr(lumenarium_wasm_instance, data_ptr, data_size);
+  const r = gl.texSubImage2D(target, level, offsetx, offsety, width, height, format, type, data);
+  glErrorReport(arguments);
+  return r;
 }
 
 function webgl_add_imports (canvas_selector, imports) {
   const canvas = document.querySelector(canvas_selector);
   if (!canvas) return console.error("no canvas");
   
-  gl = canvas.getContext("webgl");
+  gl = canvas.getContext("webgl2");
   if (gl === null) return console.error("no webgl ctx");
   
-  console.log(
-              gl.FLOAT.toString(16), "\n",
-              gl.UNSIGNED_INT.toString(16), "\n"
-              );
-  
-  
-  
+  imports.glHadError = () => { return gl_error; };
   imports.glClearColor = glClearColor;
   imports.glEnable = glEnable;
   imports.glDisable = glDisable;
@@ -269,6 +425,11 @@ function webgl_add_imports (canvas_selector, imports) {
   imports.glVertexAttribPointer = glVertexAttribPointer;
   imports.glEnableVertexAttribArray = glEnableVertexAttribArray;
   imports.glDrawElements = glDrawElements;
-  
+  imports.glGenTextures = glGenTextures;
+  imports.glBindTexture = glBindTexture;
+  imports.glTexParameteri = glTexParameteri;
+  imports.glTexImage2D = glTexImage2D;
+  imports.glTexSubImage2D = glTexSubImage2D;
+  imports.glBindTexture = glBindTexture;
   return imports;
 }

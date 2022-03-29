@@ -96,7 +96,6 @@ win32_window_create(
                                          hinstance,
                                          0
                                          );
-    
     return true;
   }
   return false;
@@ -333,12 +332,8 @@ win32_window_opengl_ctx_create_ext(HDC dc, Win32_Window_OpenGL_Info* info)
     invalid_code_path;
   }
   
-#if 0
-  //char* version_string = (char*)glGetString(GL_VERSION);
-  OutputDebugStringA("OpenGL Version: ");
-  OutputDebugStringA(version_string);
-  OutputDebugStringA("\n");
-#endif
+  char* version_string = (char*)glGetString(GL_VERSION);
+  err_write("OpenGL Version: %s\n", version_string);
 }
 
 internal void

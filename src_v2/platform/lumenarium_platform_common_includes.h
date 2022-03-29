@@ -13,9 +13,13 @@
 
 #include "lumenarium_assert.h"
 
-#include "glcorearb.h"
-#include "glext.h"
-#include "wglext.h"
+// NOTE(PS): only need the opengl extension headers
+// when running on a platform that is using opengl 3.3+
+#if !defined(PLATFORM_wasm)
+#  include "glcorearb.h"
+#  include "glext.h"
+#  include "wglext.h"
+#endif
 
 #if 0
 #define HMM_SINF sin

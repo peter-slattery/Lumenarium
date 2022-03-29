@@ -180,6 +180,8 @@ WinMain(
         PSTR lpCmdLine, 
         INT nCmdShow)
 {
+  open_err_file();
+  
   // Window Setup
   win32_window_create(
                       &win32_main_window, 
@@ -189,6 +191,7 @@ WinMain(
                       900, 
                       win32_window_event_handler
                       );
+  win32_window_update_dim(&win32_main_window);
   
   win32_time_init();
   win32_files_init();
@@ -230,6 +233,15 @@ WinMain(
     // using invalid resources
     if (!running || !has_flag(state->flags, AppState_IsRunning)) continue;
     
+    // Update window size
+    if (has_flag(state->flags, AppState_RunEditor))
+    {
+      state->editor->window_dim = v2{
+        (r32)win32_main_window.info.width,
+        (r32)win32_main_window.info.height
+      };
+    }
+    
     lumenarium_frame(state);
     
     SwapBuffers(win32_main_window.dc);
@@ -261,6 +273,8 @@ WinMain(
   
   // windows cleanup
   UnregisterClass(win32_main_window.window_class.lpszClassName, hInstance);
+  
+  close_err_file();
   return 0;
 }
 

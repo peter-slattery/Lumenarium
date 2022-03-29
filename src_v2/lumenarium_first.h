@@ -15,6 +15,7 @@ typedef struct App_State App_State;
 
 // Editor
 #include "editor/lumenarium_editor_renderer.h"
+#include "editor/lumenarium_editor.h"
 
 //////////////////////////////////////////////
 //    Lumenarium Runtime Environment
@@ -36,7 +37,7 @@ enum
 {
   AppState_None = 0,
   AppState_IsRunning = 1,
-  AppState_NoEditor = 2,
+  AppState_RunEditor = 2,
 };
 
 struct App_Init_Desc
@@ -50,6 +51,8 @@ struct App_State
   
   Input_State input_state;
   Assembly_Array assemblies;
+  
+  Editor* editor;
 };
 
 #include "engine/lumenarium_engine_assembly.cpp"

@@ -309,6 +309,13 @@ struct Platform_Geometry_Buffer
   u32 indices_len;
 };
 
+struct Platform_Texture
+{
+  u32 id;
+  
+  u32 w, h, s;
+};
+
 struct Platform_Graphics_Frame_Desc
 {
   v4 clear_color;
@@ -319,18 +326,23 @@ struct Platform_Graphics_Frame_Desc
 void platform_frame_begin(Platform_Graphics_Frame_Desc desc);
 void platform_frame_clear();
 
+// Geometry
 Platform_Geometry_Buffer platform_geometry_buffer_create(r32* vertices, u32 vertices_len, u32* indices, u32 indices_len);
 Platform_Shader platform_shader_create(
                                        String code_vert, String code_frag, String* attribs, u32 attribs_len
                                        );
-void platform_vertex_attrib_pointer(
-                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 attrib_index
-                                    );
 
+// Shaders
 void platform_geometry_bind(Platform_Geometry_Buffer geo);
 void platform_shader_bind(Platform_Shader shader);
 void platform_geometry_draw(Platform_Geometry_Buffer geo);
 void platform_vertex_attrib_pointer(
-                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 attr_index
+                                    Platform_Geometry_Buffer geo, Platform_Shader shader, u32 count, u32 attr_index, u32 stride, u32 offset
                                     );
+
+// Textures
+Platform_Texture platform_texture_create(u8* pixels, u32 width, u32 height, u32 stride);
+void platform_texture_bind(Platform_Texture tex);
+void platform_texture_update(Platform_Texture tex, u8* new_pixels, u32 width, u32 height, u32 stride);
+
 #endif //LUMENARIUM_PLATFORM_H
