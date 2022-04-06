@@ -144,7 +144,7 @@ CompilerFlags_DEBUG_win32=""
 add_flag CompilerFlags_DEBUG_win32 "-Od" #
 add_flag CompilerFlags_DEBUG_win32 "-Zi" #
 add_flag CompilerFlags_DEBUG_win32 "-DDEBUG" #
-add_flag CompilerFlags_DEBUG_win32 "-DPRINT_ASSERTS"
+# add_flag CompilerFlags_DEBUG_win32 "-DPRINT_ASSERTS"
 
 CompilerFlags_DEBUG="-O0"
 add_flag CompilerFlags_DEBUG "-g" #

@@ -462,6 +462,12 @@ extern "C"
       float Ignored0_;
       float Ignored1_;
     };
+    struct
+    {
+      hmm_vec2 xy;
+      float Ignored0b_;
+      float Ignored1b_;
+    };
     
     struct
     {
@@ -469,12 +475,25 @@ extern "C"
       hmm_vec2 YZ;
       float Ignored3_;
     };
+    struct
+    {
+      float Ignored2b_;
+      hmm_vec2 yz;
+      float Ignored3b_;
+    };
     
     struct
     {
       float Ignored4_;
       float Ignored5_;
       hmm_vec2 ZW;
+    };
+    
+    struct
+    {
+      float Ignored4b_;
+      float Ignored5b_;
+      hmm_vec2 zw;
     };
     
     float Elements[4];

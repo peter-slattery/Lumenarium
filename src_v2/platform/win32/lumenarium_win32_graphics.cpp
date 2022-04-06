@@ -39,6 +39,7 @@ platform_geometry_buffer_create(
                   GL_ARRAY_BUFFER, sizeof(r32) * vertices_len, vertices, GL_STATIC_DRAW
                   );
   win32_gl_no_error();
+  result.vertices_len = vertices_len;
   
   // Indices
   gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result.buffer_id_indices);
@@ -56,9 +57,61 @@ platform_geometry_buffer_create(
   return result;
 }
 
+void platform_geometry_buffer_update(
+                                     Platform_Geometry_Buffer* buffer, 
+                                     r32* verts, 
+                                     u32 verts_offset, 
+                                     u32 verts_len, 
+                                     u32* indices, 
+                                     u32 indices_offset, 
+                                     u32 indices_len
+                                     ){
+  gl.glBindVertexArray(buffer->buffer_id_vao);
+  gl.glBindBuffer(GL_ARRAY_BUFFER, buffer->buffer_id_vertices);
+  win32_gl_no_error();
+  
+  if (verts_len > buffer->vertices_len)
+  {
+    // NOTE(PS): this is because we're going to delete the old buffer and
+    // create a new one. In order to do that and not lose data, the update
+    // function needs to have been passed all the buffer's data
+    assert(verts_offset == 0); 
+    gl.glBufferData(
+                    GL_ARRAY_BUFFER, verts_len * sizeof(r32), (void*)verts, GL_STATIC_DRAW
+                    );
+  }
+  else
+  {
+    gl.glBufferSubData(
+                       GL_ARRAY_BUFFER, verts_offset * sizeof(r32), verts_len * sizeof(r32), (void*)verts
+                       );
+  }
+  win32_gl_no_error();
+  
+  gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->buffer_id_indices);
+  win32_gl_no_error();
+  if (indices_len > buffer->indices_len)
+  {
+    // NOTE(PS): this is because we're going to delete the old buffer and
+    // create a new one. In order to do that and not lose data, the update
+    // function needs to have been passed all the buffer's data
+    assert(indices_offset == 0); 
+    gl.glBufferData(
+                    GL_ELEMENT_ARRAY_BUFFER, indices_len * sizeof(u32), (void*)indices, GL_STATIC_DRAW
+                    );
+  }
+  else
+  {
+    gl.glBufferSubData(
+                       GL_ELEMENT_ARRAY_BUFFER, indices_offset * sizeof(u32), indices_len * sizeof(u32), (void*)indices
+                       );
+  }
+  win32_gl_no_error();
+}
+
 Platform_Shader
 platform_shader_create(
-                       String code_vert, String code_frag, String* attrs, u32 attrs_len
+                       String code_vert, String code_frag, String* attrs, u32 attrs_len, String* uniforms, u32 uniforms_len
                        ){
   Platform_Shader result = {};
   
@@ -117,10 +170,27 @@ platform_shader_create(
     result.attrs[i] = gl.glGetAttribLocation(
                                              result.id, (char*)attrs[i].str
                                              );
+    win32_gl_no_error();
   }
   result.attrs[attrs_len] = PLATFORM_SHADER_ATTR_LAST;
   
+  assert(uniforms_len < PLATFORM_SHADER_MAX_ATTRS);
+  for (GLuint i = 0; i < uniforms_len; i++)
+  {
+    s32 len = (s32)uniforms[i].len;
+    result.uniforms[i] = gl.glGetUniformLocation(
+                                                 result.id, (char*)uniforms[i].str
+                                                 );
+  }
+  result.uniforms[uniforms_len] = PLATFORM_SHADER_ATTR_LAST;
+  
   return result;
+}
+
+void 
+platform_set_uniform(Platform_Shader shader, u32 index, m44 u)
+{
+  gl.glUniformMatrix4fv(shader.uniforms[index], 1, GL_FALSE, (r32*)u.Elements);
 }
 
 void
@@ -152,10 +222,17 @@ platform_shader_bind(Platform_Shader shader)
 
 void
 platform_geometry_draw(
+                       Platform_Geometry_Buffer geo, u32 indices
+                       ){
+  glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, 0);
+  win32_gl_no_error();
+}
+
+void
+platform_geometry_draw(
                        Platform_Geometry_Buffer geo
                        ){
-  glDrawElements(GL_TRIANGLES, geo.indices_len, GL_UNSIGNED_INT, 0);
-  win32_gl_no_error();
+  platform_geometry_draw(geo, geo.indices_len);
 }
 
 void platform_vertex_attrib_pointer(

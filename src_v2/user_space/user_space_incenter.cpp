@@ -10,8 +10,6 @@ incenter_get_init_desc()
 internal void
 incenter_init(App_State* state)
 {
-  return;
-  
   // create a fake sculpture
   Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("test"), 3000, 100);
   

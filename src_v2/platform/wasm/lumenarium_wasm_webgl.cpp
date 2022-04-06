@@ -20,8 +20,9 @@ typedef unsigned int GLsizei;
 // I resorted to hard coding these rather than passing them in because 
 // passing them in didn't seem to be working.
 
+#define GL_FALSE                          0
+#define GL_TRUE                           1
 #define GL_TEXTURE_2D                     0x0DE1
-
 #define GL_DEPTH_BUFFER_BIT               0x00000100
 #define GL_STENCIL_BUFFER_BIT             0x00000400
 #define GL_COLOR_BUFFER_BIT               0x00004000
@@ -68,6 +69,7 @@ WASM_EXTERN void glAttachShader(GLuint program, GLuint shader);
 WASM_EXTERN void glLinkProgram(GLuint program);
 WASM_EXTERN void glUseProgram(GLuint program);
 WASM_EXTERN GLuint glGetAttribLocation(GLuint program, const char* name, GLuint name_len);
+WASM_EXTERN GLuint glGetUniformLocation(GLuint program, const char* name, u32 len);
 WASM_EXTERN void glVertexAttribPointer(GLuint attr, GLuint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 WASM_EXTERN void glEnableVertexAttribArray(GLuint index);
 WASM_EXTERN void glDrawElements(GLenum type, GLuint count, GLenum ele_type, void* indices);
@@ -109,7 +111,7 @@ platform_geometry_buffer_create(
 
 Platform_Shader
 platform_shader_create(
-                       String code_vert, String code_frag, String* attrs, GLuint attrs_len
+                       String code_vert, String code_frag, String* attrs, GLuint attrs_len, String* uniforms, GLuint uniforms_len
                        ){
   Platform_Shader result = {};
   
@@ -139,6 +141,16 @@ platform_shader_create(
   }
   result.attrs[attrs_len] = PLATFORM_SHADER_ATTR_LAST;
   
+  assert(uniforms_len < PLATFORM_SHADER_MAX_ATTRS);
+  for (GLuint i = 0; i < uniforms_len; i++)
+  {
+    s32 len = (s32)uniforms[i].len;
+    result.uniforms[i] = glGetUniformLocation(
+                                              result.id, (char*)uniforms[i].str, uniforms[i].len
+                                              );
+  }
+  result.uniforms[uniforms_len] = PLATFORM_SHADER_ATTR_LAST;
+  
   return result;
 }
 
@@ -157,6 +169,19 @@ platform_shader_bind(Platform_Shader shader)
   {
     glEnableVertexAttribArray(shader.attrs[i]);
   }
+}
+
+void 
+platform_set_uniform(Platform_Shader shader, u32 index, m44 u)
+{
+  glUniformMatrix4fv(shader.uniforms[index], 1, GL_FALSE, &u.Elements[0]);
+}
+
+void
+platform_geometry_draw(
+                       Platform_Geometry_Buffer geo, u32 indices
+                       ){
+  glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, 0);
 }
 
 void

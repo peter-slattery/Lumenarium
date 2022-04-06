@@ -381,6 +381,7 @@ win32_window_opengl_get_wgl_ext(HINSTANCE hinstance)
       wgl_load_ext(result, glGenBuffers);
       wgl_load_ext(result, glBindBuffer);
       wgl_load_ext(result, glBufferData);
+      wgl_load_ext(result, glBufferSubData);
       wgl_load_ext(result, glCreateShader);
       wgl_load_ext(result, glShaderSource);
       wgl_load_ext(result, glCompileShader);
@@ -395,6 +396,8 @@ win32_window_opengl_get_wgl_ext(HINSTANCE hinstance)
       wgl_load_ext(result, glGetShaderInfoLog);
       wgl_load_ext(result, glGetProgramiv);
       wgl_load_ext(result, glGetProgramInfoLog);
+      wgl_load_ext(result, glGetUniformLocation);
+      wgl_load_ext(result, glUniformMatrix4fv);
     }
     
     wglMakeCurrent(NULL, NULL);

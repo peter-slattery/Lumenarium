@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "../../lumenarium_types.h"
+#include "../../lumenarium_memory.h"
 #include "../lumenarium_platform.h"
 #include "../../lumenarium_first.cpp"
 
@@ -212,6 +213,20 @@ WinMain(
       Platform_Window_Event evt = {
         WindowEvent_WindowClosed,
       };
+      lumenarium_event(evt, state);
+    }
+    
+    // Get the position of the mouse every frame
+    {
+      POINT mouse_p;
+      GetCursorPos(&mouse_p);
+      ScreenToClient(win32_main_window.window_handle, &mouse_p);
+      
+      Platform_Window_Event evt = {};
+      evt.kind = WindowEvent_MouseMoved;
+      evt.mouse_x = mouse_p.x;
+      evt.mouse_y = mouse_p.y;
+      
       lumenarium_event(evt, state);
     }
     

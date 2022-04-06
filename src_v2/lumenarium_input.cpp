@@ -24,15 +24,30 @@ struct Input_State
 
 #define key_was_down(key_flags)   has_flag((key_flags), KeyFlag_State_WasDown)
 #define key_is_down(key_flags)    has_flag((key_flags), KeyFlag_State_IsDown)
-#define key_was_up(key_flags)   (!has_flag((key_flags), KeyFlag_State_WasDown)
-#define key_is_up(key_flags)    (!has_flag((key_flags), KeyFlag_State_IsDown)
+#define key_was_up(key_flags)   (!has_flag((key_flags), KeyFlag_State_WasDown))
+#define key_is_up(key_flags)    (!has_flag((key_flags), KeyFlag_State_IsDown))
 
-internal Input_State
-input_state_create()
+internal Input_State*
+input_state_create(Allocator* a)
 {
-  Input_State result = {};
-  result.frame_hot  = result.frames + 0;
-  result.frame_cold = result.frames + 1;
+  Input_State* result = allocator_alloc_struct(a, Input_State);
+  result->frame_hot  = result->frames + 0;
+  result->frame_cold = result->frames + 1;
+  return result;
+}
+
+internal Platform_Key_Flags
+input_key_advance(Platform_Key_Flags flag)
+{
+  Platform_Key_Flags result = flag;
+  if (key_is_down(flag)) 
+  {
+    add_flag(result, KeyFlag_State_WasDown);
+  }
+  if (key_is_up(flag)) 
+  {
+    rem_flag(result, KeyFlag_State_WasDown);
+  }
   return result;
 }
 
@@ -46,7 +61,10 @@ input_state_swap_frames(Input_State* input_state)
   // Clear the new hot input frame
   Platform_Key_Flags* hot_key_flags = input_state->frame_hot->key_flags;
   Platform_Key_Flags* cold_key_flags = input_state->frame_cold->key_flags;
-  for (u32 i = 0; i < KeyCode_Count; i++) hot_key_flags[i] = cold_key_flags[i];
+  for (u32 i = 0; i < KeyCode_Count; i++) 
+  {
+    hot_key_flags[i] = input_key_advance(cold_key_flags[i]);
+  }
   input_state->frame_hot->string_input_len = 0;
 }
 

@@ -34,7 +34,12 @@ WASM_EXTERN void wasm_assert_always(char* file, unsigned int file_len, unsigned 
 #endif // defined(PLATFORM_WASM)
 
 #ifdef USE_ASSERTS
-#  define assert(c) if (!(c)) { err_write("Assert Hit: %s:%d\n", __FILE__, (u32)__LINE__); close_err_file(); assert_always; }
+#  define assert(c) \
+if (!(c)) { \
+err_write("Assert Hit: %s:%d\n", __FILE__, (u32)__LINE__); \
+close_err_file(); \
+assert_always; \
+}
 
 // useful for catching cases that you aren't sure you'll hit, but
 // want to be alerted when they happen

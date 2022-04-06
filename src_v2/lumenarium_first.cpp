@@ -6,8 +6,9 @@ lumenarium_init()
 {
   App_State* state = 0;
   
-  permanent = bump_allocator_create_reserve(MB(4));
+  permanent = bump_allocator_create_reserve(GB(1));
   scratch = bump_allocator_create_reserve(KB(64));
+  platform_file_jobs_init();
   
   run_tests();
   
@@ -18,7 +19,7 @@ lumenarium_init()
   add_flag(state->flags, AppState_IsRunning);
   add_flag(state->flags, AppState_RunEditor);
   
-  state->input_state = input_state_create();
+  state->input_state = input_state_create(permanent);
   
   en_init(state, desc);
   if (has_flag(state->flags, AppState_RunEditor))
@@ -34,7 +35,7 @@ lumenarium_frame_prepare(App_State* state)
 {
   allocator_clear(scratch);
   
-  input_state_swap_frames(&state->input_state);
+  input_state_swap_frames(state->input_state);
   
   en_frame_prepare(state);
   if (has_flag(state->flags, AppState_RunEditor))
@@ -42,12 +43,14 @@ lumenarium_frame_prepare(App_State* state)
     ed_frame_prepare(state);
   }
   incenter_frame_prepare(state);
+  
+  platform_file_async_jobs_do_work(4);
 }
 
 internal void
 lumenarium_frame(App_State* state)
 {
-  en_frame(state);
+  //en_frame(state);
   if (has_flag(state->flags, AppState_RunEditor))
   {
     ed_frame(state);
@@ -58,12 +61,19 @@ lumenarium_frame(App_State* state)
 internal void
 lumenarium_event(Platform_Window_Event evt, App_State* state)
 {
-  Input_Frame* frame = state->input_state.frame_hot;
+  Input_Frame* frame = state->input_state->frame_hot;
   switch (evt.kind)
   {
     case WindowEvent_MouseScroll:
     {
       frame->mouse_scroll = evt.scroll_amt;
+    } break;
+    
+    case WindowEvent_MouseMoved:
+    {
+      v2 mouse_pos_old = frame->mouse_pos;
+      frame->mouse_pos = v2{ (r32)evt.mouse_x, (r32)evt.mouse_y };
+      state->input_state->mouse_pos_delta = frame->mouse_pos - mouse_pos_old;
     } break;
     
     case WindowEvent_ButtonDown:

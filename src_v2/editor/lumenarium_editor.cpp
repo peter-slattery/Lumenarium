@@ -81,7 +81,7 @@ void make_quad(Platform_Geometry_Buffer* geo, Platform_Shader* shd, Platform_Tex
     lit_str("uv"),
   };
   *shd = platform_shader_create(
-                                shader_code_vert, shader_code_frag, attribs, 2
+                                shader_code_vert, shader_code_frag, attribs, 2, 0, 0
                                 );
   
   platform_vertex_attrib_pointer(*geo, *shd, 4, shd->attrs[0], 6, 0);
@@ -91,29 +91,37 @@ void make_quad(Platform_Geometry_Buffer* geo, Platform_Shader* shd, Platform_Tex
 }
 
 internal void
+ed_load_font_cb(Platform_File_Async_Job_Args result)
+{
+  s32 x = 5;
+}
+
+internal void
 ed_init(App_State* state)
 {
   Editor* editor = allocator_alloc_struct(permanent, Editor);
   state->editor = editor;
+  state->editor->ui = ui_create(4096, 4096, state->input_state, permanent);
+  
+  // make the default quad for us to draw with
+  // TODO(PS): this might be unnecessary with the per-frame buffer we use now
   make_quad(&editor->renderer.geo, &editor->renderer.shd, &editor->renderer.tex);
+  
+  platform_file_async_read(lit_str("data/font.ttf"), ed_load_font_cb);
+  
 }
 
 internal void
 ed_frame_prepare(App_State* state)
 {
-  
+  ui_frame_prepare(&state->editor->ui, state->editor->window_dim);
 }
 
 internal void
 ed_frame(App_State* state)
 {
-  for (u32 i = 0; i < 16; i++)
-  {
-    if (i % 2 == 1) continue;
-    pix[i] += 1;
-  }
-  platform_texture_update(state->editor->renderer.tex, (u8*)pix, 4, 4, 4);
-  
+  edr_render_begin(state);
+  ui_draw(&state->editor->ui);
   edr_render(state);
 }
 

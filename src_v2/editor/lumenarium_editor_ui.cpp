@@ -1,0 +1,452 @@
+#define WHITE_SPRITE_ID 511
+
+static String ui_shader_vert_win32 = lit_str(
+                                             "#version 330 core\n"
+                                             "layout (location = 0) in vec4 a_pos;\n"
+                                             "layout (location = 1) in vec2 a_uv;\n"
+                                             "layout (location = 2) in vec4 a_color;\n"
+                                             "out vec2 uv;\n"
+                                             "out vec4 color;\n"
+                                             "uniform mat4 proj;\n"
+                                             "void main(void) {\n"
+                                             "  gl_Position = proj * a_pos;\n"
+                                             "  uv = a_uv;\n"
+                                             "  color = a_color;\n"
+                                             "}"
+                                             );
+
+static String ui_shader_frag_win32 = lit_str(
+                                             "#version 330 core\n"
+                                             "in vec2 uv;\n"
+                                             "in vec4 color;\n"
+                                             "out vec4 FragColor;\n"
+                                             "uniform sampler2D texture;\n"
+                                             "void main(void) {\n"
+                                             "  FragColor = texture(texture, uv) * color;\n"
+                                             "  if (FragColor.w <= 0.01f) discard;\n"
+                                             "}"
+                                             );
+
+internal UI
+ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
+{
+  UI result = {};
+  result.input = input;
+  
+  // Widgets
+  result.widgets.free = allocator_alloc_array(a, UI_Widget, widget_pool_cap);
+  result.widgets.free_cap = widget_pool_cap;
+  
+  // Per Frame Vertex Buffer
+  result.verts_cap = verts_cap;
+  result.verts = allocator_alloc_array(a, UI_Vertex, verts_cap);
+  result.indices_cap = verts_cap * 2;
+  result.indices = allocator_alloc_array(a, u32, result.indices_cap);
+  
+  result.per_frame_buffer = platform_geometry_buffer_create(
+                                                            (r32*)result.verts, 
+                                                            result.verts_cap, 
+                                                            result.indices, 
+                                                            result.indices_cap
+                                                            );
+  
+  String attrs[] = { lit_str("a_pos"), lit_str("a_uv"), lit_str("a_color") };
+  String uniforms[] = { lit_str("proj") };
+  result.shader = platform_shader_create(
+                                         ui_shader_vert_win32,
+                                         ui_shader_frag_win32,
+                                         attrs, 3,
+                                         uniforms, 1
+                                         );
+  
+  platform_vertex_attrib_pointer(
+                                 result.per_frame_buffer, result.shader, 4, result.shader.attrs[0], 10, 0
+                                 );
+  platform_vertex_attrib_pointer(
+                                 result.per_frame_buffer, result.shader, 2, result.shader.attrs[1], 10, 4
+                                 );
+  platform_vertex_attrib_pointer(
+                                 result.per_frame_buffer, result.shader, 4, result.shader.attrs[2], 10, 6
+                                 );
+  
+  // Texture Atlas
+  result.atlas = texture_atlas_create(1024, 1024, 512, permanent);
+  result.atlas_texture = platform_texture_create(result.atlas.pixels, 1024, 1024, 1024);
+  
+  u32 white_sprite[] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+  ui_sprite_register(&result, (u8*)white_sprite, 2, 2, WHITE_SPRITE_ID);
+  
+  return result;
+}
+
+internal u32
+ui_vert_push(UI* ui, v3 p, v2 t, v4 c)
+{
+  assert(ui->verts_len < ui->verts_cap);
+  u32 index = ui->verts_len++;
+  
+  ui->verts[index].pos = {p.x, p.y, p.z, 1};
+  ui->verts[index].uv = t;
+  ui->verts[index].color = c;
+  
+  return index;
+}
+
+internal void
+ui_index_push(UI* ui, u32 i)
+{
+  assert(ui->indices_len < ui->indices_cap);
+  ui->indices[ui->indices_len++] = i;
+}
+
+internal void
+ui_quad_push(UI* ui, v3 pmin, v3 pmax, v2 tmin, v2 tmax, v4 c)
+{
+  u32 bl = ui_vert_push(ui, pmin, tmin, c);
+  u32 br = ui_vert_push(ui, v3{pmax.x, pmin.y, pmin.z}, v2{tmax.x,tmin.y}, c);
+  u32 tr = ui_vert_push(ui, pmax, tmax, c);
+  u32 tl = ui_vert_push(ui, v3{pmin.x, pmax.y, pmin.z}, v2{tmin.x,tmax.y}, c);
+  
+  ui_index_push(ui, bl);
+  ui_index_push(ui, br);
+  ui_index_push(ui, tr);
+  
+  ui_index_push(ui, bl);
+  ui_index_push(ui, tr);
+  ui_index_push(ui, tl);
+}
+
+internal void
+ui_sprite_register(UI* ui, u8* pixels, u32 w, u32 h, u32 id)
+{
+  texture_atlas_register(&ui->atlas, pixels, w, h, id);
+  platform_texture_update(ui->atlas_texture, ui->atlas.pixels, ui->atlas.width, ui->atlas.height, ui->atlas.width);
+}
+
+internal void 
+ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color)
+{
+  v4 uv = texture_atlas_sprite_get_uvs(&ui->atlas, id);
+  ui_quad_push(ui, pmin, pmax, uv.xy, uv.zw, color);
+}
+
+internal void 
+ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id)
+{
+  ui_sprite_push(ui, pmin, pmax, id, v4{1,1,1,1});
+}
+
+internal void
+ui_frame_prepare(UI* ui, v2 window_dim)
+{
+  ui->verts_len = 0;
+  ui->indices_len = 0;
+  
+  ui->widgets.free_len = 0;
+  ui->widgets.active_parent = 0;
+  ui->widgets.root = ui_widget_pool_push(&ui->widgets, lit_str("root"));
+  ui->widgets.active_parent = ui->widgets.root;
+  
+  v2 half_d = window_dim * 0.5f;
+  ui->proj = HMM_Orthographic(0, window_dim.x, window_dim.y, 0, 0.01f, 100);
+  
+  if (ui->widget_next_hot.value != 0)
+  {
+    ui->widget_next_hot_frames += 1;
+    if (ui->widget_hot_frames > 1) 
+    {
+      ui->widget_next_hot = UI_Widget_Id{0};
+    }
+  }
+  if (ui->widget_hot.value != 0)
+  {
+    ui->widget_hot_frames += 1;
+    if (ui->widget_hot_frames > 1) ui->widget_hot = UI_Widget_Id{0};
+  }
+}
+
+global bool show = false;
+
+internal void
+ui_draw(UI* ui)
+{
+  UI_Widget_Desc d0 = {
+    {
+      (UIWidgetStyle_Bg),
+      WHITE_V4,
+      BLACK_V4,
+      WHITE_SPRITE_ID,
+    },
+    lit_str("Hi there!"),
+    v2{  32.0f, 32.0f },
+    v2{ 128.0f, 64.0f },
+  };
+  UI_Widget_Result r0 = ui_widget_push(ui, d0);
+  
+  UI_Widget_Desc d1 = d0;
+  d1.style.flags |= UIWidgetStyle_Outline | UIWidgetStyle_MouseClick;
+  d1.style.color_bg = PINK_V4;
+  d1.style.color_fg = GREEN_V4;
+  d1.p_min = v2{ 512, 32 };
+  d1.p_max = v2{ 640, 128 };
+  d1.string = lit_str("Hello");
+  UI_Widget_Result r1 = ui_widget_push(ui, d1);
+  bool clicked_r1 = has_flag(r1.flags, UIWidgetResult_MouseLeft_WentUp);
+  if (clicked_r1) show = !show;
+  
+  UI_Widget_Result r2 = {};
+  if (show)
+  {
+    UI_Widget_Desc d2 = d1;
+    d1.string = lit_str("Hello There");
+    d1.p_min = v2{ 560, 64 };
+    d1.p_max = v2{ 700, 256 };
+    r2 = ui_widget_push(ui, d1);
+  }
+  
+  bool clicked_r2 = has_flag(r2.flags, UIWidgetResult_MouseLeft_WentUp);
+  assert(
+         (!clicked_r1 && !clicked_r2) ||
+         (clicked_r1 && !clicked_r2) ||
+         (!clicked_r1 && clicked_r2)
+         );
+  
+  u32 widget_count = ui->widgets.free_len;
+  r32 range_min = -10;
+  r32 range_max = -1;
+  r32 range_step = (range_max - range_min) / (r32)widget_count;
+  ui_widgets_to_geometry_recursive(ui, ui->widgets.root, -10, range_step);
+  
+  platform_geometry_buffer_update(
+                                  &ui->per_frame_buffer, 
+                                  (r32*)ui->verts,
+                                  0,
+                                  ui->verts_len * 10,
+                                  ui->indices,
+                                  0,
+                                  ui->indices_len
+                                  );
+  platform_shader_bind(ui->shader);
+  platform_set_uniform(ui->shader, 0, ui->proj);
+  platform_texture_bind(ui->atlas_texture);
+  platform_geometry_bind(ui->per_frame_buffer);
+  platform_geometry_draw(ui->per_frame_buffer, ui->indices_len);
+}
+
+////////////////////////////////////////////
+// Widgets
+
+internal UI_Widget_Id
+ui_widget_id_create(String string, u32 index)
+{
+  assert(string.len != 0 && string.str != 0);
+  UI_Widget_Id result = {};
+  result.value = hash_djb2_to_u32(string);
+  result.index = index;
+  return result;
+}
+
+internal UI_Widget*
+ui_widget_pool_push(UI_Widget_Pool* pool, String string)
+{
+  assert(pool->free_len < pool->free_cap);
+  UI_Widget* result = pool->free + pool->free_len++;
+  
+  result->id = ui_widget_id_create(string, pool->free_len);
+  result->parent = 0;
+  result->next = 0;
+  result->child_first = 0;
+  result->child_last = 0;
+  
+  if (pool->active_parent)
+  {
+    result->parent = pool->active_parent;
+    sll_push(
+             pool->active_parent->child_first, 
+             pool->active_parent->child_last, 
+             result
+             );
+  }
+  
+  return result;
+}
+
+internal void
+ui_widget_pool_pop(UI_Widget_Pool* pool)
+{
+  if (pool->active_parent->parent)
+  {
+    pool->active_parent = pool->active_parent->parent;
+  }
+}
+
+internal bool
+ui_widget_id_equals(UI_Widget_Id a, UI_Widget_Id b)
+{
+  return (a.value == b.value);
+}
+
+internal bool
+ui_widget_id_is_valid(UI_Widget_Id h)
+{
+  return h.value != 0;
+}
+
+internal void
+ui_widget_next_hot_set(UI* ui, UI_Widget* w)
+{
+  ui->widget_next_hot = w->id;
+  ui->widget_next_hot_frames = 0;
+}
+
+internal void
+ui_widget_hot_set(UI* ui, UI_Widget* w)
+{
+  ui->widget_hot = w->id;
+  ui->widget_hot_frames = 0;
+}
+
+internal UI_Widget_Result
+ui_widget_push(UI* ui, UI_Widget_Desc desc)
+{
+  UI_Widget_Result result = {};
+  
+  UI_Widget* w = ui_widget_pool_push(&ui->widgets, desc.string);
+  w->desc = desc;
+  
+  if (has_flag(desc.style.flags, UIWidgetStyle_MouseClick))
+  {
+    // CASES:
+    // Mouse Over | Mouse Clicked | Is Next Hot | Response
+    //      f     |      f        |      t      | clear next hot
+    //      f     |      f        |      f      | do nothing
+    //      f     |      t        |      f      | do nothing
+    //      t     |      f        |      f      | beome next hot
+    //      t     |      t        |      f      | become next hot
+    //      t     |      t        |      t      | become hot
+    
+    v2 mouse_p = ui->input->frame_hot->mouse_pos;
+    bool mouse_over = (
+                       mouse_p.x >= desc.p_min.x && mouse_p.x <= desc.p_max.x &&
+                       mouse_p.y >= desc.p_min.y && mouse_p.y <= desc.p_max.y
+                       );
+    
+    if (mouse_over)
+    {
+      if (ui_widget_id_equals(w->id, ui->widget_next_hot))
+      {
+        if (input_key_is_down(ui->input, KeyCode_MouseLeftButton))
+        {
+          ui_widget_hot_set(ui, w);
+          result.flags |= UIWidgetResult_MouseLeft_IsDown;
+        }
+        if (input_key_went_up(ui->input, KeyCode_MouseLeftButton))
+        {
+          result.flags |= UIWidgetResult_MouseLeft_WentUp;
+          ui->widget_hot = UI_Widget_Id{0};
+        }
+      }
+      else if ((w->id.index >= ui->widget_next_hot.index) && ui->widget_hot.value == 0)
+      {
+        ui_widget_next_hot_set(ui, w);
+      }
+    }
+    else
+    {
+      if (ui_widget_id_equals(w->id, ui->widget_next_hot))
+      {
+        ui->widget_next_hot = UI_Widget_Id{0};
+      }
+    }
+  }
+  
+  return result;
+}
+
+internal void
+ui_widget_pop(UI* ui, UI_Widget* widget)
+{
+  assert(ui_widget_id_equals(widget->id, ui->widgets.active_parent->id));
+  ui_widget_pool_pop(&ui->widgets);
+}
+
+internal r32
+ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_step)
+{
+  r32 z_at = z_start;
+  for (UI_Widget* child = widget->child_first; child != 0; child = child->next)
+  {
+    UI_Widget_Desc desc = child->desc;
+    v3 bg_min = v2_to_v3(desc.p_min, z_at); 
+    v3 bg_max = v2_to_v3(desc.p_max, z_at); 
+    
+    v4 color_fg = desc.style.color_fg;
+    v4 color_bg = desc.style.color_bg;
+    if (ui_widget_id_equals(ui->widget_next_hot, child->id))
+    {
+      color_fg = desc.style.color_bg;
+      color_bg = desc.style.color_fg;
+    }
+    if (ui_widget_id_equals(ui->widget_hot, child->id))
+    {
+      color_fg = desc.style.color_fg;
+      color_bg = desc.style.color_bg;
+    }
+    
+    if (has_flag(child->desc.style.flags, UIWidgetStyle_Outline))
+    {
+      ui_sprite_push(ui, bg_min, bg_max, WHITE_SPRITE_ID, color_fg);
+      bg_min += v3{ 3, 3, 0};
+      bg_max -= v3{ 3, 3, 0};
+    }
+    
+    if (has_flag(child->desc.style.flags, UIWidgetStyle_Bg))
+    {
+      bg_min.z += z_step;
+      bg_max.z += z_step;
+      ui_sprite_push(ui, bg_min, bg_max, desc.style.sprite, color_bg);
+    }
+    
+    if (has_flag(child->desc.style.flags, UIWidgetStyle_Text))
+    {
+      // TODO(PS): 
+    }
+    
+    if (child->child_first)
+    {
+      z_at = ui_widgets_to_geometry_recursive(ui, child, z_at + z_step, z_step);
+    }
+    
+    z_at += z_step;
+  }
+  return z_at;
+}
+
+///////////////////////////////////////////
+// Specific Widget Implementations
+
+global UI_Style_Sheet ui_default_style_sheet = {
+  {
+    
+  }
+};
+
+internal UI_Widget_Style
+ui_get_style(UI* ui, UI_Widget_Kind kind)
+{
+  if (ui->style_sheet) return ui->style_sheet->styles[kind];
+  return ui_default_style_sheet.styles[kind];
+}
+
+internal void
+ui_text(UI* ui, String string)
+{
+  
+}
+
+internal bool
+ui_button(UI* ui, String string)
+{
+  return false;
+}
+

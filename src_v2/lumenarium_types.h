@@ -37,16 +37,149 @@ typedef s64 b64;
 typedef float r32;
 typedef double r64;
 
+#define get_byte(value, byte_index) ((value >> (8 * byte_index)) & 0xFF)
+
 struct Data
 {
   u8* base;
   u64 size;
 };
 
+internal Data
+data_create(u8* base, u64 size)
+{
+  Data result = {};
+  result.base = base;
+  result.size = size;
+  return result;
+}
+
+internal void memory_zero(u8* base, u64 size);
+internal void memory_copy(u8* from, u8* to, u64 size);
+
+//////////////////////////////////////////////
+//         String
+
+// NOTE(PS): even though this has a len and cap, it should always be
+// null terminated
+struct String
+{
+  u8* str;
+  u64 len;
+  u64 cap;
+};
+
+internal String string_create(u8* str, u64 len, u64 cap);
+internal u64 string_copy_to(String* dest, String src);
+
+//////////////////////////////////////////////
+//         Data Writer
+
+struct Data_Writer
+{
+  Data data;
+  u64 at;
+};
+
+// NOTE(PS): functions ending in _b treat data in the Data_Writer as big endian 
+// order (network ordering) where functions ending in _l treat data into little 
+// endian order
+// It is always assumed that values not in the Data_Writer (ie the other args
+// to the function or the functions return value) are in little endian order
+
+internal void 
+dw_put_u8(Data_Writer* w, u8 b)
+{
+  if (w->at < w->data.size)
+  {
+    w->data.base[w->at++] = b;
+  }
+}
+
+internal u8
+dw_get_u8(Data_Writer* w)
+{
+  u8 result = 0;
+  if (w->at < w->data.size)
+  {
+    result = w->data.base[w->at++];
+  }
+  return result;
+}
+
+internal void
+dw_put_u16_b(Data_Writer* w, u16 b)
+{
+  dw_put_u8(w, get_byte(b, 1));
+  dw_put_u8(w, get_byte(b, 0));
+}
+
+internal void
+dw_put_u16_l(Data_Writer* w, u16 b)
+{
+  dw_put_u8(w, get_byte(b, 0));
+  dw_put_u8(w, get_byte(b, 1));
+}
+
+internal void
+dw_put_u32_b(Data_Writer* w, u32 b)
+{
+  dw_put_u8(w, get_byte(b, 3));
+  dw_put_u8(w, get_byte(b, 2));
+  dw_put_u8(w, get_byte(b, 1));
+  dw_put_u8(w, get_byte(b, 0));
+}
+
+internal void
+dw_put_u32_l(Data_Writer* w, u32 b)
+{
+  dw_put_u8(w, get_byte(b, 0));
+  dw_put_u8(w, get_byte(b, 1));
+  dw_put_u8(w, get_byte(b, 2));
+  dw_put_u8(w, get_byte(b, 3));
+}
+
+internal void
+dw_put_u64_b(Data_Writer* w, u64 b)
+{
+  dw_put_u8(w, get_byte(b, 7));
+  dw_put_u8(w, get_byte(b, 6));
+  dw_put_u8(w, get_byte(b, 5));
+  dw_put_u8(w, get_byte(b, 4));
+  dw_put_u8(w, get_byte(b, 3));
+  dw_put_u8(w, get_byte(b, 2));
+  dw_put_u8(w, get_byte(b, 1));
+  dw_put_u8(w, get_byte(b, 0));
+}
+
+internal void
+dw_put_u64_l(Data_Writer* w, u64 b)
+{
+  dw_put_u8(w, get_byte(b, 0));
+  dw_put_u8(w, get_byte(b, 1));
+  dw_put_u8(w, get_byte(b, 2));
+  dw_put_u8(w, get_byte(b, 3));
+  dw_put_u8(w, get_byte(b, 4));
+  dw_put_u8(w, get_byte(b, 5));
+  dw_put_u8(w, get_byte(b, 6));
+  dw_put_u8(w, get_byte(b, 7));
+}
+
+internal void
+dw_put_str(Data_Writer* w, String str)
+{
+  for (u64 i = 0; i < str.len; i++)
+  {
+    dw_put_u8(w, str.str[i]);
+  }
+}
+
+// TODO(PS): get functions
+
 #define Bytes(x) (x)
 #define KB(x) ((x) << 10)
 #define MB(x) ((x) << 20)
-#define GB(x) ((x) << 30)
+#define GB(x) (((u64)x) << 30)
 #define TB(x) (((u64)x) << 40)
 
 #define has_flag(data, flag) (((data) & (flag)) != 0)
@@ -65,17 +198,66 @@ else { (last)->next = (ele); } \
 // TODO(PS): Stack, Queue, DLL ops
 
 //////////////////////////////////////////////
-//         String
+//         Hash Table
+//
+// Rather than define a data structure, to allow the most flexibility,
+// this is just a set of functions that can be integrated into other 
+// routines.
+// In general, they expect you to track a u32* of ids and a u32 capacity
 
-// NOTE(PS): even though this has a len and cap, it should always be
-// null terminated
-struct String
+internal void
+hash_table_init(u32* ids, u32 cap)
 {
-  u8* str;
-  u64 len;
-  u64 cap;
-};
+  for (u32 i = 0; i < cap; i++) ids[i] = 0;
+}
+
+internal u32
+hash_table_find_(u32* ids, u32 cap, u32 start_id, u32 target_value)
+{
+  u32 index = start_id % cap;
+  u32 start = index;
+  do {
+    if (ids[index] == target_value) break;
+    index = (index + 1) % cap;
+  } while (index != start);
+  return index;
+}
+
+internal u32 
+hash_table_register(u32* ids, u32 cap, u32 new_id)
+{
+  u32 index = hash_table_find_(ids, cap, new_id, 0);
+  if (ids[index] != 0) return cap;
+  ids[index] = new_id;
+  return index;
+}
+
+internal u32
+hash_table_find(u32* ids, u32 cap, u32 value)
+{
+  u32 result = hash_table_find_(ids, cap, value, value);
+  if (ids[result] != value) return cap;
+  return result;
+}
+
+//////////////////////////////////////////////
+//         Vector Extensions
+
+#define v2_to_v3(xy,z) v3{(xy).x, (xy).y, (z)}
+
+//////////////////////////////////////////////
+//         Color Constants
+
+#define WHITE_V4 v4{1,1,1,1}
+#define BLACK_V4 v4{0,0,0,1}
+#define RED_V4 v4{1,0,0,1}
+#define GREEN_V4 v4{0,1,0,1}
+#define BLUE_V4 v4{0,0,1,1}
+#define YELLOW_V4 v4{1,1,0,1}
+#define TEAL_V4 v4{0,1,1,1}
+#define PINK_V4 v4{1,0,1,1}
 
 typedef struct Allocator Allocator;
+
 
 #endif //LUMENARIUM_TYPES_H

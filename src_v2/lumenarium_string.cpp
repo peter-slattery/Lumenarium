@@ -55,6 +55,16 @@ char_to_forward_slash(u8 c)
 // just return structures that let you view it differently
 
 internal String
+string_create(u8* str, u64 len, u64 cap)
+{
+  String result = {};
+  result.str = str;
+  result.len = len;
+  result.cap = cap;
+  return result;
+}
+
+internal String
 string_substring(String s, u64 min, u64 max)
 {
   if (max > s.len) max = s.len;
@@ -213,15 +223,25 @@ string_chop_last_slash(String s)
 /////////////////////////////////////
 // String Modifications
 
+internal u64
+string_copy_to(String* dest, String src)
+{
+  u64 len_to_copy = dest->cap < src.len ? dest->cap : src.len;
+  memory_copy(src.str, dest->str, len_to_copy);
+  u64 null_term_index = len_to_copy;
+  if (null_term_index >= dest->cap) null_term_index -= 1;
+  dest->str[null_term_index] = 0;
+  dest->len = null_term_index;
+  return null_term_index;
+}
+
 internal String
 string_copy(String s, Allocator* a)
 {
   u64 size = s.cap;
   if (s.str[s.cap] != 0) size += 1;
   String result = allocator_alloc_string(a, size);
-  memory_copy(s.str, result.str, s.cap);
-  result.str[size] = 0;
-  result.len = size;
+  string_copy_to(&result, s);
   return result;
 }
 

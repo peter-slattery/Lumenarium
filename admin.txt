@@ -7,14 +7,20 @@
 
 ## TODO
 
-1. Upgrade Lumenarium's plubming
-  1. switch over to compiling with clang & bash based build scripts
-  2. better platform layer separation
+1. Upgrade Lumenarium's plumbing
+  x. switch over to compiling with clang & bash based build scripts
+  x. better platform layer separation
   3. osx and webgl layers, possibly linux?
-  4. remove dll compiling, just build all in one go
+  x. remove dll compiling, just build all in one go
   5. improve ui
-    1. default to using a basic layout object
-    2. improve widget handling (see a_trick_of_fate)
+    [ ] get widgets and widget ids working
+        - see a trick of fate
+    [ ] clip widgets to regions
+    [ ] text rendering
+    [ ] interaction
+    [ ] layout manager
+        - do layout the way youre doing styling - optional pointer to a struct
+          and fallback on some global default
 
 2. Incenter
   1. Sculpture generation from list of lat-long coordinates

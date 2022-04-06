@@ -80,6 +80,148 @@ bool platform_file_write_all(Platform_File_Handle file_handle, Data file_data);
 String platform_get_exe_path(Allocator* allocator);
 bool platform_pwd_set(String path);
 
+// For Cross Platform File Operations use these:
+
+typedef u32 Platform_File_Async_Job_Flags;
+enum 
+{
+  PlatformFileAsyncJob_Invalid = 0,
+  PlatformFileAsyncJob_Read = 1,
+  PlatformFileAsyncJob_Write = 2,
+  PlatformFileAsyncJob_InFlight = 4,
+  PlatformFileAsyncJob_Success = 8,
+  PlatformFileAsyncJob_Failed = 16,
+};
+
+struct Platform_File_Async_Job_Args
+{
+  String path;
+  Data data;
+  Platform_File_Async_Job_Flags flags;
+  u32 error;
+};
+
+typedef void Platform_File_Async_Cb(Platform_File_Async_Job_Args args);
+
+struct Platform_File_Async_Job
+{
+  Data job_memory;
+  Platform_File_Async_Job_Args args;
+  Platform_File_Async_Cb* cb;
+};
+
+global Allocator*              platform_file_jobs_arena = 0;
+#define PLATFORM_FILE_ASYNC_MAX_JOBS 32
+global Platform_File_Async_Job platform_file_async_jobs[PLATFORM_FILE_ASYNC_MAX_JOBS];
+global u32                     platform_file_async_jobs_len = 0;
+
+void
+platform_file_jobs_init()
+{
+  platform_file_jobs_arena = paged_allocator_create_reserve(MB(4), 256);
+}
+
+bool
+platform_file_async_job_add(Platform_File_Async_Job job)
+{
+  if (platform_file_async_jobs_len >= PLATFORM_FILE_ASYNC_MAX_JOBS) return false;
+  
+  // Copy data to job local memory
+  u64 size_needed = job.args.path.len + job.args.data.size + 1;
+  u8* job_mem = allocator_alloc(platform_file_jobs_arena, size_needed);
+  String job_path = string_create(job_mem, 0, job.args.path.len + 1);
+  u64 copied = string_copy_to(&job_path, job.args.path);
+  Data job_data = data_create(job_mem + job_path.cap + 1, size_needed - (job_path.cap + 1));
+  memory_copy(job.args.data.base, job_data.base, job.args.data.size);
+  job.args.path = job_path;
+  job.args.data = job_data;
+  job.job_memory = data_create(job_mem, size_needed);
+  
+  platform_file_async_jobs[platform_file_async_jobs_len++] = job;
+  return true;
+}
+
+Platform_File_Async_Job
+platform_file_async_job_rem(u64 index)
+{
+  assert(index < platform_file_async_jobs_len);
+  Platform_File_Async_Job result = platform_file_async_jobs[index];
+  
+  platform_file_async_jobs_len -= 1;
+  if (platform_file_async_jobs_len > 0)
+  {
+    u32 last_job = platform_file_async_jobs_len;
+    platform_file_async_jobs[index] = platform_file_async_jobs[last_job];
+  }
+  
+  return result;
+}
+
+bool
+platform_file_async_read(String path, Platform_File_Async_Cb* cb)
+{
+  Platform_File_Async_Job job = {};
+  job.args.path = path;
+  job.args.flags = (
+                    PlatformFileAsyncJob_Read |
+                    PlatformFileAsyncJob_InFlight
+                    );
+  job.cb = cb;
+  bool result = platform_file_async_job_add(job);
+  return result;
+}
+
+bool
+platform_file_async_write(String path, Data data, Platform_File_Async_Cb* cb)
+{
+  Platform_File_Async_Job job = {};
+  job.args.path = path;
+  job.args.data = data;
+  job.args.flags = (
+                    PlatformFileAsyncJob_Write |
+                    PlatformFileAsyncJob_InFlight
+                    );
+  job.cb = cb;
+  bool result = platform_file_async_job_add(job);
+  return result;
+}
+
+void
+platform_file_async_job_complete(Platform_File_Async_Job* job)
+{
+  job->cb(job->args);
+  allocator_free(platform_file_jobs_arena, job->job_memory.base, job->job_memory.size); 
+  if (has_flag(job->args.flags, PlatformFileAsyncJob_Write))
+  {
+    allocator_free(platform_file_jobs_arena, job->args.data.base, job->args.data.size);
+  }
+}
+
+void platform_file_async_work_on_job(Platform_File_Async_Job* job);
+
+void
+platform_file_async_jobs_do_work(u64 max_jobs)
+{
+  u64 to_do = max_jobs;
+  if (max_jobs > platform_file_async_jobs_len) to_do = platform_file_async_jobs_len;
+  
+  Platform_File_Async_Job_Flags completed = (
+                                             PlatformFileAsyncJob_Success | 
+                                             PlatformFileAsyncJob_Failed
+                                             );
+  
+  for (u64 i = to_do - 1; i < to_do; i--)
+  {
+    Platform_File_Async_Job* job = platform_file_async_jobs + i;
+    platform_file_async_work_on_job(job);
+    if (has_flag(job->args.flags, completed))
+    {
+      platform_file_async_job_complete(job);
+      platform_file_async_job_rem(i);
+    }
+  }
+}
+
 typedef u32 Platform_Enum_Dir_Flags;
 enum
 {
@@ -100,6 +242,7 @@ enum Platform_Window_Event_Kind
   WindowEvent_Invalid = 0,
   
   WindowEvent_MouseScroll,
+  WindowEvent_MouseMoved,
   WindowEvent_ButtonDown,
   WindowEvent_ButtonUp,
   WindowEvent_Char,
@@ -299,6 +442,7 @@ struct Platform_Shader
 { 
   u32 id; 
   u32 attrs[PLATFORM_SHADER_MAX_ATTRS];
+  u32 uniforms[PLATFORM_SHADER_MAX_ATTRS];
 };
 
 struct Platform_Geometry_Buffer 
@@ -306,6 +450,7 @@ struct Platform_Geometry_Buffer
   u32 buffer_id_vao;
   u32 buffer_id_vertices;
   u32 buffer_id_indices;
+  u32 vertices_len;
   u32 indices_len;
 };
 
@@ -329,16 +474,19 @@ void platform_frame_clear();
 // Geometry
 Platform_Geometry_Buffer platform_geometry_buffer_create(r32* vertices, u32 vertices_len, u32* indices, u32 indices_len);
 Platform_Shader platform_shader_create(
-                                       String code_vert, String code_frag, String* attribs, u32 attribs_len
+                                       String code_vert, String code_frag, String* attribs, u32 attribs_len, String* uniforms, u32 uniforms_len
                                        );
+void platform_geometry_buffer_update(Platform_Geometry_Buffer* buffer, r32* verts, u32 verts_offset, u32 verts_len, u32* indices, u32 indices_offset, u32 indices_len);
 
 // Shaders
 void platform_geometry_bind(Platform_Geometry_Buffer geo);
 void platform_shader_bind(Platform_Shader shader);
+void platform_geometry_draw(Platform_Geometry_Buffer geo, u32 indices);
 void platform_geometry_draw(Platform_Geometry_Buffer geo);
 void platform_vertex_attrib_pointer(
                                     Platform_Geometry_Buffer geo, Platform_Shader shader, u32 count, u32 attr_index, u32 stride, u32 offset
                                     );
+void platform_set_uniform(Platform_Shader shader, u32 index, m44 u);
 
 // Textures
 Platform_Texture platform_texture_create(u8* pixels, u32 width, u32 height, u32 stride);

@@ -42,6 +42,9 @@ struct Assembly_Strip
   u32  pixels_len;
   // array of indices into the Assembly_Pixel_Buffer for the same assembly
   u32* pixels;
+  
+  Output_Data_Kind output_kind;
+  u32 sacn_universe;
 };
 
 struct Assembly_Strip_Array

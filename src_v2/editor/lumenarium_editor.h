@@ -7,6 +7,7 @@ struct Editor
 {
   v2 window_dim;
   Editor_Renderer renderer;
+  UI ui;
 };
 
 #endif //LUMENARIUM_EDITOR_H
