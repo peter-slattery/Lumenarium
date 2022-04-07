@@ -72,6 +72,17 @@ win32_button_event(Platform_Key_Code key, bool is_down, bool was_down)
 }
 
 internal void
+win32_set_mouse_pos_evt(Platform_Window_Event* evt)
+{
+  POINT mouse_p;
+  GetCursorPos(&mouse_p);
+  ScreenToClient(win32_main_window.window_handle, &mouse_p);
+  
+  evt->mouse_x = mouse_p.x;
+  evt->mouse_y = mouse_p.y;
+}
+
+internal void
 win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
 {
   switch (msg.message)
@@ -90,6 +101,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseLeftButton, 
                                                      true, false
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_capture(win);
     }break;
@@ -100,6 +112,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseMiddleButton, 
                                                      true, false
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_capture(win);
     }break;
@@ -110,6 +123,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseRightButton, 
                                                      true, false
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_capture(win);
     }break;
@@ -120,6 +134,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseLeftButton, 
                                                      false, true
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_release(win);
     }break;
@@ -130,6 +145,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseMiddleButton, 
                                                      false, true
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_release(win);
     }break;
@@ -140,6 +156,7 @@ win32_window_handle_event(MSG msg, Win32_Window* win, App_State* state)
                                                      KeyCode_MouseRightButton, 
                                                      false, true
                                                      );
+      win32_set_mouse_pos_evt(&evt);
       lumenarium_event(evt, state);
       win32_mouse_release(win);
     }break;

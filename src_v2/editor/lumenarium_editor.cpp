@@ -152,6 +152,8 @@ ed_frame_prepare(App_State* state)
   ui_frame_prepare(&state->editor->ui, state->editor->window_dim);
 }
 
+global r32 p = 0.3f;
+
 internal void
 ed_frame(App_State* state)
 {
@@ -160,14 +162,11 @@ ed_frame(App_State* state)
   UI_Layout layout = {};
   layout.bounds_min = v2{ 500, 200 };
   layout.bounds_max = v2{ 700, 500 };
-  layout.row_height = ui->font_ascent + ui->font_descent + ui->font_line_gap + 15;
-  layout.row_gap = 2;
-  layout.col_gap = 2;
+  ui_layout_set_row_info(ui, &layout);
   layout.at = layout.bounds_min;
-  ui->layout = &layout;
+  ui_layout_push(ui, &layout);
   
-  
-  ui_text(ui, lit_str("Hi there!"));
+  ui_text_f(ui, "Hi there! %d", 1000);
   show = ui_toggle(ui, lit_str("my toggle"), show);
   if (show)
   {
@@ -178,8 +177,33 @@ ed_frame(App_State* state)
     }
     ui_layout_row_end(ui);
   }
-  
   ui_button(ui, lit_str("Hi there my good sir"));
+  
+  ui_scroll_view_begin(ui, lit_str("scroll area"), v2{800, 200}, v2{1000,500}, 8);
+  {
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("you there"));
+    ui_button(ui, lit_str("Sup"));
+    ui_button(ui, lit_str("I'm lastf;"));
+  }
+  ui_scroll_view_end(ui);
+  
+  ui_layout_pop(ui);
   
   edr_render_begin(state);
   ui_draw(&state->editor->ui);

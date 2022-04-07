@@ -30,13 +30,17 @@ union UI_Widget_Id
 typedef u32 UI_Widget_Style_Flags;
 enum
 {
-  UIWidgetStyle_None       = 0,
-  UIWidgetStyle_Bg         = 1,
-  UIWidgetStyle_TextClip   = 2,
-  UIWidgetStyle_TextWrap   = 4,
-  UIWidgetStyle_Outline    = 8,
-  UIWidgetStyle_MouseClick = 16,
-  UIWidgetStyle_MouseDrag  = 32,
+  UIWidgetStyle_None        = 0,
+  UIWidgetStyle_Bg          = 1 << 0,
+  UIWidgetStyle_TextClip    = 1 << 1,
+  UIWidgetStyle_TextWrap    = 1 << 2,
+  UIWidgetStyle_Outline     = 1 << 3,
+  UIWidgetStyle_MouseClick  = 1 << 4,
+  UIWidgetStyle_MouseDragH  = 1 << 5,
+  UIWidgetStyle_MouseDragV  = 1 << 6,
+  UIWidgetStyle_FillH       = 1 << 7,
+  UIWidgetStyle_FillV       = 1 << 8,
+  UIWidgetStyle_LineInsteadOfFill = 1 << 9,
 };
 
 // akin to a css class, could be used to style multiple
@@ -46,7 +50,6 @@ struct UI_Widget_Style
   UI_Widget_Style_Flags flags;
   v4 color_bg;
   v4 color_fg;
-  
   u32 sprite;
 };
 
@@ -54,6 +57,7 @@ struct UI_Widget_Style
 struct UI_Widget_Desc
 {
   UI_Widget_Style style;
+  v2 fill_pct;
   String string;
   v2 p_min;
   v2 p_max;
@@ -80,7 +84,9 @@ enum
 
 struct UI_Widget_Result
 {
+  UI_Widget_Id id;
   UI_Widget_Result_Flags flags;
+  v2 drag;
 };
 
 enum UI_Widget_Kind
@@ -110,6 +116,11 @@ struct UI_Style_Sheet
   UI_Widget_Style styles[UIWidget_Count];
 };
 
+struct UI_Widget_State
+{
+  v2 scroll;
+};
+
 struct UI_Widget_Pool
 {
   UI_Widget* free;
@@ -118,6 +129,10 @@ struct UI_Widget_Pool
   
   UI_Widget* root;
   UI_Widget* active_parent;
+  
+  UI_Widget_State* states;
+  u32* states_hash;
+  u32 states_cap;
 };
 
 enum UI_Layout_Mode
@@ -132,13 +147,15 @@ enum UI_Layout_Mode
 
 struct UI_Layout
 {
+  UI_Layout_Mode mode;
+  UI_Layout* parent;
+  
   v2 bounds_min;
   v2 bounds_max;
   r32 row_height;
   r32 row_gap;
   r32 col_gap;
   v2 at;
-  UI_Layout_Mode mode;
   u32 cols;
 };
 
@@ -198,6 +215,9 @@ internal void ui_create_default_style_sheet();
 internal UI_Widget_Id     ui_widget_id_create(u32 index_in_parent, String string);
 internal bool             ui_widget_id_equals(UI_Widget_Id a, UI_Widget_Id b);
 internal bool             ui_widget_id_is_valid(UI_Widget_Id h);
+
+internal void ui_widget_next_hot_set(UI* ui, UI_Widget* w);
+internal void ui_widget_hot_set(UI* ui, UI_Widget* w);
 
 internal UI_Widget* ui_widget_pool_push(UI_Widget_Pool* pool, String string);
 internal void       ui_widget_pool_pop(UI_Widget_Pool* pool);

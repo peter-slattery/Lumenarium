@@ -80,6 +80,12 @@ lumenarium_event(Platform_Window_Event evt, App_State* state)
     case WindowEvent_ButtonUp:
     {
       frame->key_flags[evt.key_code] = evt.key_flags;
+      if (evt.key_code == KeyCode_MouseLeftButton)
+      {
+        state->input_state->mouse_pos_down = v2{ 
+          (r32)evt.mouse_x, (r32)evt.mouse_y 
+        };
+      }
     } break;
     
     case WindowEvent_Char:

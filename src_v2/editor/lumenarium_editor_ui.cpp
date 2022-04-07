@@ -35,6 +35,9 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   // Widgets
   result.widgets.free = allocator_alloc_array(a, UI_Widget, widget_pool_cap);
   result.widgets.free_cap = widget_pool_cap;
+  result.widgets.states_cap = 3 * widget_pool_cap;
+  result.widgets.states = allocator_alloc_array(a, UI_Widget_State, result.widgets.states_cap);
+  result.widgets.states_hash = allocator_alloc_array(a, u32, result.widgets.states_cap);
   
   // Per Frame Vertex Buffer
   result.verts_cap = verts_cap;
@@ -192,15 +195,12 @@ ui_frame_prepare(UI* ui, v2 window_dim)
   if (ui->widget_next_hot.value != 0)
   {
     ui->widget_next_hot_frames += 1;
-    if (ui->widget_hot_frames > 1) 
-    {
-      ui->widget_next_hot = UI_Widget_Id{0};
-    }
+    if (ui->widget_next_hot_frames > 1) ui_widget_next_hot_set(ui, 0);
   }
   if (ui->widget_hot.value != 0)
   {
     ui->widget_hot_frames += 1;
-    if (ui->widget_hot_frames > 1) ui->widget_hot = UI_Widget_Id{0};
+    if (ui->widget_hot_frames > 1) ui_widget_hot_set(ui, 0);
   }
 }
 
@@ -229,6 +229,8 @@ ui_draw(UI* ui)
   platform_texture_bind(ui->atlas_texture);
   platform_geometry_bind(ui->per_frame_buffer);
   platform_geometry_draw(ui->per_frame_buffer, ui->indices_len);
+  
+  OutputDebugStringA("Frame\n\n");
 }
 
 ////////////////////////////////////////////
@@ -244,6 +246,20 @@ ui_widget_id_create(String string, u32 index)
   return result;
 }
 
+internal UI_Widget_State*
+ui_widget_state_get(UI_Widget_Pool* pool, UI_Widget_Id id)
+{
+  u32 index = hash_table_find(pool->states_hash, pool->states_cap, id.value);
+  assert(index != pool->states_cap);
+  UI_Widget_State* result = pool->states + index;
+  return result;
+}
+internal UI_Widget_State*
+ui_widget_state_get(UI* ui, UI_Widget_Id id)
+{
+  return ui_widget_state_get(&ui->widgets, id);
+}
+
 internal UI_Widget*
 ui_widget_pool_push(UI_Widget_Pool* pool, String string)
 {
@@ -255,6 +271,11 @@ ui_widget_pool_push(UI_Widget_Pool* pool, String string)
   result->next = 0;
   result->child_first = 0;
   result->child_last = 0;
+  
+  u32 index = hash_table_register(pool->states_hash, pool->states_cap, result->id.value);
+  assert(index != pool->states_cap);
+  UI_Widget_State* state = pool->states + index;
+  zero_struct(*state);
   
   if (pool->active_parent)
   {
@@ -293,14 +314,22 @@ ui_widget_id_is_valid(UI_Widget_Id h)
 internal void
 ui_widget_next_hot_set(UI* ui, UI_Widget* w)
 {
-  ui->widget_next_hot = w->id;
+  if (w) {
+    ui->widget_next_hot = w->id;
+  } else {
+    ui->widget_next_hot = UI_Widget_Id{0};
+  }
   ui->widget_next_hot_frames = 0;
 }
 
 internal void
 ui_widget_hot_set(UI* ui, UI_Widget* w)
 {
-  ui->widget_hot = w->id;
+  if (w) {
+    ui->widget_hot = w->id;
+  } else {
+    ui->widget_hot = UI_Widget_Id{0};
+  }
   ui->widget_hot_frames = 0;
 }
 
@@ -308,11 +337,26 @@ internal UI_Widget_Result
 ui_widget_push(UI* ui, UI_Widget_Desc desc)
 {
   UI_Widget_Result result = {};
+  v2 dim = desc.p_max - desc.p_min;
+  if (dim.x == 0 || dim.y == 0) return result;
   
   UI_Widget* w = ui_widget_pool_push(&ui->widgets, desc.string);
   w->desc = desc;
+  result.id = w->id;
   
-  if (has_flag(desc.style.flags, UIWidgetStyle_MouseClick))
+  UI_Widget_State* state = ui_widget_state_get(ui, w->id);
+  w->desc.fill_pct = state->scroll;
+  
+  v2 mouse_p = ui->input->frame_hot->mouse_pos;
+  bool mouse_over = (
+                     mouse_p.x >= desc.p_min.x && mouse_p.x <= desc.p_max.x &&
+                     mouse_p.y >= desc.p_min.y && mouse_p.y <= desc.p_max.y
+                     );
+  
+  UI_Widget_Style_Flags flags = desc.style.flags;
+  UI_Widget_Style_Flags mask_drag = (UIWidgetStyle_MouseDragH | UIWidgetStyle_MouseDragV);
+  UI_Widget_Style_Flags mask_hover = (mask_drag | UIWidgetStyle_MouseClick);
+  if (has_flag(flags, mask_hover))
   {
     // CASES:
     // Mouse Over | Mouse Clicked | Is Next Hot | Response
@@ -322,12 +366,6 @@ ui_widget_push(UI* ui, UI_Widget_Desc desc)
     //      t     |      f        |      f      | beome next hot
     //      t     |      t        |      f      | become next hot
     //      t     |      t        |      t      | become hot
-    
-    v2 mouse_p = ui->input->frame_hot->mouse_pos;
-    bool mouse_over = (
-                       mouse_p.x >= desc.p_min.x && mouse_p.x <= desc.p_max.x &&
-                       mouse_p.y >= desc.p_min.y && mouse_p.y <= desc.p_max.y
-                       );
     
     if (mouse_over)
     {
@@ -341,10 +379,11 @@ ui_widget_push(UI* ui, UI_Widget_Desc desc)
         if (input_key_went_up(ui->input, KeyCode_MouseLeftButton))
         {
           result.flags |= UIWidgetResult_MouseLeft_WentUp;
-          ui->widget_hot = UI_Widget_Id{0};
+          ui_widget_hot_set(ui, 0);
         }
       }
-      else if ((w->id.index >= ui->widget_next_hot.index) && ui->widget_hot.value == 0)
+      
+      if ((w->id.index >= ui->widget_next_hot.index) && ui->widget_hot.value == 0)
       {
         ui_widget_next_hot_set(ui, w);
       }
@@ -353,8 +392,34 @@ ui_widget_push(UI* ui, UI_Widget_Desc desc)
     {
       if (ui_widget_id_equals(w->id, ui->widget_next_hot))
       {
-        ui->widget_next_hot = UI_Widget_Id{0};
+        ui_widget_next_hot_set(ui, 0);
       }
+    }
+  }
+  
+  if(ui_widget_id_equals(w->id, ui->widget_hot))
+  {
+    if (input_key_is_down(ui->input, KeyCode_MouseLeftButton))
+    {
+      ui_widget_next_hot_set(ui, w);
+      ui_widget_hot_set(ui, w);
+      result.flags |= UIWidgetResult_MouseLeft_IsDown;
+    }
+    
+    if (has_flag(flags, mask_drag))
+    {
+      v2 drag_pct_mask = { 
+        has_flag(flags, UIWidgetStyle_MouseDragH) ? 1.0f : 0.0f,
+        has_flag(flags, UIWidgetStyle_MouseDragV) ? 1.0f : 0.0f
+      };
+      v2 drag = ui->input->frame_hot->mouse_pos - w->desc.p_min;
+      drag = v2{ clamp(0, drag.x, w->desc.p_max.x), clamp(0, drag.y, w->desc.p_max.y) };
+      drag *= drag_pct_mask;
+      v2 drag_pct = drag / dim;
+      drag_pct = v2{ clamp(0, drag_pct.x, 1), clamp(0, drag_pct.y, 1) };
+      result.drag = drag_pct;
+      
+      state->scroll = drag_pct;
     }
   }
   
@@ -387,8 +452,8 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
     }
     if (ui_widget_id_equals(ui->widget_hot, child->id))
     {
-      color_fg = desc.style.color_fg;
-      color_bg = desc.style.color_bg;
+      //color_fg = desc.style.color_fg;
+      //color_bg = desc.style.color_bg;
     }
     
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Outline))
@@ -397,7 +462,6 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
       z_at += z_step;
       bg_min += v3{ 1, 1, 0};
       bg_max -= v3{ 1, 1, 0};
-      
     }
     
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Bg))
@@ -405,6 +469,45 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
       bg_min.z = z_at;
       bg_max.z = z_at;
       ui_sprite_push(ui, bg_min, bg_max, desc.style.sprite, color_bg);
+      z_at += z_step;
+    }
+    
+    if (has_flag(child->desc.style.flags, (UIWidgetStyle_FillH | UIWidgetStyle_FillV)))
+    {
+      v3 fill_min = {};
+      v3 fill_max = {};
+      if (has_flag(child->desc.style.flags, UIWidgetStyle_FillH))
+      {
+        r32 fill_x = HMM_Lerp(bg_min.x, child->desc.fill_pct.x, bg_max.x);
+        
+        if (has_flag(child->desc.style.flags, UIWidgetStyle_LineInsteadOfFill))
+        {
+          fill_min = v3{ fill_x,     bg_min.y, z_at };
+          fill_max = v3{ fill_x + 1, bg_max.y, z_at };
+        }
+        else
+        {
+          fill_min = bg_min;
+          fill_max = v3{ fill_x, bg_max.y, z_at };
+        }
+      }
+      else if (has_flag(child->desc.style.flags, UIWidgetStyle_FillV))
+      {
+        r32 fill_y = HMM_Lerp(bg_min.y, child->desc.fill_pct.y, bg_max.y);
+        
+        if (has_flag(child->desc.style.flags, UIWidgetStyle_LineInsteadOfFill))
+        {
+          fill_min = v3{ bg_min.x, fill_y,     z_at };
+          fill_max = v3{ bg_max.x, fill_y + 1, z_at };
+        }
+        else
+        {
+          fill_min = bg_min;
+          fill_max = v3{ bg_max.x, fill_y, z_at };
+        }
+      }
+      
+      ui_sprite_push(ui, fill_min, fill_max, WHITE_SPRITE_ID, color_fg);
       z_at += z_step;
     }
     
@@ -461,6 +564,38 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
 // Layout Manager
 
 internal void
+ui_layout_set_row_info(UI* ui, UI_Layout* l)
+{
+  l->row_height = (ui->font_ascent + ui->font_descent + ui->font_line_gap + 15);
+  l->row_gap = 2;
+  l->col_gap = 2;
+}
+
+internal void
+ui_layout_push(UI* ui, UI_Layout* layout)
+{
+  if (ui->layout)
+  {
+    layout->parent = ui->layout;
+    ui->layout = layout;
+  }
+  else
+  {
+    ui->layout = layout;
+    layout->parent = 0;
+  }
+}
+
+internal void
+ui_layout_pop(UI* ui)
+{
+  if (ui->layout) 
+  {
+    ui->layout = ui->layout->parent;
+  }
+}
+
+internal void
 ui_layout_row_begin(UI_Layout* layout, u32 cols)
 {
   layout->mode = UILayout_Rows;
@@ -481,6 +616,12 @@ internal UI_Layout_Bounds
 ui_layout_get_next(UI_Layout* layout)
 {
   UI_Layout_Bounds result = {};
+  if (layout->at.x >= layout->bounds_max.x || layout->at.y >= layout->bounds_max.y ||
+      layout->at.y + layout->row_height >= layout->bounds_max.y)
+  {
+    return result;
+  }
+  
   switch (layout->mode)
   {
     case UILayout_Columns:
@@ -508,6 +649,14 @@ ui_layout_get_next(UI_Layout* layout)
     
     invalid_default_case;
   }
+  
+  if (result.min.x < layout->bounds_min.x || result.min.y < layout->bounds_min.y ||
+      result.max.x < layout->bounds_min.x || result.max.y < layout->bounds_min.y)
+  {
+    result.min = {};
+    result.max = {};
+  }
+  
   return result;
 }
 internal UI_Layout_Bounds 
@@ -537,16 +686,16 @@ ui_create_default_style_sheet()
   ui_default_style_sheet.styles[UIWidget_Dropdown] = ui_default_style_sheet.styles[UIWidget_Toggle];
   
   ui_default_style_sheet.styles[UIWidget_HSlider] = {
-    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDragH | UIWidgetStyle_FillH ), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
   };
   ui_default_style_sheet.styles[UIWidget_VSlider] = {
-    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDragV | UIWidgetStyle_FillV ), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
   };
   ui_default_style_sheet.styles[UIWidget_HScroll] = {
-    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDragH | UIWidgetStyle_FillH | UIWidgetStyle_LineInsteadOfFill ), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
   };
   ui_default_style_sheet.styles[UIWidget_VScroll] = {
-    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDragV | UIWidgetStyle_FillV | UIWidgetStyle_LineInsteadOfFill ), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
   };
   
   ui_default_style_sheet.styles[UIWidget_Window] = {
@@ -581,6 +730,17 @@ ui_text(UI* ui, String string)
   ui_widget_push(ui, d);
 }
 
+internal void
+ui_text_f(UI* ui, char* fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+  String string = string_fv(scratch, fmt, args);
+  va_end(args);
+  
+  return ui_text(ui, string);
+}
+
 internal bool
 ui_button(UI* ui, String string)
 {
@@ -605,3 +765,78 @@ ui_toggle(UI* ui, String string, bool value)
   if (has_flag(r.flags, UIWidgetResult_MouseLeft_WentUp)) result = !result;
   return result;
 }
+
+internal UI_Layout*
+ui_scroll_view_begin(UI* ui, String string, v2 bounds_min, v2 bounds_max, u32 rows)
+{
+  r32 scroll_bar_dim = 15;
+  v2 scroll_bars_area = v2{0, 0};
+  v2 scroll_area_min = bounds_min;
+  v2 scroll_area_max = bounds_max - scroll_bars_area;
+  v2 scroll_area_dim = scroll_area_max - scroll_area_min;
+  
+  v2 scroll_offset = {};
+  r32 rows_avail = floorf(scroll_area_dim.y / ui->layout->row_height);
+  if (rows > rows_avail)
+  {
+    scroll_bars_area = v2{ scroll_bar_dim, 0};
+    scroll_area_min = bounds_min;
+    scroll_area_max = bounds_max - scroll_bars_area;
+    scroll_area_dim = scroll_area_max - scroll_area_min;
+    
+    UI_Widget_Desc vscroll_d = {};
+    vscroll_d.p_min = { bounds_max.x - scroll_bar_dim, bounds_min.y };
+    vscroll_d.p_max = { bounds_max.x, bounds_max.y };
+    vscroll_d.style = ui_get_style(ui, UIWidget_VScroll);
+    vscroll_d.string = string_f(scratch, "%.*s_vscroll", str_varg(string));
+    UI_Widget_Result r = ui_widget_push(ui, vscroll_d);
+    
+    UI_Widget_State* vscroll_state = ui_widget_state_get(ui, r.id);
+    scroll_offset.y = vscroll_state->scroll.y;
+  }
+  
+  r32 rows_scroll_to = max(0, rows - (rows_avail - 1));
+  r32 y_scroll_dist = rows_scroll_to * ui->layout->row_height;
+  
+  scroll_offset *= v2{ 0, y_scroll_dist };
+  
+  UI_Layout* layout = allocator_alloc_struct(scratch, UI_Layout);
+  layout->mode = UILayout_Columns;
+  layout->bounds_min = scroll_area_min;
+  layout->bounds_max = scroll_area_max;
+  ui_layout_set_row_info(ui, layout);
+  layout->at = bounds_min - scroll_offset;
+  ui_layout_push(ui, layout);
+  
+  return layout;
+}
+
+internal void
+ui_scroll_view_end(UI* ui)
+{
+  ui_layout_pop(ui);
+}
+
+#if 0
+internal bool
+ui_dropdown_begin(UI* ui, String string, bool state)
+{
+  bool result = ui_toggle(ui, string, state);
+  UI_Layout* layout = allocator_alloc_struct(scratch, UI_Layout);
+  zero_struct(*layout);
+  if (result)
+  {
+    ui_scroll_view_begin(ui, layout);
+  }
+  return result;
+}
+
+internal void
+ui_dropdown_end(UI* ui, bool state)
+{
+  if (state)
+  {
+    ui_scroll_view_end(ui);
+  }
+}
+#endif

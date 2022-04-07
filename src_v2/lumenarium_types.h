@@ -58,6 +58,13 @@ internal void memory_zero(u8* base, u64 size);
 internal void memory_copy(u8* from, u8* to, u64 size);
 
 //////////////////////////////////////////////
+//         Math
+
+#define lerp(a,t,b) (a) + ((1.0f - (t)) * (b))
+#define clamp(r0,v,r1) min((r1),max((r0),(v)))
+#define lerp_clamp(a,t,b) clamp((a),lerp((a),(t),(b)),(b))
+
+//////////////////////////////////////////////
 //         String
 
 // NOTE(PS): even though this has a len and cap, it should always be
