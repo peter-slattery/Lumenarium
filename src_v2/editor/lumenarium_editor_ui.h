@@ -130,6 +130,7 @@ struct UI
   u32  indices_cap;
   
   Texture_Atlas atlas;
+  r32 font_ascent, font_descent, font_line_gap, font_space_width;
   
   UI_Widget_Pool widgets;
   UI_Style_Sheet* style_sheet;
@@ -156,6 +157,7 @@ internal void ui_quad_push(UI* ui, v3 pmin, v3 pmax, v2 tmin, v2 tmax, v4 c);
 internal void ui_sprite_register(UI* ui, u8* pixels, u32 w, u32 h, u32 id);
 internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color);
 internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id);
+internal v3   ui_sprite_char_push(UI* ui, v2 at, u32 codepoint, v4 color);
 internal void ui_draw(UI* ui);
 
 // Widgets

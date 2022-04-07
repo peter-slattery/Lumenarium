@@ -26,7 +26,7 @@ void close_err_file() {}
 
 // this assert works by simply trying to write to an invalid address
 // (in this case, 0x0), which will crash in most debuggers
-#  define assert_always (*((volatile s32*)0) = 0xFFFF)
+#  define assert_always (*((volatile int*)0) = 0xFFFF)
 
 #else
 WASM_EXTERN void wasm_assert_always(char* file, unsigned int file_len, unsigned int line);
@@ -34,12 +34,13 @@ WASM_EXTERN void wasm_assert_always(char* file, unsigned int file_len, unsigned 
 #endif // defined(PLATFORM_WASM)
 
 #ifdef USE_ASSERTS
-#  define assert(c) \
+#  define assert(c) do { \
 if (!(c)) { \
-err_write("Assert Hit: %s:%d\n", __FILE__, (u32)__LINE__); \
+err_write("Assert Hit: %s:%u\n", __FILE__, (u32)__LINE__); \
 close_err_file(); \
 assert_always; \
-}
+} \
+} while(false)
 
 // useful for catching cases that you aren't sure you'll hit, but
 // want to be alerted when they happen

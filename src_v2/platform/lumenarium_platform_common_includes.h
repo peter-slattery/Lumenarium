@@ -13,24 +13,16 @@
 
 #include "lumenarium_assert.h"
 
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_assert(x) assert(x)
+#include "../libs/stb_truetype.h"
+
 // NOTE(PS): only need the opengl extension headers
 // when running on a platform that is using opengl 3.3+
 #if !defined(PLATFORM_wasm)
 #  include "glcorearb.h"
 #  include "glext.h"
 #  include "wglext.h"
-#endif
-
-#if 0
-#define HMM_SINF sin
-#define HMM_COSF cos
-#define HMM_TANF tan
-#define HMM_SQRTF sqrt
-#define HMM_EXPF exp
-#define HMM_LOGF log
-#define HMM_ACOSF acos
-#define HMM_ATANF atan
-#define HMM_ATAN2F atan2
 #endif
 
 #define HANDMADE_MATH_IMPLEMENTATION

@@ -44,7 +44,7 @@ lumenarium_frame_prepare(App_State* state)
   }
   incenter_frame_prepare(state);
   
-  platform_file_async_jobs_do_work(4);
+  platform_file_async_jobs_do_work(4, (u8*)state);
 }
 
 internal void

@@ -91,9 +91,44 @@ void make_quad(Platform_Geometry_Buffer* geo, Platform_Shader* shd, Platform_Tex
 }
 
 internal void
-ed_load_font_cb(Platform_File_Async_Job_Args result)
+ed_load_font_cb(Platform_File_Async_Job_Args result, u8* user_data)
 {
-  s32 x = 5;
+  App_State* state = (App_State*)user_data;
+  UI* ui = &state->editor->ui;
+  
+  u8* f = result.data.base;
+  stbtt_fontinfo font;
+  if (!stbtt_InitFont(&font, f, stbtt_GetFontOffsetForIndex(f, 0)))
+  {
+    invalid_code_path;
+  }
+  
+  r32 scale = stbtt_ScaleForPixelHeight(&font, 18.0f);
+  s32 ascent, descent, line_gap;
+  stbtt_GetFontVMetrics(&font, &ascent, &descent, &line_gap);
+  ui->font_ascent = (r32)ascent * scale;
+  ui->font_descent = (r32)descent * scale;
+  ui->font_line_gap = (r32)line_gap * scale;
+  if (ui->font_line_gap == 0) ui->font_line_gap = 5;
+  
+  String c = lit_str("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}\\|;:'\",<.>/?`~");
+  for (u64 i = 0; i < c.len; i++)
+  {
+    s32 w, h, xoff, yoff;
+    u32 id = (u32)c.str[i];
+    u8* bp  = stbtt_GetCodepointBitmap(&font, 0, scale, (char)c.str[i], &w, &h, &xoff, &yoff);
+    s32 x0, y0, x1, y1;
+    stbtt_GetCodepointBitmapBoxSubpixel(&font, (char)c.str[i], scale, scale, 0, 0, &x0, &y0, &x1, &y1);
+    
+    v2 offset = v2{ 0, (r32)y0 };
+    texture_atlas_register(&state->editor->ui.atlas, bp, (u32)w, (u32)h, id, offset, TextureAtlasRegistration_PixelFormat_Alpha);
+    stbtt_FreeBitmap(bp, 0);
+  }
+  
+  Texture_Atlas_Sprite m_sprite = texture_atlas_sprite_get(&state->editor->ui.atlas, (u32)'m');
+  ui->font_space_width = (r32)(m_sprite.max_x - m_sprite.min_x);
+  
+  platform_texture_update(ui->atlas_texture, ui->atlas.pixels, 1024, 1024, 1024);
 }
 
 internal void

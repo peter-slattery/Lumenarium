@@ -101,7 +101,7 @@ struct Platform_File_Async_Job_Args
   u32 error;
 };
 
-typedef void Platform_File_Async_Cb(Platform_File_Async_Job_Args args);
+typedef void Platform_File_Async_Cb(Platform_File_Async_Job_Args args, u8* user_data);
 
 struct Platform_File_Async_Job
 {
@@ -187,9 +187,9 @@ platform_file_async_write(String path, Data data, Platform_File_Async_Cb* cb)
 }
 
 void
-platform_file_async_job_complete(Platform_File_Async_Job* job)
+platform_file_async_job_complete(Platform_File_Async_Job* job, u8* user_data)
 {
-  job->cb(job->args);
+  job->cb(job->args, user_data);
   allocator_free(platform_file_jobs_arena, job->job_memory.base, job->job_memory.size); 
   if (has_flag(job->args.flags, PlatformFileAsyncJob_Write))
   {
@@ -200,7 +200,7 @@ platform_file_async_job_complete(Platform_File_Async_Job* job)
 void platform_file_async_work_on_job(Platform_File_Async_Job* job);
 
 void
-platform_file_async_jobs_do_work(u64 max_jobs)
+platform_file_async_jobs_do_work(u64 max_jobs, u8* user_data)
 {
   u64 to_do = max_jobs;
   if (max_jobs > platform_file_async_jobs_len) to_do = platform_file_async_jobs_len;
@@ -216,7 +216,7 @@ platform_file_async_jobs_do_work(u64 max_jobs)
     platform_file_async_work_on_job(job);
     if (has_flag(job->args.flags, completed))
     {
-      platform_file_async_job_complete(job);
+      platform_file_async_job_complete(job, user_data);
       platform_file_async_job_rem(i);
     }
   }

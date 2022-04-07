@@ -23,7 +23,6 @@ static String ui_shader_frag_win32 = lit_str(
                                              "uniform sampler2D texture;\n"
                                              "void main(void) {\n"
                                              "  FragColor = texture(texture, uv) * color;\n"
-                                             "  if (FragColor.w <= 0.01f) discard;\n"
                                              "}"
                                              );
 
@@ -73,8 +72,13 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   result.atlas = texture_atlas_create(1024, 1024, 512, permanent);
   result.atlas_texture = platform_texture_create(result.atlas.pixels, 1024, 1024, 1024);
   
-  u32 white_sprite[] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
-  ui_sprite_register(&result, (u8*)white_sprite, 2, 2, WHITE_SPRITE_ID);
+  u32 white_sprite[] = { 
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+  };
+  ui_sprite_register(&result, (u8*)white_sprite, 4, 4, WHITE_SPRITE_ID);
   
   return result;
 }
@@ -119,14 +123,17 @@ ui_quad_push(UI* ui, v3 pmin, v3 pmax, v2 tmin, v2 tmax, v4 c)
 internal void
 ui_sprite_register(UI* ui, u8* pixels, u32 w, u32 h, u32 id)
 {
-  texture_atlas_register(&ui->atlas, pixels, w, h, id);
+  texture_atlas_register(&ui->atlas, pixels, w, h, id, v2{0,0}, TextureAtlasRegistration_PixelFormat_RGBA);
   platform_texture_update(ui->atlas_texture, ui->atlas.pixels, ui->atlas.width, ui->atlas.height, ui->atlas.width);
 }
 
 internal void 
 ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color)
 {
-  v4 uv = texture_atlas_sprite_get_uvs(&ui->atlas, id);
+  Texture_Atlas_Sprite sprite = texture_atlas_sprite_get(&ui->atlas, id);
+  v4 uv = texture_atlas_sprite_get_uvs(&ui->atlas, sprite);
+  pmin.XY += sprite.draw_offset;
+  pmax.XY += sprite.draw_offset;
   ui_quad_push(ui, pmin, pmax, uv.xy, uv.zw, color);
 }
 
@@ -134,6 +141,37 @@ internal void
 ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id)
 {
   ui_sprite_push(ui, pmin, pmax, id, v4{1,1,1,1});
+}
+
+struct UI_Char_Draw_Cmd
+{
+  v4 uv;
+  v3 pmin;
+  v3 pmax;
+  v3 baseline_after;
+};
+
+internal UI_Char_Draw_Cmd
+ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
+{
+  UI_Char_Draw_Cmd result = {};
+  
+  Texture_Atlas_Sprite sprite = texture_atlas_sprite_get(&ui->atlas, codepoint);
+  result.uv = texture_atlas_sprite_get_uvs(&ui->atlas, sprite);
+  
+  v3 dim = v3{ 
+    (r32)(sprite.max_x - sprite.min_x), 
+    (r32)(sprite.max_y - sprite.min_y),
+    0,
+  };
+  result.pmin = at;
+  result.pmin.XY += sprite.draw_offset;
+  result.pmin = v3_floor(result.pmin);
+  result.pmax = result.pmin + dim;
+  
+  result.baseline_after = v3{ result.pmax.x, at.y, at.z };
+  
+  return result;
 }
 
 internal void
@@ -184,12 +222,12 @@ ui_draw(UI* ui)
   UI_Widget_Result r0 = ui_widget_push(ui, d0);
   
   UI_Widget_Desc d1 = d0;
-  d1.style.flags |= UIWidgetStyle_Outline | UIWidgetStyle_MouseClick;
-  d1.style.color_bg = PINK_V4;
+  d1.style.flags |= UIWidgetStyle_Outline | UIWidgetStyle_MouseClick | UIWidgetStyle_Text;
+  d1.style.color_bg = PINK_V4;//{ 0.1f, 0.1f, 0.1f, 1.0f }; //
   d1.style.color_fg = GREEN_V4;
   d1.p_min = v2{ 512, 32 };
   d1.p_max = v2{ 640, 128 };
-  d1.string = lit_str("Hello");
+  d1.string = lit_str("Hello there my friend, what's going on?");
   UI_Widget_Result r1 = ui_widget_push(ui, d1);
   bool clicked_r1 = has_flag(r1.flags, UIWidgetResult_MouseLeft_WentUp);
   if (clicked_r1) show = !show;
@@ -214,7 +252,7 @@ ui_draw(UI* ui)
   u32 widget_count = ui->widgets.free_len;
   r32 range_min = -10;
   r32 range_max = -1;
-  r32 range_step = (range_max - range_min) / (r32)widget_count;
+  r32 range_step = (range_max - range_min) / (r32)(widget_count * 4);
   ui_widgets_to_geometry_recursive(ui, ui->widgets.root, -10, range_step);
   
   platform_geometry_buffer_update(
@@ -402,14 +440,48 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
     
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Bg))
     {
-      bg_min.z += z_step;
-      bg_max.z += z_step;
+      z_at += z_step;
+      bg_min.z = z_at;
+      bg_max.z = z_at;
       ui_sprite_push(ui, bg_min, bg_max, desc.style.sprite, color_bg);
     }
     
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Text))
     {
-      // TODO(PS): 
+      z_at += z_step + z_step;
+      r32 space_width = ui->font_space_width;
+      r32 to_baseline = ui->font_line_gap + ui->font_ascent;
+      v3 line_offset = { 5, 3 + to_baseline, 0 };
+      r32 baseline_x_start = desc.p_min.x + line_offset.x;
+      r32 baseline_y_start = desc.p_min.y + line_offset.y;
+      v3 baseline = { baseline_x_start, baseline_y_start, z_at };
+      for (u64 i = 0; i < child->desc.string.len; i++)
+      {
+        u8 at = child->desc.string.str[i];
+        UI_Char_Draw_Cmd cmd = {};
+        if (!char_is_space(at))
+        {
+          cmd = ui_sprite_char_get_draw_cmd(ui, baseline, (u32)at);
+        }
+        else
+        {
+          cmd.baseline_after = baseline;
+          cmd.baseline_after.x += space_width;
+        }
+        
+        if (cmd.baseline_after.x >= desc.p_max.x - 5)
+        {
+          baseline.x = baseline_x_start;
+          baseline.y += ui->font_ascent + ui->font_descent + ui->font_line_gap;
+          cmd = ui_sprite_char_get_draw_cmd(ui, baseline, (u32)at);
+        }
+        
+        if (!char_is_space(at))
+        {
+          ui_quad_push(ui, cmd.pmin, cmd.pmax, cmd.uv.xy, cmd.uv.zw, color_fg);
+        }
+        baseline = cmd.baseline_after;
+      }
     }
     
     if (child->child_first)
