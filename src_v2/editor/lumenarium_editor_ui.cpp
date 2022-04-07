@@ -80,6 +80,7 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   };
   ui_sprite_register(&result, (u8*)white_sprite, 4, 4, WHITE_SPRITE_ID);
   
+  ui_create_default_style_sheet();
   return result;
 }
 
@@ -166,7 +167,7 @@ ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
   };
   result.pmin = at;
   result.pmin.XY += sprite.draw_offset;
-  result.pmin = v3_floor(result.pmin);
+  result.pmin.XY = v2_floor(result.pmin.XY);
   result.pmax = result.pmin + dim;
   
   result.baseline_after = v3{ result.pmax.x, at.y, at.z };
@@ -208,47 +209,6 @@ global bool show = false;
 internal void
 ui_draw(UI* ui)
 {
-  UI_Widget_Desc d0 = {
-    {
-      (UIWidgetStyle_Bg),
-      WHITE_V4,
-      BLACK_V4,
-      WHITE_SPRITE_ID,
-    },
-    lit_str("Hi there!"),
-    v2{  32.0f, 32.0f },
-    v2{ 128.0f, 64.0f },
-  };
-  UI_Widget_Result r0 = ui_widget_push(ui, d0);
-  
-  UI_Widget_Desc d1 = d0;
-  d1.style.flags |= UIWidgetStyle_Outline | UIWidgetStyle_MouseClick | UIWidgetStyle_Text;
-  d1.style.color_bg = PINK_V4;//{ 0.1f, 0.1f, 0.1f, 1.0f }; //
-  d1.style.color_fg = GREEN_V4;
-  d1.p_min = v2{ 512, 32 };
-  d1.p_max = v2{ 640, 128 };
-  d1.string = lit_str("Hello there my friend, what's going on?");
-  UI_Widget_Result r1 = ui_widget_push(ui, d1);
-  bool clicked_r1 = has_flag(r1.flags, UIWidgetResult_MouseLeft_WentUp);
-  if (clicked_r1) show = !show;
-  
-  UI_Widget_Result r2 = {};
-  if (show)
-  {
-    UI_Widget_Desc d2 = d1;
-    d1.string = lit_str("Hello There");
-    d1.p_min = v2{ 560, 64 };
-    d1.p_max = v2{ 700, 256 };
-    r2 = ui_widget_push(ui, d1);
-  }
-  
-  bool clicked_r2 = has_flag(r2.flags, UIWidgetResult_MouseLeft_WentUp);
-  assert(
-         (!clicked_r1 && !clicked_r2) ||
-         (clicked_r1 && !clicked_r2) ||
-         (!clicked_r1 && clicked_r2)
-         );
-  
   u32 widget_count = ui->widgets.free_len;
   r32 range_min = -10;
   r32 range_max = -1;
@@ -434,21 +394,22 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Outline))
     {
       ui_sprite_push(ui, bg_min, bg_max, WHITE_SPRITE_ID, color_fg);
-      bg_min += v3{ 3, 3, 0};
-      bg_max -= v3{ 3, 3, 0};
+      z_at += z_step;
+      bg_min += v3{ 1, 1, 0};
+      bg_max -= v3{ 1, 1, 0};
+      
     }
     
     if (has_flag(child->desc.style.flags, UIWidgetStyle_Bg))
     {
-      z_at += z_step;
       bg_min.z = z_at;
       bg_max.z = z_at;
       ui_sprite_push(ui, bg_min, bg_max, desc.style.sprite, color_bg);
+      z_at += z_step;
     }
     
-    if (has_flag(child->desc.style.flags, UIWidgetStyle_Text))
+    if (has_flag(child->desc.style.flags, UIWidgetStyle_TextWrap | UIWidgetStyle_TextClip))
     {
-      z_at += z_step + z_step;
       r32 space_width = ui->font_space_width;
       r32 to_baseline = ui->font_line_gap + ui->font_ascent;
       v3 line_offset = { 5, 3 + to_baseline, 0 };
@@ -471,6 +432,8 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
         
         if (cmd.baseline_after.x >= desc.p_max.x - 5)
         {
+          if (has_flag(child->desc.style.flags, UIWidgetStyle_TextClip)) break;
+          
           baseline.x = baseline_x_start;
           baseline.y += ui->font_ascent + ui->font_descent + ui->font_line_gap;
           cmd = ui_sprite_char_get_draw_cmd(ui, baseline, (u32)at);
@@ -495,12 +458,101 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
 }
 
 ///////////////////////////////////////////
-// Specific Widget Implementations
+// Layout Manager
 
-global UI_Style_Sheet ui_default_style_sheet = {
+internal void
+ui_layout_row_begin(UI_Layout* layout, u32 cols)
+{
+  layout->mode = UILayout_Rows;
+  layout->cols = cols;
+}
+internal void
+ui_layout_row_begin(UI* ui, u32 cols) { ui_layout_row_begin(ui->layout, cols); }
+
+internal void
+ui_layout_row_end(UI_Layout* layout)
+{
+  layout->mode = UILayout_Columns;
+}
+internal void
+ui_layout_row_end(UI* ui) { ui_layout_row_end(ui->layout); }
+
+internal UI_Layout_Bounds
+ui_layout_get_next(UI_Layout* layout)
+{
+  UI_Layout_Bounds result = {};
+  switch (layout->mode)
   {
+    case UILayout_Columns:
+    {
+      result.min = layout->at;
+      result.max = v2{ layout->bounds_max.x, layout->at.y + layout->row_height };
+      layout->at = v2{ layout->bounds_min.x, result.max.y + layout->row_gap};
+    } break;
     
+    case UILayout_Rows:
+    {
+      r32 col_width = (layout->bounds_max.x - layout->bounds_min.x) / layout->cols;
+      col_width -= (layout->cols - 1) * layout->col_gap;
+      result.min = layout->at;
+      result.max = v2{ layout->at.x + col_width, layout->at.y + layout->row_height };
+      layout->at = v2{ result.max.x + layout->col_gap, layout->at.y };
+      if (layout->at.x >= layout->bounds_max.x)
+      {
+        layout->at = v2{ 
+          layout->bounds_min.x, 
+          layout->at.y + layout->row_height + layout->row_gap
+        };
+      }
+    } break;
+    
+    invalid_default_case;
   }
+  return result;
+}
+internal UI_Layout_Bounds 
+ui_layout_get_next(UI* ui)  { return ui_layout_get_next(ui->layout); }
+
+
+///////////////////////////////////////////
+// Specific Widget Implementations
+//
+// These all rely on a layout manager to make calling them simpler
+
+global UI_Style_Sheet ui_default_style_sheet = {};
+
+internal void
+ui_create_default_style_sheet()
+{
+  ui_default_style_sheet.styles[UIWidget_Text] = {
+    (UIWidgetStyle_TextWrap), v4{0,0,0,0}, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_Button] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseClick), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_Toggle] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_MouseClick), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_Menu] = ui_default_style_sheet.styles[UIWidget_Toggle];
+  ui_default_style_sheet.styles[UIWidget_Dropdown] = ui_default_style_sheet.styles[UIWidget_Toggle];
+  
+  ui_default_style_sheet.styles[UIWidget_HSlider] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_VSlider] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_HScroll] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  ui_default_style_sheet.styles[UIWidget_VScroll] = {
+    (UIWidgetStyle_TextClip | UIWidgetStyle_Bg | UIWidgetStyle_Outline | UIWidgetStyle_MouseDrag), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  
+  ui_default_style_sheet.styles[UIWidget_Window] = {
+    (UIWidgetStyle_TextWrap), BLACK_V4, WHITE_V4, WHITE_SPRITE_ID
+  };
+  
 };
 
 internal UI_Widget_Style
@@ -510,15 +562,46 @@ ui_get_style(UI* ui, UI_Widget_Kind kind)
   return ui_default_style_sheet.styles[kind];
 }
 
+internal UI_Widget_Desc
+ui_layout_next_widget(UI* ui, UI_Widget_Kind kind)
+{
+  UI_Layout_Bounds b = ui_layout_get_next(ui);
+  UI_Widget_Desc d = {};
+  d.p_min = b.min;
+  d.p_max = b.max;
+  d.style = ui_get_style(ui, kind);
+  return d;
+}
+
 internal void
 ui_text(UI* ui, String string)
 {
-  
+  UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Text);
+  d.string = string;
+  ui_widget_push(ui, d);
 }
 
 internal bool
 ui_button(UI* ui, String string)
 {
-  return false;
+  UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Button);
+  d.string = string;
+  UI_Widget_Result r = ui_widget_push(ui, d);
+  return has_flag(r.flags, UIWidgetResult_MouseLeft_WentUp);
 }
 
+internal bool
+ui_toggle(UI* ui, String string, bool value)
+{
+  UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Button);
+  if (value) {
+    v4 t = d.style.color_fg;
+    d.style.color_fg = d.style.color_bg;
+    d.style.color_bg = t;
+  }
+  d.string = string;
+  UI_Widget_Result r = ui_widget_push(ui, d);
+  bool result = value;
+  if (has_flag(r.flags, UIWidgetResult_MouseLeft_WentUp)) result = !result;
+  return result;
+}

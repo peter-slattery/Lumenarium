@@ -155,6 +155,32 @@ ed_frame_prepare(App_State* state)
 internal void
 ed_frame(App_State* state)
 {
+  UI* ui = &state->editor->ui;
+  
+  UI_Layout layout = {};
+  layout.bounds_min = v2{ 500, 200 };
+  layout.bounds_max = v2{ 700, 500 };
+  layout.row_height = ui->font_ascent + ui->font_descent + ui->font_line_gap + 15;
+  layout.row_gap = 2;
+  layout.col_gap = 2;
+  layout.at = layout.bounds_min;
+  ui->layout = &layout;
+  
+  
+  ui_text(ui, lit_str("Hi there!"));
+  show = ui_toggle(ui, lit_str("my toggle"), show);
+  if (show)
+  {
+    ui_layout_row_begin(ui, 2);
+    {
+      ui_button(ui, lit_str("Sup"));
+      ui_button(ui, lit_str("you there"));
+    }
+    ui_layout_row_end(ui);
+  }
+  
+  ui_button(ui, lit_str("Hi there my good sir"));
+  
   edr_render_begin(state);
   ui_draw(&state->editor->ui);
   edr_render(state);

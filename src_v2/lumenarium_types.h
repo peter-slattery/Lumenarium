@@ -244,6 +244,7 @@ hash_table_find(u32* ids, u32 cap, u32 value)
 //         Vector Extensions
 
 #define v2_to_v3(xy,z) v3{(xy).x, (xy).y, (z)}
+#define v2_floor(v) v2{ floorf(v.x), floorf(v.y) }
 #define v3_floor(v) v3{ floorf(v.x), floorf(v.y), floorf(v.z) }
 
 //////////////////////////////////////////////

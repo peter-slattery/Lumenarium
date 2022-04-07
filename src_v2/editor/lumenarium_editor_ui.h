@@ -32,10 +32,11 @@ enum
 {
   UIWidgetStyle_None       = 0,
   UIWidgetStyle_Bg         = 1,
-  UIWidgetStyle_Text       = 2,
-  UIWidgetStyle_Outline    = 4,
-  UIWidgetStyle_MouseClick = 8,
-  UIWidgetStyle_MouseDrag  = 16,
+  UIWidgetStyle_TextClip   = 2,
+  UIWidgetStyle_TextWrap   = 4,
+  UIWidgetStyle_Outline    = 8,
+  UIWidgetStyle_MouseClick = 16,
+  UIWidgetStyle_MouseDrag  = 32,
 };
 
 // akin to a css class, could be used to style multiple
@@ -119,6 +120,34 @@ struct UI_Widget_Pool
   UI_Widget* active_parent;
 };
 
+enum UI_Layout_Mode
+{
+  // each element takes up a whole row
+  UILayout_Columns,
+  
+  // each element takes up one column in the row. If you overflow, 
+  // the layout manager overflows to the next row 
+  UILayout_Rows,
+};
+
+struct UI_Layout
+{
+  v2 bounds_min;
+  v2 bounds_max;
+  r32 row_height;
+  r32 row_gap;
+  r32 col_gap;
+  v2 at;
+  UI_Layout_Mode mode;
+  u32 cols;
+};
+
+struct UI_Layout_Bounds
+{
+  v2 min;
+  v2 max;
+};
+
 struct UI
 {
   UI_Vertex* verts;
@@ -137,6 +166,8 @@ struct UI
   
   UI_Widget_Id widget_next_hot;
   UI_Widget_Id widget_hot;
+  
+  UI_Layout* layout;
   
   // frames since these values were set
   u16          widget_next_hot_frames;
@@ -161,6 +192,8 @@ internal v3   ui_sprite_char_push(UI* ui, v2 at, u32 codepoint, v4 color);
 internal void ui_draw(UI* ui);
 
 // Widgets
+
+internal void ui_create_default_style_sheet();
 
 internal UI_Widget_Id     ui_widget_id_create(u32 index_in_parent, String string);
 internal bool             ui_widget_id_equals(UI_Widget_Id a, UI_Widget_Id b);
