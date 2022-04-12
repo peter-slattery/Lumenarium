@@ -8,9 +8,17 @@ typedef struct App_State App_State;
 // Environment
 #include "lumenarium_memory.cpp"
 #include "lumenarium_string.cpp"
+#include "lumenarium_random.h"
 #include "lumenarium_input.cpp"
 #include "lumenarium_texture_atlas.cpp"
 #include "lumenarium_hash.cpp"
+#include "lumenarium_geometry.h"
+
+global Allocator* scratch_; // gets reset at frame boundaries
+
+#define scratch_get(ident) Allocator_Scratch ident = Allocator_Scratch(scratch_)
+
+#include "lumenarium_bsp.h"
 
 // Engine
 typedef struct Assembly_Strip Assembly_Strip;
@@ -28,7 +36,6 @@ typedef struct Assembly_Strip Assembly_Strip;
 //    Lumenarium Runtime Environment
 
 global Allocator* permanent;
-global Allocator* scratch; // gets reset at frame boundaries
 
 #if defined(DEBUG)
 #  include "lumenarium_tests.cpp"
@@ -72,6 +79,7 @@ struct App_State
 
 #include "editor/lumenarium_editor_ui.cpp"
 #include "editor/lumenarium_editor_renderer.cpp"
+#include "editor/lumenarium_editor_sculpture_visualizer.cpp"
 #include "editor/lumenarium_editor.cpp"
 
 

@@ -48,6 +48,7 @@ typedef unsigned int GLsizei;
 #define GL_RGB                            0x1907
 #define GL_RGBA                           0x1908
 #define GL_UNSIGNED_BYTE                  0x1401
+#define GL_CLAMP_TO_EDGE                  0x812F
 
 WASM_EXTERN bool glHadError();
 WASM_EXTERN void glClearColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a);
@@ -61,6 +62,7 @@ WASM_EXTERN void glClear(GLuint i);
 WASM_EXTERN GLuint glCreateBuffer();
 WASM_EXTERN void glBindBuffer(GLenum buffer_kind, GLuint buffer_id);
 WASM_EXTERN void glBufferData(GLenum target, size_t size, const void* data, GLenum usage);
+WASM_EXTERN void glBufferSubData(GLenum target, size_t offset, size_t size, const void* data);
 WASM_EXTERN GLuint glCreateShader(GLenum kind);
 WASM_EXTERN GLuint glShaderSource(GLuint shader_id, char* shader_code, GLuint shader_code_len);
 WASM_EXTERN void glCompileShader(GLuint shader_id);
@@ -70,6 +72,7 @@ WASM_EXTERN void glLinkProgram(GLuint program);
 WASM_EXTERN void glUseProgram(GLuint program);
 WASM_EXTERN GLuint glGetAttribLocation(GLuint program, const char* name, GLuint name_len);
 WASM_EXTERN GLuint glGetUniformLocation(GLuint program, const char* name, u32 len);
+WASM_EXTERN void glUniformMatrix4fv(GLuint uniform, GLuint count, GLenum normalize, GLfloat* elements);
 WASM_EXTERN void glVertexAttribPointer(GLuint attr, GLuint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 WASM_EXTERN void glEnableVertexAttribArray(GLuint index);
 WASM_EXTERN void glDrawElements(GLenum type, GLuint count, GLenum ele_type, void* indices);
@@ -107,6 +110,53 @@ platform_geometry_buffer_create(
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)NULL);
   
   return result;
+}
+
+void
+platform_geometry_buffer_update(
+                                Platform_Geometry_Buffer* buffer, 
+                                r32* verts, 
+                                u32 verts_offset, 
+                                u32 verts_len, 
+                                u32* indices, 
+                                u32 indices_offset, 
+                                u32 indices_len
+                                ){
+  glBindBuffer(GL_ARRAY_BUFFER, buffer->buffer_id_vertices);
+  if (verts_len > buffer->vertices_len)
+  {
+    // NOTE(PS): this is because we're going to delete the old buffer and
+    // create a new one. In order to do that and not lose data, the update
+    // function needs to have been passed all the buffer's data
+    assert(verts_offset == 0); 
+    glBufferData(
+                 GL_ARRAY_BUFFER, verts_len * sizeof(r32), (void*)verts, GL_STATIC_DRAW
+                 );
+  }
+  else
+  {
+    glBufferSubData(
+                    GL_ARRAY_BUFFER, verts_offset * sizeof(r32), verts_len * sizeof(r32), (void*)verts
+                    );
+  }
+  
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->buffer_id_indices);
+  if (indices_len > buffer->indices_len)
+  {
+    // NOTE(PS): this is because we're going to delete the old buffer and
+    // create a new one. In order to do that and not lose data, the update
+    // function needs to have been passed all the buffer's data
+    assert(indices_offset == 0); 
+    glBufferData(
+                 GL_ELEMENT_ARRAY_BUFFER, indices_len * sizeof(u32), (void*)indices, GL_STATIC_DRAW
+                 );
+  }
+  else
+  {
+    glBufferSubData(
+                    GL_ELEMENT_ARRAY_BUFFER, indices_offset * sizeof(u32), indices_len * sizeof(u32), (void*)indices
+                    );
+  }
 }
 
 Platform_Shader
@@ -174,7 +224,7 @@ platform_shader_bind(Platform_Shader shader)
 void 
 platform_set_uniform(Platform_Shader shader, u32 index, m44 u)
 {
-  glUniformMatrix4fv(shader.uniforms[index], 1, GL_FALSE, &u.Elements[0]);
+  glUniformMatrix4fv(shader.uniforms[index], 1, GL_FALSE, (r32*)u.Elements);
 }
 
 void

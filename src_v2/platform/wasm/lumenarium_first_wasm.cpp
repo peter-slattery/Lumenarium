@@ -9,6 +9,7 @@
 #include "../lumenarium_platform_common_includes.h"
 
 #include "../../lumenarium_types.h"
+#include "../../lumenarium_memory.h"
 #include "../lumenarium_platform.h"
 #include "../../lumenarium_first.cpp"
 

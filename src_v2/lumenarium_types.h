@@ -37,6 +37,41 @@ typedef s64 b64;
 typedef float r32;
 typedef double r64;
 
+#define u8_max  0xFF
+#define u16_max 0xFFFF
+#define u32_max 0xFFFFFFFF
+#define u64_max 0xFFFFFFFFFFFFFFFF
+
+#define s8_max  127
+#define s16_max 32767
+#define s32_max 2147483647
+#define s64_max 9223372036854775807
+
+#define s8_min  -127 - 1
+#define s16_min -32767 - 1
+#define s32_min -2147483647 - 1
+#define s64_min -9223372036854775807 - 1
+
+#define r32_max               3.402823466e+38f
+#define r32_min               -3.402823466e+38f
+#define r32_smallest_positive 1.1754943508e-38f
+#define r32_epsilon           5.96046448e-8f
+#define r32_pi                3.14159265359f
+#define r32_half_pi           1.5707963267f
+#define r32_tau               6.28318530717f
+
+#define r64_max               1.79769313486231e+308
+#define r64_min               -1.79769313486231e+308
+#define r64_smallest_positive 4.94065645841247e-324
+#define r64_epsilon           1.11022302462515650e-16
+#define r64_pi                3.14159265359
+#define r64_half_pi           1.5707963267
+#define r64_tau               6.28318530717
+
+#define NanosToSeconds 1 / 10000000.0
+#define SecondsToNanos 10000000.0
+
+
 #define get_byte(value, byte_index) ((value >> (8 * byte_index)) & 0xFF)
 
 struct Data
@@ -54,11 +89,20 @@ data_create(u8* base, u64 size)
   return result;
 }
 
+#define memory_zero_array(b,t,c) memory_zero((u8*)(b), sizeof(t) * (c))
 internal void memory_zero(u8* base, u64 size);
 internal void memory_copy(u8* from, u8* to, u64 size);
 
 //////////////////////////////////////////////
 //         Math
+
+#ifndef max
+#  define max(a,b) (a) > (b) ? (a) : (b)
+#endif
+
+#ifndef min
+#  define min(a,b) (a) > (b) ? (b) : (a)
+#endif
 
 #define lerp(a,t,b) (a) + ((1.0f - (t)) * (b))
 #define clamp(r0,v,r1) min((r1),max((r0),(v)))
@@ -248,11 +292,36 @@ hash_table_find(u32* ids, u32 cap, u32 value)
 }
 
 //////////////////////////////////////////////
+//         Math
+
+internal u32
+round_up_to_pow2(u32 v)
+{
+  v--;
+  v |= v >> 1;
+  v |= v >> 2;
+  v |= v >> 4;
+  v |= v >> 8;
+  v |= v >> 16;
+  v++;
+  return v;
+}
+
+//////////////////////////////////////////////
 //         Vector Extensions
 
 #define v2_to_v3(xy,z) v3{(xy).x, (xy).y, (z)}
 #define v2_floor(v) v2{ floorf(v.x), floorf(v.y) }
 #define v3_floor(v) v3{ floorf(v.x), floorf(v.y), floorf(v.z) }
+
+internal bool
+rect2_contains(v2 min, v2 max, v2 point)
+{
+  return (
+          min.x <= point.x && min.y <= point.y &&
+          max.x >= point.x && max.y >= point.y
+          );
+}
 
 //////////////////////////////////////////////
 //         Color Constants

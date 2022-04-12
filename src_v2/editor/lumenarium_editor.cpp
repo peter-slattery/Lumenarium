@@ -132,11 +132,71 @@ ed_load_font_cb(Platform_File_Async_Job_Args result, u8* user_data)
 }
 
 internal void
+ed_draw_panel(u8* user_data, BSP_Node_Id id, BSP_Node node, BSP_Area area)
+{
+  App_State* state = (App_State*)user_data;
+  UI* ui = &state->editor->ui;
+  scratch_get(scratch);
+  
+  UI_Layout title_layout = {};
+  ui_layout_set_row_info(ui, &title_layout);
+  title_layout.bounds_min = v2{ area.min.x, area.max.y - title_layout.row_height };
+  title_layout.bounds_max = area.max;
+  title_layout.at = title_layout.bounds_min;
+  
+  UI_Layout panel_layout = {};
+  ui_layout_set_row_info(ui, &panel_layout);
+  panel_layout.bounds_min = area.min;
+  panel_layout.bounds_max = v2{ area.max.x, title_layout.bounds_max.y };
+  panel_layout.at = panel_layout.bounds_min;
+  
+  ui_layout_push(ui, &panel_layout);
+  
+  String title = {};
+  switch (node.user_data)
+  {
+    case 0:
+    {
+      title = lit_str("None");
+    } break;
+    
+    case 1:
+    {
+      ed_sculpture_visualizer(state);
+      title = lit_str("Sculpture");
+    } break;
+    
+    invalid_default_case;
+  }
+  ui_layout_pop(ui);
+  
+  ui_layout_push(ui, &title_layout);
+  UI_Widget_Desc bg = {};
+  bg.style.flags = UIWidgetStyle_Bg;
+  bg.style.color_bg = v4{.4f,.4f,.4f,1};
+  bg.style.sprite = WHITE_SPRITE_ID;
+  bg.string = string_f(scratch.a, "%.*s_%u_title_bg", str_varg(title), id.value);
+  bg.p_min = title_layout.bounds_min;
+  bg.p_max = title_layout.bounds_max;
+  UI_Widget_Result r = ui_widget_push(ui, bg);
+  ui_layout_row_begin(&title_layout, 4);
+  {
+    ui_text(ui, title, BLACK_V4);
+  }
+  ui_layout_row_end(&title_layout);
+  ui_widget_pop(ui, r.id);
+  ui_layout_pop(ui);
+}
+
+internal void
 ed_init(App_State* state)
 {
   Editor* editor = allocator_alloc_struct(permanent, Editor);
   state->editor = editor;
-  state->editor->ui = ui_create(4096, 4096, state->input_state, permanent);
+  editor->ui = ui_create(4096, 4096, state->input_state, permanent);
+  editor->ui.draw_panel_cb = ed_draw_panel;
+  editor->ui.draw_panel_cb_data = (u8*)state;
+  //bsp_split(&editor->ui.panels, editor->ui.panels.root, 700, BSPSplit_YAxis, 0, 1);
   
   // make the default quad for us to draw with
   // TODO(PS): this might be unnecessary with the per-frame buffer we use now
@@ -144,6 +204,119 @@ ed_init(App_State* state)
   
   platform_file_async_read(lit_str("data/font.ttf"), ed_load_font_cb);
   
+  ed_sculpture_visualizer_init(state);
+}
+
+internal void
+ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
+{
+  Editor* ed = state->editor;
+  if (!ed) return;
+  
+  scratch_get(scratch);
+  
+  // NOTE(PS): we need to know the total number of leds in order to give them
+  // texture coordinates
+  u32 leds_count = 0;
+  for (u32 a = 0; a < state->assemblies.len; a++)
+  {
+    Assembly_Pixel_Buffer pixels = state->assemblies.pixel_buffers[a];
+    leds_count += pixels.len;
+  }
+  
+  // round up to a texture whose sides are powers of two
+  u32 pixels_dim = (u32)floorf(sqrtf((r32)leds_count));
+  pixels_dim = round_up_to_pow2(pixels_dim);
+  u32 pixels_count = pixels_dim * pixels_dim;
+  r32 texel_dim = 1 / (r32)pixels_dim;
+  
+  // NOTE(PS): Rebuild the sculpture geometry to point to the new
+  // sculpture.
+  Geo_Vertex_Buffer_Storage storage = (
+                                       GeoVertexBufferStorage_Position | 
+                                       GeoVertexBufferStorage_TexCoord
+                                       );
+  u32 verts_cap = leds_count * 4;
+  u32 indices_cap = leds_count * 6;
+  Geo_Quad_Buffer_Builder geo = geo_quad_buffer_builder_create(scratch.a, verts_cap, storage, indices_cap);
+  r32 r = led_size;
+  
+  u32 pixels_created = 0;
+  for (u32 a = 0; a < state->assemblies.len; a++)
+  {
+    Assembly_Pixel_Buffer pixels = state->assemblies.pixel_buffers[a];
+    for (u32 p = 0; p < pixels.len; p++)
+    {
+      v3 c = pixels.positions[p].xyz;
+      c *= scale;
+      
+      u32 pixel_count = pixels_created++;
+      u32 pixel_x = pixel_count % pixels_dim;
+      u32 pixel_y = pixel_count / pixels_dim;
+      r32 texel_x_min = (r32)pixel_x / (r32)pixels_dim;
+      r32 texel_y_min = (r32)pixel_y / (r32)pixels_dim;
+      r32 texel_x_max = texel_x_min + texel_dim;
+      r32 texel_y_max = texel_y_min + texel_dim;
+      
+      v2 t0 = v2{texel_x_min, texel_y_min};
+      v2 t1 = v2{texel_x_max, texel_y_min};
+      v2 t2 = v2{texel_x_max, texel_y_max};
+      v2 t3 = v2{texel_x_min, texel_y_max};
+      
+      v3 p0 = c + v3{ -r, -r, 0 };
+      v3 p1 = c + v3{  r, -r, 0 };
+      v3 p2 = c + v3{  r,  r, 0 };
+      v3 p3 = c + v3{ -r,  r, 0 };
+      geo_quad_buffer_builder_push(&geo, p0, p1, p2, p3, t0, t1, t2, t3);
+    }
+  }
+  
+  if (ed->sculpture_geo.indices_len != 0)
+  {
+    invalid_code_path;
+    // TODO(PS): destroy the old geometry buffer or update it
+  }
+  ed->sculpture_geo = platform_geometry_buffer_create(
+                                                      geo.buffer_vertex.values, 
+                                                      geo.buffer_vertex.len, 
+                                                      geo.buffer_index.values, 
+                                                      geo.buffer_index.len
+                                                      );
+  
+  platform_vertex_attrib_pointer(
+                                 ed->sculpture_geo, ed->sculpture_shd, 3, ed->sculpture_shd.attrs[0], 5, 0
+                                 );
+  platform_vertex_attrib_pointer(
+                                 ed->sculpture_geo, ed->sculpture_shd, 2, ed->sculpture_shd.attrs[1], 5, 3
+                                 );
+  
+  // TODO(PS): make this have enough pixels for the sculpture
+  // TODO(PS): map leds to pixels
+  
+  if (ed->sculpture_tex.w != 0)
+  {
+    invalid_code_path;
+    // TODO(PS): destroy the old texture
+  }
+  
+  u32* pixels = allocator_alloc_array(scratch.a, u32, pixels_count);
+  for (u32 y = 0; y < pixels_dim; y++) 
+  {
+    for (u32 x = 0; x < pixels_dim; x++)
+    {
+      r32 rp = (r32)y / (r32)pixels_dim;
+      r32 bp = (r32)x / (r32)pixels_dim;
+      u8 rb = (u8)(255 * rp);
+      u8 bb = (u8)(255 * bp);
+      u32 c = (
+               0xFF0000FF |
+               (rb << 8) |
+               (bb << 16)
+               );
+      pixels[(y * pixels_dim) + x] = c;
+    }
+  }
+  ed->sculpture_tex = platform_texture_create((u8*)pixels, pixels_dim, pixels_dim, pixels_dim);
 }
 
 internal void
@@ -152,58 +325,10 @@ ed_frame_prepare(App_State* state)
   ui_frame_prepare(&state->editor->ui, state->editor->window_dim);
 }
 
-global r32 p = 0.3f;
-
 internal void
 ed_frame(App_State* state)
 {
   UI* ui = &state->editor->ui;
-  
-  UI_Layout layout = {};
-  layout.bounds_min = v2{ 500, 200 };
-  layout.bounds_max = v2{ 700, 500 };
-  ui_layout_set_row_info(ui, &layout);
-  layout.at = layout.bounds_min;
-  ui_layout_push(ui, &layout);
-  
-  ui_text_f(ui, "Hi there! %d", 1000);
-  show = ui_toggle(ui, lit_str("my toggle"), show);
-  if (show)
-  {
-    ui_layout_row_begin(ui, 2);
-    {
-      ui_button(ui, lit_str("Sup"));
-      ui_button(ui, lit_str("you there"));
-    }
-    ui_layout_row_end(ui);
-  }
-  ui_button(ui, lit_str("Hi there my good sir"));
-  
-  ui_scroll_view_begin(ui, lit_str("scroll area"), v2{800, 200}, v2{1000,500}, 8);
-  {
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("you there"));
-    ui_button(ui, lit_str("Sup"));
-    ui_button(ui, lit_str("I'm lastf;"));
-  }
-  ui_scroll_view_end(ui);
-  
-  ui_layout_pop(ui);
   
   edr_render_begin(state);
   ui_draw(&state->editor->ui);

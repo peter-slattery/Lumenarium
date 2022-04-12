@@ -100,3 +100,22 @@ assembly_add_led(
   assert(strip->pixels_len < strip->pixels_cap);
   strip->pixels[strip->pixels_len++] = pixel_index;
 }
+
+void
+assembly_strip_create_leds(
+                           Assembly_Array* a, 
+                           Assembly_Handle h, 
+                           Assembly_Strip* strip, 
+                           v3 start, v3 end, 
+                           u32 led_count 
+                           ){
+  v3 delta_total = end - start;
+  v3 delta_step = delta_total / (r32)led_count;
+  
+  for (u32 i = 0; i < led_count; i++)
+  {
+    v4 pos = {0,0,0,1};
+    pos.XYZ = start + ((r32)i * delta_step);
+    assembly_add_led(a, h, strip, pos);
+  }
+}

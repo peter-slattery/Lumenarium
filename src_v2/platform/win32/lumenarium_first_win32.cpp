@@ -205,8 +205,8 @@ WinMain(
                       &win32_main_window, 
                       hInstance, 
                       "Lumenariumtest0", 
-                      1600, 
-                      900, 
+                      1400, 
+                      800, 
                       win32_window_event_handler
                       );
   win32_window_update_dim(&win32_main_window);

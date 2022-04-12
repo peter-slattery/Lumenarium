@@ -17,6 +17,9 @@
 #define STBTT_assert(x) assert(x)
 #include "../libs/stb_truetype.h"
 
+#define STB_SPRINTF_IMPLEMENTATION
+#include "../libs/stb_sprintf.h"
+
 // NOTE(PS): only need the opengl extension headers
 // when running on a platform that is using opengl 3.3+
 #if !defined(PLATFORM_wasm)

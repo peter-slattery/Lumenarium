@@ -57,15 +57,16 @@ platform_geometry_buffer_create(
   return result;
 }
 
-void platform_geometry_buffer_update(
-                                     Platform_Geometry_Buffer* buffer, 
-                                     r32* verts, 
-                                     u32 verts_offset, 
-                                     u32 verts_len, 
-                                     u32* indices, 
-                                     u32 indices_offset, 
-                                     u32 indices_len
-                                     ){
+void 
+platform_geometry_buffer_update(
+                                Platform_Geometry_Buffer* buffer, 
+                                r32* verts, 
+                                u32 verts_offset, 
+                                u32 verts_len, 
+                                u32* indices, 
+                                u32 indices_offset, 
+                                u32 indices_len
+                                ){
   gl.glBindVertexArray(buffer->buffer_id_vao);
   gl.glBindBuffer(GL_ARRAY_BUFFER, buffer->buffer_id_vertices);
   win32_gl_no_error();

@@ -85,12 +85,12 @@ bool platform_pwd_set(String path);
 typedef u32 Platform_File_Async_Job_Flags;
 enum 
 {
-  PlatformFileAsyncJob_Invalid = 0,
-  PlatformFileAsyncJob_Read = 1,
-  PlatformFileAsyncJob_Write = 2,
-  PlatformFileAsyncJob_InFlight = 4,
-  PlatformFileAsyncJob_Success = 8,
-  PlatformFileAsyncJob_Failed = 16,
+  PlatformFileAsyncJob_Invalid  = 0,
+  PlatformFileAsyncJob_Read     = 1 << 0,
+  PlatformFileAsyncJob_Write    = 1 << 1,
+  PlatformFileAsyncJob_InFlight = 1 << 2,
+  PlatformFileAsyncJob_Success  = 1 << 3,
+  PlatformFileAsyncJob_Failed   = 1 << 4,
 };
 
 struct Platform_File_Async_Job_Args

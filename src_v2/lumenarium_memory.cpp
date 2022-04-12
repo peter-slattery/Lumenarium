@@ -195,6 +195,16 @@ bump_allocator_destroy(Allocator* allocator)
   allocator_destroy_(allocator, sizeof(Allocator_Bump));
 }
 
+internal void
+bump_allocator_rewind(Allocator* allocator, u64 to_point)
+{
+  Allocator_Bump* bump = (Allocator_Bump*)allocator->allocator_data;
+#if defined(DEBUG)
+  memory_zero(bump->base + to_point, bump->at - to_point);
+#endif
+  bump->at = to_point;
+}
+
 internal Allocator*
 bump_allocator_create_()
 {
@@ -247,6 +257,28 @@ bump_allocator_create_child(Allocator* parent, u64 init_size)
   
   return result;
 }
+
+
+/////////////////////////////////////////
+//        Scratch Allocator
+
+struct Allocator_Scratch
+{
+  Allocator* a;
+  u64 at_before;
+  
+  Allocator_Scratch(Allocator* allocator)
+  {
+    this->a = allocator;
+    Allocator_Bump* bump = (Allocator_Bump*)this->a->allocator_data;
+    this->at_before = bump->at;
+  }
+  
+  ~Allocator_Scratch()
+  {
+    bump_allocator_rewind(this->a, this->at_before);
+  }
+};
 
 /////////////////////////////////////////
 //        Paged Allocator

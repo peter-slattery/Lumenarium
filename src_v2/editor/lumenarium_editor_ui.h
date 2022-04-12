@@ -165,15 +165,11 @@ struct UI_Layout_Bounds
   v2 max;
 };
 
+typedef void UI_Draw_Panel_Cb(u8* user_data, BSP_Node_Id id, BSP_Node node, BSP_Area area);
+
 struct UI
 {
-  UI_Vertex* verts;
-  u32        verts_len;
-  u32        verts_cap;
-  
-  u32* indices;
-  u32  indices_len;
-  u32  indices_cap;
+  Geo_Quad_Buffer_Builder geo;
   
   Texture_Atlas atlas;
   r32 font_ascent, font_descent, font_line_gap, font_space_width;
@@ -185,6 +181,10 @@ struct UI
   UI_Widget_Id widget_hot;
   
   UI_Layout* layout;
+  
+  BSP panels;
+  UI_Draw_Panel_Cb* draw_panel_cb;
+  u8*               draw_panel_cb_data;
   
   // frames since these values were set
   u16          widget_next_hot_frames;
@@ -206,7 +206,7 @@ internal void ui_sprite_register(UI* ui, u8* pixels, u32 w, u32 h, u32 id);
 internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color);
 internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id);
 internal v3   ui_sprite_char_push(UI* ui, v2 at, u32 codepoint, v4 color);
-internal void ui_draw(UI* ui);
+internal void ui_draw(App_State* state);
 
 // Widgets
 
@@ -223,7 +223,7 @@ internal UI_Widget* ui_widget_pool_push(UI_Widget_Pool* pool, String string);
 internal void       ui_widget_pool_pop(UI_Widget_Pool* pool);
 
 internal UI_Widget_Result ui_widget_push(UI* ui, UI_Widget_Desc desc);
-internal void             ui_widget_pop(UI* ui, UI_Widget* widget);
+internal void             ui_widget_pop(UI* ui, UI_Widget_Id widget_id);
 
 internal r32 ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_step);
 

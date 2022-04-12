@@ -18,7 +18,7 @@ en_frame_prepare(App_State* state)
 internal void
 en_frame(App_State* state)
 {
-  
+#if 0
   ///////////////////////////////////////
   // Output Data
   
@@ -65,6 +65,7 @@ en_frame(App_State* state)
       invalid_code_path;
     }
   }
+#endif
 }
 
 internal void

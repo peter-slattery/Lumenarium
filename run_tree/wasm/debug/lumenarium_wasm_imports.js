@@ -92,18 +92,67 @@ var lumenarium_wasm_imports = {
   },
   
   wasm_mem_grow: (new_size) => {
-    let pages = new_size / WASM_PAGE_SIZE;
+    let new_size_ = new_size >>> 0;
+    let pages = new_size_ / WASM_PAGE_SIZE;
     let pages_rem = fract(pages);
     if (pages_rem > 0) pages = Math.floor(pages) + 1;
     let size_before = lumenarium_wasm_instance.exports.memory.buffer.byteLength;
     let old_page_count = lumenarium_wasm_instance.exports.memory.grow(pages);
     
     console.log("mem_grow\n", 
-                "req size: ", new_size, "\n",
+                "req size: ", new_size_, "\n",
                 "old size: ", (old_page_count * WASM_PAGE_SIZE), "\n",
                 "old size: ", size_before, "\n",
                 "grew by:  ", (pages * WASM_PAGE_SIZE), "\n", 
                 "new size: ", lumenarium_wasm_instance.exports.memory.buffer.byteLength, "");
+  },
+  
+  malloc: (size) => {
+    
+  },
+  
+  free: (base) => {
+    
+  },
+  
+  sin:   Math.sin,
+  sinf:  Math.sin,
+  cos:   Math.cos,  
+  cosf:  Math.cos,  
+  tan:   Math.tan,
+  tanf:  Math.tan,  
+  asin:  Math.asin,  
+  asinf: Math.asin,  
+  acos:  Math.acos,
+  acosf: Math.acos,
+  atan:  Math.atan,
+  atanf: Math.atan,  
+  pow:   Math.pow,  
+  powf:  Math.pow,  
+  fmodf: (f,d) => { return f % d; },
+  strlen: (ptr) => {
+    let len = 0;
+    let len_checked = 0;
+    let len_to_check = 256;
+    let found_end = false;
+    while (true)
+    {
+      let string = wasm_mem_get_u8_arr(lumenarium_wasm_instance, ptr, len_checked);
+      for (let i = len_checked; i < len_to_check; i++)
+      {
+        if (string[i] == 0) 
+        {
+          len = i;
+          break;
+        }
+      }
+      len_checked *= 2;
+    }
+    return len_checked;
+  },
+  
+  wasm_platform_file_async_work_on_job: (path, path_len, data, data_size, read, write) => {
+    
   },
   
   wasm_performance_now: () => {
@@ -260,6 +309,14 @@ function glBufferData(target, size, ptr, usage)
   return r;
 }
 
+function glBufferSubData(target, offset, size, ptr)
+{
+  let data = wasm_mem_get_u8_arr(lumenarium_wasm_instance, ptr, size);
+  const r = gl.bufferSubData(target, offset, data, 0, size);
+  glErrorReport(arguments);
+  return r;
+}
+
 function glCreateShader(kind)
 {
   let shader = gl.createShader(kind);
@@ -395,6 +452,17 @@ function glTexSubImage2D(target, level, offsetx, offsety, width, height, format,
   return r;
 }
 
+function glGetUniformLocation(program, name, name_len)
+{
+  // TODO(PS): complete
+  return 0;
+}
+
+function glUniformMatrix4fv()
+{
+  // TODO(PS): 
+}
+
 function webgl_add_imports (canvas_selector, imports) {
   const canvas = document.querySelector(canvas_selector);
   if (!canvas) return console.error("no canvas");
@@ -414,6 +482,7 @@ function webgl_add_imports (canvas_selector, imports) {
   imports.glCreateBuffer = glCreateBuffer;
   imports.glBindBuffer = glBindBuffer;
   imports.glBufferData = glBufferData;
+  imports.glBufferSubData = glBufferSubData;
   imports.glCreateShader = glCreateShader;
   imports.glShaderSource = glShaderSource;
   imports.glCompileShader = glCompileShader;
@@ -431,5 +500,8 @@ function webgl_add_imports (canvas_selector, imports) {
   imports.glTexImage2D = glTexImage2D;
   imports.glTexSubImage2D = glTexSubImage2D;
   imports.glBindTexture = glBindTexture;
+  imports.glGetUniformLocation = glGetUniformLocation;
+  imports.glUniformMatrix4fv = glUniformMatrix4fv;
+  
   return imports;
 }

@@ -2,18 +2,33 @@
 
 static String ui_shader_vert_win32 = lit_str(
                                              "#version 330 core\n"
-                                             "layout (location = 0) in vec4 a_pos;\n"
+                                             "layout (location = 0) in vec3 a_pos;\n"
                                              "layout (location = 1) in vec2 a_uv;\n"
                                              "layout (location = 2) in vec4 a_color;\n"
                                              "out vec2 uv;\n"
                                              "out vec4 color;\n"
                                              "uniform mat4 proj;\n"
                                              "void main(void) {\n"
-                                             "  gl_Position = proj * a_pos;\n"
+                                             "  gl_Position = proj * vec4(a_pos, 1.0);\n"
                                              "  uv = a_uv;\n"
                                              "  color = a_color;\n"
                                              "}"
                                              );
+
+static String ui_shader_vert_wasm = lit_str(
+                                            "precision highp float;\n"
+                                            "attribute vec3 a_pos;\n"
+                                            "attribute vec2 a_uv;\n"
+                                            "attribute vec4 a_color;\n"
+                                            "varying vec2 uv;\n"
+                                            "varying vec4 color;\n"
+                                            "uniform mat4 proj;\n"
+                                            "void main(void) {\n"
+                                            "  gl_Position = proj * vec4(a_pos, 1.0);\n"
+                                            "  uv = a_uv;\n"
+                                            "  color = a_color;\n"
+                                            "}"
+                                            );
 
 static String ui_shader_frag_win32 = lit_str(
                                              "#version 330 core\n"
@@ -26,10 +41,21 @@ static String ui_shader_frag_win32 = lit_str(
                                              "}"
                                              );
 
+static String ui_shader_frag_wasm = lit_str(
+                                            "precision highp float;\n"
+                                            "varying vec2 uv;\n"
+                                            "varying vec4 color;\n"
+                                            "uniform sampler2D texture;\n"
+                                            "void main(void) {\n"
+                                            "  gl_FragColor = texture2D(texture, uv) * color;\n"
+                                            "}"
+                                            );
+
 internal UI
 ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
 {
   UI result = {};
+  zero_struct(result);
   result.input = input;
   
   // Widgets
@@ -39,36 +65,46 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   result.widgets.states = allocator_alloc_array(a, UI_Widget_State, result.widgets.states_cap);
   result.widgets.states_hash = allocator_alloc_array(a, u32, result.widgets.states_cap);
   
-  // Per Frame Vertex Buffer
-  result.verts_cap = verts_cap;
-  result.verts = allocator_alloc_array(a, UI_Vertex, verts_cap);
-  result.indices_cap = verts_cap * 2;
-  result.indices = allocator_alloc_array(a, u32, result.indices_cap);
+  result.panels = bsp_create(a, 32);
+  result.panels.root = bsp_push(&result.panels, {0}, {v2{},v2{1400, 800}}, 1);
+  
+  // Per Frame Vertex Buffer 
+  Geo_Vertex_Buffer_Storage storage = (
+                                       GeoVertexBufferStorage_Position |
+                                       GeoVertexBufferStorage_TexCoord |
+                                       GeoVertexBufferStorage_Color
+                                       );
+  result.geo = geo_quad_buffer_builder_create(a, verts_cap, storage, verts_cap * 2);
   
   result.per_frame_buffer = platform_geometry_buffer_create(
-                                                            (r32*)result.verts, 
-                                                            result.verts_cap, 
-                                                            result.indices, 
-                                                            result.indices_cap
+                                                            result.geo.buffer_vertex.values, 
+                                                            result.geo.buffer_vertex.cap, 
+                                                            result.geo.buffer_index.values, 
+                                                            result.geo.buffer_index.cap
                                                             );
+  
+#if defined(PLATFORM_win32)
+  String vert = ui_shader_vert_win32;
+  String frag = ui_shader_frag_win32;
+#elif defined(PLATFORM_wasm)
+  String vert = ui_shader_vert_wasm;
+  String frag = ui_shader_frag_wasm;
+#endif
   
   String attrs[] = { lit_str("a_pos"), lit_str("a_uv"), lit_str("a_color") };
   String uniforms[] = { lit_str("proj") };
   result.shader = platform_shader_create(
-                                         ui_shader_vert_win32,
-                                         ui_shader_frag_win32,
-                                         attrs, 3,
-                                         uniforms, 1
+                                         vert, frag, attrs, 3, uniforms, 1
                                          );
   
   platform_vertex_attrib_pointer(
-                                 result.per_frame_buffer, result.shader, 4, result.shader.attrs[0], 10, 0
+                                 result.per_frame_buffer, result.shader, 3, result.shader.attrs[0], 9, 0
                                  );
   platform_vertex_attrib_pointer(
-                                 result.per_frame_buffer, result.shader, 2, result.shader.attrs[1], 10, 4
+                                 result.per_frame_buffer, result.shader, 2, result.shader.attrs[1], 9, 3
                                  );
   platform_vertex_attrib_pointer(
-                                 result.per_frame_buffer, result.shader, 4, result.shader.attrs[2], 10, 6
+                                 result.per_frame_buffer, result.shader, 4, result.shader.attrs[2], 9, 5
                                  );
   
   // Texture Atlas
@@ -87,41 +123,18 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   return result;
 }
 
-internal u32
-ui_vert_push(UI* ui, v3 p, v2 t, v4 c)
-{
-  assert(ui->verts_len < ui->verts_cap);
-  u32 index = ui->verts_len++;
-  
-  ui->verts[index].pos = {p.x, p.y, p.z, 1};
-  ui->verts[index].uv = t;
-  ui->verts[index].color = c;
-  
-  return index;
-}
-
-internal void
-ui_index_push(UI* ui, u32 i)
-{
-  assert(ui->indices_len < ui->indices_cap);
-  ui->indices[ui->indices_len++] = i;
-}
-
 internal void
 ui_quad_push(UI* ui, v3 pmin, v3 pmax, v2 tmin, v2 tmax, v4 c)
 {
-  u32 bl = ui_vert_push(ui, pmin, tmin, c);
-  u32 br = ui_vert_push(ui, v3{pmax.x, pmin.y, pmin.z}, v2{tmax.x,tmin.y}, c);
-  u32 tr = ui_vert_push(ui, pmax, tmax, c);
-  u32 tl = ui_vert_push(ui, v3{pmin.x, pmax.y, pmin.z}, v2{tmin.x,tmax.y}, c);
-  
-  ui_index_push(ui, bl);
-  ui_index_push(ui, br);
-  ui_index_push(ui, tr);
-  
-  ui_index_push(ui, bl);
-  ui_index_push(ui, tr);
-  ui_index_push(ui, tl);
+  v3 p0 = pmin;
+  v3 p1 = v3{pmax.x, pmin.y, pmin.z};
+  v3 p2 = pmax;
+  v3 p3 = v3{pmin.x, pmax.y, pmin.z};
+  v2 t0 = tmin;
+  v2 t1 = v2{tmax.x,tmin.y};
+  v2 t2 = tmax;
+  v2 t3 = v2{tmin.x,tmax.y};
+  geo_quad_buffer_builder_push(&ui->geo, p0, p1, p2, p3, t0, t1, t2, t3, c);
 }
 
 internal void
@@ -159,6 +172,7 @@ internal UI_Char_Draw_Cmd
 ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
 {
   UI_Char_Draw_Cmd result = {};
+  zero_struct(result);
   
   Texture_Atlas_Sprite sprite = texture_atlas_sprite_get(&ui->atlas, codepoint);
   result.uv = texture_atlas_sprite_get_uvs(&ui->atlas, sprite);
@@ -181,13 +195,22 @@ ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
 internal void
 ui_frame_prepare(UI* ui, v2 window_dim)
 {
-  ui->verts_len = 0;
-  ui->indices_len = 0;
+  ui->geo.buffer_vertex.len = 0;
+  ui->geo.buffer_index.len = 0;
   
   ui->widgets.free_len = 0;
   ui->widgets.active_parent = 0;
   ui->widgets.root = ui_widget_pool_push(&ui->widgets, lit_str("root"));
   ui->widgets.active_parent = ui->widgets.root;
+  
+  BSP_Node* panel_root = bsp_get(&ui->panels, ui->panels.root);
+  if (window_dim.x != 0 && window_dim.y != 0 && window_dim != panel_root->area.max)
+  {
+    BSP_Area area = {};
+    area.min = v2{0,0};
+    area.max = window_dim;
+    bsp_node_area_update(&ui->panels, ui->panels.root, area);
+  }
   
   v2 half_d = window_dim * 0.5f;
   ui->proj = HMM_Orthographic(0, window_dim.x, window_dim.y, 0, 0.01f, 100);
@@ -207,8 +230,41 @@ ui_frame_prepare(UI* ui, v2 window_dim)
 global bool show = false;
 
 internal void
+ui_draw_panel(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data)
+{
+  if (node->split.kind != BSPSplit_None) return;
+  UI* ui = (UI*)user_data;
+  BSP_Area area = node->area;
+  
+  if (ui->draw_panel_cb) ui->draw_panel_cb(ui->draw_panel_cb_data, id, *node, area);
+  
+  r32 z = -1;
+  v3 l0p0 = v3{ area.min.x,     area.min.y, z }; // left side
+  v3 l0p1 = v3{ area.min.x + 1, area.max.y, z }; 
+  v3 l1p0 = v3{ area.max.x - 1, area.min.y, z }; // right side
+  v3 l1p1 = v3{ area.max.x,     area.max.y, z };
+  v3 l2p0 = v3{ area.min.x, area.min.y    , z }; // bottom side
+  v3 l2p1 = v3{ area.max.x, area.min.y + 1, z };
+  v3 l3p0 = v3{ area.min.x, area.max.y    , z }; // top side
+  v3 l3p1 = v3{ area.max.x, area.max.y + 1, z };
+  u32 sid = WHITE_SPRITE_ID;
+  v4 c = WHITE_V4;
+  if (rect2_contains(area.min, area.max, ui->input->frame_hot->mouse_pos))
+  {
+    c = PINK_V4;
+  }
+  
+  ui_sprite_push(ui, l0p0, l0p1, sid, c);
+  ui_sprite_push(ui, l1p0, l1p1, sid, c);
+  ui_sprite_push(ui, l2p0, l2p1, sid, c);
+  ui_sprite_push(ui, l3p0, l3p1, sid, c);
+}
+
+internal void
 ui_draw(UI* ui)
 {
+  bsp_walk_inorder(&ui->panels, ui->panels.root, ui_draw_panel, (u8*)ui);
+  
   u32 widget_count = ui->widgets.free_len;
   r32 range_min = -10;
   r32 range_max = -1;
@@ -217,20 +273,18 @@ ui_draw(UI* ui)
   
   platform_geometry_buffer_update(
                                   &ui->per_frame_buffer, 
-                                  (r32*)ui->verts,
+                                  (r32*)ui->geo.buffer_vertex.values,
                                   0,
-                                  ui->verts_len * 10,
-                                  ui->indices,
+                                  ui->geo.buffer_vertex.len * ui->geo.buffer_vertex.stride,
+                                  ui->geo.buffer_index.values,
                                   0,
-                                  ui->indices_len
+                                  ui->geo.buffer_index.len
                                   );
   platform_shader_bind(ui->shader);
   platform_set_uniform(ui->shader, 0, ui->proj);
   platform_texture_bind(ui->atlas_texture);
   platform_geometry_bind(ui->per_frame_buffer);
-  platform_geometry_draw(ui->per_frame_buffer, ui->indices_len);
-  
-  OutputDebugStringA("Frame\n\n");
+  platform_geometry_draw(ui->per_frame_buffer, ui->geo.buffer_index.len);
 }
 
 ////////////////////////////////////////////
@@ -241,6 +295,7 @@ ui_widget_id_create(String string, u32 index)
 {
   assert(string.len != 0 && string.str != 0);
   UI_Widget_Id result = {};
+  zero_struct(result);
   result.value = hash_djb2_to_u32(string);
   result.index = index;
   return result;
@@ -272,7 +327,11 @@ ui_widget_pool_push(UI_Widget_Pool* pool, String string)
   result->child_first = 0;
   result->child_last = 0;
   
-  u32 index = hash_table_register(pool->states_hash, pool->states_cap, result->id.value);
+  u32 index = hash_table_find(pool->states_hash, pool->states_cap, result->id.value);
+  if (index == pool->states_cap)
+  {
+    index = hash_table_register(pool->states_hash, pool->states_cap, result->id.value);
+  }
   assert(index != pool->states_cap);
   UI_Widget_State* state = pool->states + index;
   zero_struct(*state);
@@ -286,6 +345,7 @@ ui_widget_pool_push(UI_Widget_Pool* pool, String string)
              result
              );
   }
+  pool->active_parent = result;
   
   return result;
 }
@@ -337,6 +397,7 @@ internal UI_Widget_Result
 ui_widget_push(UI* ui, UI_Widget_Desc desc)
 {
   UI_Widget_Result result = {};
+  zero_struct(result);
   v2 dim = desc.p_max - desc.p_min;
   if (dim.x == 0 || dim.y == 0) return result;
   
@@ -427,9 +488,10 @@ ui_widget_push(UI* ui, UI_Widget_Desc desc)
 }
 
 internal void
-ui_widget_pop(UI* ui, UI_Widget* widget)
+ui_widget_pop(UI* ui, UI_Widget_Id widget_id)
 {
-  assert(ui_widget_id_equals(widget->id, ui->widgets.active_parent->id));
+  if (!ui_widget_id_is_valid(widget_id)) return;
+  assert(ui_widget_id_equals(widget_id, ui->widgets.active_parent->id));
   ui_widget_pool_pop(&ui->widgets);
 }
 
@@ -475,7 +537,9 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
     if (has_flag(child->desc.style.flags, (UIWidgetStyle_FillH | UIWidgetStyle_FillV)))
     {
       v3 fill_min = {};
+      zero_struct(fill_min);
       v3 fill_max = {};
+      zero_struct(fill_max);
       if (has_flag(child->desc.style.flags, UIWidgetStyle_FillH))
       {
         r32 fill_x = HMM_Lerp(bg_min.x, child->desc.fill_pct.x, bg_max.x);
@@ -523,6 +587,7 @@ ui_widgets_to_geometry_recursive(UI* ui, UI_Widget* widget, r32 z_start, r32 z_s
       {
         u8 at = child->desc.string.str[i];
         UI_Char_Draw_Cmd cmd = {};
+        zero_struct(cmd);
         if (!char_is_space(at))
         {
           cmd = ui_sprite_char_get_draw_cmd(ui, baseline, (u32)at);
@@ -616,8 +681,9 @@ internal UI_Layout_Bounds
 ui_layout_get_next(UI_Layout* layout)
 {
   UI_Layout_Bounds result = {};
+  zero_struct(result);
   if (layout->at.x >= layout->bounds_max.x || layout->at.y >= layout->bounds_max.y ||
-      layout->at.y + layout->row_height >= layout->bounds_max.y)
+      layout->at.y + layout->row_height > layout->bounds_max.y)
   {
     return result;
   }
@@ -653,8 +719,8 @@ ui_layout_get_next(UI_Layout* layout)
   if (result.min.x < layout->bounds_min.x || result.min.y < layout->bounds_min.y ||
       result.max.x < layout->bounds_min.x || result.max.y < layout->bounds_min.y)
   {
-    result.min = {};
-    result.max = {};
+    zero_struct(result.min);
+    zero_struct(result.max);
   }
   
   return result;
@@ -716,6 +782,7 @@ ui_layout_next_widget(UI* ui, UI_Widget_Kind kind)
 {
   UI_Layout_Bounds b = ui_layout_get_next(ui);
   UI_Widget_Desc d = {};
+  zero_struct(d);
   d.p_min = b.min;
   d.p_max = b.max;
   d.style = ui_get_style(ui, kind);
@@ -723,19 +790,32 @@ ui_layout_next_widget(UI* ui, UI_Widget_Kind kind)
 }
 
 internal void
+ui_text(UI* ui, String string, v4 color)
+{
+  UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Text);
+  d.string = string;
+  d.style.color_fg = color;
+  UI_Widget_Result r = ui_widget_push(ui, d);
+  ui_widget_pop(ui, r.id);
+}
+
+internal void
 ui_text(UI* ui, String string)
 {
   UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Text);
   d.string = string;
-  ui_widget_push(ui, d);
+  UI_Widget_Result r = ui_widget_push(ui, d);
+  ui_widget_pop(ui, r.id);
 }
 
 internal void
 ui_text_f(UI* ui, char* fmt, ...)
 {
+  scratch_get(scratch);
+  
   va_list args;
   va_start(args, fmt);
-  String string = string_fv(scratch, fmt, args);
+  String string = string_fv(scratch.a, fmt, args);
   va_end(args);
   
   return ui_text(ui, string);
@@ -747,6 +827,7 @@ ui_button(UI* ui, String string)
   UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Button);
   d.string = string;
   UI_Widget_Result r = ui_widget_push(ui, d);
+  ui_widget_pop(ui, r.id);
   return has_flag(r.flags, UIWidgetResult_MouseLeft_WentUp);
 }
 
@@ -761,6 +842,7 @@ ui_toggle(UI* ui, String string, bool value)
   }
   d.string = string;
   UI_Widget_Result r = ui_widget_push(ui, d);
+  ui_widget_pop(ui, r.id);
   bool result = value;
   if (has_flag(r.flags, UIWidgetResult_MouseLeft_WentUp)) result = !result;
   return result;
@@ -769,6 +851,8 @@ ui_toggle(UI* ui, String string, bool value)
 internal UI_Layout*
 ui_scroll_view_begin(UI* ui, String string, v2 bounds_min, v2 bounds_max, u32 rows)
 {
+  scratch_get(scratch);
+  
   r32 scroll_bar_dim = 15;
   v2 scroll_bars_area = v2{0, 0};
   v2 scroll_area_min = bounds_min;
@@ -776,6 +860,7 @@ ui_scroll_view_begin(UI* ui, String string, v2 bounds_min, v2 bounds_max, u32 ro
   v2 scroll_area_dim = scroll_area_max - scroll_area_min;
   
   v2 scroll_offset = {};
+  zero_struct(scroll_offset);
   r32 rows_avail = floorf(scroll_area_dim.y / ui->layout->row_height);
   if (rows > rows_avail)
   {
@@ -785,11 +870,13 @@ ui_scroll_view_begin(UI* ui, String string, v2 bounds_min, v2 bounds_max, u32 ro
     scroll_area_dim = scroll_area_max - scroll_area_min;
     
     UI_Widget_Desc vscroll_d = {};
+    zero_struct(vscroll_d);
     vscroll_d.p_min = { bounds_max.x - scroll_bar_dim, bounds_min.y };
     vscroll_d.p_max = { bounds_max.x, bounds_max.y };
     vscroll_d.style = ui_get_style(ui, UIWidget_VScroll);
-    vscroll_d.string = string_f(scratch, "%.*s_vscroll", str_varg(string));
+    vscroll_d.string = string_f(scratch.a, "%.*s_vscroll", str_varg(string));
     UI_Widget_Result r = ui_widget_push(ui, vscroll_d);
+    ui_widget_pop(ui, r.id);
     
     UI_Widget_State* vscroll_state = ui_widget_state_get(ui, r.id);
     scroll_offset.y = vscroll_state->scroll.y;
@@ -800,7 +887,7 @@ ui_scroll_view_begin(UI* ui, String string, v2 bounds_min, v2 bounds_max, u32 ro
   
   scroll_offset *= v2{ 0, y_scroll_dist };
   
-  UI_Layout* layout = allocator_alloc_struct(scratch, UI_Layout);
+  UI_Layout* layout = allocator_alloc_struct(scratch.a, UI_Layout);
   layout->mode = UILayout_Columns;
   layout->bounds_min = scroll_area_min;
   layout->bounds_max = scroll_area_max;

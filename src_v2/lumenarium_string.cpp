@@ -250,9 +250,9 @@ string_fv(Allocator* a, char* fmt, va_list args)
 {
   va_list args1;
   va_copy(args1, args);
-  s32 needed = vsnprintf(0, 0, fmt, args);
+  s32 needed = stbsp_vsnprintf(0, 0, fmt, args);
   String result = allocator_alloc_string(a, needed + 1);
-  result.len = vsnprintf((char*)result.str, result.cap, fmt, args1);
+  result.len = stbsp_vsnprintf((char*)result.str, (int)result.cap, fmt, args1);
   result.str[result.len] = 0;
   va_end(args1);
   return result;

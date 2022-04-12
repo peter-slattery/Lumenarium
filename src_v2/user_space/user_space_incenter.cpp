@@ -7,33 +7,53 @@ incenter_get_init_desc()
   return result;
 }
 
+#define INCENTER_METER 1.0f
+#define INCENTER_FOOT 0.3048f
+#define INCENTER_METERS(count) (count) * INCENTER_METER
+#define INCENTER_FEET(count) (count) * INCENTER_FOOT
+#define INCENTER_PER_METER(count) INCENTER_METER / (r32)(count)
+
 internal void
 incenter_init(App_State* state)
 {
   // create a fake sculpture
-  Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("test"), 3000, 100);
+  Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("test"), 5043, 41);
   
-  r32 scale = 1;
+  scratch_get(scratch);
+  Allocator* s = scratch.a;
   
-  // strips
-  for (int strip_x = 0; strip_x < 10; strip_x++)
+  v3 start_p = v3{0, 0, 0};
+  
+  Assembly_Strip* vertical_strip = assembly_add_strip(&state->assemblies, ah, 123);
+  assembly_strip_create_leds(
+                             &state->assemblies, 
+                             ah,
+                             vertical_strip, 
+                             start_p,
+                             v3{0, INCENTER_FEET(-6.5f), 0}, 
+                             123
+                             );
+  
+  r32 radius = INCENTER_FEET(10);
+  
+  Random_Series rand = random_series_create(hash_djb2_to_u32("slkdjfalksdjf"));
+  for (u32 i = 0; i < 40; i++)
   {
-    for (int strip_y = 0; strip_y < 10; strip_y++)
-    {
-      if (strip_x == 5 && strip_y == 7)
-      {
-        int x= 5;
-      }
-      Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 30);
-      
-      // leds go up
-      for (int led_z = 0; led_z < 30; led_z++)
-      {
-        v4 pos = { strip_x * scale, strip_y * scale, led_z * scale, 1 };
-        assembly_add_led(&state->assemblies, ah, strip, pos);
-      }
-    }
+    Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
+    
+    r32 theta = random_series_next_unilateral(&rand) * r32_tau;
+    r32 phi   = random_series_next_unilateral(&rand) * r32_tau;
+    
+    // spherical to cartesian conversion
+    v3 end_p = {
+      radius * sinf(phi) * cosf(theta),
+      radius * sinf(phi) * sinf(theta),
+      radius * cosf(phi)
+    };
+    assembly_strip_create_leds(&state->assemblies, ah, strip, start_p, end_p, 123);
   }
+  
+  ed_sculpture_updated(state, 5, 0.025f);
 }
 
 internal void

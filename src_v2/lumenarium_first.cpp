@@ -6,12 +6,12 @@ lumenarium_init()
 {
   App_State* state = 0;
   
-  permanent = bump_allocator_create_reserve(GB(1));
-  scratch = bump_allocator_create_reserve(KB(64));
+  permanent = bump_allocator_create_reserve(GB(2));
+  scratch_ = bump_allocator_create_reserve(GB(8));
   platform_file_jobs_init();
   
   run_tests();
-  
+  scratch_get(scratch);
   App_Init_Desc desc = incenter_get_init_desc();
   // TODO(PS): make sure the values make sense in desc
   
@@ -20,6 +20,13 @@ lumenarium_init()
   add_flag(state->flags, AppState_RunEditor);
   
   state->input_state = input_state_create(permanent);
+  
+  String exe_file_path = platform_get_exe_path(scratch.a);
+  u64 run_tree_start = string_find_substring(exe_file_path, lit_str("run_tree"), 0, StringMatch_FindLast);
+  u64 run_tree_end = run_tree_start + lit_str("run_tree").len;
+  String run_tree_path = string_get_prefix(exe_file_path, run_tree_end);
+  String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
+  platform_pwd_set(run_tree_path_nullterm);
   
   en_init(state, desc);
   if (has_flag(state->flags, AppState_RunEditor))
@@ -33,7 +40,7 @@ lumenarium_init()
 internal void
 lumenarium_frame_prepare(App_State* state)
 {
-  allocator_clear(scratch);
+  allocator_clear(scratch_);
   
   input_state_swap_frames(state->input_state);
   
@@ -50,7 +57,7 @@ lumenarium_frame_prepare(App_State* state)
 internal void
 lumenarium_frame(App_State* state)
 {
-  //en_frame(state);
+  en_frame(state);
   if (has_flag(state->flags, AppState_RunEditor))
   {
     ed_frame(state);
