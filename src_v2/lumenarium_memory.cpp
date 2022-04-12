@@ -94,6 +94,7 @@ struct Allocator_Bump
   u64 size_committed;
   u64 size_reserved;
   u64 page_size;
+  u64 high_water_mark;
 };
 
 internal u8*
@@ -152,7 +153,7 @@ bump_allocator_alloc_inner(Allocator* allocator, Allocator_Bump* bump, u64 size)
   
   u8* result = bump->base + bump->at;
   bump->at = at_after;
-  
+  bump->high_water_mark = max(bump->at, bump->high_water_mark);
   return result;
 }
 
@@ -248,6 +249,7 @@ bump_allocator_create_child(Allocator* parent, u64 init_size)
   result->parent = parent;
   
   Allocator_Bump* bump = (Allocator_Bump*)result->allocator_data;
+  zero_struct(*bump);
   bump->base = allocator_alloc(result->parent, init_size);
   if (bump->base != 0) 
   {

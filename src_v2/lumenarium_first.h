@@ -14,10 +14,8 @@ typedef struct App_State App_State;
 #include "lumenarium_hash.cpp"
 #include "lumenarium_geometry.h"
 
-global Allocator* scratch_; // gets reset at frame boundaries
-
-#define scratch_get(ident) Allocator_Scratch ident = Allocator_Scratch(scratch_)
-
+global Allocator* global_scratch_; // gets reset at frame boundaries
+#define scratch_get(ident) Allocator_Scratch ident = Allocator_Scratch(global_scratch_)
 #include "lumenarium_bsp.h"
 
 // Engine

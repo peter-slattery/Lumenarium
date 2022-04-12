@@ -7,7 +7,7 @@ lumenarium_init()
   App_State* state = 0;
   
   permanent = bump_allocator_create_reserve(GB(2));
-  scratch_ = bump_allocator_create_reserve(GB(8));
+  global_scratch_ = bump_allocator_create_reserve(GB(8));
   platform_file_jobs_init();
   
   run_tests();
@@ -40,7 +40,7 @@ lumenarium_init()
 internal void
 lumenarium_frame_prepare(App_State* state)
 {
-  allocator_clear(scratch_);
+  allocator_clear(global_scratch_);
   
   input_state_swap_frames(state->input_state);
   
