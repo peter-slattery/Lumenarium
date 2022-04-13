@@ -207,6 +207,47 @@ ed_init(App_State* state)
   ed_sculpture_visualizer_init(state);
 }
 
+internal u8*
+ed_leds_to_texture(App_State* state, Allocator_Scratch* scratch, u32 pixels_dim)
+{
+  u32 at = 0;
+  u32* pixels = allocator_alloc_array(scratch->a, u32, pixels_dim * pixels_dim);
+  for (u32 a = 0; a < state->assemblies.len; a++)
+  {
+    Assembly_Pixel_Buffer leds = state->assemblies.pixel_buffers[a];
+    for (u32 p = 0; p < leds.len; p++)
+    {
+      Assembly_Pixel led = leds.pixels[p];
+      u32 index = at++;
+      pixels[index] = (
+                       led.r << 0 |
+                       led.g << 8 |
+                       led.b << 16 |
+                       0xFF << 24
+                       );
+    }
+  }
+#if 0
+  for (u32 y = 0; y < pixels_dim; y++) 
+  {
+    for (u32 x = 0; x < pixels_dim; x++)
+    {
+      r32 rp = (r32)y / (r32)pixels_dim;
+      r32 bp = (r32)x / (r32)pixels_dim;
+      u8 rb = (u8)(255 * rp);
+      u8 bb = (u8)(255 * bp);
+      u32 c = (
+               0xFF0000FF |
+               (rb << 8) |
+               (bb << 16)
+               );
+      pixels[(y * pixels_dim) + x] = c;
+    }
+  }
+#endif
+  return (u8*)pixels;
+}
+
 internal void
 ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
 {
@@ -299,24 +340,8 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
     // TODO(PS): destroy the old texture
   }
   
-  u32* pixels = allocator_alloc_array(scratch.a, u32, pixels_count);
-  for (u32 y = 0; y < pixels_dim; y++) 
-  {
-    for (u32 x = 0; x < pixels_dim; x++)
-    {
-      r32 rp = (r32)y / (r32)pixels_dim;
-      r32 bp = (r32)x / (r32)pixels_dim;
-      u8 rb = (u8)(255 * rp);
-      u8 bb = (u8)(255 * bp);
-      u32 c = (
-               0xFF0000FF |
-               (rb << 8) |
-               (bb << 16)
-               );
-      pixels[(y * pixels_dim) + x] = c;
-    }
-  }
-  ed->sculpture_tex = platform_texture_create((u8*)pixels, pixels_dim, pixels_dim, pixels_dim);
+  u8* pixels = ed_leds_to_texture(state, &scratch, pixels_dim);
+  ed->sculpture_tex = platform_texture_create(pixels, pixels_dim, pixels_dim, pixels_dim);
 }
 
 internal void
@@ -328,7 +353,15 @@ ed_frame_prepare(App_State* state)
 internal void
 ed_frame(App_State* state)
 {
-  UI* ui = &state->editor->ui;
+  Editor* ed = state->editor;
+  UI* ui = &ed->ui;
+  
+  {
+    scratch_get(scratch);
+    u32 w = ed->sculpture_tex.w;
+    u8* pixels = ed_leds_to_texture(state, &scratch, w);
+    platform_texture_update(ed->sculpture_tex, pixels, w, w, w);
+  }
   
   edr_render_begin(state);
   ui_draw(&state->editor->ui);

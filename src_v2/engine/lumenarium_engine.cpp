@@ -5,6 +5,7 @@ en_init(App_State* state, App_Init_Desc desc)
   state->assemblies = assembly_array_create(permanent, desc.assembly_cap);
   
   Output* o = &state->output;
+  register_output_method(o, OutputData_Invalid, 0, 0);
   register_output_method(o, OutputData_NetworkSACN, output_network_sacn_build, output_network_sacn_init());
   register_output_method(o, OutputData_ComUART, output_network_sacn_build, output_com_uart_init());
 }
@@ -15,19 +16,40 @@ en_frame_prepare(App_State* state)
   
 }
 
+global r32 tt = 0;
+
 internal void
 en_frame(App_State* state)
 {
-#if 0
+  scratch_get(scratch);
+  Assembly_Array assemblies = state->assemblies;
+  
+  ///////////////////////////////////////
+  // Temp Pattern Simulation
+  
+  tt += 1.0f / 60.0f;
+  
+  r32 hrange = 1;
+  r32 range = hrange * 2;
+  for (u32 i = 0; i < assemblies.len; i++)
+  {
+    Assembly_Pixel_Buffer pixels = assemblies.pixel_buffers[i];
+    for (u32 j = 0; j < pixels.len; j++)
+    {
+      v4 p = pixels.positions[j];
+      pixels.pixels[j].r = (u8)(((sinf((5 * tt) + (p.x * 10)) + 1) * 0.5f) * 255);
+      pixels.pixels[j].b = (u8)(((sinf((5 * tt) + (p.z * 10)) + 1) * 0.5f) * 255);
+    }
+  }
+  
   ///////////////////////////////////////
   // Output Data
   
   Output_Data_Queue output_queue = {};
-  output_queue.a = scratch;
+  output_queue.a = scratch.a;
   
   // build output data buffers
-  Output_Methods methods;
-  Assembly_Array assemblies = state->assemblies;
+  Output_Methods methods = state->output.methods;
   for (u32 i = 0; i < assemblies.len; i++)
   {
     Assembly_Strip_Array strips = assemblies.strip_arrays[i];
@@ -65,7 +87,6 @@ en_frame(App_State* state)
       invalid_code_path;
     }
   }
-#endif
 }
 
 internal void

@@ -83,7 +83,7 @@ ed_sculpture_visualizer(App_State* state)
              );
   
   // TODO(PS): TEMPORARY CAMERA CODE
-  cam_theta += 0.05f;
+  //cam_theta += 0.05f;
   v3 camera_pos = v3{sinf(cam_theta) * 50, 0, cosf(cam_theta) * 50};
   r32 aspect = view_dim.x / view_dim.y;
   m44 proj = HMM_Perspective(45.0, aspect, 0.01f, 500);
