@@ -12,6 +12,7 @@ enum
   OutputData_Count,
 };
 
+typedef struct Output_Data_Network Output_Data_Network;
 struct Output_Data_Network
 {
   // Platform_Socket_Handle socket;
@@ -19,11 +20,13 @@ struct Output_Data_Network
   u32 port;
 };
 
+typedef struct Output_Data_Com Output_Data_Com;
 struct Output_Data_Com
 {
   String port;
 };
 
+typedef struct Output_Data Output_Data;
 struct Output_Data
 {
   Output_Data_Kind kind;
@@ -37,6 +40,7 @@ struct Output_Data
   Output_Data* next;
 };
 
+typedef struct Output_Data_Queue Output_Data_Queue;
 struct Output_Data_Queue
 {
   Output_Data* first;
@@ -47,12 +51,14 @@ struct Output_Data_Queue
 
 typedef void Build_Output_Data_Buffer(App_State* state, u32 assembly_id, Assembly_Strip* strip, u8* method_data, Output_Data_Queue* queue);
 
+typedef struct Output_Methods Output_Methods;
 struct Output_Methods
 {
   Build_Output_Data_Buffer* procs[OutputData_Count];
   u8* method_data[OutputData_Count];
 };
 
+typedef struct Output Output;
 struct Output
 {
   Output_Methods methods;

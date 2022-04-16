@@ -8,12 +8,14 @@
 // - a node with no children has not been split
 
 #define BTREE_NODE_ID_VALID_BIT (1 << 31)
+typedef struct BSP_Node_Id BSP_Node_Id;
 struct BSP_Node_Id
 {
   u32 value;
 };
 
-enum BSP_Split_Kind
+typedef u8 BSP_Split_Kind;
+enum
 {
   BSPSplit_XAxis = 1,
   BSPSplit_YAxis = 0,
@@ -21,19 +23,22 @@ enum BSP_Split_Kind
   BSPSplit_None  = 3,
 };
 
+typedef struct BSP_Split BSP_Split;
 struct BSP_Split
 {
   BSP_Split_Kind kind;
   r32 value;
 };
 
-enum BSP_Split_Update_Flags
+typedef u8 BSP_Split_Update_Flags;
+enum
 {
   BSPSplitUpdate_None = 0,
   BSPSplitUpdate_FreeZeroAreaChildren = 1,
 };
 
-enum BSP_Child_Selector
+typedef u8 BSP_Child_Selector;
+enum 
 {
   // NOTE(PS): these values are intentionally overlapping since
   // they access the data structure of the B-Tree in a particular
@@ -46,12 +51,14 @@ enum BSP_Child_Selector
   BSPChild_Bottom = 1,
 };
 
+typedef struct BSP_Area BSP_Area;
 struct BSP_Area
 {
   v2 min;
   v2 max;
 };
 
+typedef struct BSP_Node BSP_Node;
 struct BSP_Node
 {
   union
@@ -84,6 +91,7 @@ struct BSP_Node
   BSP_Area area;
 };
 
+typedef struct BSP BSP;
 struct BSP
 {
   BSP_Node* nodes;
@@ -101,8 +109,9 @@ internal BSP bsp_create(Allocator* allocator, u32 cap);
 internal BSP_Node* bsp_get(BSP* tree, BSP_Node_Id id);
 internal BSP_Node_Id bsp_push(BSP* tree, BSP_Node_Id parent, BSP_Area area, u32 user_data);
 internal void bsp_free(BSP* tree, BSP_Node_Id id);
-internal void bsp_free_cb(BSP* tree, BSP_Node_Id id, BSP* node, u8* user_data);
+internal void bsp_free_cb(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data);
 
+typedef union BSP_Split_Result BSP_Split_Result;
 union BSP_Split_Result
 {
   BSP_Node_Id children[2];
@@ -122,7 +131,7 @@ union BSP_Split_Result
 };
 
 internal BSP_Split_Result  bsp_split(BSP* tree, BSP_Node_Id id, r32 split, BSP_Split_Kind kind, u32 user_data_0, u32 user_data_1);
-internal void  bsp_join_recursive(BSP* tree, BSP_Node* parent, BSP_Child_Selector keep);
+internal void bsp_join_recursive(BSP* tree, BSP_Node_Id parent_id, BSP_Child_Selector keep);
 
 // left, parent, right
 internal void bsp_walk_inorder(BSP* tree, BSP_Node_Id first, BSP_Walk_Cb* cb, u8* user_data);
@@ -133,7 +142,7 @@ internal void bsp_walk_postorder(BSP* tree, BSP_Node_Id first, BSP_Walk_Cb* cb, 
 
 internal void bsp_node_update_child_areas(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data);
 internal void bsp_node_area_update(BSP* tree, BSP_Node_Id id, BSP_Area new_area);
-internal void bsp_child_split_update(BSP* tree, BSP_Node_Id node, u32 new_split);
+internal void bsp_child_split_update(BSP* tree, BSP_Node_Id node_id, r32 new_split, BSP_Split_Update_Flags flags);
 
 ///////////////////////////////////////////////////
 //           IMPLEMENTATION
@@ -165,7 +174,7 @@ bsp_get(BSP* tree, BSP_Node_Id id)
 internal BSP_Node_Id
 bsp_push(BSP* tree, BSP_Node_Id parent_id, BSP_Area area, u32 user_data)
 {
-  BSP_Node_Id result = BSP_Node_Id{0};
+  BSP_Node_Id result = (BSP_Node_Id){0};
   BSP_Node* node = 0;
   
   if (tree->nodes_len >= tree->nodes_cap) 
@@ -188,6 +197,7 @@ bsp_push(BSP* tree, BSP_Node_Id parent_id, BSP_Area area, u32 user_data)
   
   if (bsp_node_id_is_valid(result))
   {
+    zero_struct(*node);
     node->split.kind = BSPSplit_None;
     node->parent = parent_id;
     node->area = area;
@@ -245,8 +255,8 @@ bsp_split(BSP* tree, BSP_Node_Id node_id, r32 split, BSP_Split_Kind kind, u32 us
   split = clamp(node->area.min.Elements[kind], split, node->area.max.Elements[kind]);
   node->split.value = split;
   node->split.kind = kind;
-  node->children[0] = bsp_push(tree, node_id, {}, user_data_0);
-  node->children[1] = bsp_push(tree, node_id, {}, user_data_1);
+  node->children[0] = bsp_push(tree, node_id, (BSP_Area){}, user_data_0);
+  node->children[1] = bsp_push(tree, node_id, (BSP_Area){}, user_data_1);
   bsp_node_update_child_areas(tree, node_id, node, 0);
   
   BSP_Split_Result result = {};
@@ -260,8 +270,8 @@ bsp_join_recursive(BSP* tree, BSP_Node_Id parent_id, BSP_Child_Selector keep)
 {
   BSP_Node* parent = bsp_get(tree, parent_id);
   BSP_Node keep_node = *bsp_get(tree, parent->children[keep]);
-  bsp_walk_preorder(tree, parent->children[0], bsp_free_cb, 0);
-  bsp_walk_preorder(tree, parent->children[1], bsp_free_cb, 0);
+  bsp_walk_preorder(tree, parent->children[0], (BSP_Walk_Cb*)bsp_free_cb, 0);
+  bsp_walk_preorder(tree, parent->children[1], (BSP_Walk_Cb*)bsp_free_cb, 0);
   parent->user_data = keep_node.user_data;
   zero_struct(parent->children[0]);
   zero_struct(parent->children[1]);
@@ -315,6 +325,7 @@ bsp_walk_inorder(BSP* tree, BSP_Node_Id first, BSP_Walk_Cb* visit, u8* user_data
       at = n->children[1];
     }
   }
+  scratch_release(scratch);
 }
 
 // parent, left right
@@ -345,6 +356,7 @@ bsp_walk_preorder(BSP* tree, BSP_Node_Id first, BSP_Walk_Cb* visit, u8* user_dat
     BSP_Node* n = bsp_get(tree, at);
     at = n->children[1];
   }
+  scratch_release(scratch);
 }
 
 // parent, right, parent
@@ -388,6 +400,7 @@ bsp_walk_postorder(BSP* tree, BSP_Node_Id first, BSP_Walk_Cb* visit, u8* user_da
       }
     }
   }
+  scratch_release(scratch);
 }
 
 internal void
@@ -462,16 +475,16 @@ bsp_tests()
 {
   scratch_get(scratch);
   BSP tree = bsp_create(scratch.a, 256);
-  tree.root = bsp_push(&tree, {0}, {{0,0},{512,512}}, 0);
+  tree.root = bsp_push(&tree, (BSP_Node_Id){0}, (BSP_Area){ (v2){0,0},(v2){512,512}}, 0);
   
   BSP_Split_Result r0 = bsp_split(&tree, tree.root, 256, BSPSplit_YAxis, 0, 0);
   BSP_Node* root = bsp_get(&tree, tree.root);
   BSP_Node* n0 = bsp_get(&tree, r0.children[0]);
   BSP_Node* n1 = bsp_get(&tree, r0.children[1]);
   assert(root != 0 && n0 != 0 && n1 != 0);
-  assert(n0->area.min == root->area.min);
+  assert(HMM_EqualsVec2(n0->area.min, root->area.min));
   assert(n0->area.max.x == 256 && n0->area.max.y == root->area.max.y);
-  assert(n1->area.max == root->area.max);
+  assert(HMM_EqualsVec2(n1->area.max, root->area.max));
   assert(n1->area.min.x == 256 && n0->area.min.y == root->area.min.y);
   assert(n0->split.kind == BSPSplit_None);
   assert(n1->split.kind == BSPSplit_None);
@@ -481,6 +494,7 @@ bsp_tests()
   BSP_Split_Result r2 = bsp_split(&tree, r1.children[1], 64, BSPSplit_XAxis, 0, 0);
   
   bsp_walk_postorder(&tree, root->children[0], bsp_free_cb, 0);
+  scratch_release(scratch);
 }
 
 #else

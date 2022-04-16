@@ -268,7 +268,7 @@ WinMain(
     // Update window size
     if (has_flag(state->flags, AppState_RunEditor))
     {
-      state->editor->window_dim = v2{
+      state->editor->window_dim = (v2){
         (r32)win32_main_window.info.width,
         (r32)win32_main_window.info.height
       };

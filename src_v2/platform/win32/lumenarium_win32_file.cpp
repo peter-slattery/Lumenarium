@@ -256,36 +256,3 @@ platform_pwd_set(String path)
   if (!result) win32_get_last_error();
   return result;
 }
-
-void
-platform_file_async_work_on_job(Platform_File_Async_Job* job)
-{
-  Platform_File_Handle file = {};
-  if (has_flag(job->args.flags, PlatformFileAsyncJob_Read))
-  {
-    file = platform_file_open(job->args.path, FileAccess_Read, FileCreate_OpenExisting);
-    Data result = platform_file_read_all(file, platform_file_jobs_arena);
-    if (result.base != 0) 
-    {
-      job->args.data = result;
-      add_flag(job->args.flags, PlatformFileAsyncJob_Success);
-    }
-    else
-    {
-      add_flag(job->args.flags, PlatformFileAsyncJob_Failed);
-    }
-  }
-  else if (has_flag(job->args.flags, PlatformFileAsyncJob_Write))
-  {
-    file = platform_file_open(job->args.path, FileAccess_Write, FileCreate_OpenAlways);
-    if (platform_file_write_all(file, job->args.data))
-    {
-      add_flag(job->args.flags, PlatformFileAsyncJob_Success);
-    }
-    else
-    {
-      add_flag(job->args.flags, PlatformFileAsyncJob_Failed);
-    }
-  }
-  platform_file_close(file);
-}

@@ -13,11 +13,13 @@
 // more than 128 sculptures in a scene - but who knows, maybe someday O.o?
 #define ASSEMBLY_HANDLE_VALID_BIT (1 << 31)
 #define ASSEMBLY_HANDLE_INDEX_MASK ~ASSEMBLY_HANDLE_VALID_BIT
+typedef struct Assembly_Handle Assembly_Handle;
 struct Assembly_Handle
 {
   u32 value;
 };
 
+typedef union Assembly_Pixel Assembly_Pixel;
 union Assembly_Pixel
 {
   struct {
@@ -28,6 +30,7 @@ union Assembly_Pixel
   u8 channels[3];
 };
 
+typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;
 struct Assembly_Pixel_Buffer
 {
   u32 cap;
@@ -36,6 +39,7 @@ struct Assembly_Pixel_Buffer
   v4*             positions;
 };
 
+typedef struct Assembly_Strip Assembly_Strip;
 struct Assembly_Strip
 {
   u32  pixels_cap;
@@ -47,6 +51,7 @@ struct Assembly_Strip
   u32 sacn_universe;
 };
 
+typedef struct Assembly_Strip_Array Assembly_Strip_Array;
 struct Assembly_Strip_Array
 {
   u32 cap;
@@ -54,6 +59,7 @@ struct Assembly_Strip_Array
   Assembly_Strip* strips;
 };
 
+typedef struct Assembly_Array Assembly_Array;
 struct Assembly_Array
 {
   u32 cap;

@@ -1,3 +1,4 @@
+// TODO(PS) @DEPRECATE - new os layer
 
 /////////////////////////////////////////
 //        Memory Functions
@@ -467,6 +468,7 @@ paged_allocator_free(Allocator* allocator, u8* base, u64 size)
   else
   {
     // free list is empty
+    region->next = 0;
     paged->free_first = region;
   }
 }

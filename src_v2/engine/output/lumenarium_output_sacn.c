@@ -165,7 +165,7 @@ sacn_fill_buffer_body(Output_Data* d, u32* leds_placed)
 internal Sacn_Cid
 sacn_string_to_cid(String str)
 {
-  return {};
+  return (Sacn_Cid){};
 }
 
 internal u32

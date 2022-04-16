@@ -83,7 +83,7 @@ popdir
 # Compiler Selection
 
 Compiler_win32="cl"
-Compiler_osx="clang++"
+Compiler_osx="clang"
 WasiSdk="/c/drive/apps/wasi-sdk"
 Compiler_wasm="$WasiSdk/bin/clang++"
 Compiler_linux="clang++"
@@ -91,7 +91,7 @@ Compiler_linux="clang++"
 # Platform Entry Points
 
 PlatformEntry_win32="src_v2/platform/win32/lumenarium_first_win32.cpp"
-PlatformEntry_osx="src_v2/platform/osx/lumenarium_first_osx.cpp"
+PlatformEntry_osx="src_v2/platform/osx/lumenarium_first_osx.c"
 PlatformEntry_wasm="src_v2/platform/wasm/lumenarium_first_wasm.cpp"
 PlatformEntry_linux="src_v2/platform/linux/lumenarium_first_linux.cpp"
 
@@ -115,60 +115,61 @@ WasmSysRoot="${PROJECT_PATH}/src_v2/platform/wasm/sysroot/"
 # Compiler Flags
 
 CompilerFlags_win32="-nologo"
-add_flag CompilerFlags_win32 "-FC" # display errors with full path
-add_flag CompilerFlags_win32 "-WX" # treat warnings as errors
-add_flag CompilerFlags_win32 "-W4" # output warning level
-add_flag CompilerFlags_win32 "-Z7" # generate C compatible debug info
-# add_flag CompilerFlags_win32 "-Oi" # generate intrinsic functions
-# add_flag CompilerFlags_win32 "-MTd" # create a debug multithreaded exe w/ Libcmtd.lib
-# add_flag CompilerFlags_win32 "-fp:fast" # fast floating point model
-add_flag CompilerFlags_win32 "-wd4505" # 
-add_flag CompilerFlags_win32 "-wd4100" #
-add_flag CompilerFlags_win32 "-wd4189" #
-add_flag CompilerFlags_win32 "-wd4702" #
-add_flag CompilerFlags_win32 "-wd4996" # _CRT_SECURE_NO_WARNINGS
+CompilerFlags_win32+=" -FC" # display errors with full path
+CompilerFlags_win32+=" -WX" # treat warnings as errors
+CompilerFlags_win32+=" -W4" # output warning level
+CompilerFlags_win32+=" -Z7" # generate C compatible debug info
+# CompilerFlags_win32+="-Oi" # generate intrinsic functions
+# CompilerFlags_win32+="-MTd" # create a debug multithreaded exe w/ Libcmtd.lib
+# CompilerFlags_win32+="-fp:fast" # fast floating point model
+CompilerFlags_win32+=" -wd4505" # 
+CompilerFlags_win32+=" -wd4100" #
+CompilerFlags_win32+=" -wd4189" #
+CompilerFlags_win32+=" -wd4702" #
+CompilerFlags_win32+=" -wd4996" # _CRT_SECURE_NO_WARNINGS
 
 CompilerFlags_osx=""
 
 CompilerFlags_wasm=""
-add_flag CompilerFlags_wasm "-Wno-writable-strings" #
-add_flag CompilerFlags_wasm "--target=wasm32" #
-add_flag CompilerFlags_wasm "-nostdlib" #
-add_flag CompilerFlags_wasm "-Wl,--no-entry" #
-add_flag CompilerFlags_wasm "-Wl,--allow-undefined" #
-add_flag CompilerFlags_wasm "-Wl,--export-all" #
+CompilerFlags_wasm+=" -Wno-writable-strings" #
+CompilerFlags_wasm+=" --target=wasm32" #
+CompilerFlags_wasm+=" -nostdlib" #
+CompilerFlags_wasm+=" -Wl,--no-entry" #
+CompilerFlags_wasm+=" -Wl,--allow-undefined" #
+CompilerFlags_wasm+=" -Wl,--export-all" #
 
 CompilerFlags_linux=""
 
 CompilerFlags_DEBUG_win32=""
-add_flag CompilerFlags_DEBUG_win32 "-Od" #
-add_flag CompilerFlags_DEBUG_win32 "-Zi" #
-add_flag CompilerFlags_DEBUG_win32 "-DDEBUG" #
+CompilerFlags_DEBUG_win32+=" -Od" #
+CompilerFlags_DEBUG_win32+=" -Zi" #
+CompilerFlags_DEBUG_win32+=" -DDEBUG" #
 # add_flag CompilerFlags_DEBUG_win32 "-DPRINT_ASSERTS"
 
 CompilerFlags_DEBUG="-O0"
-add_flag CompilerFlags_DEBUG "-g" #
-add_flag CompilerFlags_DEBUG "-DDEBUG" #
+CompilerFlags_DEBUG+=" -g" #
+CompilerFlags_DEBUG+=" -DDEBUG" #
+CompilerFlags_DEBUG+=" -fsanitize=address" #address sanitizer
 
-CompilerFlags_PROD="-O3"
+CompilerFlags_PROD=" -O3"
 
 # Compiler flags that no matter what, we want to define
 # for the most part these pass the build parameters into the executable
-CompilerFlags_common="-DPLATFORM_${PLATFORM}=1 -DMODE_${MODE}=1 -DARCH_${ARCH}=1"
+CompilerFlags_common=" -DPLATFORM_${PLATFORM}=1 -DMODE_${MODE}=1 -DARCH_${ARCH}=1"
 
 # Linker Flags
 
-LinkerFlags_win32="-NOLOGO"
-add_flag LinkerFlags_win32 "-incremental:no" #
-add_flag LinkerFlags_win32 "-subsystem:windows" #
+LinkerFlags_win32=" -NOLOGO"
+LinkerFlags_win32+=" -incremental:no" #
+LinkerFlags_win32+=" -subsystem:windows" #
 # add_flag LinkerFlags_win32 "-entry:WinMain" #
-add_flag LinkerFlags_win32 "-opt:ref" # eliminate functions that are never referenced
+LinkerFlags_win32+=" -opt:ref" # eliminate functions that are never referenced
 
 LinkerFlags_osx=""
 
 LinkerFlags_wasm="--no-entry"
-add_flag LinkerFlags_wasm "--export-dynamic" #
-add_flag LinkerFlags_wasm "--unresolved-symbols=import-functions" #
+LinkerFlags_wasm+=" --export-dynamic" #
+LinkerFlags_wasm+=" --unresolved-symbols=import-functions" #
 
 LinkerFlags_linux=""
 
@@ -180,7 +181,7 @@ LinkerFlags_PROD=""
 LinkerLibs_win32="user32.lib kernel32.lib gdi32.lib opengl32.lib" 
 # winmm.lib gdi32.lib dsound.lib Ws2_32.lib Comdlg32.lib Winspool.lib"
 
-LinkerLibs_osx="-framework OpenGL -framework Cocoa"
+LinkerLibs_osx="-framework OpenGL -framework Cocoa -framework IOKit ${PROJECT_PATH}/src_v2/libs/glfw_osx/lib-universal/libglfw3.a"
 LinkerLibs_wasm=""
 LinkerLibs_linux=""
 
@@ -320,6 +321,7 @@ then
     ./lumenarium_wasm_imports.js
 
 else
+  echo "$Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs"
   $Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs
 
 fi

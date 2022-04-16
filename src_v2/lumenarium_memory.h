@@ -1,3 +1,5 @@
+// TODO(PS) @DEPRECATE - new os layer
+
 /* date = April 6th 2022 7:55 pm */
 
 #ifndef LUMENARIUM_MEMORY_H

@@ -1,3 +1,24 @@
+//////////////////////////////////////////////
+//         String
+
+// NOTE(PS): even though this has a len and cap, it should always be
+// null terminated
+typedef struct String String;
+struct String
+{
+  u8* str;
+  u64 len;
+  u64 cap;
+};
+
+internal String string_create(u8* str, u64 len, u64 cap);
+internal u64 string_copy_to(String* dest, String src);
+
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+//         IMPLEMENTATION
+//////////////////////////////////////////////
+//////////////////////////////////////////////
 
 internal u64
 c_str_len(char* s)
@@ -9,7 +30,7 @@ c_str_len(char* s)
 
 #define str_varg(s) (int)(s).len, (char*)(s).str
 #define str_expand(s) (char*)(s).str, (u64)(s).len
-#define lit_str(s) String{ (u8*)(s), (u64)sizeof(s)-1, (u64)sizeof(s)-1 } 
+#define lit_str(s) (String){ (u8*)(s), (u64)sizeof(s)-1, (u64)sizeof(s)-1 } 
 
 internal String
 allocator_alloc_string(Allocator* a, u64 cap) 
@@ -266,4 +287,13 @@ string_f(Allocator* a, char* fmt, ...)
   String result = string_fv(a, fmt, args);
   va_end(args);
   return result;
+}
+
+internal void
+dw_put_str(Data_Writer* w, String str)
+{
+  for (u64 i = 0; i < str.len; i++)
+  {
+    dw_put_u8(w, str.str[i]);
+  }
 }

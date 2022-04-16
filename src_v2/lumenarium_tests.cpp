@@ -1,9 +1,9 @@
 
-Platform_Thread_Result
-thread_proc(Platform_Thread_Data* td)
+Thread_Result
+thread_proc(Thread_Data* td)
 {
   //Sleep(100);
-  return {};
+  return (Thread_Result){};
 }
 
 void
@@ -75,15 +75,15 @@ memory_tests()
     size = KB(4);
 #endif
     
-    u8* base = platform_mem_reserve(size);
-    platform_mem_commit(base, KB(4));
+    u8* base = os_mem_reserve(size);
+    os_mem_commit(base, KB(4));
     base[4095] = 200;
     assert(base[4095] == 200);
-    platform_mem_commit(base + KB(4), KB(4));
+    os_mem_commit(base + KB(4), KB(4));
     base[5000] = 200;
     assert(base[5000] == 200);
-    platform_mem_decommit(base, KB(8));
-    platform_mem_release(base, GB(32));
+    os_mem_decommit(base, KB(8));
+    os_mem_release(base, GB(32));
   }
   
   Allocator* bump = bump_allocator_create_reserve(KB(32));
@@ -155,11 +155,11 @@ run_tests()
   }
   
   
-  assert(round_up_to_pow2(1) == 1);
-  assert(round_up_to_pow2(3) == 4);
-  assert(round_up_to_pow2(29) == 32);
-  assert(round_up_to_pow2(32) == 32);
-  assert(round_up_to_pow2(120) == 128);
+  assert(round_up_to_pow2_u32(1) == 1);
+  assert(round_up_to_pow2_u32(3) == 4);
+  assert(round_up_to_pow2_u32(29) == 32);
+  assert(round_up_to_pow2_u32(32) == 32);
+  assert(round_up_to_pow2_u32(120) == 128);
   
   memory_tests();
   bsp_tests();
@@ -172,7 +172,7 @@ run_tests()
   
   
   // testing strings and exe path
-  String exe_file_path = platform_get_exe_path(scratch.a);
+  String exe_file_path = os_get_exe_path(scratch.a);
   assert(exe_file_path.str != 0);
   u64 run_tree_start = string_find_substring(exe_file_path, lit_str("run_tree"), 0, StringMatch_FindLast);
   u64 run_tree_end = run_tree_start + lit_str("run_tree").len;
@@ -180,18 +180,18 @@ run_tests()
   String run_tree_path = string_get_prefix(exe_file_path, run_tree_end);
   String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
   assert(run_tree_path_nullterm.len > 0);
-  assert(platform_pwd_set(run_tree_path_nullterm));
+  assert(os_pwd_set(run_tree_path_nullterm));
   
   // testing file io
-  Platform_File_Handle f = platform_file_open(lit_str("text.txt"), FileAccess_Read | FileAccess_Write, FileCreate_OpenExisting);
-  Platform_File_Info i = platform_file_get_info(f, scratch.a);
+  File_Handle f = os_file_open(lit_str("text.txt"), FileAccess_Read | FileAccess_Write, FileCreate_OpenExisting);
+  File_Info i = os_file_get_info(f, scratch.a);
   
-  Data d0 = platform_file_read_all(f, scratch.a);
+  Data d0 = os_file_read_all(f, scratch.a);
   assert(d0.size > 0);
   
   String s = lit_str("foooooooooobbbbbbaaaarrrrrr");
   Data d1 = { s.str, s.len };
-  bool r = platform_file_write_all(f, d1);
+  bool r = os_file_write_all(f, d1);
   assert(r);
   
 #if 0
@@ -211,5 +211,5 @@ run_tests()
     platform_thread_end(threads[j]);
   }
 #endif
-  
+  scratch_release(scratch);
 }

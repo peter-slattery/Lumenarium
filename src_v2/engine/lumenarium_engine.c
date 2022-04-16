@@ -2,18 +2,22 @@
 internal void
 en_init(App_State* state, App_Init_Desc desc)
 {
+  lumenarium_env_validate();
+  
   state->assemblies = assembly_array_create(permanent, desc.assembly_cap);
   
   Output* o = &state->output;
   register_output_method(o, OutputData_Invalid, 0, 0);
   register_output_method(o, OutputData_NetworkSACN, output_network_sacn_build, output_network_sacn_init());
   register_output_method(o, OutputData_ComUART, output_network_sacn_build, output_com_uart_init());
+  
+  lumenarium_env_validate();
 }
 
 internal void
 en_frame_prepare(App_State* state)
 {
-  
+  lumenarium_env_validate(); 
 }
 
 global r32 tt = 0;
@@ -21,6 +25,8 @@ global r32 tt = 0;
 internal void
 en_frame(App_State* state)
 {
+  lumenarium_env_validate();
+
   scratch_get(scratch);
   Assembly_Array assemblies = state->assemblies;
   
@@ -87,11 +93,14 @@ en_frame(App_State* state)
       invalid_code_path;
     }
   }
+
+  scratch_release(scratch);
+  lumenarium_env_validate();
 }
 
 internal void
 en_cleanup(App_State* state)
 {
-  
+  lumenarium_env_validate();
 }
 

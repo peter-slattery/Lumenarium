@@ -6,6 +6,7 @@
 /////////////////////////////////////////////////////////////
 // Interface
 
+typedef struct UI_Vertex UI_Vertex;
 struct UI_Vertex
 {
   v4 pos;
@@ -15,6 +16,7 @@ struct UI_Vertex
 
 #define UI_WIDGET_ID_VALID_BIT 1 << 31
 
+typedef union UI_Widget_Id UI_Widget_Id;
 union UI_Widget_Id
 {
   // equality of widget id's only relies on the value field
@@ -45,6 +47,7 @@ enum
 
 // akin to a css class, could be used to style multiple
 // elements
+typedef struct UI_Widget_Style UI_Widget_Style;
 struct UI_Widget_Style
 {
   UI_Widget_Style_Flags flags;
@@ -54,6 +57,7 @@ struct UI_Widget_Style
 };
 
 // combination of style info and per-instance data
+typedef struct UI_Widget_Desc UI_Widget_Desc;
 struct UI_Widget_Desc
 {
   UI_Widget_Style style;
@@ -63,6 +67,7 @@ struct UI_Widget_Desc
   v2 p_max;
 };
 
+typedef struct UI_Widget UI_Widget;
 struct UI_Widget
 {
   UI_Widget_Id id;
@@ -82,6 +87,7 @@ enum
   UIWidgetResult_MouseLeft_WentUp = 2,
 };
 
+typedef struct UI_Widget_Result UI_Widget_Result;
 struct UI_Widget_Result
 {
   UI_Widget_Id id;
@@ -89,7 +95,8 @@ struct UI_Widget_Result
   v2 drag;
 };
 
-enum UI_Widget_Kind
+typedef u32 UI_Widget_Kind;
+enum
 {
   UIWidget_Text,
   
@@ -111,16 +118,19 @@ enum UI_Widget_Kind
   UIWidget_Count,
 };
 
+typedef struct UI_Style_Sheet UI_Style_Sheet;
 struct UI_Style_Sheet
 {
   UI_Widget_Style styles[UIWidget_Count];
 };
 
+typedef struct UI_Widget_State UI_Widget_State;
 struct UI_Widget_State
 {
   v2 scroll;
 };
 
+typedef struct UI_Widget_Pool UI_Widget_Pool;
 struct UI_Widget_Pool
 {
   UI_Widget* free;
@@ -135,7 +145,8 @@ struct UI_Widget_Pool
   u32 states_cap;
 };
 
-enum UI_Layout_Mode
+typedef u8 UI_Layout_Mode;
+enum
 {
   // each element takes up a whole row
   UILayout_Columns,
@@ -145,6 +156,7 @@ enum UI_Layout_Mode
   UILayout_Rows,
 };
 
+typedef struct UI_Layout UI_Layout;
 struct UI_Layout
 {
   UI_Layout_Mode mode;
@@ -159,6 +171,7 @@ struct UI_Layout
   u32 cols;
 };
 
+typedef struct UI_Layout_Bounds UI_Layout_Bounds;
 struct UI_Layout_Bounds
 {
   v2 min;
@@ -167,6 +180,7 @@ struct UI_Layout_Bounds
 
 typedef void UI_Draw_Panel_Cb(u8* user_data, BSP_Node_Id id, BSP_Node node, BSP_Area area);
 
+typedef struct UI UI;
 struct UI
 {
   Geo_Quad_Buffer_Builder geo;
@@ -193,9 +207,9 @@ struct UI
   Input_State* input;
   
   m44 proj;
-  Platform_Shader shader;
-  Platform_Texture atlas_texture;
-  Platform_Geometry_Buffer per_frame_buffer;
+  Shader shader;
+  Texture atlas_texture;
+  Geometry_Buffer per_frame_buffer;
 };
 
 // Interface
@@ -203,16 +217,16 @@ struct UI
 internal UI ui_create();
 internal void ui_quad_push(UI* ui, v3 pmin, v3 pmax, v2 tmin, v2 tmax, v4 c);
 internal void ui_sprite_register(UI* ui, u8* pixels, u32 w, u32 h, u32 id);
-internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color);
+internal void ui_sprite_push_color(UI* ui, v3 pmin, v3 pmax, u32 id, v4 color);
 internal void ui_sprite_push(UI* ui, v3 pmin, v3 pmax, u32 id);
 internal v3   ui_sprite_char_push(UI* ui, v2 at, u32 codepoint, v4 color);
-internal void ui_draw(App_State* state);
+internal void ui_draw(UI* ui);
 
 // Widgets
 
 internal void ui_create_default_style_sheet();
 
-internal UI_Widget_Id     ui_widget_id_create(u32 index_in_parent, String string);
+internal UI_Widget_Id     ui_widget_id_create(String string, u32 index_in_parent);
 internal bool             ui_widget_id_equals(UI_Widget_Id a, UI_Widget_Id b);
 internal bool             ui_widget_id_is_valid(UI_Widget_Id h);
 

@@ -22,21 +22,21 @@ incenter_init(App_State* state)
   scratch_get(scratch);
   Allocator* s = scratch.a;
   
-  v3 start_p = v3{0, 0, 0};
+  v3 start_p = (v3){0, 0, 0};
   
   Assembly_Strip* vertical_strip = assembly_add_strip(&state->assemblies, ah, 123);
   assembly_strip_create_leds(
-                             &state->assemblies, 
-                             ah,
-                             vertical_strip, 
-                             start_p,
-                             v3{0, INCENTER_FEET(-6.5f), 0}, 
-                             123
-                             );
+    &state->assemblies, 
+    ah,
+    vertical_strip, 
+    start_p,
+    (v3){0, INCENTER_FEET(-6.5f), 0}, 
+    123
+  );
   
   r32 radius = INCENTER_FEET(10);
   
-  Random_Series rand = random_series_create(hash_djb2_to_u32("slkdjfalksdjf"));
+  Random_Series rand = random_series_create(hash_djb2_cstr_to_u32("slfalksdjf"));
   for (u32 i = 0; i < 40; i++)
   {
     Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
@@ -53,7 +53,9 @@ incenter_init(App_State* state)
     assembly_strip_create_leds(&state->assemblies, ah, strip, start_p, end_p, 123);
   }
   
-  ed_sculpture_updated(state, 5, 0.025f);
+  r32 rad = 0.05f;
+  ed_sculpture_updated(state, 10, rad);
+  scratch_release(scratch);
 }
 
 internal void

@@ -2122,7 +2122,7 @@ HMM_AverageVec3(hmm_vec3* Arr, int Len)
   hmm_vec3 Total = {};
   for (int i = 0; i < Len; i++) 
   {
-    Total += HMM_AddVec3(Total, Arr[i]);
+    Total = HMM_AddVec3(Total, Arr[i]);
   }
   
   hmm_vec3 Result = {};

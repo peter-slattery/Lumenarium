@@ -4,11 +4,13 @@
 #define LUMENARIUM_OUTPUT_SACN_H
 
 #define SACN_CID_BYTES 16
+typedef struct Sacn_Cid Sacn_Cid;
 struct Sacn_Cid
 {
   u8 bytes[SACN_CID_BYTES];
 };
 
+typedef struct Sacn Sacn;
 struct Sacn
 {
   Sacn_Cid cid;

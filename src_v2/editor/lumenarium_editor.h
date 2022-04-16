@@ -3,21 +3,23 @@
 #ifndef LUMENARIUM_EDITOR_H
 #define LUMENARIUM_EDITOR_H
 
+typedef struct Editor Editor;
 struct Editor
 {
+  v2 content_scale;
   v2 window_dim;
   Editor_Renderer renderer;
   UI ui;
   
   v3 camera_pos;
   
-  Platform_Geometry_Buffer sculpture_geo;
-  Platform_Shader          sculpture_shd;
-  Platform_Texture         sculpture_tex;
+  Geometry_Buffer sculpture_geo;
+  Shader          sculpture_shd;
+  Texture         sculpture_tex;
 };
 
 // NOTE(PS): call this any time sculpture data is updated if 
 // you want to see the sculpture in the visualizer
-internal void ed_sculpture_updated(App_State* state);
+internal void ed_sculpture_updated(App_State* state, r32 scale, r32 led_size);
 
 #endif //LUMENARIUM_EDITOR_H

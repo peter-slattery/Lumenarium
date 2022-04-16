@@ -3,6 +3,7 @@
 #ifndef LUMENARIUM_RANDOM_H
 #define LUMENARIUM_RANDOM_H
 
+typedef struct Random_Series Random_Series;
 struct Random_Series
 {
   u32 last_value;

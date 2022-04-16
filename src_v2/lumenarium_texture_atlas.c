@@ -3,6 +3,7 @@
 #ifndef LUMENARIUM_TEXTURE_ATLAS_CPP
 #define LUMENARIUM_TEXTURE_ATLAS_CPP
 
+typedef struct Texture_Atlas_Sprite Texture_Atlas_Sprite;
 struct Texture_Atlas_Sprite
 {
   u16 min_x;
@@ -13,6 +14,7 @@ struct Texture_Atlas_Sprite
   v2 draw_offset;
 };
 
+typedef struct Texture_Atlas Texture_Atlas;
 struct Texture_Atlas
 {
   u8* pixels;
@@ -38,7 +40,7 @@ texture_atlas_create(u32 width, u32 height, u32 cap, Allocator* allocator)
   result.height = (u16)height;
   for (u32 i = 0; i < width * height; i++) {
     u8* base = result.pixels + (i * 4);
-    *(u32*)base = 0x00FFFFFF;
+    *(u32*)base = 0xFF00FFFF;
   }
   
   result.ids = allocator_alloc_array(allocator, u32, cap);
@@ -180,7 +182,7 @@ texture_atlas_sprite_get_uvs(Texture_Atlas* ta, Texture_Atlas_Sprite sprite)
 }
 
 internal v4
-texture_atlas_sprite_get_uvs(Texture_Atlas* ta, u32 id)
+texture_atlas_sprite_id_get_uvs(Texture_Atlas* ta, u32 id)
 {
   Texture_Atlas_Sprite sprite = texture_atlas_sprite_get(ta, id);
   return texture_atlas_sprite_get_uvs(ta, sprite);

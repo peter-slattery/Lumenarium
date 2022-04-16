@@ -7,8 +7,7 @@ lumenarium_init()
   App_State* state = 0;
   
   permanent = bump_allocator_create_reserve(GB(2));
-  global_scratch_ = bump_allocator_create_reserve(GB(8));
-  platform_file_jobs_init();
+  global_scratch_ = bump_allocator_create_reserve(GB(4));
   
   run_tests();
   scratch_get(scratch);
@@ -18,22 +17,22 @@ lumenarium_init()
   state = allocator_alloc_struct(permanent, App_State);
   add_flag(state->flags, AppState_IsRunning);
   add_flag(state->flags, AppState_RunEditor);
+  add_flag(state->flags, AppState_RunUserSpace);
   
+  state->file_async_job_system = os_file_jobs_init();
   state->input_state = input_state_create(permanent);
   
-  String exe_file_path = platform_get_exe_path(scratch.a);
+  String exe_file_path = os_get_exe_path(scratch.a);
   u64 run_tree_start = string_find_substring(exe_file_path, lit_str("run_tree"), 0, StringMatch_FindLast);
   u64 run_tree_end = run_tree_start + lit_str("run_tree").len;
   String run_tree_path = string_get_prefix(exe_file_path, run_tree_end);
   String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
-  platform_pwd_set(run_tree_path_nullterm);
-  
+  os_pwd_set(run_tree_path_nullterm);
+
   en_init(state, desc);
-  if (has_flag(state->flags, AppState_RunEditor))
-  {
-    ed_init(state);
-  }
-  incenter_init(state);
+  if (has_flag(state->flags, AppState_RunEditor)) ed_init(state);
+  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_init(state);
+  scratch_release(scratch);
   return state;
 }
 
@@ -43,30 +42,24 @@ lumenarium_frame_prepare(App_State* state)
   allocator_clear(global_scratch_);
   
   input_state_swap_frames(state->input_state);
-  
+
   en_frame_prepare(state);
-  if (has_flag(state->flags, AppState_RunEditor))
-  {
-    ed_frame_prepare(state);
-  }
-  incenter_frame_prepare(state);
+  if (has_flag(state->flags, AppState_RunEditor)) ed_frame_prepare(state);
+  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame_prepare(state);
   
-  platform_file_async_jobs_do_work(4, (u8*)state);
+  file_async_jobs_do_work(&state->file_async_job_system, 4, (u8*)state);
 }
 
 internal void
 lumenarium_frame(App_State* state)
 {
   en_frame(state);
-  if (has_flag(state->flags, AppState_RunEditor))
-  {
-    ed_frame(state);
-  }
-  incenter_frame(state);
+  if (has_flag(state->flags, AppState_RunEditor)) ed_frame(state);
+  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame(state);
 }
 
 internal void
-lumenarium_event(Platform_Window_Event evt, App_State* state)
+lumenarium_event(Window_Event evt, App_State* state)
 {
   Input_Frame* frame = state->input_state->frame_hot;
   switch (evt.kind)
@@ -79,8 +72,8 @@ lumenarium_event(Platform_Window_Event evt, App_State* state)
     case WindowEvent_MouseMoved:
     {
       v2 mouse_pos_old = frame->mouse_pos;
-      frame->mouse_pos = v2{ (r32)evt.mouse_x, (r32)evt.mouse_y };
-      state->input_state->mouse_pos_delta = frame->mouse_pos - mouse_pos_old;
+      frame->mouse_pos = (v2){ (r32)evt.mouse_x, (r32)evt.mouse_y };
+      state->input_state->mouse_pos_delta = HMM_SubtractVec2(frame->mouse_pos, mouse_pos_old);
     } break;
     
     case WindowEvent_ButtonDown:
@@ -89,7 +82,7 @@ lumenarium_event(Platform_Window_Event evt, App_State* state)
       frame->key_flags[evt.key_code] = evt.key_flags;
       if (evt.key_code == KeyCode_MouseLeftButton)
       {
-        state->input_state->mouse_pos_down = v2{ 
+        state->input_state->mouse_pos_down = (v2){ 
           (r32)evt.mouse_x, (r32)evt.mouse_y 
         };
       }
@@ -112,10 +105,7 @@ lumenarium_event(Platform_Window_Event evt, App_State* state)
 internal void
 lumenarium_cleanup(App_State* state)
 {
-  incenter_cleanup(state);
+  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_cleanup(state);
   en_cleanup(state);
-  if (has_flag(state->flags, AppState_RunEditor))
-  {
-    ed_cleanup(state);
-  }
+  if (has_flag(state->flags, AppState_RunEditor)) ed_cleanup(state);
 }
