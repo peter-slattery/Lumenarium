@@ -210,6 +210,17 @@ then
   LinkerFlags=$LinkerFlags_osx
   LinkerLibs=$LinkerLibs_osx
 
+  if [ "${ARCH}" == "arm64" ]
+  then
+    CompilerFlags="${CompilerFlags} -arch arm64"
+  elif [ "${ARCH}" == "intel" ]
+  then
+    CompilerFlags="${CompilerFlags} -arch x86_64"
+  else
+    echo "ERROR: Unrecognized Arch: ${ARCH}"
+    exit 0
+  fi
+
 elif [ "${PLATFORM}" == "wasm" ]
 then
   Compiler=$Compiler_wasm
