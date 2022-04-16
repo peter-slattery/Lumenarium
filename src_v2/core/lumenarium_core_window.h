@@ -168,6 +168,15 @@ input_state_create(Allocator* a)
   Input_State* result = allocator_alloc_struct(a, Input_State);
   result->frame_hot  = result->frames + 0;
   result->frame_cold = result->frames + 1;
+
+  // Clear the new hot input frame
+  Key_Flags* hot_key_flags = result->frame_hot->key_flags;
+  Key_Flags* cold_key_flags = result->frame_cold->key_flags;
+  for (u32 i = 0; i < KeyCode_Count; i++)
+  {
+    hot_key_flags[i] = 0;
+    cold_key_flags[i] = 0;
+  }
   return result;
 }
 

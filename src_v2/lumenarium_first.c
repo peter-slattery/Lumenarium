@@ -9,7 +9,7 @@ lumenarium_init()
   permanent = bump_allocator_create_reserve(GB(2));
   global_scratch_ = bump_allocator_create_reserve(GB(4));
   
-  run_tests();
+  //run_tests();
   scratch_get(scratch);
   App_Init_Desc desc = incenter_get_init_desc();
   // TODO(PS): make sure the values make sense in desc
@@ -24,10 +24,28 @@ lumenarium_init()
   
   String exe_file_path = os_get_exe_path(scratch.a);
   u64 run_tree_start = string_find_substring(exe_file_path, lit_str("run_tree"), 0, StringMatch_FindLast);
-  u64 run_tree_end = run_tree_start + lit_str("run_tree").len;
-  String run_tree_path = string_get_prefix(exe_file_path, run_tree_end);
-  String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
-  os_pwd_set(run_tree_path_nullterm);
+  if (run_tree_start >= exe_file_path.cap)
+  {
+    u64 exe_path_start = string_find_substring(exe_file_path, lit_str("lumenarium"), 0, StringMatch_FindLast);
+    if (exe_path_start < exe_file_path.cap)
+    {
+      String run_tree_path = string_get_prefix(exe_file_path, exe_path_start);
+      String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
+      os_pwd_set(run_tree_path_nullterm);
+    }
+    else
+    {
+      printf("Unable to set working directory\n");
+    }
+  }
+  else
+  {
+    u64 run_tree_end = run_tree_start + lit_str("run_tree").len;
+    String run_tree_path = string_get_prefix(exe_file_path, run_tree_end);
+    String run_tree_path_nullterm = string_copy(run_tree_path, scratch.a);
+    os_pwd_set(run_tree_path_nullterm);
+  }
+  
 
   en_init(state, desc);
   if (has_flag(state->flags, AppState_RunEditor)) ed_init(state);

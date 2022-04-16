@@ -14,12 +14,32 @@ ed_sculpture_visualizer_init(App_State* state)
 }
 
 r32 cam_theta = 0;
+u32 offset = 0;
 
 internal void
 ed_sculpture_visualizer(App_State* state)
 {
   Editor* ed = state->editor;
   
+  Input_State* in = state->input_state;
+  u32 delta = 1;
+  if (input_key_is_down(in, KeyCode_LeftShift) || input_key_is_down(in, KeyCode_RightShift))
+  {
+    delta = 100;
+  }
+  if (input_key_went_down(in, KeyCode_UpArrow))
+  {
+    offset += delta;
+    printf("%d\n", offset);
+  }
+  if (input_key_went_down(in, KeyCode_DownArrow))
+  {
+    offset -= delta;
+    printf("%d\n", offset);
+  }
+  offset = clamp(0, offset, ed->sculpture_geo.indices_len);
+
+
   // Set the viewport to the current layout's region so that the sculpture
   // never overlaps any other ui elements
   UI_Layout l = *ed->ui.layout;
@@ -52,7 +72,7 @@ ed_sculpture_visualizer(App_State* state)
   u32 j = 2868;
   u32 k = ed->sculpture_geo.indices_len;
   u32 h = (i * 6) + 3;
-  geometry_drawi(ed->sculpture_geo, k);
+  geometry_drawi(ed->sculpture_geo, k, 0);
   
   // reset the viewport for all other rendering
   v2 wds = HMM_MultiplyVec2(ed->window_dim, ed->content_scale);

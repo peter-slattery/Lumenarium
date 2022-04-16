@@ -69,7 +69,7 @@ void geometry_buffer_update(Geometry_Buffer* buffer, r32* verts, u32 verts_offse
 // Shaders
 void geometry_bind(Geometry_Buffer geo);
 void shader_bind(Shader shader);
-void geometry_drawi(Geometry_Buffer geo, u32 indices);
+void geometry_drawi(Geometry_Buffer geo, u32 indices, u32 offset);
 void geometry_draw(Geometry_Buffer geo);
 void vertex_attrib_pointer(Geometry_Buffer geo, Shader shader, u32 count, u32 attr_index, u32 stride, u32 offset);
 void set_uniform(Shader shader, u32 index, m44 u);
@@ -282,14 +282,14 @@ shader_bind(Shader shader)
 }
 
 void
-geometry_drawi(Geometry_Buffer geo, u32 indices){
-  glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, 0);
+geometry_drawi(Geometry_Buffer geo, u32 indices, u32 offset){
+  glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, (void*)(offset * sizeof(u32)));
   os_gl_no_error();
 }
 
 void
 geometry_draw(Geometry_Buffer geo){
-  geometry_drawi(geo, geo.indices_len);
+  geometry_drawi(geo, geo.indices_len, 0);
 }
 
 void vertex_attrib_pointer(Geometry_Buffer geo, Shader shader, GLuint count, GLuint attr_index, GLuint stride, GLuint offset){

@@ -266,11 +266,17 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
   }
   ed->sculpture_geo = geometry_buffer_create(
     geo.buffer_vertex.values, 
-    geo.buffer_vertex.len, 
+    geo.buffer_vertex.len * geo.buffer_vertex.stride, 
     geo.buffer_index.values, 
     geo.buffer_index.len
   );
-  
+
+  for (u32 i = 0; i < 6; i++)
+  {
+    u32 index = geo.buffer_index.values[1008 + i];
+    r32* values = geo.buffer_vertex.values + (index * 5);
+    printf("%d -> %f %f %f, %f %f\n", index, values[0], values[1], values[2], values[3], values[4]);
+  }
   vertex_attrib_pointer(ed->sculpture_geo, ed->sculpture_shd, 3, ed->sculpture_shd.attrs[0], 5, 0);
   vertex_attrib_pointer(ed->sculpture_geo, ed->sculpture_shd, 2, ed->sculpture_shd.attrs[1], 5, 3);
   
@@ -278,7 +284,7 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
   // TODO(PS): map leds to pixels
   
   if (ed->sculpture_tex.w != 0)
-  {
+  { 
     invalid_code_path;
     // TODO(PS): destroy the old texture
   }

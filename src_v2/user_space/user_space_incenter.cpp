@@ -54,7 +54,7 @@ incenter_init(App_State* state)
   }
   
   r32 rad = 0.05f;
-  ed_sculpture_updated(state, 10, rad);
+  ed_sculpture_updated(state, 5, rad);
   scratch_release(scratch);
 }
 

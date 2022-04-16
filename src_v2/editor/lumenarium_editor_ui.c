@@ -29,7 +29,7 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   
   result.per_frame_buffer = geometry_buffer_create(
     result.geo.buffer_vertex.values, 
-    result.geo.buffer_vertex.cap, 
+    result.geo.buffer_vertex.cap * result.geo.buffer_vertex.stride, 
     result.geo.buffer_index.values, 
     result.geo.buffer_index.cap
   );
@@ -225,7 +225,7 @@ ui_draw(UI* ui)
   set_uniform(ui->shader, 0, ui->proj);
   texture_bind(ui->atlas_texture);
   geometry_bind(ui->per_frame_buffer);
-  geometry_drawi(ui->per_frame_buffer, ui->geo.buffer_index.len);
+  geometry_drawi(ui->per_frame_buffer, ui->geo.buffer_index.len, 0);
 }
 
 ////////////////////////////////////////////

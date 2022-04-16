@@ -288,9 +288,11 @@ geo_quad_buffer_builder_push_vt(Geo_Quad_Buffer_Builder* b, v3 p0, v3 p1, v3 p2,
   u32 i3 = geo_vertex_buffer_builder_push_vtc(&b->buffer_vertex, p3, t3, (v4){});
   
   geo_index_buffer_builder_push_quad(&b->buffer_index, i0, i1, i2, i3);
+  // u32 base = 2869;
+  // geo_index_buffer_builder_push_quad(&b->buffer_index, base + 0, base + 1, base + 2, base + 3);
 }
 
-internal void
+internal void 
 geo_quad_buffer_builder_push_v(Geo_Quad_Buffer_Builder* b, v3 p0, v3 p1, v3 p2, v3 p3)
 {
   u32 i0 = geo_vertex_buffer_builder_push_vtc(&b->buffer_vertex, p0, (v2){},  (v4){});
