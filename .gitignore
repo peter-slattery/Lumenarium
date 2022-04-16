@@ -8,3 +8,7 @@ reference/
 working_data/
 nssm_log.log
 sysroot/
+*.DS_Store
+*.vscode
+*.vscode/*
+*.dSYM
