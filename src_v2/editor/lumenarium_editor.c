@@ -235,10 +235,10 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
     {
       v3 c = pixels.positions[p].xyz;
       c = HMM_MultiplyVec3f(c, scale);
-      
       u32 pixel_count = pixels_created++;
       u32 pixel_x = pixel_count % pixels_dim;
       u32 pixel_y = pixel_count / pixels_dim;
+      
       r32 texel_x_min = (r32)pixel_x / (r32)pixels_dim;
       r32 texel_y_min = (r32)pixel_y / (r32)pixels_dim;
       r32 texel_x_max = texel_x_min + texel_dim;
@@ -254,10 +254,6 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
       v3 p2 = HMM_AddVec3(c, (v3){  r,  r, 0 });
       v3 p3 = HMM_AddVec3(c, (v3){ -r,  r, 0 });
       geo_quad_buffer_builder_push_vt(&geo, p0, p1, p2, p3, t0, t1, t2, t3);
-      if (p == 1008)
-      {
-        s32 x = 5;
-      }
     }
   }
   geo_vertex_buffers_validate(&geo.buffer_vertex);

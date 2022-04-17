@@ -131,7 +131,7 @@ ed_sculpture_visualizer(App_State* state)
   glViewport(0, 0, (s32)wds.x, (s32)wds.y);
 
   m44 ortho = HMM_Orthographic(0, ed->window_dim.x, ed->window_dim.y, 0, 0.01f, 200.0f);
-  m44 scale = HMM_Scale((v3){ed->window_dim.x / 2, ed->window_dim.y / 2, 100});
+  m44 scale = HMM_Scale((v3){ed->window_dim.x / 2, -ed->window_dim.y / 2, 100});
   m44 pos = HMM_Translate((v3){ed->window_dim.x / 2, ed->window_dim.y / 2, -99});
   m44 model = HMM_MultiplyMat4(pos, scale);
   m44 mvp = HMM_MultiplyMat4(ortho, model);

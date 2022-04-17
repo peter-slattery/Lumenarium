@@ -20,7 +20,6 @@ global XPlatform_Shader_Program_Src sculpture_shd = {
     "  FragColor = texture(tex, uv);\n"
     "}"
   ),
-
   .osx_vert = lit_str(
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
