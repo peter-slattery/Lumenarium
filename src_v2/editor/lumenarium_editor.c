@@ -11,7 +11,7 @@ ed_load_font_cb(File_Async_Job_Args result, u8* user_data)
     invalid_code_path;
   }
   
-  r32 scale = stbtt_ScaleForPixelHeight(&font, 18.0f);
+  r32 scale = stbtt_ScaleForPixelHeight(&font, 16.0f);
   s32 ascent, descent, line_gap;
   stbtt_GetFontVMetrics(&font, &ascent, &descent, &line_gap);
   ui->font_ascent = (r32)ascent * scale;
@@ -19,6 +19,8 @@ ed_load_font_cb(File_Async_Job_Args result, u8* user_data)
   ui->font_line_gap = (r32)line_gap * scale;
   if (ui->font_line_gap == 0) ui->font_line_gap = 5;
   
+  ui->font_texture_scale = 2;
+  scale *= ui->font_texture_scale;
   String c = lit_str("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}\\|;:'\",<.>/?`~");
   for (u64 i = 0; i < c.len; i++)
   {
@@ -28,7 +30,7 @@ ed_load_font_cb(File_Async_Job_Args result, u8* user_data)
     s32 x0, y0, x1, y1;
     stbtt_GetCodepointBitmapBoxSubpixel(&font, (char)c.str[i], scale, scale, 0, 0, &x0, &y0, &x1, &y1);
     
-    v2 offset = (v2){ 0, (r32)y0 };
+    v2 offset = (v2){ 0, (r32)y0 / ui->font_texture_scale };
     texture_atlas_register(&state->editor->ui.atlas, bp, (u32)w, (u32)h, id, offset, TextureAtlasRegistration_PixelFormat_Alpha);
     stbtt_FreeBitmap(bp, 0);
   }
@@ -103,14 +105,15 @@ Shader shd;
 Texture tex;
 
 internal void
-ed_init(App_State* state)
+ed_init(App_State* state, Editor_Desc* desc)
 {
   lumenarium_env_validate();
 
   Editor* editor = allocator_alloc_struct(permanent, Editor);
   zero_struct(*editor);
   state->editor = editor;
-  editor->content_scale = (v2){1,1};
+  editor->window_dim = desc->init_window_dim;
+  editor->content_scale = desc->content_scale;
   editor->ui = ui_create(4096, 4096, state->input_state, permanent);
   editor->ui.draw_panel_cb = ed_draw_panel;
   editor->ui.draw_panel_cb_data = (u8*)state;
@@ -158,7 +161,7 @@ ed_init(App_State* state)
   vertex_attrib_pointer(b, shd, 2, shd.attrs[1], 5, 3);
 
   u32 tex_pix[] = { 0xFFFFFFFF, 0xFF00FFFF, 0xFFFFFF00, 0xFFFF00FF };
-  tex = texture_create((u8*)tex_pix, 2, 2, 2);
+  tex = texture_create(texture_desc_default(2, 2), (u8*)tex_pix);
 
   ed_sculpture_visualizer_init(state);
   lumenarium_env_validate();
@@ -270,27 +273,20 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
     geo.buffer_index.values, 
     geo.buffer_index.len
   );
-
-  for (u32 i = 0; i < 6; i++)
-  {
-    u32 index = geo.buffer_index.values[1008 + i];
-    r32* values = geo.buffer_vertex.values + (index * 5);
-    printf("%d -> %f %f %f, %f %f\n", index, values[0], values[1], values[2], values[3], values[4]);
-  }
   vertex_attrib_pointer(ed->sculpture_geo, ed->sculpture_shd, 3, ed->sculpture_shd.attrs[0], 5, 0);
   vertex_attrib_pointer(ed->sculpture_geo, ed->sculpture_shd, 2, ed->sculpture_shd.attrs[1], 5, 3);
   
   // TODO(PS): make this have enough pixels for the sculpture
   // TODO(PS): map leds to pixels
   
-  if (ed->sculpture_tex.w != 0)
+  if (ed->sculpture_tex.desc.w != 0)
   { 
     invalid_code_path;
     // TODO(PS): destroy the old texture
   }
   
   u8* pixels = ed_leds_to_texture(state, &scratch, pixels_dim);
-  ed->sculpture_tex = texture_create(pixels, pixels_dim, pixels_dim, pixels_dim);
+  ed->sculpture_tex = texture_create(texture_desc_default(pixels_dim, pixels_dim), pixels);
 
   scratch_release(scratch);
   lumenarium_env_validate();
@@ -313,7 +309,7 @@ ed_frame(App_State* state)
   
   {
     scratch_get(scratch);
-    u32 w = ed->sculpture_tex.w;
+    u32 w = ed->sculpture_tex.desc.w;
     u8* pixels = ed_leds_to_texture(state, &scratch, w);
     texture_update(ed->sculpture_tex, pixels, w, w, w);
     scratch_release(scratch);

@@ -187,6 +187,7 @@ struct UI
   
   Texture_Atlas atlas;
   r32 font_ascent, font_descent, font_line_gap, font_space_width;
+  r32 font_texture_scale;
   
   UI_Widget_Pool widgets;
   UI_Style_Sheet* style_sheet;

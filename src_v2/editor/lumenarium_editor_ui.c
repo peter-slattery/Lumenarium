@@ -47,7 +47,7 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   
   // Texture Atlas
   result.atlas = texture_atlas_create(1024, 1024, 512, permanent);
-  result.atlas_texture = texture_create(result.atlas.pixels, 1024, 1024, 1024);
+  result.atlas_texture = texture_create(texture_desc_default(1024, 1024), result.atlas.pixels);
   
   u32 white_sprite[] = { 
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
@@ -117,8 +117,8 @@ ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
   result.uv = texture_atlas_sprite_get_uvs(&ui->atlas, sprite);
   
   v3 dim = (v3){ 
-    (r32)(sprite.max_x - sprite.min_x), 
-    (r32)(sprite.max_y - sprite.min_y),
+    (r32)(sprite.max_x - sprite.min_x) / ui->font_texture_scale, 
+    (r32)(sprite.max_y - sprite.min_y) / ui->font_texture_scale,
     0,
   };
   result.pmin = at;
@@ -126,7 +126,7 @@ ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
   result.pmin.XY = v2_floor(result.pmin.XY);
   result.pmax = HMM_AddVec3(result.pmin, dim);
   
-  result.baseline_after = (v3){ result.pmax.x, at.y, at.z };
+  result.baseline_after = (v3){ result.pmax.x + 1.5f, at.y, at.z };
   
   return result;
 }
@@ -193,12 +193,10 @@ ui_draw_panel(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data)
     c = PINK_V4;
   }
   
-  #if 0
   ui_sprite_push_color(ui, l0p0, l0p1, sid, c);
   ui_sprite_push_color(ui, l1p0, l1p1, sid, c);
   ui_sprite_push_color(ui, l2p0, l2p1, sid, c);
   ui_sprite_push_color(ui, l3p0, l3p1, sid, c);
-  #endif
 }
 
 internal void

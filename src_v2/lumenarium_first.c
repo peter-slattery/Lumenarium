@@ -2,7 +2,7 @@
 #include "user_space/user_space_incenter.cpp"
 
 internal App_State*
-lumenarium_init()
+lumenarium_init(Editor_Desc* ed_desc)
 {
   App_State* state = 0;
   
@@ -48,7 +48,7 @@ lumenarium_init()
   
 
   en_init(state, desc);
-  if (has_flag(state->flags, AppState_RunEditor)) ed_init(state);
+  if (has_flag(state->flags, AppState_RunEditor)) ed_init(state, ed_desc);
   if (has_flag(state->flags, AppState_RunUserSpace)) incenter_init(state);
   scratch_release(scratch);
   return state;

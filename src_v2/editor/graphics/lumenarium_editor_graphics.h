@@ -42,12 +42,18 @@ struct Geometry_Buffer
   u32 indices_len;
 };
 
+typedef struct Texture_Desc Texture_Desc;
+struct Texture_Desc
+{
+  u32 w, h, s;
+  u32 mag_filter, min_filter, fmt_internal, fmt_data;
+};
+
 typedef struct Texture Texture;
 struct Texture
 {
   u32 id;
-  
-  u32 w, h, s;
+  Texture_Desc desc;
 };
 
 typedef struct Graphics_Frame_Desc Graphics_Frame_Desc;
@@ -66,6 +72,8 @@ Geometry_Buffer geometry_buffer_create(r32* vertices, u32 vertices_len, u32* ind
 Shader shader_create(String code_vert, String code_frag, String* attribs, u32 attribs_len, String* uniforms, u32 uniforms_len);
 void geometry_buffer_update(Geometry_Buffer* buffer, r32* verts, u32 verts_offset, u32 verts_len, u32* indices, u32 indices_offset, u32 indices_len);
 
+Geometry_Buffer unit_quad_create();
+
 // Shaders
 void geometry_bind(Geometry_Buffer geo);
 void shader_bind(Shader shader);
@@ -75,7 +83,7 @@ void vertex_attrib_pointer(Geometry_Buffer geo, Shader shader, u32 count, u32 at
 void set_uniform(Shader shader, u32 index, m44 u);
 
 // Textures
-Texture texture_create(u8* pixels, u32 width, u32 height, u32 stride);
+Texture texture_create(Texture_Desc desc, u8* pixels);
 void texture_bind(Texture tex);
 void texture_update(Texture tex, u8* new_pixels, u32 width, u32 height, u32 stride);
 
@@ -168,6 +176,22 @@ geometry_buffer_update(
     gl.glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indices_offset * sizeof(u32), indices_len * sizeof(u32), (void*)indices);
   }
   os_gl_no_error();
+}
+
+Geometry_Buffer
+unit_quad_create()
+{
+  r32 z = 0;
+  r32 r = 1;
+  r32 verts[] = {
+    // pos         uv 
+    -r, -r,  z,    0, 0,
+     r, -r,  z,    1, 0,
+     r,  r,  z,    1, 1,
+    -1,  r,  z,    0, 1,
+  };
+  u32 indices[] = { 0, 1, 2,   0, 2, 3 };
+  return geometry_buffer_create(verts, sizeof(verts) / sizeof(r32), indices, 6);
 }
 
 Shader
@@ -300,8 +324,22 @@ void vertex_attrib_pointer(Geometry_Buffer geo, Shader shader, GLuint count, GLu
   os_gl_no_error();
 }
 
+Texture_Desc
+texture_desc_default(u32 width, u32 height)
+{
+  return (Texture_Desc){
+    .w = width,
+    .h = height,
+    .s = width,
+    .min_filter = GL_NEAREST,
+    .mag_filter = GL_LINEAR,
+    .fmt_internal = GL_RGBA,
+    .fmt_data = GL_RGBA
+  };
+}
+
 Texture
-texture_create(u8* pixels, u32 width, u32 height, u32 stride)
+texture_create(Texture_Desc desc, u8* pixels)
 {
   Texture result = {};
   glGenTextures(1, &result.id);
@@ -312,27 +350,26 @@ texture_create(u8* pixels, u32 width, u32 height, u32 stride)
   
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, desc.min_filter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, desc.mag_filter);
   os_gl_no_error();
   
   glTexImage2D(
     GL_TEXTURE_2D, 
     0, 
-    GL_RGBA, 
-    width, 
-    height, 
+    desc.fmt_internal, 
+    desc.w, 
+    desc.h, 
     0, 
-    GL_RGBA, 
+    desc.fmt_data, 
     GL_UNSIGNED_BYTE, 
     pixels
   );
   os_gl_no_error();
   
-  result.w = width;
-  result.h = height;
-  result.s = stride;
+  result.desc = desc;
   
+  glBindTexture(GL_TEXTURE_2D, 0);
   return result;
 }
 
@@ -342,7 +379,7 @@ texture_update(Texture tex, u8* new_pixels, u32 width, u32 height, u32 stride)
   // NOTE(PS): this function simply replaces the entire image
   // we can write a more granular version if we need it
   
-  assert(tex.w == width && tex.h == height && tex.s == stride);
+  assert(tex.desc.w == width && tex.desc.h == height && tex.desc.s == stride);
   texture_bind(tex);
   glTexSubImage2D(
     GL_TEXTURE_2D,
@@ -370,8 +407,8 @@ frame_begin(Graphics_Frame_Desc desc)
   glClearColor(cc.r, cc.g, cc.b, cc.a);
 
   v2 vmin = desc.viewport_min;
-  v2 vmax = desc.viewport_max;
-  glViewport((GLsizei)vmin.x, (GLsizei)vmin.y, (GLint)vmax.x, (GLint)vmax.y);
+  v2 vdim = HMM_SubtractVec2(desc.viewport_max, desc.viewport_min);
+  glViewport((GLsizei)vmin.x, (GLsizei)vmin.y, (GLint)vdim.x, (GLint)vdim.y);
   
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

@@ -289,12 +289,15 @@ int main (int arg_count, char** args)
   }
   glfwSetErrorCallback(glfw_error_callback);
 
+  s32 init_window_width = 1400;
+  s32 init_window_height = 700;
+
   glfwWindowHint(GLFW_DOUBLEBUFFER, true);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  GLFWwindow* window = glfwCreateWindow(1400, 700, "Lumenarium", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(init_window_width, init_window_width, "Lumenarium", NULL, NULL);
   if (!window)
   {
     printf("Error: Unable to create a glfw window\n");
@@ -310,15 +313,14 @@ int main (int arg_count, char** args)
   glfwSetCursorPosCallback(window, cursor_position_callback);
   glfwSetScrollCallback(window, scroll_callback);
 
-  App_State* state = lumenarium_init();
-  app_state_data = (u8*)state;
+  Editor_Desc ed_desc = {};
+  float xscale, yscale;
+  glfwGetWindowContentScale(window, &xscale, &yscale);
+  ed_desc.content_scale = (v2){ xscale, yscale };
+  ed_desc.init_window_dim = (v2){init_window_width, init_window_height};
 
-  if (has_flag(state->flags, AppState_RunEditor))
-  {
-    float xscale, yscale;
-    glfwGetWindowContentScale(window, &xscale, &yscale);
-    state->editor->content_scale = (v2){ xscale, yscale };
-  }
+  App_State* state = lumenarium_init(&ed_desc);
+  app_state_data = (u8*)state;
 
   bool running = true;
   r64 target_seconds_per_frame = 1.0 / 30.0f;
