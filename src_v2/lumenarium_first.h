@@ -17,6 +17,7 @@ global Allocator* global_scratch_; // gets reset at frame boundaries
 
 // Engine
 typedef struct Assembly_Strip Assembly_Strip;
+typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;
 #include "engine/lumenarium_engine_output.h"
 #include "engine/lumenarium_engine_assembly.h"
 #include "engine/output/lumenarium_output_uart.h"
@@ -48,6 +49,8 @@ lumenarium_env_validate_()
   bump_allocator_validate(permanent);
   bump_allocator_validate(global_scratch_);
   bump_allocator_validate(file_jobs_arena);
+
+  core_socket_tests();
 }
 
 

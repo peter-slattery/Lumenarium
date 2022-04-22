@@ -9,7 +9,8 @@ lumenarium_init(Editor_Desc* ed_desc)
   permanent = bump_allocator_create_reserve(GB(2));
   global_scratch_ = bump_allocator_create_reserve(GB(4));
   
-  //run_tests();
+  run_tests();
+  
   scratch_get(scratch);
   App_Init_Desc desc = incenter_get_init_desc();
   // TODO(PS): make sure the values make sense in desc
@@ -20,6 +21,7 @@ lumenarium_init(Editor_Desc* ed_desc)
   add_flag(state->flags, AppState_RunUserSpace);
   
   state->file_async_job_system = os_file_jobs_init();
+  open_sockets_init();
   state->input_state = input_state_create(permanent);
   
   String exe_file_path = os_get_exe_path(scratch.a);

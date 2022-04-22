@@ -45,14 +45,17 @@ u32 os_interlocked_cmp_exchg(volatile u32* dest, u32 new_value, u32 old_value);
 ///////////////////////////////////////
 //    Network Access
 
-Socket_Handle os_socket_create();
+Socket_Handle os_socket_create(s32 domain, s32 type, s32 protocol);
 bool          os_socket_bind();
 bool          os_socket_connect();
 bool          os_socket_close();
 Data          os_socket_recv();
-s32           os_Socket_set_listening();
-s32           os_Socket_send();
-s32           os_Socket_send_to();
-s32           os_Socket_set_opt();
+s32           os_socket_set_listening();
+s32           os_socket_send();
+s32           os_socket_send_to(Socket_Handle handle, u32 addr, u32 port, Data data, s32 flags);
+s32           os_socket_set_opt(Socket_Handle handle, int level, int option_name,
+u8* option_value, s32 option_len);
+
+void open_sockets_init();
 
 #endif // LUMENARIUM_OS

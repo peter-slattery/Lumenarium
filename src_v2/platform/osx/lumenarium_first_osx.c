@@ -8,6 +8,9 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <OpenGL/gl.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include "lumenarium_osx_memory.h"
 #include "../../core/lumenarium_core.h"
 #include "../lumenarium_os.h"
@@ -37,34 +40,15 @@ osx_err_print_(char* proc, char* sub_proc, s32 errsv)
 #define OS_FILE_HANDLE_TYPE s32
 #define OS_FILE_MAX_PATH PATH_MAX
 #define OS_FILE_INVALID_HANDLE -1
+#define OS_SOCKET_TYPE s32
+#define OS_SOCKET_INVALID_HANDLE -1
 #include "../shared/lumenarium_shared_file_tracker.h"
 #include "../shared/lumenarium_shared_file_async_work_on_job.h"
+#include "../shared/lumenarium_shared_network.h"
 #include "lumenarium_osx_file.h"
 #include "lumenarium_osx_time.h"
 #include "lumenarium_osx_graphics.h"
-
-void osx_tests()
-{
-  Ticks t0 = os_get_ticks();
-
-  // File Tests
-  File_Handle file = os_file_open(lit_str("text.txt"), FileAccess_Read | FileAccess_Write, FileCreate_OpenAlways);
-  File_Info info = os_file_get_info(file, global_scratch_);
-  Data d = os_file_read_all(file, global_scratch_);
-  os_file_write_all(file, d);
-  os_file_close(file);
-
-  // Path tests
-  String path_exe = os_get_exe_path(global_scratch_);
-  printf("%.*s\n", str_varg(path_exe));
-  String path = string_chop_last_slash(path_exe);
-  String path0 = string_copy(path, global_scratch_);
-  os_pwd_set(path0);
-
-  Ticks t1 = os_get_ticks();
-  Ticks td = get_ticks_elapsed(t0, t1);
-  r64 sd = ticks_to_seconds(td, os_get_ticks_per_second());
-}
+#include "lumenarium_osx_network.h"
 
 void 
 glfw_error_callback(int error, const char* description)
@@ -279,9 +263,7 @@ scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 int main (int arg_count, char** args)
-{
-  // osx_tests();
-  
+{  
   if (!glfwInit())
   {
     printf("Error: Could not initialize glfw.\n");

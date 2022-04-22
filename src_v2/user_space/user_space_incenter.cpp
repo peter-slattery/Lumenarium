@@ -40,6 +40,8 @@ incenter_init(App_State* state)
   for (u32 i = 0; i < 40; i++)
   {
     Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
+    strip->output_kind = OutputData_NetworkSACN;
+    strip->sacn_universe = i;
     
     r32 theta = random_series_next_unilateral(&rand) * r32_tau;
     r32 phi   = random_series_next_unilateral(&rand) * r32_tau;

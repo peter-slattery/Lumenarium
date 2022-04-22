@@ -1,7 +1,8 @@
 
 internal void
-register_output_method(Output* output, Output_Data_Kind kind, Build_Output_Data_Buffer* proc, u8* method_data)
+register_output_method(Output* output, Output_Data_Kind kind, Output_Method_Update* update, Build_Output_Data_Buffer* proc, u8* method_data)
 {
+  output->methods.update_procs[kind] = update;
   output->methods.procs[kind] = proc;
   output->methods.method_data[kind] = method_data;
 }
@@ -13,6 +14,7 @@ output_data_queue_push(Output_Data_Queue* q, u32 size, Output_Data_Kind kind)
   d->kind = kind;
   d->data.size = size;
   d->data.base = allocator_alloc(q->a, size);
+  sll_push(q->first, q->last, d);
   return d;
 }
 

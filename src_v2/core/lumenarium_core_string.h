@@ -1,6 +1,8 @@
 //////////////////////////////////////////////
 //         String
 
+internal u64 c_str_len(char* s);
+
 // NOTE(PS): even though this has a len and cap, it should always be
 // null terminated
 typedef struct String String;
@@ -296,4 +298,22 @@ dw_put_str(Data_Writer* w, String str)
   {
     dw_put_u8(w, str.str[i]);
   }
+}
+
+internal void
+dw_put_str_min_len(Data_Writer* w, String str, u64 min_len)
+{
+  u64 start = w->at;
+  dw_put_str(w, str);
+  if (str.len < min_len)
+  {
+    w->at = start + min_len;
+  }
+}
+
+internal void
+dw_put_str_min_len_nullterm(Data_Writer* w, String str, u64 min_len)
+{
+  dw_put_str_min_len(w, str, min_len);
+  w->data.base[w->at - 1] = '\0';
 }

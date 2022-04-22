@@ -199,7 +199,7 @@ dw_get_u8(Data_Writer* w)
   u8 result = 0;
   if (w->at < w->data.size)
   {
-    result = w->data.base[w->at++];
+    result = w->data.base[w->at];
   }
   return result;
 }

@@ -16,9 +16,11 @@ struct Sacn
   Sacn_Cid cid;
   s32 sequence_iter;
   String source_name;
+  Socket_Handle socket;
 };
 
 internal u8* output_network_sacn_init();
-internal void output_network_sacn_build(App_State* state, u32 assembly_id, Assembly_Strip* strip, u8* method_data, Output_Data_Queue* queue);
+internal void output_network_sacn_update(u8* method_data);
+internal void output_network_sacn_build(App_State* state, u32 assembly_id, Assembly_Pixel_Buffer* pixels, Assembly_Strip* strip, u8* method_data, Output_Data_Queue* queue);
 
 #endif //LUMENARIUM_OUTPUT_SACN_H

@@ -155,7 +155,7 @@ dw_get_u8(Data_Writer* w)
   u8 result = 0;
   if (w->at < w->data.size)
   {
-    result = w->data.base[w->at++];
+    result = w->data.base[w->at];
   }
   return result;
 }
@@ -225,6 +225,24 @@ dw_put_str(Data_Writer* w, String str)
   {
     dw_put_u8(w, str.str[i]);
   }
+}
+
+internal void
+dw_put_str_min_len(Data_Writer* w, String str, u64 min_len)
+{
+  u64 start = w->at;
+  dw_put_str(w, str);
+  if (str->len < min_len)
+  {
+    w->at = start + min_len;
+  }
+}
+
+internal void
+dw_put_str_min_len_nullterm(Data_Writer* w, String str, u64 min_len)
+{
+  dw_put_str_min_len(w, str, min_len);
+  w->data.base[w->at - 1] = '\0';
 }
 
 // TODO(PS): get functions

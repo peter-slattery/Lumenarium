@@ -49,11 +49,13 @@ struct Output_Data_Queue
   Allocator* a;
 };
 
-typedef void Build_Output_Data_Buffer(App_State* state, u32 assembly_id, Assembly_Strip* strip, u8* method_data, Output_Data_Queue* queue);
+typedef void Output_Method_Update(u8* method_data);
+typedef void Build_Output_Data_Buffer(App_State* state, u32 assembly_id, Assembly_Pixel_Buffer* pixels, Assembly_Strip* strip, u8* method_data, Output_Data_Queue* queue);
 
 typedef struct Output_Methods Output_Methods;
 struct Output_Methods
 {
+  Output_Method_Update* update_procs[OutputData_Count];
   Build_Output_Data_Buffer* procs[OutputData_Count];
   u8* method_data[OutputData_Count];
 };
@@ -64,7 +66,7 @@ struct Output
   Output_Methods methods;
 };
 
-internal void register_output_method(Output* output, Output_Data_Kind kind, Build_Output_Data_Buffer* proc, u8* method_data);
+internal void register_output_method(Output* output, Output_Data_Kind kind, Output_Method_Update* update, Build_Output_Data_Buffer* proc, u8* method_data);
 
 internal Output_Data* output_data_queue_push(Output_Data_Queue* q, u32 size, Output_Data_Kind kind);
 

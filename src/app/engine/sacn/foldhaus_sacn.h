@@ -275,10 +275,10 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
   Cursor = PackB1(Cursor, ADDRESS_AND_DATA_FORMAT);
   
   // DMP first property address
-  Cursor = PackB2(Cursor, 0);
+  Cursor = PackB1(Cursor, 0);
   
   // DMP Address Increment
-  Cursor = PackB2(Cursor, ADDRESS_INC);
+  Cursor = PackB1(Cursor, ADDRESS_INC);
   
   // Property Value Count -- Includes one byte for start code
   Cursor = PackB2(Cursor, SlotCount + 1);
