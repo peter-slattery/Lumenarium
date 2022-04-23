@@ -241,14 +241,14 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
       
       r32 texel_x_min = (r32)pixel_x / (r32)pixels_dim;
       r32 texel_y_min = (r32)pixel_y / (r32)pixels_dim;
-      r32 texel_x_max = texel_x_min + texel_dim;
-      r32 texel_y_max = texel_y_min + texel_dim;
+      r32 texel_x_max = texel_x_min + (texel_dim / 2);
+      r32 texel_y_max = texel_y_min + (texel_dim / 2);
       
-      v2 t0 = (v2){texel_x_min, texel_y_min};
-      v2 t1 = (v2){texel_x_max, texel_y_min};
+      v2 t0 = (v2){texel_x_max, texel_y_max};
+      v2 t1 = (v2){texel_x_max, texel_y_max};
       v2 t2 = (v2){texel_x_max, texel_y_max};
-      v2 t3 = (v2){texel_x_min, texel_y_max};
-      
+      v2 t3 = (v2){texel_x_max, texel_y_max};
+
       v3 p0 = HMM_AddVec3(c, (v3){ -r, -r, 0 });
       v3 p1 = HMM_AddVec3(c, (v3){  r, -r, 0 });
       v3 p2 = HMM_AddVec3(c, (v3){  r,  r, 0 });
@@ -282,7 +282,16 @@ ed_sculpture_updated(App_State* state, r32 scale, r32 led_size)
   }
   
   u8* pixels = ed_leds_to_texture(state, &scratch, pixels_dim);
-  ed->sculpture_tex = texture_create(texture_desc_default(pixels_dim, pixels_dim), pixels);
+  Texture_Desc pixel_texture_desc = {
+    .w = pixels_dim,
+    .h = pixels_dim,
+    .s = pixels_dim,
+    .min_filter = GL_NEAREST,
+    .mag_filter = GL_NEAREST,
+    .fmt_internal = GL_RGBA,
+    .fmt_data = GL_RGBA
+  };
+  ed->sculpture_tex = texture_create(pixel_texture_desc, pixels);
 
   scratch_release(scratch);
   lumenarium_env_validate();

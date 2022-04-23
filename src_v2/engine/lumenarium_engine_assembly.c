@@ -106,12 +106,12 @@ assembly_add_led(
 
 void
 assembly_strip_create_leds(
-                           Assembly_Array* a, 
-                           Assembly_Handle h, 
-                           Assembly_Strip* strip, 
-                           v3 start, v3 end, 
-                           u32 led_count 
-                           ){
+  Assembly_Array* a, 
+  Assembly_Handle h, 
+  Assembly_Strip* strip, 
+  v3 start, v3 end, 
+  u32 led_count 
+){
   v3 delta_total = HMM_SubtractVec3(end, start);
   v3 delta_step = HMM_MultiplyVec3f(delta_total, 1.0f / (r32)led_count);
   

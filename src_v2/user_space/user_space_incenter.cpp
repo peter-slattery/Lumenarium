@@ -18,6 +18,7 @@ incenter_init(App_State* state)
 {
   // create a fake sculpture
   Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("test"), 5043, 41);
+  //Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("test"), 20000, 150);
   
   scratch_get(scratch);
   Allocator* s = scratch.a;
