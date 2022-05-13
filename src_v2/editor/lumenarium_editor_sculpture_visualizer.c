@@ -112,11 +112,11 @@ ed_sculpture_visualizer(App_State* state)
   // TODO(PS): TEMPORARY CAMERA CODE
   cam_theta += 0.01f;
   r32 cam_r = 50;
-  //v3 camera_pos = (v3){sinf(cam_theta) * cam_r, 25, cosf(cam_theta) * cam_r};
   v3 camera_pos = (v3){ 0, -4.9, -cam_r };
+  //camera_pos = (v3){sinf(cam_theta) * cam_r, -4.9f, cosf(cam_theta) * cam_r};
   r32 aspect = view_dim.x / view_dim.y;
   m44 proj = HMM_Perspective(72.0, aspect, 0.01f, 500);
-  m44 view = HMM_LookAt(camera_pos, (v3){0,0,0}, (v3){0,1,0});
+  m44 view = HMM_LookAt(camera_pos, (v3){0,2,0}, (v3){0,1,0});
   
   shader_bind(ed->sculpture_shd);
   set_uniform(ed->sculpture_shd, 0, HMM_MultiplyMat4(proj, view));

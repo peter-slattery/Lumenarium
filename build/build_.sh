@@ -16,6 +16,7 @@ print_usage () {
   echo "  win32"
   echo "  osx"
   echo "  wasm"
+  echo "  raspi"
   echo
   echo "Arch Options: (architecture)"
   echo "  intel (valid with Platform Win32 and OSX) (default)"
@@ -84,6 +85,7 @@ popdir
 
 Compiler_win32="cl"
 Compiler_osx="clang"
+Compiler_raspi="clang"
 WasiSdk="/c/drive/apps/wasi-sdk"
 Compiler_wasm="$WasiSdk/bin/clang++"
 Compiler_linux="clang++"
@@ -94,6 +96,7 @@ PlatformEntry_win32="src_v2/platform/win32/lumenarium_first_win32.cpp"
 PlatformEntry_osx="src_v2/platform/osx/lumenarium_first_osx.c"
 PlatformEntry_wasm="src_v2/platform/wasm/lumenarium_first_wasm.cpp"
 PlatformEntry_linux="src_v2/platform/linux/lumenarium_first_linux.cpp"
+PlatformEntry_raspi="src_v2/platform/raspi/lumenarium_first_raspi.c"
 
 # Intermediate Outputs
 
@@ -101,6 +104,7 @@ CompilerOutput_win32="lumenarium.o"
 CompilerOutput_osx="lumenarium"
 CompilerOutput_wasm="lumenarium.wasm"
 CompilerOutput_linux=""
+CompilerOutput_raspi="lumenarium"
 
 # Executables
 
@@ -108,6 +112,7 @@ LinkerOutput_win32="lumenarium.exe"
 LinkerOutput_osx="lumenarium"
 LinkerOutput_wasm="lumenarium.wasm"
 LinkerOutput_linux=""
+LinkerOutput_raspi="lumenarium"
 
 # Wasm Sys Root
 WasmSysRoot="${PROJECT_PATH}/src_v2/platform/wasm/sysroot/"
@@ -139,6 +144,9 @@ CompilerFlags_wasm+=" -Wl,--allow-undefined" #
 CompilerFlags_wasm+=" -Wl,--export-all" #
 
 CompilerFlags_linux=""
+
+CompilerFlags_raspi="--target=arm-linux-gnueabihf" #target
+
 
 CompilerFlags_DEBUG_win32=""
 CompilerFlags_DEBUG_win32+=" -Od" #
@@ -172,6 +180,7 @@ LinkerFlags_wasm+=" --export-dynamic" #
 LinkerFlags_wasm+=" --unresolved-symbols=import-functions" #
 
 LinkerFlags_linux=""
+LinkerFlags_raspi="-fuse-ld=lld"
 
 LinkerFlags_DEBUG="-debug"
 LinkerFlags_PROD=""
@@ -184,6 +193,7 @@ LinkerLibs_win32="user32.lib kernel32.lib gdi32.lib opengl32.lib"
 LinkerLibs_osx="-framework OpenGL -framework Cocoa -framework IOKit ${PROJECT_PATH}/src_v2/libs/glfw_osx/lib-universal/libglfw3.a"
 LinkerLibs_wasm=""
 LinkerLibs_linux=""
+LinkerLibs_raspi=""
 
 # --------------------------------------------
 #         Varible Selection
@@ -241,6 +251,15 @@ then
   LinkerFlags=$LinkerFlags_linux
   LinkerLibs=$LinkerLibs_linux
 
+elif [ "${PLATFORM}" == "raspi" ]
+then
+  Compiler=$Compiler_raspi
+  PlatformEntry=$PlatformEntry_raspi
+  CompilerFlags=$CompilerFlags_raspi
+  CompilerOutput=$CompilerOutput_raspi
+  LinkerOutput=$LinkerOutput_raspi
+  LinkerFlags=$LinkerFlags_raspi
+  LinkerLibs=$LinkerLibs_raspi
 else
   echo "Attempting to build for an unknown platform: ${PLATFORM}"
   print_usage

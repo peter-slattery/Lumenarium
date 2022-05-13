@@ -96,9 +96,25 @@ typedef double r64;
 #  define min(a,b) ((a) > (b) ? (b) : (a))
 #endif
 
-#define lerp(a,t,b) (a) + ((1.0f - (t)) * (b))
+#define lerp(a,t,b) (a) + ((b - a) * (t))
 #define clamp(r0,v,r1) min((r1),max((r0),(v)))
 #define lerp_clamp(a,t,b) clamp((a),lerp((a),(t),(b)),(b))
+
+internal r32
+remap_r32(r32 v, r32 old_min, r32 old_max, r32 new_min, r32 new_max)
+{
+  r32 result = (v - old_min) / (old_max - old_min);
+  result = (result * (new_max - new_min)) + new_min;
+  return result;
+}
+
+internal r64
+remap_r64(r64 v, r64 old_min, r64 old_max, r64 new_min, r64 new_max)
+{
+  r64 result = (v - old_min) / (old_max - old_min);
+  result = (result * (new_max - new_min)) + new_min;
+  return result;
+}
 
 internal u32
 round_up_to_pow2_u32(u32 v)

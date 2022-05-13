@@ -15,6 +15,8 @@ global Allocator* global_scratch_; // gets reset at frame boundaries
 #define scratch_release(ident) allocator_scratch_end(&ident)
 #include "lumenarium_bsp.h"
 
+#include "patterns/patterns_math.h"
+
 // Engine
 typedef struct Assembly_Strip Assembly_Strip;
 typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;

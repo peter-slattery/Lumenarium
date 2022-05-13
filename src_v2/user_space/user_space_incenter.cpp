@@ -31,29 +31,38 @@ incenter_init(App_State* state)
     ah,
     vertical_strip, 
     start_p,
-    (v3){0, INCENTER_FEET(-6.5f), 0}, 
+    (v3){0, INCENTER_FEET(-4.5f), 0}, 
     123
   );
   
   r32 radius = INCENTER_FEET(10);
   
-  Random_Series rand = random_series_create(hash_djb2_cstr_to_u32("slfalksdjf"));
-  for (u32 i = 0; i < 40; i++)
+  Random_Series rand = random_series_create(hash_djb2_cstr_to_u32("slfsaassdjf"));
+  u32 i = 0;
+  while (i < 40)
+  //for (u32 i = 0; i < 40; i++)
   {
-    Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
-    strip->output_kind = OutputData_NetworkSACN;
-    strip->sacn_universe = i;
-    
     r32 theta = random_series_next_unilateral(&rand) * r32_tau;
     r32 phi   = random_series_next_unilateral(&rand) * r32_tau;
-    
     // spherical to cartesian conversion
     v3 end_p = {
       radius * sinf(phi) * cosf(theta),
       radius * sinf(phi) * sinf(theta),
       radius * cosf(phi)
     };
+
+    r32 down = HMM_DotVec3(HMM_NormalizeVec3(end_p), (v3){0, -1, 0});
+    if (down > 0.7f || down < -0.9f) continue;
+
+    Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
+    strip->output_kind = OutputData_NetworkSACN;
+    strip->sacn_universe = i;
+    
+    
+    
+    
     assembly_strip_create_leds(&state->assemblies, ah, strip, start_p, end_p, 123);
+    i++;
   }
   
   r32 rad = 0.05f;

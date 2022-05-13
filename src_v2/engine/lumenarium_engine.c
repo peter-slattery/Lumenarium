@@ -22,91 +22,7 @@ en_frame_prepare(App_State* state)
 
 global r32 tt = 0;
 
-r32
-curve_ease_in_out(r32 t)
-{
-  r32 tc = clamp(0, t, 1);
-  r32 theta = (tc * r32_pi) - (r32_pi / 2.0f);
-  r32 s = sinf(theta);
-  r32 result = 0.5f + (s / 2.0f);
-  return result;
-}
-
-#define incenter_pos_to_unit(p) (v4){ ((p.x / 6.0f) + 0.5f), ((p.y / 6.0f) + 0.5f), ((p.z / 6.0f) + 0.5f), 1.0f }
-
-void 
-test_pattern(Assembly_Pixel_Buffer pixels)
-{
-  for (u32 j = 0; j < pixels.len; j++)
-  {
-    v4 p = pixels.positions[j];
-    pixels.pixels[j].r = (u8)(((sinf((5 * tt) + (p.x * 10)) + 1) * 0.5f) * 255);
-    pixels.pixels[j].b = (u8)(((sinf((5 * tt) + (p.z * 10)) + 1) * 0.5f) * 255);
-  }
-}
-
-void
-pattern_debug(Assembly_Pixel_Buffer pixels)
-{
-  r32 scale = 6;
-  r32 offset = 0;
-
-  for (u32 j = 0; j < pixels.len; j++)
-  {
-    v4 p = pixels.positions[j];
-    v4 pp = incenter_pos_to_unit(p);
-    pixels.pixels[j].r = pp.x * 255;
-    pixels.pixels[j].g = pp.y * 255;
-    pixels.pixels[j].b = pp.z * 255;
-  }
-}
-
-void
-grow_pattern_sphere_function(Assembly_Pixel_Buffer pixels, v4 center, r32 radius, r32 falloff)
-{
-  for (u32 j = 0; j < pixels.len; j++)
-  {
-    v4 p = incenter_pos_to_unit(pixels.positions[j]);
-    r32 d0 = HMM_LengthVec4(HMM_SubtractVec4(p, center));
-    r32 d1 = falloff - fabsf(d0 - radius);
-    r32 b = d1 / falloff;
-
-    v3 color = {
-      .x = 0.5f + 0.5f * sinf(p.x * r32_tau * 4.313f + tt * 0.53f),
-      .y = 0.5f + 0.5f * cosf(0.2314f + p.y * r32_tau * 3.915f + tt * 0.5f),
-      .z = 0.2f + 0.8f * p.z,
-    };
-    v3 color_b = HMM_MultiplyVec3f(color, b);
-
-    pixels.pixels[j].r = color_b.x * 255;
-    pixels.pixels[j].g = color_b.y * 255;
-    pixels.pixels[j].b = color_b.z * 255;
-  }
-}
-void 
-grow_pattern(Assembly_Pixel_Buffer pixels)
-{
-  v4 center = (v4){};
-  r32 radius = 0;
-  r32 falloff = 0;
-  //phase 1 - light up to center
-  if (tt < 8)
-  {
-    r32 height = -0.2f + curve_ease_in_out(tt / 6) * 0.5f;
-    center = (v4){ 0.5f, 0.2f + height, 0.5f, 1 };
-    radius = 0.1f;
-    falloff = 0.2f;
-  }
-  else if (tt >= 8)
-  {
-    r32 t = (tt - 8) / 5;
-    center = (v4){ 0.5f, 0.5f, 0.5f, 1 };
-    radius = 0.1f + curve_ease_in_out(t) * 0.27f;
-    falloff = 0.2 - (curve_ease_in_out(t) * 0.1f);
-  }
-
-  grow_pattern_sphere_function(pixels, center, radius, falloff);
-}
+#include "../user_space/incenter_patterns.c"
 
 internal void
 en_frame(App_State* state)
@@ -127,7 +43,9 @@ en_frame(App_State* state)
   for (u32 i = 0; i < assemblies.len; i++)
   {
     Assembly_Pixel_Buffer pixels = assemblies.pixel_buffers[i];
-    grow_pattern(pixels);
+    //grow_pattern(pixels);
+    //pattern_color(pixels, 0, 0, 0);
+    pattern_demo(pixels);
   }
   
   ///////////////////////////////////////
