@@ -14,6 +14,8 @@
 #include "lumenarium_osx_memory.h"
 #include "../../core/lumenarium_core.h"
 #include "../lumenarium_os.h"
+
+#define PLATFORM_SUPPORTS_EDITOR 1
 #include "../../lumenarium_first.c"
 
 #undef internal

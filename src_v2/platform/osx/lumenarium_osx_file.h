@@ -151,13 +151,9 @@ os_file_read_all(File_Handle file_handle, Allocator* allocator)
   return result;
 }
 
-bool        
-os_file_write_all(File_Handle file_handle, Data file_data)
+bool
+os_file_write_(s32 os_handle, Data file_data)
 {
-  s32 os_handle = open_files_get_handle(file_handle);
-  if (os_handle == -1) return false;
-
-  lseek(os_handle, 0, SEEK_SET);
   s32 size_written = write(os_handle, file_data.base, file_data.size);
   if (size_written > 0 && size_written != file_data.size)
   {
@@ -171,6 +167,25 @@ os_file_write_all(File_Handle file_handle, Data file_data)
   }
 
   return true;
+}
+
+bool        
+os_file_write_all(File_Handle file_handle, Data file_data)
+{
+  s32 os_handle = open_files_get_handle(file_handle);
+  if (os_handle == -1) return false;
+
+  lseek(os_handle, 0, SEEK_SET);
+  return os_file_write_(os_handle, file_data);
+}
+
+bool
+os_file_write(File_Handle file_handle, Data file_data)
+{
+  s32 os_handle = open_files_get_handle(file_handle);
+  if (os_handle == -1) return false;
+
+  return os_file_write_(os_handle, file_data);
 }
 
 String      

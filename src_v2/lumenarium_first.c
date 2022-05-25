@@ -1,6 +1,14 @@
 #include "lumenarium_first.h"
 #include "user_space/user_space_incenter.cpp"
 
+void
+sculpture_updated()
+{
+  #if defined(PLATFORM_SUPPORTS_EDITOR)
+    ed_sculpture_updated();
+  #endif
+}
+
 internal App_State*
 lumenarium_init(Editor_Desc* ed_desc)
 {
@@ -50,7 +58,9 @@ lumenarium_init(Editor_Desc* ed_desc)
   
 
   en_init(state, desc);
+#if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_init(state, ed_desc);
+#endif
   if (has_flag(state->flags, AppState_RunUserSpace)) incenter_init(state);
   scratch_release(scratch);
   return state;
@@ -64,7 +74,9 @@ lumenarium_frame_prepare(App_State* state)
   input_state_swap_frames(state->input_state);
 
   en_frame_prepare(state);
+#if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_frame_prepare(state);
+#endif
   if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame_prepare(state);
   
   file_async_jobs_do_work(&state->file_async_job_system, 4, (u8*)state);
@@ -74,7 +86,9 @@ internal void
 lumenarium_frame(App_State* state)
 {
   en_frame(state);
+#if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_frame(state);
+#endif
   if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame(state);
 }
 
@@ -127,5 +141,7 @@ lumenarium_cleanup(App_State* state)
 {
   if (has_flag(state->flags, AppState_RunUserSpace)) incenter_cleanup(state);
   en_cleanup(state);
+#if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_cleanup(state);
+#endif
 }

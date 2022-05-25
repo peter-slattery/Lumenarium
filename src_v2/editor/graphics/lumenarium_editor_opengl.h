@@ -8,6 +8,51 @@
 
 void os_gl_no_error();
 
+// type mocking
+// so far, this is only for platforms that won't be using the editor
+// but which still need to compile it.
+#ifndef __gl_glext_h_
+typedef u32 GLsizei;
+typedef u32 GLuint;
+typedef u32 GLenum;
+typedef s32 GLint;
+typedef float GLfloat;
+typedef u8 GLchar;
+typedef bool GLboolean;
+
+#define GL_ARRAY_BUFFER 0
+#define GL_ELEMENT_ARRAY_BUFFER 0
+#define GL_VERTEX_SHADER 0
+#define GL_COMPILE_STATUS 0
+#define GL_FRAGMENT_SHADER 0
+#define GL_LINK_STATUS 0
+#define GL_TRUE true
+#define GL_FALSE false
+#define GL_UNSIGNED_INT 0
+#define GL_FLOAT 0
+#define GL_NEAREST 0
+#define GL_LINEAR 0
+#define GL_RGBA 0
+#define GL_TEXTURE_2D 0
+#define GL_TEXTURE_WRAP_S 0
+#define GL_TEXTURE_WRAP_T 0
+#define GL_TEXTURE_MIN_FILTER 0
+#define GL_TEXTURE_MAG_FILTER 0
+#define GL_UNSIGNED_BYTE 0
+#define GL_SRC_ALPHA 0
+#define GL_ONE_MINUS_SRC_ALPHA 0
+#define GL_CULL_FACE 0
+#define GL_DEPTH_TEST 0
+#define GL_LESS 0
+#define GL_COLOR_BUFFER_BIT 0
+#define GL_DEPTH_BUFFER_BIT 0
+#define GL_STATIC_DRAW 0
+#define GL_TRIANGLES 0
+#define GL_REPEAT 0
+#define GL_BLEND 0
+
+#endif
+
 // OpenGL 3.3+ Context Creation
 #if defined(PLATFORM_win32)
 typedef const char *WINAPI proc_wglGetExtensionsStringARB(HDC hdc);

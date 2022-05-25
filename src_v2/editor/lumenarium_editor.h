@@ -3,13 +3,6 @@
 #ifndef LUMENARIUM_EDITOR_H
 #define LUMENARIUM_EDITOR_H
 
-typedef struct Editor_Desc Editor_Desc;
-struct Editor_Desc
-{
-  v2 content_scale;
-  v2 init_window_dim;
-};
-
 typedef struct Editor Editor;
 struct Editor
 {

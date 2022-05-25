@@ -1,4 +1,3 @@
-
 Thread_Result
 thread_proc(Thread_Data* td)
 {
@@ -11,15 +10,15 @@ memory_allocator_tests(Allocator* a, bool run_free_tests)
 {
   // TestGroup("Allocator Push")
   {
-    for (u32 i = 0; i < 3; i++)
+    for (uint32_t i = 0; i < 3; i++)
     {
-      u8* buf0 = allocator_alloc(a, 256);
+      uint8_t* buf0 = allocator_alloc(a, 256);
       buf0[0] = 200;
       buf0[255] = 199;
       assert(buf0[0] == 200);
       assert(buf0[255] == 199);
       
-      u8* buf1 = allocator_alloc(a, 256);
+      uint8_t* buf1 = allocator_alloc(a, 256);
       buf1[0] = 201;
       buf1[255] = 202;
       assert(buf1 >= (buf0 + 256));
@@ -35,13 +34,13 @@ memory_allocator_tests(Allocator* a, bool run_free_tests)
   // TestGroup("Allocator Free")
   if (run_free_tests)
   {
-    for (u32 i = 0; i < 3; i++)
+    for (uint32_t i = 0; i < 3; i++)
     {
-      u8* buf0 = allocator_alloc(a, KB(4));
-      u8* buf1 = allocator_alloc(a, KB(4));
-      u8* buf2 = allocator_alloc(a, KB(4));
-      u8* buf3 = allocator_alloc(a, KB(4));
-      u8* buf4 = allocator_alloc(a, KB(4));
+      uint8_t* buf0 = allocator_alloc(a, KB(4));
+      uint8_t* buf1 = allocator_alloc(a, KB(4));
+      uint8_t* buf2 = allocator_alloc(a, KB(4));
+      uint8_t* buf3 = allocator_alloc(a, KB(4));
+      uint8_t* buf4 = allocator_alloc(a, KB(4));
       assert((buf1 - buf0) >= KB(4));
       assert((buf2 - buf0) >= KB(8));
       assert((buf3 - buf0) >= KB(12));
@@ -49,7 +48,7 @@ memory_allocator_tests(Allocator* a, bool run_free_tests)
       
       allocator_free(a, buf1, KB(4));
       allocator_free(a, buf2, KB(4));
-      u8* buf5 = allocator_alloc(a, KB(7));
+      uint8_t* buf5 = allocator_alloc(a, KB(7));
       // buf5 should get put in the place of buf1 since buf1 and 2 get
       // merged
       assert(buf5 == buf1);
@@ -57,7 +56,7 @@ memory_allocator_tests(Allocator* a, bool run_free_tests)
       allocator_free(a, buf4, KB(4));
       allocator_free(a, buf3, KB(4));
       allocator_free(a, buf0, KB(4));
-      u8* buf6 = allocator_alloc(a, KB(4));
+      uint8_t* buf6 = allocator_alloc(a, KB(4));
       assert(buf0 == buf6);
       
       allocator_clear(a);
@@ -73,9 +72,11 @@ memory_tests()
     u64 size = GB(32);
 #if defined(PLATFORM_wasm)
     size = KB(4);
+#elif defined(PLATFORM_raspi)
+    size = KB(32);
 #endif
     
-    u8* base = os_mem_reserve(size);
+    uint8_t* base = os_mem_reserve(size);
     os_mem_commit(base, KB(4));
     base[4095] = 200;
     assert(base[4095] == 200);
@@ -83,7 +84,7 @@ memory_tests()
     base[5000] = 200;
     assert(base[5000] == 200);
     os_mem_decommit(base, KB(8));
-    os_mem_release(base, GB(32));
+    os_mem_release(base, size);
   }
   
   Allocator* bump = bump_allocator_create_reserve(KB(32));
@@ -104,14 +105,14 @@ enum test_flags
   Test4 = 8,
 };
 
-internal void
+static void
 run_tests()
 {
   scratch_get(scratch);
   
   // basic 
   
-  u8 b = TestNone;
+  uint8_t b = TestNone;
   assert(!has_flag(b, TestNone));
   assert(!has_flag(b, Test1));
   add_flag(b, Test1);
@@ -133,34 +134,43 @@ run_tests()
   assert(has_flag(b, Test4));
   assert(has_flag(b, Test1 | Test4));
   assert(!has_flag(b, Test3));
-  
+
   // memory tests
-  
-  u8* a0 = allocator_alloc_array(scratch.a, u8, 32);
-  u8* a1 = allocator_alloc_array(scratch.a, u8, 32);
+  uint8_t* r0 = os_mem_reserve(1024);
+  uint8_t* r1 = os_mem_commit(r0, 512);
+  for (uint32_t i = 0; i < 512; i++) r1[i] = i;
+  os_mem_decommit(r1, 512);
+  os_mem_release(r0, 1024);
+  // r0[256] = 100; // this should break if you uncomment
+
+  uint8_t* a0 = allocator_alloc_array(scratch.a, uint8_t, 32);
+  uint8_t* a1 = allocator_alloc_array(scratch.a, uint8_t, 32);
   assert(a0 != a1);
   assert((a0 + 32) <= a1);
+
+  a1[0] = 25;
   
-  for (u32 i = 0; i < 32; i++)
+  for (uint32_t i = 0; i < 32; i++)
   {
-    a0[i] = (u8)i;
-    a1[i] = (u8)(100 + i);
+    a0[i] = (uint8_t)i;
+    a1[i] = (uint8_t)(100 + i);
   }
   
   
-  for (u32 i = 0; i < 32; i++)
+  for (uint32_t i = 0; i < 32; i++)
   {
     assert(a0[i] == i);
     assert(a1[i] == (100 + i));
   }
   
-  
+
   assert(round_up_to_pow2_u32(1) == 1);
   assert(round_up_to_pow2_u32(3) == 4);
   assert(round_up_to_pow2_u32(29) == 32);
   assert(round_up_to_pow2_u32(32) == 32);
   assert(round_up_to_pow2_u32(120) == 128);
   
+
   memory_tests();
   bsp_tests();
   
@@ -201,12 +211,12 @@ run_tests()
   
   // testing threads
   Platform_Thread_Handle threads[8];
-  for (u32 j = 0; j < 8; j++)
+  for (uint32_t j = 0; j < 8; j++)
   {
     threads[j] = platform_thread_begin(thread_proc, 0);
   }
   
-  for (u32 j = 0; j < 8; j++)
+  for (uint32_t j = 0; j < 8; j++)
   {
     platform_thread_end(threads[j]);
   }

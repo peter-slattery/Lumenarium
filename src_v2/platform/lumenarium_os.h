@@ -18,6 +18,7 @@ void        os_file_close(File_Handle file_handle);
 File_Info   os_file_get_info(File_Handle file_handle, Allocator* allocator);
 Data        os_file_read_all(File_Handle file_handle, Allocator* allocator);
 bool        os_file_write_all(File_Handle file_handle, Data file_data);
+bool        os_file_write(File_Handle file_handle, Data file_data);
 
 String      os_get_exe_path(Allocator* allocator);
 bool        os_pwd_set(String path);

@@ -5,7 +5,7 @@ Socket_Handle
 os_socket_create(s32 domain, s32 type, s32 protocol)
 {
   invalid_code_path;
-  return Socket_Handle{0};
+  return (Socket_Handle){0};
 }
 
 bool          
@@ -33,7 +33,7 @@ Data
 os_socket_recv()
 {
   invalid_code_path;
-  return Data{};
+  return (Data){};
 }
 
 s32           
@@ -62,12 +62,6 @@ os_socket_set_opt(Socket_Handle handle, int level, int option_name, u8* option_v
 {
   invalid_code_path;
   return 0;
-}
-
-void 
-open_sockets_init()
-{
-  invalid_code_path;
 }
 
 #endif // LUMENARIUM_LINUX_NETWORK_H

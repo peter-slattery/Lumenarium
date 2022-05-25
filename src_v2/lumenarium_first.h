@@ -26,11 +26,13 @@ typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;
 #include "engine/output/lumenarium_output_sacn.h"
 
 // Editor
-#include "editor/graphics/lumenarium_editor_opengl.h"
-#include "editor/graphics/lumenarium_editor_graphics.h"
-#include "editor/lumenarium_editor_ui.h"
-#include "editor/lumenarium_editor_renderer.h"
-#include "editor/lumenarium_editor.h"
+#if defined(PLATFORM_SUPPORTS_EDITOR)
+#  include "editor/graphics/lumenarium_editor_opengl.h"
+#  include "editor/graphics/lumenarium_editor_graphics.h"
+#  include "editor/lumenarium_editor_ui.h"
+#  include "editor/lumenarium_editor_renderer.h"
+#  include "editor/lumenarium_editor.h"
+#endif // PLATFORM_SUPPORTS_EDITOR
 
 //////////////////////////////////////////////
 //    Lumenarium Runtime Environment
@@ -86,9 +88,19 @@ struct App_State
   Assembly_Array assemblies;
   Output output;
   
-  Editor* editor;
+  #if defined(PLATFORM_SUPPORTS_EDITOR)
+    Editor* editor;
+  #endif
 };
 
+typedef struct Editor_Desc Editor_Desc;
+struct Editor_Desc
+{
+  v2 content_scale;
+  v2 init_window_dim;
+};
+
+void sculpture_updated();
 
 #include "engine/lumenarium_engine_assembly.c"
 #include "engine/lumenarium_engine.c"
@@ -96,9 +108,11 @@ struct App_State
 #include "engine/output/lumenarium_output_uart.c"
 #include "engine/output/lumenarium_output_sacn.c"
 
-#include "editor/lumenarium_editor_ui.c"
-#include "editor/lumenarium_editor_renderer.c"
-#include "editor/lumenarium_editor_sculpture_visualizer.c"
-#include "editor/lumenarium_editor.c"
+#if defined(PLATFORM_SUPPORTS_EDITOR)
+#  include "editor/lumenarium_editor_ui.c"
+#  include "editor/lumenarium_editor_renderer.c"
+#  include "editor/lumenarium_editor_sculpture_visualizer.c"
+#  include "editor/lumenarium_editor.c"
+#endif
 
 #endif //LUMENARIUM_FIRST_H
