@@ -18,12 +18,26 @@ random_series_create(u32 seed)
 }
 
 internal u32
-random_series_next(Random_Series* s)
+random_from_u32(u32 input)
 {
-  u32 result = s->last_value;
+  u32 result = input;
   result ^= result << 13;
   result ^= result >> 17;
   result ^= result << 5;
+  return result;
+}
+
+internal r32
+random_unilateral_from_u32(u32 input)
+{
+  r32 result = random_from_u32(input) / (r32)(0xFFFFFFFF);
+  return result;
+}
+
+internal u32
+random_series_next(Random_Series* s)
+{
+  u32 result = random_from_u32(s->last_value);
   s->last_value = result;
   return result;
 }

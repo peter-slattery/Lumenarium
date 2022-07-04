@@ -11,7 +11,7 @@ void os_gl_no_error();
 // type mocking
 // so far, this is only for platforms that won't be using the editor
 // but which still need to compile it.
-#ifndef __gl_glext_h_
+#if !defined(GL_GLEXT_VERSION)
 typedef u32 GLsizei;
 typedef u32 GLuint;
 typedef u32 GLenum;

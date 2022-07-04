@@ -1,11 +1,11 @@
 #include "lumenarium_first.h"
-#include "user_space/user_space_incenter.cpp"
+#include "user_space/user_space_incenter.c"
 
 void
-sculpture_updated()
+sculpture_updated(App_State* state, r32 scale, r32 led_size)
 {
   #if defined(PLATFORM_SUPPORTS_EDITOR)
-    ed_sculpture_updated();
+    ed_sculpture_updated(state, scale, led_size);
   #endif
 }
 
@@ -19,6 +19,8 @@ lumenarium_init(Editor_Desc* ed_desc)
   
   run_tests();
   
+  //cvtcsv_convert(lit_str("./data/incenter_test_data_clean.csv"));  
+
   scratch_get(scratch);
   App_Init_Desc desc = incenter_get_init_desc();
   // TODO(PS): make sure the values make sense in desc
@@ -85,11 +87,11 @@ lumenarium_frame_prepare(App_State* state)
 internal void
 lumenarium_frame(App_State* state)
 {
+  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame(state);
   en_frame(state);
 #if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_frame(state);
 #endif
-  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame(state);
 }
 
 internal void

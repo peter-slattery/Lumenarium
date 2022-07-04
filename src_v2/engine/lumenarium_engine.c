@@ -33,22 +33,6 @@ en_frame(App_State* state)
   Assembly_Array assemblies = state->assemblies;
   
   ///////////////////////////////////////
-  // Temp Pattern Simulation
-  
-  tt += 1.0f / 60.0f;
-  if (tt > 50) tt = 0;
-  
-  r32 hrange = 1;
-  r32 range = hrange * 2;
-  for (u32 i = 0; i < assemblies.len; i++)
-  {
-    Assembly_Pixel_Buffer pixels = assemblies.pixel_buffers[i];
-    //grow_pattern(pixels);
-    //pattern_color(pixels, 0, 0, 0);
-    pattern_demo(pixels);
-  }
-  
-  ///////////////////////////////////////
   // Output Data
   Output_Methods methods = state->output.methods;
 

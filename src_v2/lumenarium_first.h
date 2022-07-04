@@ -100,7 +100,10 @@ struct Editor_Desc
   v2 init_window_dim;
 };
 
-void sculpture_updated();
+void sculpture_updated(App_State* state, r32 scale, r32 led_size);
+
+#include "user_space/user_space_incenter.h"
+#include "../run_tree/data/incenter_test_data.c"
 
 #include "engine/lumenarium_engine_assembly.c"
 #include "engine/lumenarium_engine.c"
@@ -114,5 +117,7 @@ void sculpture_updated();
 #  include "editor/lumenarium_editor_sculpture_visualizer.c"
 #  include "editor/lumenarium_editor.c"
 #endif
+
+#include "tools/convert_csv.c"
 
 #endif //LUMENARIUM_FIRST_H
