@@ -18,6 +18,11 @@
 
 #include <errno.h>
 #include <linux/limits.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <time.h>
 
 #define linux_err_print(sub_proc) linux_err_print_((char*)__FUNCTION__, (char*)(sub_proc), errno)
 void 
@@ -38,11 +43,36 @@ linux_err_print_(char* proc, char* sub_proc, s32 errsv)
 #include "../linux/lumenarium_linux_time.h"
 #include "../linux/lumenarium_linux_network.h"
 
+
 int main (int arg_count, char** args)
 {
-  // temp
-  global_scratch_ = bump_allocator_create_reserve(MB(256));
-  run_tests();
+  // INIT APPLICATION
+  Editor_Desc ed_desc = {
+  };
+  App_State* state = lumenarium_init(&ed_desc);
 
+  bool running = true;
+  r64 target_seconds_per_frame = 1.0 / 30.0;
+  Ticks ticks_start = os_get_ticks();
+  while (has_flag(state->flags, AppState_IsRunning))
+  {
+    lumenarium_frame_prepare(state);
+
+    lumenarium_frame(state);
+    lumenarium_env_validate();
+
+    Ticks ticks_end = os_get_ticks();
+    r64 seconds_elapsed = get_seconds_elapsed(ticks_start, ticks_end, os_get_ticks_per_second());
+    while (seconds_elapsed < target_seconds_per_frame)
+    {
+      u32 sleep_time = (u32)(1000.0f * (target_seconds_per_frame - seconds_elapsed));
+      usleep(sleep_time);
+      ticks_end = os_get_ticks();
+      seconds_elapsed = get_seconds_elapsed(ticks_start, ticks_end, os_get_ticks_per_second());
+    }
+    ticks_start = ticks_end;
+  }
+
+  lumenarium_cleanup(state);
   return 0;
 }

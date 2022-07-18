@@ -192,6 +192,7 @@ run_tests()
   assert(run_tree_path_nullterm.len > 0);
   assert(os_pwd_set(run_tree_path_nullterm));
   
+
   // testing file io
   File_Handle f = os_file_open(lit_str("text.txt"), FileAccess_Read | FileAccess_Write, FileCreate_OpenExisting);
   File_Info i = os_file_get_info(f, scratch.a);
@@ -203,7 +204,7 @@ run_tests()
   Data d1 = { s.str, s.len };
   bool r = os_file_write_all(f, d1);
   assert(r);
-  
+
 #if 0
   // TODO(PS): these were causing startup problems but you weren't focusing on
   // threads/ When you build something multithreaded come back here and 

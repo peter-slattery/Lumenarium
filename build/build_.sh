@@ -145,8 +145,8 @@ CompilerFlags_wasm+=" -Wl,--export-all" #
 
 CompilerFlags_linux=""
 
-CompilerFlags_raspi="--target=arm-linux-gnueabihf" #target
-CompilerFlags_raspi+=""
+CompilerFlags_raspi="" # "--target=arm-rpi-linux-gnueabihf" # "--target=arm-linux-gnueabihf" #target
+CompilerFlags_raspi+="-lm" # link with local system math libraries
 
 
 CompilerFlags_DEBUG_win32=""
@@ -158,7 +158,10 @@ CompilerFlags_DEBUG_win32+=" -DDEBUG" #
 CompilerFlags_DEBUG="-O0"
 CompilerFlags_DEBUG+=" -g" #
 CompilerFlags_DEBUG+=" -DDEBUG" #
-CompilerFlags_DEBUG+=" -fsanitize=address" #address sanitizer
+if [ "${PLATFORM}" != "raspi" ]
+then
+  CompilerFlags_DEBUG+=" -fsanitize=address" #address sanitizer
+fi
 
 CompilerFlags_PROD=" -O3"
 

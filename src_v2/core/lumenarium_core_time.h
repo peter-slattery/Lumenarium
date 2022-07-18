@@ -1,6 +1,11 @@
 #if !defined(LUMENARIUM_CORE_TIME_H)
 #define LUMENARIUM_CORE_TIME_H
 
+// Ticks is a container that each os will use differently
+// the value of tick should never be accessed outside of 
+// lumenarium_core_time.h or the various os_time implementations.
+// Instead, treat it as an opaque struct and use the values returned
+// from the functions defined below. 
 typedef struct { s64 value; } Ticks;
 
 internal Ticks get_ticks_elapsed(Ticks start, Ticks end);

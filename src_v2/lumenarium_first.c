@@ -14,8 +14,8 @@ lumenarium_init(Editor_Desc* ed_desc)
 {
   App_State* state = 0;
   
-  permanent = bump_allocator_create_reserve(GB(2));
-  global_scratch_ = bump_allocator_create_reserve(GB(4));
+  permanent = bump_allocator_create_reserve(GB(1));
+  global_scratch_ = bump_allocator_create_reserve(GB(1));
   
   run_tests();
   
