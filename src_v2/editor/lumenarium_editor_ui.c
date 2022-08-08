@@ -9,6 +9,8 @@ ui_create(u32 widget_pool_cap, u32 verts_cap, Input_State* input, Allocator* a)
   zero_struct(result);
   result.input = input;
   
+  result.per_frame = bump_allocator_create_reserve(KB(4));
+
   // Widgets
   result.widgets.free = allocator_alloc_array(a, UI_Widget, widget_pool_cap);
   result.widgets.free_cap = widget_pool_cap;
@@ -134,6 +136,7 @@ ui_sprite_char_get_draw_cmd(UI* ui, v3 at, u32 codepoint)
 internal void
 ui_frame_prepare(UI* ui, v2 window_dim)
 {
+  bump_allocator_clear(ui->per_frame);
   ui->geo.buffer_vertex.len = 0;
   ui->geo.buffer_index.len = 0;
   
@@ -728,7 +731,7 @@ ui_layout_next_widget(UI* ui, UI_Widget_Kind kind)
 }
 
 internal void
-ui_textc(UI* ui, String string, v4 color)
+ui_textc(UI* ui, v4 color, String string)
 {
   UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Text);
   d.string = string;
@@ -738,16 +741,17 @@ ui_textc(UI* ui, String string, v4 color)
 }
 
 internal void
-ui_text(UI* ui, String string)
+ui_text(UI* ui, v4 color, String string)
 {
   UI_Widget_Desc d = ui_layout_next_widget(ui, UIWidget_Text);
-  d.string = string;
+  d.string = string_copy(string, ui->per_frame);
+  d.style.color_fg = color;
   UI_Widget_Result r = ui_widget_push(ui, d);
   ui_widget_pop(ui, r.id);
 }
 
 internal void
-ui_text_f(UI* ui, char* fmt, ...)
+ui_text_f(UI* ui, v4 color, char* fmt, ...)
 {
   scratch_get(scratch);
   
@@ -756,7 +760,7 @@ ui_text_f(UI* ui, char* fmt, ...)
   String string = string_fv(scratch.a, fmt, args);
   va_end(args);
   
-  ui_text(ui, string);
+  ui_text(ui, color, string);
   scratch_release(scratch);
 }
 

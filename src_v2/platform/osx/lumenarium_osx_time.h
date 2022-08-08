@@ -11,12 +11,14 @@ os_get_ticks()
   return result;
 }
 
+global mach_timebase_info_data_t osx_timebase_info;
+
 r64
 os_get_ticks_per_second()
 {
-  mach_timebase_info_data_t info;
-  mach_timebase_info(&info);
-  r64 to_nanos = (r64)info.numer / (r64)info.denom;
-  r64 to_secs = to_nanos / 10e9;
+  if (osx_timebase_info.denom == 0) {    
+    mach_timebase_info(&osx_timebase_info);
+  }
+  r64 to_secs = ((r64)osx_timebase_info.denom * 1e9) / (r64)osx_timebase_info.numer;
   return to_secs;
 }

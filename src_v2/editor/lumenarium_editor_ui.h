@@ -211,6 +211,8 @@ struct UI
   Shader shader;
   Texture atlas_texture;
   Geometry_Buffer per_frame_buffer;
+
+  Allocator* per_frame;
 };
 
 // Interface

@@ -57,6 +57,16 @@ random_series_next_bilateral(Random_Series* s)
   return result;
 }
 
-
+internal v4
+random_series_next_v4(Random_Series* s)
+{
+  v4 result = {
+    .x = random_series_next_unilateral(s),
+    .y = random_series_next_unilateral(s),
+    .z = random_series_next_unilateral(s),
+    .w = 1,
+  };
+  return result;
+}
 
 #endif //LUMENARIUM_RANDOM_H

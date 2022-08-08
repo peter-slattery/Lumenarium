@@ -1,5 +1,5 @@
 SCRIPT_REL_DIR=$(dirname "${BASH_SOURCE[0]}")
-$SCRIPT_REL_DIR/build_.sh debug raspi arm64
+$SCRIPT_REL_DIR/build_.sh debug osx arm64
 # $SCRIPT_REL_DIR/build_.sh debug wasm intel
 
 # pushd "run_tree/raspi/arm64/debug"

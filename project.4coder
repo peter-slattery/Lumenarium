@@ -16,7 +16,7 @@ blacklist_patterns = {
 load_paths_base = {
     { ".", .relative = true, .recursive = false, },
     { "build", .relative = true, .recursive = false, },
-    { "src", .relative = true, .recursive = true, },
+//    { "src", .relative = true, .recursive = true, },
     { "src_v2", .relative = true, .recursive = true, },
     { "meta", .relative = true, .recursive = true, },
     { "gs_libs", .relative = true, .recursive = true, },
@@ -42,8 +42,8 @@ command_list = {
     { .name = "build_v2",
         .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
         .cmd = { { "bash build\build.sh" , .os = "win"   },
-            { "./build_meta.sh", .os = "linux" },
-            { "./build_meta.sh", .os = "mac"   }, }, },
+            { "build/build.sh", .os = "linux" },
+            { "build/build.sh", .os = "mac"   }, }, },
 };
 fkey_command[1] = "build_v2";
 fkey_command[2] = "build_meta";

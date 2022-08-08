@@ -355,6 +355,17 @@ then
     ./lumenarium_wasm_imports.js
 
 else
+  
+  # Preprocessing Steps
+  ConvertCsvEntry="${PROJECT_PATH}/src_v2/tools/convert_csv.c"
+  $Compiler \
+    -o convert_csv \
+    $CompilerFlags \
+    $ConvertCsvEntry \
+    $LinkerLibs
+  
+  ./convert_csv
+
   echo "$Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs"
   $Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs
 

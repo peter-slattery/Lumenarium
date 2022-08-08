@@ -52,7 +52,6 @@ int main (int arg_count, char** args)
   App_State* state = lumenarium_init(&ed_desc);
 
   bool running = true;
-  r64 target_seconds_per_frame = 1.0 / 30.0;
   Ticks ticks_start = os_get_ticks();
   while (has_flag(state->flags, AppState_IsRunning))
   {
@@ -63,9 +62,9 @@ int main (int arg_count, char** args)
 
     Ticks ticks_end = os_get_ticks();
     r64 seconds_elapsed = get_seconds_elapsed(ticks_start, ticks_end, os_get_ticks_per_second());
-    while (seconds_elapsed < target_seconds_per_frame)
+    while (seconds_elapsed < state->target_seconds_per_frame)
     {
-      u32 sleep_time = (u32)(1000.0f * (target_seconds_per_frame - seconds_elapsed));
+      u32 sleep_time = (u32)(1000.0f * (state->target_seconds_per_frame - seconds_elapsed));
       usleep(sleep_time);
       ticks_end = os_get_ticks();
       seconds_elapsed = get_seconds_elapsed(ticks_start, ticks_end, os_get_ticks_per_second());

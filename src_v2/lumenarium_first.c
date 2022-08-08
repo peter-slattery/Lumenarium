@@ -1,5 +1,5 @@
 #include "lumenarium_first.h"
-#include "user_space/user_space_incenter.c"
+#include "user_space/incenter_user_space.c"
 
 void
 sculpture_updated(App_State* state, r32 scale, r32 led_size)
@@ -27,9 +27,15 @@ lumenarium_init(Editor_Desc* ed_desc)
   
   state = allocator_alloc_struct(permanent, App_State);
   add_flag(state->flags, AppState_IsRunning);
+  
+#if !defined(PLATFORM_raspi)
   add_flag(state->flags, AppState_RunEditor);
+#endif
+
   add_flag(state->flags, AppState_RunUserSpace);
   
+  state->target_seconds_per_frame = 1.0 / 30.0;
+
   state->file_async_job_system = os_file_jobs_init();
   open_sockets_init();
   state->input_state = input_state_create(permanent);

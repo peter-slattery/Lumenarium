@@ -91,7 +91,7 @@ ed_draw_panel(u8* user_data, BSP_Node_Id id, BSP_Node node, BSP_Area area)
   UI_Widget_Result r = ui_widget_push(ui, bg);
   ui_layout_row_begin(&title_layout, 4);
   {
-    ui_textc(ui, title, BLACK_V4);
+    ui_textc(ui, BLACK_V4, title);
   }
   ui_layout_row_end(&title_layout);
   ui_widget_pop(ui, r.id);

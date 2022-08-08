@@ -29,6 +29,22 @@ pm_smoothstep_v3(v3 p)
   return result;
 }
 
+r32
+pm_easeinout_cubic_r32(r32 v)
+{
+  assert(v >= 0 && v <= 1);
+  // Equation:
+  // [0,0.5) = 4 * v^3
+  // [0.5,1] = 1 - (-2 * v + 2)^3 / 2
+  if (v < 0.5f) {
+    return 4 * v * v * v;
+  } else {
+    r32 a = -2 * v + 2;
+    r32 a3 = a * a * a;
+    return 1 - a3 / 2;
+  }
+}
+
 ///// vector extensions
 
 v2 pm_lerp_v2(v2 a, r32 t, v2 b) { 
@@ -64,6 +80,9 @@ v4 pm_floor_v4(v4 v) { return (v4){ .x = floorf(v.x), .y = floorf(v.y), .z = flo
 v2 pm_fract_v2(v2 v) { return (v2){ .x = fractf(v.x), .y = fractf(v.y) }; }
 v3 pm_fract_v3(v3 v) { return (v3){ .x = fractf(v.x), .y = fractf(v.y), .z = fractf(v.z) }; }
 v4 pm_fract_v4(v4 v) { return (v4){ .x = fractf(v.x), .y = fractf(v.y), .z = fractf(v.z), .w = fractf(v.w) }; }
+
+r32 pm_sinf_01(r32 v) { return 0.5f + (0.5f * sinf(v)); }
+r32 pm_cosf_01(r32 v) { return 0.5f + (0.5f * cosf(v)); }
 
 v2 pm_sin_v2(v2 v) { return (v2){ .x = sinf(v.x), .y = sinf(v.y) }; }
 v3 pm_sin_v3(v3 v) { return (v3){ .x = sinf(v.x), .y = sinf(v.y), .z = sinf(v.z) }; }
@@ -199,7 +218,7 @@ pm_noise_v3_to_r32(v3 p)
     return result;
 }
 
-internal r32
+r32
 pm_fmb_3d(v3 x, r32 h)
 { 
   // r32 G = powf(2, -h);
@@ -287,7 +306,7 @@ typedef struct {
   u32 anchors_count;
 } Color_Ramp;
 
-internal v3
+v3
 color_ramp_eval(Color_Ramp ramp, r32 pct)
 {
   // find nearest two anchors
@@ -315,6 +334,52 @@ color_ramp_eval(Color_Ramp ramp, r32 pct)
   r32 pct_remapped = (pct - nearest_below.pct) / anchor_range;
   v3 result = pm_lerp_v3(nearest_below.color, pct_remapped, nearest_above.color);
   return result;
+}
+
+// Common SDFs
+// all assume the shape is centered at 0, 0, 0
+
+internal r32
+sdf_sphere2_d(r32 radius_squared, r32 dist_squared)
+{
+  r32 d = radius_squared - dist_squared;
+  r32 sdf = (d / radius_squared);
+  return max(0, sdf);
+}
+
+internal r32
+sdf_sphere2(r32 radius_squared, v3 p)
+{
+  r32 d2 = HMM_LengthSquaredVec3(p);
+  return sdf_sphere2_d(radius_squared, d2);
+}
+
+internal r32
+sdf_sphere(r32 radius, v3 p)
+{
+  return sdf_sphere2(radius * radius, p);
+}
+
+internal r32
+sdf_sphere_hull2_d(r32 radius_squared, r32 falloff, r32 dist_squared)
+{
+  r32 d = fabsf(falloff * (radius_squared - dist_squared));
+  r32 sdf = 1.0f - (d / radius_squared);
+  r32 result = max(0, sdf);
+  return result;
+}
+
+internal r32
+sdf_sphere_hull2(r32 radius_squared, r32 falloff, v3 p)
+{
+  r32 d2 = HMM_LengthSquaredVec3(p);
+  return sdf_sphere_hull2_d(radius_squared, falloff, d2);
+}
+
+internal r32
+sdf_sphere_hull(r32 radius, r32 falloff, v3 p)
+{
+  return sdf_sphere_hull2(radius * radius, falloff, p);
 }
 
 #endif // PATTERNS_MATH_H

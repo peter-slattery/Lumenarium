@@ -22,8 +22,6 @@ en_frame_prepare(App_State* state)
 
 global r32 tt = 0;
 
-#include "../user_space/incenter_patterns.c"
-
 internal void
 en_frame(App_State* state)
 {

@@ -7,15 +7,21 @@
 // DJB2
 // Source: http://www.cse.yorku.ca/~oz/hash.html
 
-internal u32
-hash_djb2_str_to_u32(char* str, u64 len)
+internal u32 
+hash_djb2_append_str_to_u32(u32 base, char* str, u64 len)
 {
-  u32 result = 5381;
+  u32 result = base;
   for (u64 i = 0; i < len; i++)
   {
     result = ((result << 5) + result) + (u8)str[i];
   }
   return result;
+}
+
+internal u32
+hash_djb2_str_to_u32(char* str, u64 len)
+{
+  return hash_djb2_append_str_to_u32(5381, str, len);
 }
 
 internal u32

@@ -48,6 +48,16 @@ color_v3_to_assembly_pixel(v3 c)
   };
 }
 
+Assembly_Pixel
+color_v3_to_assembly_pixel_faded(v3 c, r32 b)
+{
+  return (Assembly_Pixel){
+    .r = (u8)(c.x * b * 255),
+    .g = (u8)(c.y * b * 255),
+    .b = (u8)(c.z * b * 255),
+  };
+}
+
 u8
 u8_add_safe(u8 a, u8 b)
 {
@@ -118,6 +128,14 @@ assembly_pixel_blend(Assembly_Pixel a, Assembly_Pixel b, r32 t)
     .b = (u8)clamp(0, bf, 255),
   };
   return result;
+}
+
+Assembly_Pixel
+color_ramp_eval_pixel(Color_Ramp ramp, r32 pct)
+{
+  v3 c = color_ramp_eval(ramp, pct);
+  Assembly_Pixel r = color_v3_to_assembly_pixel(c);
+  return r;
 }
 
 v3
@@ -238,19 +256,6 @@ pattern_color(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, u8 r, u
     pixels.pixels[j].g = g; 
     pixels.pixels[j].b = b; 
   }
-
-#if 0
-  for (u32 strip_i = 0; strip_i < strips.len; strip_i++)
-  {
-    Assembly_Strip strip = strips.strips[strip_i];
-    for (u32 led_i = 0; led_i < strip.pixels_len; led_i++)
-    {
-      u32 pixel_index = strip.pixels[led_i];
-      pixels.pixels[pixel_index].r = 0;
-      pixels.pixels[pixel_index].g = 255;
-    }
-  }
-  #endif
 }
 
 void
@@ -282,8 +287,9 @@ pattern_blink(Assembly_Pixel_Buffer pixels)
 }
 
 u32 year = 2019;
-r32 month = (r32)MONTH_Jan;
+r32 month = (r32)MONTH_jan;
 
+#if 0
 s32
 test_data_find_nearest_row(Incenter_City_Id city, u32 year, Incenter_Month_Id month)
 {
@@ -492,8 +498,10 @@ pattern_test_data_scene(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strip
   }
 }
 
+#endif
+
 void
-pattern_demo(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
+pattern_demo(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
   // clear previous frame
   pattern_color(pixels, strips, 0, 0, 0);
@@ -523,12 +531,14 @@ pattern_demo(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
   }
 
   if (tt >= grow_delay + 9) {
-    pattern_test_data_scene_hombre(pixels, strips, data_less_than_color_a, data_less_than_color_b, data_border_color, data_greater_than_color);
+    //pattern_test_data_scene_hombre(pixels, strips, data_less_than_color_a, data_less_than_color_b, data_border_color, data_greater_than_color);
   }
 }
 
 
 //////////// MOOD BOARD DEMOS ////////////
+
+#define hex_color(r, g, b) (v3){ .x = (r32)r / 255.f, .y = (r32)g / 255.f, .z = (r32)b / 255.f }
 
 global Color_Ramp aurora_ramp = {
   .anchors = {
@@ -542,6 +552,18 @@ global Color_Ramp aurora_ramp = {
   .anchors_count = 5,
 };
 
+global Color_Ramp sun_ramp = {
+  .anchors = {
+    [0] = { .pct = 0,    .color = hex_color(  0,   0,  0), },
+    [1] = { .pct = 0.2,  .color = hex_color(  0,   0,  0), },
+    [2] = { .pct = 0.3f, .color = hex_color(255,  85,  0), },
+    [3] = { .pct = 0.6f, .color = hex_color(255,   0,  0), },
+    [4] = { .pct = 0.9,  .color = hex_color(255, 209, 54), },
+    [5] = { .pct = 1,    .color = hex_color(255, 209, 54), },
+  },
+  .anchors_count = 6
+};
+
 global Color_Ramp cities_ramp = {
   .anchors = {
     [0] = { .pct = 0, .color = { 0, 0, 0 } },
@@ -551,24 +573,50 @@ global Color_Ramp cities_ramp = {
   .anchors_count = 3
 };
 
+global Color_Ramp cities_sparkle_ramp = {
+  .anchors = {
+    [0] = { .pct = 0, .color = { 0, 0, 0 } },
+    [1] = { .pct = .2f, .color = { 0, 0, 0 } },
+    [2] = { .pct = .5f, .color = { 255.f / 255.f, 194.f / 255.f, 86.f / 255.5 } },
+    [3] = { .pct = 1,   .color = { 1, 1, 1 } },
+  },
+  .anchors_count = 3
+};
+
+global Color_Ramp xray_ramp = {
+  .anchors = {
+    [0] = { .pct = 0.0f, .color = { 32.f / 255.f,  2.f / 255.f,   186.f / 255.f } },
+    [1] = { .pct = 0.5f, .color = { 230.f / 255.f, 37.f / 255.f,  7.f / 255.f } },
+    [2] = { .pct = 1.0f, .color = { 255.f / 255.f, 162.f / 255.f, 0 } },
+  },
+  .anchors_count = 3
+};
+
 void
-pattern_demo_1(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
+pattern_aurora_led(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, v4 pos, u32 index, r32 scene_time)
 {
+  v4 p_unit = incenter_pos_to_unit(pos);
+  v3 p_offset = HMM_AddVec3(pos.xyz, (v3){ 213.145f, 99.321f, 71.3f });
+  v3 p_scaled = HMM_MultiplyVec3f(p_offset, 2);
+  r32 v = pm_fmb_3d(p_scaled, scene_time);
+  r32 vv = pm_smoothstep_r32(v);
+  v3 color = color_ramp_eval(aurora_ramp, vv);
+  pixels.pixels[index] = color_v3_to_assembly_pixel(color);
+}
+
+void
+pattern_aurora(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  r32 scene_time = ins->scene_time;
   for (u32 j = 0; j < pixels.len; j++)
   {
     v4 p = pixels.positions[j];
-    v4 p_unit = incenter_pos_to_unit(p);
-    v3 p_offset = HMM_AddVec3(p.xyz, (v3){ 213.145f, 99.321f, 71.3f });
-    v3 p_scaled = HMM_MultiplyVec3f(p_offset, 2);
-    r32 v = pm_fmb_3d(p_scaled, tt);
-    r32 vv = pm_smoothstep_r32(v);
-    v3 color = color_ramp_eval(aurora_ramp, vv);
-    pixels.pixels[j] = color_v3_to_assembly_pixel(color);
+    pattern_aurora_led(pixels, strips, p, j, scene_time);
   }
 }
 
 void
-pattern_demo_2(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
+pattern_demo_2(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
   for (u32 city = 0; city < city_count; city++)
   {
@@ -586,9 +634,10 @@ pattern_demo_2(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
 
 // sunrise
 void
-pattern_demo_3(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
+pattern_demo_3(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
-  v3 sun_dir = (v3){ sinf(tt), 0, cosf(tt) };
+  r32 scene_time = ins->scene_time;
+  v3 sun_dir = (v3){ sinf(scene_time), 0, cosf(scene_time) };
   for (u32 city = 0; city < city_count; city++)
   {
     Assembly_Strip strip = strips.strips[city + 1];
@@ -609,9 +658,403 @@ pattern_demo_3(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips)
       sky_color = HMM_MultiplyVec3f(sky_color, ds);
       v3 day_color = HMM_AddVec3(sky_color, cities_color);
 
-      v3 sun_color = sun_center_for_pos(pixels.positions[led_index], (v4){0.5f, 0.5f, 0.5f, 1}, .1f, .1f);
-      v3 color = HMM_AddVec3(day_color, sun_color);
+      //v3 sun_color = sun_center_for_pos(pixels.positions[led_index], (v4){0.5f, 0.5f, 0.5f, 1}, .1f, .1f);
+      v3 color = day_color; //HMM_AddVec3(day_color, sun_color);
       pixels.pixels[led_index] = color_v3_to_assembly_pixel(color);
     }
+  }
+}
+
+// random fill
+u32 city_hashes[city_count];
+u32 city_iters[city_count];
+void
+pattern_random_fill_prep()
+{
+  Random_Series rs = random_series_create(1337);
+  for (u32 i = 0; i < city_count; i++)
+  {
+    city_iters[i] = random_series_next(&rs) % 127;
+    city_hashes[i] = hash_djb2_cstr_to_u32(city_strings[i]);
+  }
+}
+
+void
+pattern_random_fill(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  pattern_color(pixels, strips, 1, 38, 45); // dull green
+
+  Assembly_Pixel color = color_v3_to_assembly_pixel((v3){1, .9f, 0});
+
+  r32 scene_time = ins->scene_time;
+  r32 dots_per_second = 5;
+  u32 iter_cap = scene_time * dots_per_second;
+  for (u32 city = 0; city < city_count; city++)
+  {
+    Random_Series rs = random_series_create(city_hashes[city]);
+    u32 city_iter = min(city_iters[city], iter_cap);
+    Assembly_Strip strip = strips.strips[city + 1];
+    for (u32 i = 0; i < city_iter; i++)
+    {
+      u32 led = random_series_next(&rs) % strip.pixels_cap;
+      u32 led_index = strip.pixels[led];
+      pixels.pixels[led_index] = color;
+    }
+  }      
+}
+
+r32
+hash_v3_to_r32(v3 p)
+{
+  u32 seed = hash_djb2_str_to_u32((char*)&p.x, 4);
+  seed = hash_djb2_append_str_to_u32(seed, (char*)&p.y, 4);
+  seed = hash_djb2_append_str_to_u32(seed, (char*)&p.z, 4);
+  Random_Series rs = random_series_create(seed);
+  return random_series_next_unilateral(&rs);
+}
+
+r32
+noise_v3_to_r32(v3 p, r32 scale)
+{
+  p = pm_abs_v3(HMM_MultiplyVec3f(p, scale));
+  v3 p_fl = pm_floor_v3(p);
+  v3 p_fr = pm_fract_v3(p);
+  v3 f = pm_smoothstep_v3(p_fr);
+  
+  v3 p_fl_0 = p_fl;
+  v3 p_fl_1 = HMM_AddVec3(p_fl, (v3){1, 0, 0});
+  v3 p_fl_2 = HMM_AddVec3(p_fl, (v3){0, 1, 0});
+  v3 p_fl_3 = HMM_AddVec3(p_fl, (v3){1, 1, 0});
+  v3 p_fl_4 = HMM_AddVec3(p_fl, (v3){0, 0, 1});
+  v3 p_fl_5 = HMM_AddVec3(p_fl, (v3){1, 0, 1});
+  v3 p_fl_6 = HMM_AddVec3(p_fl, (v3){0, 1, 1});
+  v3 p_fl_7 = HMM_AddVec3(p_fl, (v3){1, 1, 1});
+
+  r32 h0 = hash_v3_to_r32(p_fl_0);
+  r32 h1 = hash_v3_to_r32(p_fl_1);
+  r32 h2 = hash_v3_to_r32(p_fl_2);
+  r32 h3 = hash_v3_to_r32(p_fl_3);
+  r32 h4 = hash_v3_to_r32(p_fl_4);
+  r32 h5 = hash_v3_to_r32(p_fl_5);
+  r32 h6 = hash_v3_to_r32(p_fl_6);
+  r32 h7 = hash_v3_to_r32(p_fl_7);
+
+  r32 h0_1 = lerp(h0, f.x, h1);
+  r32 h2_3 = lerp(h2, f.x, h3);
+  r32 h4_5 = lerp(h4, f.x, h5);
+  r32 h6_7 = lerp(h6, f.x, h7);
+  r32 h01_23 = lerp(h0_1, f.y, h2_3);
+  r32 h45_67 = lerp(h4_5, f.y, h6_7);
+  // r32 result = lerp( 
+  //   lerp(
+  //     lerp(h0, f.x, h1),
+  //     f.y, 
+  //     lerp(h2, f.x, h3)
+  //   ),
+  //   f.z,
+  //   lerp(
+  //     lerp(h4, f.x, h5),
+  //     f.y,
+  //     lerp(h6, f.x, h7)
+  //   )
+  // );
+  r32 result = lerp(h01_23, f.z, h45_67);
+  
+  assert(result >= 0 && result <= 1);
+  return result;
+}
+
+r32
+fbm_3d(v3 x, r32 scale)
+{
+  v3  pp = HMM_MultiplyVec3f(x, scale);
+  r32 f  = 0.0f;    
+  f += 0.500000f * noise_v3_to_r32(pp, 1); pp = HMM_MultiplyVec3f(pp, 2.02);
+  f += 0.300000f * noise_v3_to_r32(pp, 1); pp = HMM_MultiplyVec3f(pp, 2.03);
+  f += 0.125000f * noise_v3_to_r32(pp, 1); pp = HMM_MultiplyVec3f(pp, 2.01);
+  f += 0.062500f * noise_v3_to_r32(pp, 1); pp = HMM_MultiplyVec3f(pp, 2.04);  
+  r32 d = 0.9875f;
+  f = f / d;
+  return f;
+}
+
+// Data Flow Pattern
+void
+pattern_add_data_flow(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, 
+                      r32 period, r32 offset, r32 radius,
+                      v3 color)
+{
+  Random_Series rs = random_series_create(133753);
+
+  for (u32 city = 0; city < city_count; city++)
+  {
+    Assembly_Strip strip = strips.strips[city + 1];
+    r32 city_offset = random_series_next_unilateral(&rs) * period;
+    for (u32 led = 0; led < strip.pixels_len; led++)
+    {
+      u32 led_index = strip.pixels[led];
+      r32 led_pct = (r32)led_index / (r32)strip.pixels_len;
+      r32 dist = (-1 * fmodf(led_pct + offset + city_offset, period)) + radius;
+      dist = max(dist, 0) / radius;
+      pixels.pixels[led_index] = assembly_pixel_add(
+        pixels.pixels[led_index],
+        color_v3_to_assembly_pixel_faded(color, dist)
+      );
+    }
+  }
+}
+
+void
+pattern_mask_noise(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, r32 scale, r32 offset)
+{
+  for (u32 city = 0; city < city_count; city++)
+  {
+    Assembly_Strip strip = strips.strips[city + 1];    
+    for (u32 led = 0; led < strip.pixels_len; led++)
+    {
+      u32 led_index = strip.pixels[led];
+      v4 p = pixels.positions[led_index];
+      r32 n = noise_v3_to_r32(HMM_AddVec3(p.xyz, (v3){offset, 0, 0}), 4);
+      pixels.pixels[led_index] = assembly_pixel_scale(pixels.pixels[led_index], n);
+    }
+  }
+}
+
+void
+pattern_data_flow(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  pattern_color(pixels, strips, 1, 38, 45); // dull green
+
+  r32 tt_base = ins->scene_time;
+  pattern_add_data_flow(pixels, strips, .6f,  tt_base,        .02f,  (v3){1, 0, .8f});  
+  pattern_add_data_flow(pixels, strips, .8f, tt_base * .5f,  .035f, (v3){0, 1, 0});  
+  pattern_add_data_flow(pixels, strips, 1.2f, tt_base * .35f, .06f,  (v3){0, 1, 1});  
+  pattern_mask_noise(pixels, strips, 5, tt);
+}
+
+
+void
+pattern_fast_noise_test(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  for (u32 city = 0; city < city_count; city++)
+  {
+    Assembly_Strip strip = strips.strips[city + 1];    
+    for (u32 led = 0; led < strip.pixels_len; led++)
+    {
+      u32 led_index = strip.pixels[led];
+      v4 p = pixels.positions[led_index];
+      r32 n = noise_v3_to_r32(HMM_AddVec3(p.xyz, (v3){tt, 0, 0}), 4);
+      pixels.pixels[led_index] = color_v3_to_assembly_pixel((v3){n,n,n});
+    }
+  }
+}
+
+// City Lights Twinkle
+void
+secondary_pattern_twinkle(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  Assembly_Strip strip = strips.strips[city_secondary_first];
+  for (u32 led = 0; led < strip.pixels_len; led++)
+  {
+    u32 led_index = strip.pixels[led];
+    v4 p = pixels.positions[led_index];
+    v4 p_unit = incenter_pos_to_unit(p);
+    v3 p_offset = HMM_AddVec3(p.xyz, (v3){ 213.145f, 99.321f, 71.3f });
+    v3 p_scaled = HMM_MultiplyVec3f(p_offset, 2);
+    r32 v = pm_fmb_3d(p_scaled, ins->scene_time);
+    r32 vv = pm_smoothstep_r32(v);
+    v3 color = color_ramp_eval(cities_sparkle_ramp, vv);
+    pixels.pixels[led_index] = color_v3_to_assembly_pixel(color);
+  }
+}
+
+Assembly_Pixel
+sun(v3 pos, r32 radius2, Assembly_Pixel back_color, r32 t)
+{
+  Assembly_Pixel color_sun   = { 255, 0,   0   };
+  r32 sun_radius = INCENTER_FEET(3);
+  r32 sun_radius2 = sun_radius * sun_radius;
+  r32 sun_b = sdf_sphere2_d(sun_radius2, radius2);
+  Assembly_Pixel result = {0, 0, 0};
+  if (sun_b > 0) {
+    sun_b = max(0, sun_b);
+    t *= 0.5f;
+    v3 pn = HMM_NormalizeVec3(pos);
+    pn = HMM_MultiplyVec3f(pn, -t);
+    pos = HMM_AddVec3(pos, pn);
+    pos = HMM_AddVec3(pos, (v3){ 4.1f * sin(t * 0.05f), 3 * cos(t * 0.05f), 0 });
+    r32 p = fbm_3d(pos, 2);
+    result = color_ramp_eval_pixel(sun_ramp, pm_smoothstep_r32(p));
+    result = assembly_pixel_blend(back_color, result, sun_b);
+  }
+  return result;
+}
+
+void
+pattern_sun_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  r32 st = (r32)ins->scene_time;
+  for (u32 j = 0; j < pixels.len; j++)
+  {
+    v4 pos = pixels.positions[j];
+    v4 p = incenter_pos_to_unit(pos);
+    r32 r2 = HMM_LengthSquaredVec3(pos.xyz);
+    pixels.pixels[j] = sun(pos.xyz, r2, (Assembly_Pixel){0, 0, 0}, st);
+  }
+
+  secondary_pattern_twinkle(pixels, strips, ins);
+}
+
+void
+pattern_sun_transition(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins, r32 radius_start, r32 radius_end, u32 back_scene_mode)
+{
+  r32 st = (r32)ins->transition_time;
+  r32 shrink_duration = INCENTER_TRANSITION_SUN_REVEAL_DURATION;
+  r32 shrink_progress_pct = (st / shrink_duration);
+  shrink_progress_pct = clamp(0, shrink_progress_pct, 1);
+  r32 radius = lerp(radius_start, shrink_progress_pct, radius_end);
+  r32 radius2 = radius * radius;
+  
+  //Assembly_Pixel color_shell = { 255, 255, 255 };
+  Assembly_Pixel color_void  = { 0,   0,   0   };
+  
+  r32 falloff = INCENTER_FEET(1);
+  r32 falloff2 = falloff * falloff;
+
+  Incenter_Scene    back_scene = ins->scenes[ins->scene_at];
+  Incenter_Pattern* back_pattern = back_scene.patterns[back_scene_mode];
+  back_pattern(pixels, strips, ins);
+  
+  for (u32 j = 0; j < pixels.len; j++)
+  {
+    v4 pos = pixels.positions[j];
+    v4 p = incenter_pos_to_unit(pos);
+    r32 r2 = HMM_LengthSquaredVec3(pos.xyz);
+    r32 b = sdf_sphere_hull2_d(radius2, 3, r2);
+    Assembly_Pixel back_color = pixels.pixels[j];
+    if (r2 > radius2) {      
+      back_color = sun(pos.xyz, r2, color_void, st);
+    }
+
+    v3 color_shell_v3 = {
+      .x = 0.5f + 0.5f * sinf(p.x * r32_tau * 4.313f + tt * 1.3f),
+      .y = 0.5f + 0.5f * cosf(0.2314f + p.y * r32_tau * 3.915f + tt),
+      .z = 0.2f + 0.8f * p.z,
+    };
+    Assembly_Pixel color_shell = color_v3_to_assembly_pixel(color_shell_v3);
+    pixels.pixels[j] = assembly_pixel_blend(back_color, color_shell, b);
+  }
+}
+
+void
+pattern_sun_transition_shrink(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  r32 radius_start = INCENTER_FEET(15);
+  r32 radius_end   = INCENTER_FEET(0);
+  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, Incenter_SceneMode_Passive);
+}
+
+void
+pattern_sun_transition_grow(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  r32 radius_start = INCENTER_FEET(0);
+  r32 radius_end   = INCENTER_FEET(15);
+  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, Incenter_SceneMode_Intro);
+}
+
+void
+pattern_bar_chart(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  Incenter_Scene scene = ins->scenes[ins->scene_at];
+  if (!scene.data) return;
+
+  pattern_color(pixels, strips, 0, 0, 0);
+  r32 scene_time = ins->scene_time;
+
+  for (u32 row_i = 0; row_i < scene.data_len; row_i++)
+  {
+    Incenter_Data_Row row = scene.data[row_i];
+    Assembly_Strip strip = strips.strips[row.id];
+    for (u32 led_i = 0; led_i < strip.pixels_len; led_i++)
+    {
+      u32 led_index = strip.pixels[led_i];
+
+      // Bar Chart
+      r32 pct = 1 - ((r32)led_i / (r32)strip.pixels_len);
+      if (pct < row.prop) {
+        r32 cpct = pct / row.prop;
+        Assembly_Pixel p = color_ramp_eval_pixel(xray_ramp, cpct);
+        pixels.pixels[led_index] = p;
+      }
+    }
+  }
+}
+
+////////////////////////////////////////
+// Felt Isolated
+
+Assembly_Pixel
+pattern_felt_isolated_color(u32 pixel_i, u32 pixels_len, r32 b)
+{
+  r32 pp = 1 - ((r32)pixel_i / (r32)pixels_len);
+  Assembly_Pixel color0 = color_ramp_eval_pixel(xray_ramp, pp);
+  Assembly_Pixel color = assembly_pixel_scale(color0, b);
+  return color;
+}
+
+void
+pattern_felt_isolated_intro(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  Incenter_Scene scene = ins->scenes[ins->scene_at];
+  pattern_color(pixels, strips, 0, 0, 0);
+  for (u32 row_i = 0; row_i < scene.data_len; row_i++)
+  {
+    Incenter_Data_Row row = scene.data[row_i];
+    Assembly_Strip strip = strips.strips[row.id];
+    u32 pixel_start = row.prop * strip.pixels_len;
+    u32 pixel_index = strip.pixels[pixel_start];
+    r32 row_offset = (.1439f * row_i);
+    r32 b = pm_sinf_01(ins->scene_time + row_offset);    
+    pixels.pixels[pixel_index] = pattern_felt_isolated_color(
+      pixel_start, 
+      strip.pixels_len, 
+      b
+    );
+  }
+}
+
+void
+pattern_felt_isolated_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  Incenter_Scene scene = ins->scenes[ins->scene_at];
+  r32 scene_time = ins->scene_time;
+
+  pattern_color(pixels, strips, 0, 0, 0);
+  for (u32 row_i = 0; row_i < scene.data_len; row_i++)
+  {
+    Incenter_Data_Row row = scene.data[row_i];
+    Assembly_Strip strip = strips.strips[row.id];
+    u32 pixel_start = row.prop * strip.pixels_len;
+    r32 row_offset = (.1439f * row_i);
+    r32 b = pm_sinf_01(ins->scene_time + row_offset);
+
+    r32 grow_duration = 4.0f;
+    r32 grow_delay = row_offset * 5;
+    r32 grow_time = (scene_time - 2.0f) - grow_delay;
+
+    r32 grow_pct = clamp(0, grow_time, grow_duration) / grow_duration;
+    r32 grow_pct_smoothed = pm_easeinout_cubic_r32(grow_pct);
+    u32 pixels_on = (strip.pixels_len - pixel_start) * grow_pct_smoothed;
+    u32 pixel_stop = clamp(pixel_start + 1, pixel_start + pixels_on, strip.pixels_len);
+    for (u32 pixel_i = pixel_start; pixel_i < pixel_stop; pixel_i++)
+    {
+      u32 pixel_index = strip.pixels[pixel_i];
+      pixels.pixels[pixel_index] = pattern_felt_isolated_color(
+        pixel_i, 
+        strip.pixels_len,
+        b
+      );
+    }
+
   }
 }
