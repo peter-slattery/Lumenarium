@@ -189,6 +189,7 @@ incenter_frame_prepare(App_State* state)
   
 }
 
+#if defined(PLATFORM_SUPPORTS_EDITOR)
 internal void
 incenter_sculpture_visualizer_ui(App_State* state, Editor* ed)
 {
@@ -204,6 +205,7 @@ incenter_sculpture_visualizer_ui(App_State* state, Editor* ed)
 
   ui_layout_pop(&ed->ui);
 }
+#endif
 
 internal void
 incenter_frame(App_State* state)

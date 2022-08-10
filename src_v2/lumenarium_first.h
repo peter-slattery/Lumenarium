@@ -114,9 +114,8 @@ void sculpture_updated(App_State* state, r32 scale, r32 led_size);
 #include "engine/output/lumenarium_output_uart.c"
 #include "engine/output/lumenarium_output_sacn.c"
 
-internal void incenter_sculpture_visualizer_ui(App_State* state, Editor* ed);
-
 #if defined(PLATFORM_SUPPORTS_EDITOR)
+internal void incenter_sculpture_visualizer_ui(App_State* state, Editor* ed);
 #  include "editor/lumenarium_editor_ui.c"
 #  include "editor/lumenarium_editor_renderer.c"
 #  include "editor/lumenarium_editor_sculpture_visualizer.c"
