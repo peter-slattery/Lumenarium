@@ -1058,3 +1058,17 @@ pattern_felt_isolated_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array
 
   }
 }
+
+void
+pattern_rainbow(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  Assembly_Pixel p = color_v3_to_assembly_pixel((v3){
+    .x = pm_sinf_01(ins->scene_time),
+    .y = pm_cosf_01(ins->scene_time),
+    .z = 0.5f,
+  });
+  for (u32 j = 0; j < pixels.len; j++)
+  {
+    pixels.pixels[j] = p;
+  }
+}

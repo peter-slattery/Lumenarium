@@ -53,8 +53,8 @@ incenter_scene_descs_init()
   incenter_scene_descs[Incenter_Scene_WelcomeHome] = (Incenter_Scene){
     .name = "WelcomeHome",
     .patterns = {
-      [Incenter_SceneMode_Intro] = pattern_sun_passive,
-      [Incenter_SceneMode_Passive] = pattern_sun_passive,
+      [Incenter_SceneMode_Intro] = pattern_rainbow,
+      [Incenter_SceneMode_Passive] = pattern_rainbow,
       [Incenter_SceneMode_Input] = pattern_sun_passive,
     },
   };
