@@ -44,6 +44,7 @@ incenter_scene_go_to(Incenter_State* ins, u32 index)
   ins->transition_time = 0;
   ins->scene_next = index % ins->scenes_cap;
   ins->scene_mode = Incenter_SceneMode_TransitioningOut;
+  printf("Switching To: %s\n", ins->scenes[ins->scene_next].name);
 }
 
 internal void
@@ -94,7 +95,7 @@ incenter_scene_render(App_State* state, Incenter_State* ins)
       pattern = scene.patterns[ins->scene_mode];
     } break;
   }
-  
+
   Assembly_Array assemblies = state->assemblies;
   if (pattern) 
   {
@@ -181,6 +182,8 @@ incenter_init(App_State* state)
   r32 rad = 0.05f;
   sculpture_updated(state, 5, rad);
   scratch_release(scratch);
+
+  printf("Incenter Initialized\n");
 }
 
 internal void
@@ -222,6 +225,7 @@ incenter_frame(App_State* state)
   ins->scene_time += state->target_seconds_per_frame;
   ins->transition_time += state->target_seconds_per_frame;
   incenter_scene_render(state, ins);
+
 }
 
 internal void
