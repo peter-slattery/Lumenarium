@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure an error makes the script bail
+set -e
+
 # --------------------------------------------
 #            Usage 
 
@@ -330,8 +333,8 @@ echo "Building To: ${BuildDir}/${LinkerOutput}"
 echo
 pushdir $BuildDir
 
-rm ${CompilerOutput} 2> /dev/null
-rm ${LinkerOutput} 2> /dev/null
+echo "Cleaning: ${CompilerOutput} and ${LinkerOutput}"
+rm -rf ${CompilerOutput} ${LinkerOutput}
 
 echo "COMPILING..."
 if [ $PLATFORM == "win32" ]
