@@ -23,6 +23,8 @@ os_page_size()
   if (!(c)) { \
     linux_memory_assert_always;\
   }} while(false)
+#else
+#  define linux_memory_assert(c) 
 #endif // DEBUG
 
 #define SIZE_T_MAX_U64 (uint64_t)((size_t)0 - 1)
