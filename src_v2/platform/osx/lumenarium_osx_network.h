@@ -1,3 +1,15 @@
+static Socket_Error os_osx_socket_error_translation_table[] = {
+  [EAGAIN] = SocketError_EAGAIN,
+  [EBADF] = SocketError_EBADF,
+  [ECONNREFUSED] = SocketError_ECONNREFUSED,  
+  [EFAULT] = SocketError_EFAULT,  
+  [EINTR] = SocketError_EINTR,  
+  [EINVAL] = SocketError_EINVAL,  
+  [ENOMEM] = SocketError_ENOMEM,  
+  [ENOTCONN] = SocketError_ENOTCONN,  
+  [ENOTSOCK] = SocketError_ENOTSOCK,  
+};
+
 Socket_Handle 
 os_socket_create(s32 domain, s32 type, s32 protocol)
 {
@@ -17,9 +29,21 @@ os_socket_create(s32 domain, s32 type, s32 protocol)
 }
 
 bool          
-os_socket_bind()
+os_socket_bind(Socket_Handle socket, u32 port)
 {
-  return false;
+  OS_SOCKET_TYPE sock = open_sockets_get(socket);
+  struct sockaddr_in addr = {
+    .sin_family = AF_INET,
+    .sin_addr.s_addr = INADDR_ANY,
+    .sin_port = htons(port),
+  };
+  s32 bind_res = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+  if (bind_res < 0) {
+    printf("ERROR: os_socket_bind - %d\n", bind_res);
+    return false;
+  }
+
+  return true;
 }
 
 bool          
@@ -29,15 +53,68 @@ os_socket_connect()
 }
 
 bool          
-os_socket_close()
+os_socket_close(Socket_Handle handle)
 {
-  return false;
+  OS_SOCKET_TYPE sock = open_sockets_get(handle);
+  close(sock);
+  return true;
 }
 
 Data          
 os_socket_recv()
 {
   return (Data){};
+}
+
+Data          
+os_socket_recvfrom(Socket_Handle handle, u8* buffer, u32 buffer_size, Socket_Error* err_out)
+{
+  OS_SOCKET_TYPE sock = open_sockets_get(handle);
+  
+  Data result = {
+    .base = buffer,
+    .size = buffer_size,
+  };
+
+  struct sockaddr from = {};
+  s32 from_len = sizeof(from);
+  
+  // TODO: Look into MSG_PEEK - there might be a way to determine
+  // the size of the packet without losing it, even on UDP/SOCK_DGRAM
+  // connections
+  s32 flags = 0;
+  
+  s32 r = recvfrom(
+    sock, 
+    result.base, 
+    result.size, 
+    flags,
+    &from,
+    (socklen_t*)&from_len
+  );
+  if (r < 0) {
+    if (err_out) {
+      *err_out = os_osx_socket_error_translation_table[errno];
+    } else {
+      printf("UNHANDLED ERROR: os_socket_recvfrom\n\t");
+      switch (errno)
+      {
+        case EAGAIN:       printf("EAGAIN\n"); break;
+        case EBADF:        printf("EBADF\n"); break;
+        case ECONNREFUSED: printf("ECONNREFUSED\n"); break;
+        case EFAULT:       printf("EFAULT\n"); break;
+        case EINTR:        printf("EINTR\n"); break;
+        case EINVAL:       printf("EINVAL\n"); break;
+        case ENOMEM:       printf("ENOMEM\n"); break;
+        case ENOTCONN:     printf("ENOTCONN\n"); break;
+        case ENOTSOCK:     printf("ENOTSOCK\n"); break;
+        default: { printf("%d\n", errno); } break;
+      }
+    }
+  }
+  
+  result.size = r;
+  return result;
 }
 
 s32           

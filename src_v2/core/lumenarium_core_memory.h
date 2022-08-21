@@ -416,6 +416,14 @@ bump_allocator_destroy(Allocator* allocator)
   allocator_destroy_(allocator, sizeof(Allocator_Bump));
 }
 
+internal u64
+bump_allocator_at(Allocator* allocator)
+{
+  Allocator_Bump* bump = (Allocator_Bump*)allocator->allocator_data;
+  bump_allocator_validate(allocator);
+  return bump->at;
+}
+
 internal void
 bump_allocator_rewind(Allocator* allocator, u64 to_point)
 {

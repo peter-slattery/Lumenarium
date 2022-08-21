@@ -1,30 +1,8 @@
 
-#define INCENTER_METER 1.0f
-#define INCENTER_FOOT 0.3048f
-#define INCENTER_METERS(count) (count) * INCENTER_METER
-#define INCENTER_FEET(count) (count) * INCENTER_FOOT
-#define INCENTER_PER_METER(count) INCENTER_METER / (r32)(count)
-
-internal v4
-incenter_latlng_to_cartesian(r32 lat, r32 lng, r32 radius)
-{
-  r32 theta = (lat / 180.0f) * r32_pi;
-  r32 phi   = (lng / 180.0f) * r32_pi;
-
-  // spherical to cartesian conversion
-  v4 result = {
-    radius * sinf(phi) * cosf(theta),
-    radius * sinf(phi) * sinf(theta),
-    radius * cosf(phi),
-    1
-  };
-
-  return result;
-}
-
 #include "../user_space/incenter_patterns.c"
 #include "../user_space/incenter_secondary_patterns.c"
 #include "incenter_scenes.h"
+#include "incenter_live_answers.c"
 
 ////////////////////////////////////////////////
 // INCENTER SCENES
@@ -35,7 +13,7 @@ incenter_scenes_init(Incenter_State* ins, u32 cap, Allocator* a)
   incenter_scene_descs_init();
   ins->scenes = incenter_scene_descs;
   ins->scenes_cap = Incenter_Scene_Count;
-  ins->scene_at = Incenter_Scene_WelcomeHome;
+  ins->scene_at = Incenter_Scene_Question_LostAccessToResources;
 }
 
 internal void
@@ -44,7 +22,7 @@ incenter_scene_go_to(Incenter_State* ins, u32 index)
   ins->transition_time = 0;
   ins->scene_next = index % ins->scenes_cap;
   ins->scene_mode = Incenter_SceneMode_TransitioningOut;
-  printf("Switching To: %s\n", ins->scenes[ins->scene_next].name);
+  printf("Switching To: %d:%s\n", ins->scene_next, ins->scenes[ins->scene_next].name);
 }
 
 internal void
@@ -79,23 +57,29 @@ incenter_scene_render(App_State* state, Incenter_State* ins)
         ins->scene_mode = Incenter_SceneMode_TransitioningIn;
         ins->scene_at = ins->scene_next;
         ins->scene_time = 0;
+        
+        // reset inputs
+        ins->input_pct = 0.5f;
+        ins->input_option = 0;
+        ins->input_advance = false;
       } else {
-        ins->scene_mode = Incenter_SceneMode_Passive;
+        ins->scene_mode = Incenter_SceneMode_Input;
       }
     }
   }
-
+  
   // DRaw the transition
   switch (ins->scene_mode) 
   {
     case Incenter_SceneMode_TransitioningOut: pattern = pattern_sun_transition_shrink; break;
     case Incenter_SceneMode_TransitioningIn:  pattern = pattern_sun_transition_grow; break;
+    case Incenter_SceneMode_Input: pattern = pattern_scene_input; break;
     default: {
       Incenter_Scene scene = ins->scenes[ins->scene_at];
       pattern = scene.patterns[ins->scene_mode];
     } break;
   }
-
+  
   Assembly_Array assemblies = state->assemblies;
   if (pattern) 
   {
@@ -106,6 +90,9 @@ incenter_scene_render(App_State* state, Incenter_State* ins)
     pattern_color(assemblies.pixel_buffers[0], assemblies.strip_arrays[0], 0, 0, 0);
   }
 }
+
+#include "incenter_interface_connection.h"
+#include "incenter_interface_connection.c"
 
 ////////////////////////////////////////////////
 // INCENTER LIFECYCLE
@@ -126,7 +113,7 @@ incenter_init(App_State* state)
   state->user_space_data = (u8*)ins;
   
   incenter_scenes_init(ins, 8, permanent);
-
+  
   // create the sculpture
   u32 lights_per_primary_city = 123;
   u32 primary_city_lights = (city_count + 1) * lights_per_primary_city;
@@ -142,7 +129,7 @@ incenter_init(App_State* state)
   
   Assembly_Strip* vertical_strip = assembly_add_strip(&state->assemblies, ah, 123);
   assembly_strip_create_leds(
-    &state->assemblies, 
+      &state->assemblies, 
     ah,
     vertical_strip, 
     start_p,
@@ -156,7 +143,7 @@ incenter_init(App_State* state)
   {
     Incenter_City_Desc city = city_descs[i];
     v3 end_p = incenter_latlng_to_cartesian(city.lat, city.lon, radius).xyz;
-
+    
     Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
     strip->output_kind = OutputData_NetworkSACN;
     strip->sacn_universe = city.sacn_universe;
@@ -178,12 +165,16 @@ incenter_init(App_State* state)
   
   // PATTERN INIT
   pattern_random_fill_prep();
-
+  
   r32 rad = 0.05f;
   sculpture_updated(state, 5, rad);
-  scratch_release(scratch);
-
+  
+  
+  ins->running = true;
+  incenter_interface_connection_init(state, ins);
+  
   printf("Incenter Initialized\n");
+  scratch_release(scratch);
 }
 
 internal void
@@ -201,11 +192,11 @@ incenter_sculpture_visualizer_ui(App_State* state, Editor* ed)
   layout.bounds_min = (v2){0, 0},
   layout.bounds_max.x = 250;
   ui_layout_push(&ed->ui, &layout);
-
+  
   Incenter_State* ins = (Incenter_State*)state->user_space_data;
   ui_text_f(&ed->ui, WHITE_V4, "Scene Time: %fs", ins->scene_time);
   ui_text_f(&ed->ui, WHITE_V4, "Scene: %s", ins->scenes[ins->scene_at].name);
-
+  
   ui_layout_pop(&ed->ui);
 }
 #endif
@@ -215,21 +206,26 @@ incenter_frame(App_State* state)
 {
   Incenter_State* ins = (Incenter_State*)state->user_space_data;
   Assembly_Array assemblies = state->assemblies;
-    
+  
   { // INPUT HANDLING
     Input_State* is = state->input_state;
     if (input_key_went_down(is, KeyCode_LeftArrow))  incenter_scene_go_to_prev(ins);
     if (input_key_went_down(is, KeyCode_RightArrow)) incenter_scene_go_to_next(ins);
   }
-
+  
+  incenter_interface_connection_frame(state, ins);
+  
   ins->scene_time += state->target_seconds_per_frame;
   ins->transition_time += state->target_seconds_per_frame;
   incenter_scene_render(state, ins);
-
+  
 }
 
 internal void
 incenter_cleanup(App_State* state)
 {
-  
+  Incenter_State* ins = (Incenter_State*)state->user_space_data;
+  ins->running = false;
+  os_thread_end(ins->interface_thread);
+  incenter_interface_connection_cleanup(ins);
 }

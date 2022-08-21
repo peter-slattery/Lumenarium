@@ -1,21 +1,32 @@
 
-SCENES:
-1. Internal representation of current scene, next and prev
-2. Sequence
-  - Loading Scene
-  - Scene Intro
-  - Scene Question
-  - Scene Passive
-
 TODO:
-- sync with Cameron to do a system test
-- sync with Tyler on data
 
 - Plasma Ray - light from primary city out to secondary splash
-- Connection Pattern - fill part up with light, have the empty space do the data flow pattern
+x Connection Pattern - fill part up with light, have the empty space do the data flow pattern
 - Spatially Vertical Rain (not spherical)
 - Something like rain for data viz
 
 - Rendering gifs to the secondary cities
 
-- Give Tyler a deadline for data scenes to test
+
+Anyone Home
+- some light, but low power mode
+- blues, match screen - guide person towards display
+
+Welcome Home 
+- keep the secondary cities off
+
+Felt Isolated - blues, cooler tones, water?
+
+Nature - gold, pink/purple - drinking champagne - carousel colors
+- bluring the ends of bars is ok, just keep it consistent
+
+For data sets that have really high values everywhere, grow them in one at a time
+- for connection based ones: grow first, ripple out secondary cities to the next nearest primary city, grow that one
+
+QUESTION: Are we showing a statement about the data during the passive mode of each scene?
+- Yes
+
+QUESTION: Can we change the scene ids? Does it matter if two screens have the same sceneId?
+
+TODO: Put together an ending scene

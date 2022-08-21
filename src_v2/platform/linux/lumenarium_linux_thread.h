@@ -21,8 +21,8 @@ os_interlocked_increment(volatile u32* value)
   return 0;
 }
 
-u32 
-os_interlocked_cmp_exchg(volatile u32* dest, u32 new_value, u32 old_value)
+bool
+os_interlocked_cmp_exchg(volatile u32* dest, u32 old_value, u32 new_value)
 {
   invalid_code_path;
   return 0;

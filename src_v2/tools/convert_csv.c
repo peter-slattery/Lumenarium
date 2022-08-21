@@ -129,8 +129,8 @@ int main (int arg_c, char** args)
   cvtcsv_convert("question_1");
   cvtcsv_convert("question_2");
   cvtcsv_convert("question_3");
-  //cvtcsv_convert("question_4");
-  //cvtcsv_convert("question_5");
+  cvtcsv_convert("question_4");
+  cvtcsv_convert("question_5");
   cvtcsv_convert("question_6");
   cvtcsv_convert("question_7");
   cvtcsv_convert("question_8");
@@ -146,6 +146,7 @@ int main (int arg_c, char** args)
   cvtcsv_convert("question_18");
   cvtcsv_convert("question_19");
   cvtcsv_convert("question_20");
+  cvtcsv_convert("question_21");
 
 
 

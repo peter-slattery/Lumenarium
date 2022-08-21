@@ -306,6 +306,23 @@ typedef struct {
   u32 anchors_count;
 } Color_Ramp;
 
+Color_Ramp
+color_ramp_reverse(Color_Ramp ramp)
+{
+  Color_Ramp result = { .anchors_count = ramp.anchors_count };
+  for (u32 i = 0; i < ramp.anchors_count; i++)
+  {
+    u32 new_i = (ramp.anchors_count - 1) - i;
+    assert(new_i < ramp.anchors_count);
+    r32 rev_pct = 1.f - ramp.anchors[i].pct;
+    result.anchors[new_i] = (Color_Ramp_Anchor){
+      .color = ramp.anchors[i].color,
+      .pct = rev_pct,
+    };
+  }
+  return result;
+}
+
 v3
 color_ramp_eval(Color_Ramp ramp, r32 pct)
 {
@@ -331,6 +348,7 @@ color_ramp_eval(Color_Ramp ramp, r32 pct)
 
   // interpolate between them
   r32 anchor_range = nearest_above.pct - nearest_below.pct;
+  if (anchor_range == 0) anchor_range = 1;
   r32 pct_remapped = (pct - nearest_below.pct) / anchor_range;
   v3 result = pm_lerp_v3(nearest_below.color, pct_remapped, nearest_above.color);
   return result;
