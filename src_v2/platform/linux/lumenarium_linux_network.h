@@ -34,10 +34,11 @@ os_socket_connect()
 }
 
 bool          
-os_socket_close()
+os_socket_close(Socket_Handle handle)
 {
-  invalid_code_path;
-  return false;
+  OS_SOCKET_TYPE sock = open_sockets_get(handle);
+  close(sock);
+  return true;
 }
 
 Data          

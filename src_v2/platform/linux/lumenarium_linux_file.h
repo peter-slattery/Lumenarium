@@ -13,7 +13,9 @@ File_Handle
 os_file_open(String path, File_Access_Flags flags_access,  File_Create_Flags flags_create)
 {
   File_Handle result = {};
-
+  
+  mode_t mode = 0;
+  
   s32 flags = 0;
   if(has_flag_exact(flags_access, (FileAccess_Read | FileAccess_Write)))
   {
@@ -33,16 +35,28 @@ os_file_open(String path, File_Access_Flags flags_access,  File_Create_Flags fla
       return result;
     }
   }
-
+  
+  // This additional argument is required if we're creating a file
+  // if we want this process to be able to open it again later.
+  mode_t create_flags = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  
   switch (flags_create)
   {
-    case FileCreate_New:          { add_flag(flags, O_CREAT | O_EXCL ); } break;
-    case FileCreate_CreateAlways: { add_flag(flags, O_CREAT); } break;
+    case FileCreate_New: 
+    { 
+      add_flag(flags, O_CREAT | O_EXCL ); 
+      mode = create_flags;
+    } break;
     case FileCreate_OpenExisting: { /* add_flag(flags, O_); */ } break;
-    case FileCreate_OpenAlways:   { /* add_flag(flags, O_); */ } break;
+    case FileCreate_CreateAlways:
+    case FileCreate_OpenAlways:
+    { 
+      add_flag(flags, O_CREAT); 
+      mode = create_flags;
+    } break;
     invalid_default_case;
   }
-
+  
   s32 file_handle = open((char*)path.str, flags);
   if (file_handle >= 0)
   {
@@ -73,6 +87,16 @@ os_file_close(File_Handle file_handle)
   }
 }
 
+bool
+os_file_delete(String file_path)
+{
+  if (remove((char*)file_path.str) != 0) {
+    perror("Error deleting file\n");
+    return false;
+  }
+  return true;
+}
+
 File_Info   
 os_file_get_info(File_Handle file_handle, Allocator* allocator)
 {
@@ -81,7 +105,7 @@ os_file_get_info(File_Handle file_handle, Allocator* allocator)
   if (os_handle != -1)
   {
     String path = open_files_get_path(file_handle);
-
+    
     struct stat os_info = {};
     if (fstat(os_handle, &os_info) != -1)
     {
@@ -121,7 +145,7 @@ os_file_read_all(File_Handle file_handle, Allocator* allocator)
   Data result = {};
   s32 os_handle = open_files_get_handle(file_handle);
   if (os_handle == -1) return result;
-
+  
   // get file size
   s32 offset = lseek(os_handle, 0, SEEK_END);
   if (offset == -1) 
@@ -131,10 +155,10 @@ os_file_read_all(File_Handle file_handle, Allocator* allocator)
     return result;
   }
   lseek(os_handle, 0, SEEK_SET);
-
+  
   result.base = allocator_alloc(allocator, offset + 1);
   result.size = offset + 1;
-
+  
   s32 bytes_read = read(os_handle, result.base, result.size);
   if (bytes_read == (result.size - 1))
   {
@@ -167,7 +191,7 @@ os_file_write_(s32 os_handle, Data file_data)
     linux_err_print("write");
     return false;
   }
-
+  
   return true;
 }
 
@@ -176,7 +200,7 @@ os_file_write_all(File_Handle file_handle, Data file_data)
 {
   s32 os_handle = open_files_get_handle(file_handle);
   if (os_handle == -1) return false;
-
+  
   lseek(os_handle, 0, SEEK_SET);
   return os_file_write_(os_handle, file_data);
 }
@@ -186,7 +210,7 @@ os_file_write(File_Handle file_handle, Data file_data)
 {
   s32 os_handle = open_files_get_handle(file_handle);
   if (os_handle == -1) return false;
-
+  
   return os_file_write_(os_handle, file_data);
 }
 
@@ -231,7 +255,7 @@ os_dir_enum(String path, Platform_Enum_Dir_Flags flags, Allocator* allocator)
 void        
 os_file_async_work_on_job(File_Async_Job* job)
 {
-
+  
 }
 
 #endif // LUMENARIUM_LINUX_FILE_H

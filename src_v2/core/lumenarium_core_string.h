@@ -107,7 +107,7 @@ string_substring(String s, u64 min, u64 max)
 internal String
 string_skip(String s, u64 min)
 {
-  return string_substring(s, min, s.len);
+  return string_substring(s, min, s.len - min);
 }
 
 internal String

@@ -29,6 +29,8 @@
 #include <string.h>
 #include <mach-o/dyld.h>
 #include <mach/mach_time.h>
+#include <libkern/OSAtomic.h>
+#include <pthread.h>
 
 #include "../../libs/glfw_osx/include/GLFW/glfw3.h"
 
@@ -51,11 +53,12 @@ osx_err_print_(char* proc, char* sub_proc, s32 errsv)
 #include "lumenarium_osx_time.h"
 #include "lumenarium_osx_graphics.h"
 #include "lumenarium_osx_network.h"
+#include "lumenarium_osx_thread.h"
 
 void 
 glfw_error_callback(int error, const char* description)
 {
-    fprintf(stderr, "Error: %s\n", description);
+  fprintf(stderr, "Error: %s\n", description);
 }
 
 global u8* app_state_data = 0;
@@ -211,11 +214,11 @@ button_event(Key_Code key, int action, int mods)
     .kind = WindowEvent_ButtonDown,
     .key_code = key,
   };
-
+  
   if (has_flag(mods, GLFW_MOD_SHIFT)) add_flag(evt.key_flags, KeyFlag_Mod_Shift);
   if (has_flag(mods, GLFW_MOD_CONTROL)) add_flag(evt.key_flags, KeyFlag_Mod_Shift);
   if (has_flag(mods, GLFW_MOD_ALT)) add_flag(evt.key_flags, KeyFlag_Mod_Shift);
-
+  
   switch (action)
   {
     case GLFW_PRESS: { evt.key_flags = KeyFlag_State_IsDown; } break;
@@ -272,16 +275,16 @@ int main (int arg_count, char** args)
     return 1;
   }
   glfwSetErrorCallback(glfw_error_callback);
-
-  s32 init_window_width = 1400;
-  s32 init_window_height = 700;
-
+  
+  s32 init_window_width = 1400 / 2;
+  s32 init_window_height = 700 / 2;
+  
   glfwWindowHint(GLFW_DOUBLEBUFFER, true);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  GLFWwindow* window = glfwCreateWindow(init_window_width, init_window_width, "Lumenarium", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(init_window_width, init_window_height, "Lumenarium", NULL, NULL);
   if (!window)
   {
     printf("Error: Unable to create a glfw window\n");
@@ -290,29 +293,29 @@ int main (int arg_count, char** args)
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1);
   gl = osx_load_opengl_ext();
-
+  
   // Input Callbacks
   glfwSetKeyCallback(window, key_callback);
   glfwSetMouseButtonCallback(window, mouse_button_callback);
   glfwSetCursorPosCallback(window, cursor_position_callback);
   glfwSetScrollCallback(window, scroll_callback);
-
+  
   Editor_Desc ed_desc = {};
   float xscale, yscale;
   glfwGetWindowContentScale(window, &xscale, &yscale);
   ed_desc.content_scale = (v2){ xscale, yscale };
   ed_desc.init_window_dim = (v2){init_window_width, init_window_height};
-
+  
   App_State* state = lumenarium_init(&ed_desc);
   app_state_data = (u8*)state;
-
+  
   bool running = true;
   r64 target_seconds_per_frame = state->target_seconds_per_frame;
   Ticks ticks_start = os_get_ticks();
   while(!glfwWindowShouldClose(window) && running && has_flag(state->flags, AppState_IsRunning)) {
     lumenarium_frame_prepare(state);
     glfwPollEvents();
-
+    
     if (has_flag(state->flags, AppState_RunEditor))
     {
       s32 w, h;
@@ -322,7 +325,7 @@ int main (int arg_count, char** args)
     
     lumenarium_frame(state);
     lumenarium_env_validate();
-
+    
     glfwSwapBuffers(window);
     
     Ticks ticks_end = os_get_ticks();
@@ -337,7 +340,7 @@ int main (int arg_count, char** args)
     }
     ticks_start = ticks_end;
   }
-
+  
   lumenarium_cleanup(state);
   glfwDestroyWindow(window);
   glfwTerminate();

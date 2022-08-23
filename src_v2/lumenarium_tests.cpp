@@ -1,3 +1,6 @@
+#include <fcntl.h>
+#include <unistd.h>
+
 Thread_Result
 thread_proc(Thread_Data* td)
 {
@@ -134,7 +137,7 @@ run_tests()
   assert(has_flag(b, Test4));
   assert(has_flag(b, Test1 | Test4));
   assert(!has_flag(b, Test3));
-
+  
   // memory tests
   uint8_t* r0 = os_mem_reserve(1024);
   uint8_t* r1 = os_mem_commit(r0, 512);
@@ -142,12 +145,12 @@ run_tests()
   os_mem_decommit(r1, 512);
   os_mem_release(r0, 1024);
   // r0[256] = 100; // this should break if you uncomment
-
+  
   uint8_t* a0 = allocator_alloc_array(scratch.a, uint8_t, 32);
   uint8_t* a1 = allocator_alloc_array(scratch.a, uint8_t, 32);
   assert(a0 != a1);
   assert((a0 + 32) <= a1);
-
+  
   a1[0] = 25;
   
   for (uint32_t i = 0; i < 32; i++)
@@ -163,14 +166,14 @@ run_tests()
     assert(a1[i] == (100 + i));
   }
   
-
+  
   assert(round_up_to_pow2_u32(1) == 1);
   assert(round_up_to_pow2_u32(3) == 4);
   assert(round_up_to_pow2_u32(29) == 32);
   assert(round_up_to_pow2_u32(32) == 32);
   assert(round_up_to_pow2_u32(120) == 128);
   
-
+  
   memory_tests();
   bsp_tests();
   
@@ -179,6 +182,21 @@ run_tests()
   // platform
   return;
 #endif
+  
+  // OS Atomics
+  {
+    u32 v = 232;
+    u32 v0 = os_interlocked_increment(&v);
+    assert(v0 == 233);
+    assert(v  == 233);
+    
+    bool ice0 = os_interlocked_cmp_exchg(&v, 232, 235); // fails, old value != v
+    assert(!ice0);
+    assert(v == 233);
+    bool ice1 = os_interlocked_cmp_exchg(&v, 233, 235);
+    assert(ice1);
+    assert(v == 235);
+  }
   
   
   // testing strings and exe path
@@ -192,19 +210,34 @@ run_tests()
   assert(run_tree_path_nullterm.len > 0);
   assert(os_pwd_set(run_tree_path_nullterm));
   
-
-  // testing file io
-  File_Handle f = os_file_open(lit_str("text.txt"), FileAccess_Read | FileAccess_Write, FileCreate_OpenExisting);
-  File_Info i = os_file_get_info(f, scratch.a);
+  String td = lit_str("Testing data");
   
-  Data d0 = os_file_read_all(f, scratch.a);
-  assert(d0.size > 0);
+  // testing file io
+  String fp = lit_str("text.txt");
+  File_Handle f = os_file_open(fp, FileAccess_Write, FileCreate_OpenAlways);
+  assert(f.value != 0);
   
   String s = lit_str("foooooooooobbbbbbaaaarrrrrr");
   Data d1 = { s.str, s.len };
   bool r = os_file_write_all(f, d1);
   assert(r);
-
+  
+  os_file_close(f);
+  f = os_file_open(fp, FileAccess_Read, FileCreate_OpenExisting);
+  assert(f.value != 0);
+  
+  File_Info i = os_file_get_info(f, scratch.a);
+  
+  Data d0 = os_file_read_all(f, scratch.a);
+  assert(d0.size > 0);
+  
+  os_file_close(f);
+  
+  if (!os_file_delete(fp)) {
+    invalid_code_path;
+  }
+  
+  
 #if 0
   // TODO(PS): these were causing startup problems but you weren't focusing on
   // threads/ When you build something multithreaded come back here and 

@@ -1,7 +1,22 @@
 #if !defined(LUMENARIUM_CORE_SOCKET_H)
 #define LUMENARIUM_CORE_SOCKET_H
 
-typedef struct { u64 value; } Socket_Handle;
+typedef struct Socket_Handle Socket_Handle;
+struct Socket_Handle { u64 value; };
+
+typedef s32 Socket_Error;
+enum {
+  SocketError_NOERROR,
+  SocketError_EAGAIN,
+  SocketError_EBADF,
+  SocketError_ECONNREFUSED,
+  SocketError_EFAULT,
+  SocketError_EINTR,
+  SocketError_EINVAL,
+  SocketError_ENOMEM,
+  SocketError_ENOTCONN,
+  SocketError_ENOTSOCK,
+};
 
 u16 endian_swap_u16(u16 v);
 u32 endian_swap_u32(u32 v);

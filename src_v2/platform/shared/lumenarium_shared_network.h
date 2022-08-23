@@ -6,7 +6,7 @@
 #  error "You must define an OS_SOCKET_INVALID_HANDLE"
 #endif
 
-#define               open_sockets_cap   2
+#define               open_sockets_cap   3
 global u32            open_sockets_len = 1;
 global OS_SOCKET_TYPE open_sockets[open_sockets_cap];
 

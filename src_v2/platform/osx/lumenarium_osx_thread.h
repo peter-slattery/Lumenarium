@@ -1,8 +1,10 @@
-#ifndef LUMENARIUM_RASPI_THREADS_H
-#define LUMENARIUM_RASPI_THREADS_H 1
+/* date = August 13th 2022 1:57 pm */
 
-typedef struct Os_Linux_Thread Os_Linux_Thread;
-struct Os_Linux_Thread
+#ifndef LUMENARIUM_OSX_THREAD_H
+#define LUMENARIUM_OSX_THREAD_H
+
+typedef struct Os_Osx_Thread Os_Osx_Thread;
+struct Os_Osx_Thread
 {
   pthread_t thread;
   Thread_Proc* proc;
@@ -10,16 +12,16 @@ struct Os_Linux_Thread
   Thread_Result result;
 };
 
-#define LINUX_THREAD_CAP 8
-global Os_Linux_Thread linux_threads_[LINUX_THREAD_CAP];
-global u32             linux_threads_len_;
+#define OSX_THREAD_CAP 8
+global Os_Osx_Thread osx_threads_[OSX_THREAD_CAP];
+global u32           osx_threads_len_;
 
-Thread_Handle 
-os_thread_begin(Thread_Proc* proc, u8* user_data)
+void*
+os_thread_proc_wrapper(void* arg)
 {
   // Call the actual thread function
   // This is essentially a blocking call for the rest of this function
-  Os_Linux_Thread* thread_data = (Os_Linux_Thread*)arg;
+  Os_Osx_Thread* thread_data = (Os_Osx_Thread*)arg;
   thread_data->result = thread_data->proc(thread_data->user_data);
   
   // Clean up this threads thread slot so other threads
@@ -30,21 +32,21 @@ os_thread_begin(Thread_Proc* proc, u8* user_data)
   pthread_exit(&thread_data->result);
 }
 
-void          
-os_thread_end(Thread_Handle thread_handle)
+Thread_Handle 
+os_thread_begin(Thread_Proc* proc, u8* user_data)
 {
   // Find an unused thread slot
   Thread_Handle result = { .value = 0 };
-  if (linux_threads_len_ < OSX_THREAD_CAP) 
+  if (osx_threads_len_ < OSX_THREAD_CAP) 
   {
-    result = (Thread_Handle){ .value = linux_threads_len_++ };
+    result = (Thread_Handle){ .value = osx_threads_len_++ };
   }
   else
   {
     bool found = false;
     for (u32 i = 0; i < OSX_THREAD_CAP; i++)
     {
-      if (linux_threads_[i].proc == 0) 
+      if (osx_threads_[i].proc == 0) 
       {
         result.value = i;
         found = true;
@@ -58,14 +60,15 @@ os_thread_end(Thread_Handle thread_handle)
   }
   
   // Initialize Thread Slot
-  Os_Linux_Thread* t = linux_threads_ + result.value;  
-  *t = (Os_Linux_Thread){
+  Os_Osx_Thread* t = osx_threads_ + result.value;  
+  *t = (Os_Osx_Thread){
     .proc = proc,
     .user_data = user_data
   };
   
   // Create PThread
-  s32 create_error = pthread_create(&t->thread, 
+  s32 create_error = pthread_create(
+      &t->thread, 
     NULL,  // use default attrs
     (void * _Nullable (* _Nonnull)(void * _Nullable))proc, 
     user_data
@@ -91,26 +94,27 @@ os_thread_end(Thread_Handle thread_handle)
   return result;
 }
 
-void
+void          
 os_thread_end(Thread_Handle thread_handle)
 {
-  Os_Linux_Thread* t = linux_threads_ + thread_handle.value;
+  Os_Osx_Thread* t = osx_threads_ + thread_handle.value;
   pthread_kill(t->thread, 0);
 }
 
 u32 
 os_interlocked_increment(volatile u32* value)
 {
-  invalid_code_path;
-  return 0;
+  assert(*value <= s32_max);
+  u32 result = OSAtomicIncrement32((volatile s32*)value);
+  return result;
 }
 
 bool
 os_interlocked_cmp_exchg(volatile u32* dest, u32 old_value, u32 new_value)
 {
-  invalid_code_path;
-  return 0;
+  assert(*dest <= s32_max);
+  bool result = OSAtomicCompareAndSwapInt((s32)old_value, (s32)new_value, (volatile s32*)dest);
+  return result;
 }
 
-
-#endif // LUMENARIUM_RASPI_THREADS_H
+#endif //LUMENARIUM_OSX_THREAD_H
