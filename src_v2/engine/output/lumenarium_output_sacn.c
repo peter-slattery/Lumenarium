@@ -167,7 +167,14 @@ PackB4(u8* ptr, u32 val)
 	ptr[2] = (u8)((val & 0xff00) >> 8);
 	ptr[1] = (u8)((val & 0xff0000) >> 16);
 	ptr[0] = (u8)((val & 0xff000000) >> 24);
-    return ptr + sizeof(val);
+  return ptr + sizeof(val);
+}
+
+//Unpacks a u32 from a known big endian buffer
+u32
+UpackB4(u8* ptr)
+{
+  return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
 }
 
 internal void
@@ -398,7 +405,14 @@ sacn_string_to_cid(String str)
 internal u32
 sacn_universe_to_send_addr(u32 universe)
 {
-  return 0;
+  u8 multicast_address_buffer[4] = {};
+  multicast_address_buffer[0] = 239;
+  multicast_address_buffer[1] = 255;
+  multicast_address_buffer[2] = (u8)((universe & 0xff00) >> 8); // high bit
+  multicast_address_buffer[3] = (u8)((universe & 0x00ff));      // low bit
+
+  u32 v4_addr = (u32)UpackB4(multicast_address_buffer);
+  return v4_addr;
 }
 
 internal u8* 
@@ -420,6 +434,8 @@ output_network_sacn_init()
     IP_MULTICAST_TTL, 
     (u8*)&ttl, sizeof(ttl)
   );
+
+  printf("Registered SACN Socket\n");
 
   return (u8*)result;
 }

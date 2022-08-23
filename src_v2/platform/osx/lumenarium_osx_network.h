@@ -62,6 +62,14 @@ os_socket_send_to(Socket_Handle handle, u32 addr, u32 port, Data data, s32 flags
     .sin_port = hton_u16(port),
     .sin_addr.s_addr = hton_u32(addr),
   };
+
+#define PRINT_EVERY_SEND_ADDR 0
+#if PRINT_EVERY_SEND_ADDR
+  printf("Sending To:\n\tFamily: %d\n\tPort: %d\n\tAddr: %d\n",
+    dst.sin_family, dst.sin_port, dst.sin_addr.s_addr
+  );
+#endif
+
   struct sockaddr* dst_ptr = (struct sockaddr*)&dst;
   s32 len_sent = sendto(sock, data.base, data.size, flags, dst_ptr, sizeof(struct sockaddr_in));
   if (len_sent == -1)

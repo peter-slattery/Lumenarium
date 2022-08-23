@@ -41,7 +41,7 @@ linux_err_print_(char* proc, char* sub_proc, s32 errsv)
 #include "../shared/lumenarium_shared_network.h"
 #include "../linux/lumenarium_linux_file.h"
 #include "../linux/lumenarium_linux_time.h"
-#include "../linux/lumenarium_linux_network.h"
+#include "../osx/lumenarium_osx_network.h"
 
 
 int main (int arg_count, char** args)
