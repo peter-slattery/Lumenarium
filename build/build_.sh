@@ -146,10 +146,10 @@ CompilerFlags_wasm+=" -Wl,--no-entry" #
 CompilerFlags_wasm+=" -Wl,--allow-undefined" #
 CompilerFlags_wasm+=" -Wl,--export-all" #
 
-CompilerFlags_linux=""
+CompilerFlags_linux=" -pthread"
 
-CompilerFlags_raspi="" # "--target=arm-rpi-linux-gnueabihf" # "--target=arm-linux-gnueabihf" #target
-CompilerFlags_raspi+="-lm" # link with local system math libraries
+CompilerFlags_raspi=" -pthread" # "--target=arm-rpi-linux-gnueabihf" # "--target=arm-linux-gnueabihf" #target
+CompilerFlags_raspi+=" -lm" # link with local system math libraries
 
 
 CompilerFlags_DEBUG_win32=""

@@ -57,7 +57,7 @@ os_file_open(String path, File_Access_Flags flags_access,  File_Create_Flags fla
     invalid_default_case;
   }
   
-  s32 file_handle = open((char*)path.str, flags);
+  s32 file_handle = open((char*)path.str, flags, mode);
   if (file_handle >= 0)
   {
     result = open_files_put_handle(file_handle, path);

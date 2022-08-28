@@ -98,8 +98,10 @@ void
 os_thread_end(Thread_Handle thread_handle)
 {
   Os_Osx_Thread* t = osx_threads_ + thread_handle.value;
-  pthread_kill(t->thread, 0);
+  //pthread_kill(t->thread, 0);
 }
+
+#if defined(PLATFORM_osx)
 
 u32 
 os_interlocked_increment(volatile u32* value)
@@ -116,5 +118,25 @@ os_interlocked_cmp_exchg(volatile u32* dest, u32 old_value, u32 new_value)
   bool result = OSAtomicCompareAndSwapInt((s32)old_value, (s32)new_value, (volatile s32*)dest);
   return result;
 }
+
+#else
+u32 
+os_interlocked_increment(volatile u32* value)
+{
+  *value += 1;
+  return *value;
+}
+
+bool
+os_interlocked_cmp_exchg(volatile u32* dest, u32 old_value, u32 new_value)
+{
+  assert(*dest <= s32_max);
+  if (*dest == old_value) {
+    *dest = new_value;
+    return true;
+  }
+  return false;
+}
+#endif
 
 #endif //LUMENARIUM_OSX_THREAD_H
