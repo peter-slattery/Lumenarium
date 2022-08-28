@@ -576,9 +576,8 @@ global Color_Ramp cities_ramp = {
 global Color_Ramp cities_sparkle_ramp = {
   .anchors = {
     [0] = { .pct = 0, .color = { 0, 0, 0 } },
-    [1] = { .pct = .2f, .color = { 0, 0, 0 } },
-    [2] = { .pct = .5f, .color = { 255.f / 255.f, 194.f / 255.f, 86.f / 255.5 } },
-    [3] = { .pct = 1,   .color = { 1, 1, 1 } },
+    [1] = { .pct = .7f, .color = { 0, 0, 0 } },
+    [2] = { .pct = .1f, .color = { 255.f / 255.f, 100.f / 255.f, 40.f / 255.5 } },
   },
   .anchors_count = 3
 };
@@ -897,18 +896,26 @@ pattern_fast_noise_test(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strip
 void
 secondary_pattern_twinkle(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
-  Assembly_Strip strip = strips.strips[city_secondary_first];
-  for (u32 led = 0; led < strip.pixels_len; led++)
-  {
-    u32 led_index = strip.pixels[led];
-    v4 p = pixels.positions[led_index];
-    v4 p_unit = incenter_pos_to_unit(p);
-    v3 p_offset = HMM_AddVec3(p.xyz, (v3){ 213.145f, 99.321f, 71.3f });
-    v3 p_scaled = HMM_MultiplyVec3f(p_offset, 2);
-    r32 v = pm_fmb_3d(p_scaled, ins->scene_time);
-    r32 vv = pm_smoothstep_r32(v);
-    v3 color = color_ramp_eval(cities_sparkle_ramp, vv);
-    pixels.pixels[led_index] = color_v3_to_assembly_pixel(color);
+  for (u32 i = 0; i < secondary_strips_len; i++) {
+    Assembly_Strip* strip = secondary_city_strips[i];
+    for (u32 led = 0; led < strip->pixels_len; led++)
+    {
+      u32 led_index = strip->pixels[led];
+      v4 p = pixels.positions[led_index];
+      v4 p_unit = incenter_pos_to_unit(p);
+      v3 p_offset = HMM_AddVec3(p.xyz, (v3){ 213.145f, 99.321f, 71.3f });
+      v3 p_scaled = HMM_MultiplyVec3f(p_offset, 2);
+      r32 v = pm_fmb_3d(p_scaled, ins->scene_time);
+      r32 vv = (2 * pm_smoothstep_r32(v)) - 1;
+      
+#define TESTING_LEDS 0
+#if !TESTING_LEDS
+      v3 color = color_ramp_eval(cities_sparkle_ramp, vv);
+      pixels.pixels[led_index] = color_v3_to_assembly_pixel(color);
+#else
+      pixels.pixels[led_index] = color_v3_to_assembly_pixel((v3){1, 0, 0});
+#endif
+    }
   }
 }
 
@@ -943,7 +950,12 @@ pattern_sun_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, I
     v4 pos = pixels.positions[j];
     v4 p = incenter_pos_to_unit(pos);
     r32 r2 = HMM_LengthSquaredVec3(pos.xyz);
+#if !TESTING_LEDS
     pixels.pixels[j] = sun(pos.xyz, r2, (Assembly_Pixel){0, 0, 0}, st);
+#else
+    pixels.pixels[j] = color_v3_to_assembly_pixel((v3){0, 0, 1});
+#endif
+    
   }
   
   secondary_pattern_twinkle(pixels, strips, ins);

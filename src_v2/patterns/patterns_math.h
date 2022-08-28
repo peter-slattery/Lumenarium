@@ -170,52 +170,52 @@ pm_random_v2_to_r32(v2 n)
 internal r32
 pm_noise_v3_to_r32(v3 p)
 {
-    p = pm_abs_v3(p);
-    v3 p_fl = pm_floor_v3(p);
-    v3 p_fr = pm_fract_v3(p);
-    v3 f = pm_smoothstep_v3(p_fr);
-    
-    v3 p_fl_0 = p_fl;
-    v3 p_fl_1 = HMM_AddVec3(p_fl, (v3){1, 0, 0});
-    v3 p_fl_2 = HMM_AddVec3(p_fl, (v3){0, 1, 0});
-    v3 p_fl_3 = HMM_AddVec3(p_fl, (v3){1, 1, 0});
-    v3 p_fl_4 = HMM_AddVec3(p_fl, (v3){0, 0, 1});
-    v3 p_fl_5 = HMM_AddVec3(p_fl, (v3){1, 0, 1});
-    v3 p_fl_6 = HMM_AddVec3(p_fl, (v3){0, 1, 1});
-    v3 p_fl_7 = HMM_AddVec3(p_fl, (v3){1, 1, 1});
-
-    r32 h0 = pm_hash_v3_to_r32(p_fl_0);
-    r32 h1 = pm_hash_v3_to_r32(p_fl_1);
-    r32 h2 = pm_hash_v3_to_r32(p_fl_2);
-    r32 h3 = pm_hash_v3_to_r32(p_fl_3);
-    r32 h4 = pm_hash_v3_to_r32(p_fl_4);
-    r32 h5 = pm_hash_v3_to_r32(p_fl_5);
-    r32 h6 = pm_hash_v3_to_r32(p_fl_6);
-    r32 h7 = pm_hash_v3_to_r32(p_fl_7);
-
-    r32 h0_1 = lerp(h0, f.x, h1);
-    r32 h2_3 = lerp(h2, f.x, h3);
-    r32 h4_5 = lerp(h4, f.x, h5);
-    r32 h6_7 = lerp(h6, f.x, h7);
-    r32 h01_23 = lerp(h0_1, f.y, h2_3);
-    r32 h45_67 = lerp(h4_5, f.y, h6_7);
-    // r32 result = lerp( 
-    //   lerp(
-    //     lerp(h0, f.x, h1),
-    //     f.y, 
-    //     lerp(h2, f.x, h3)
-    //   ),
-    //   f.z,
-    //   lerp(
-    //     lerp(h4, f.x, h5),
-    //     f.y,
-    //     lerp(h6, f.x, h7)
-    //   )
-    // );
-    r32 result = lerp(h01_23, f.z, h45_67);
-    
-    assert(result >= 0 && result <= 1);
-    return result;
+  p = pm_abs_v3(p);
+  v3 p_fl = pm_floor_v3(p);
+  v3 p_fr = pm_fract_v3(p);
+  v3 f = pm_smoothstep_v3(p_fr);
+  
+  v3 p_fl_0 = p_fl;
+  v3 p_fl_1 = HMM_AddVec3(p_fl, (v3){1, 0, 0});
+  v3 p_fl_2 = HMM_AddVec3(p_fl, (v3){0, 1, 0});
+  v3 p_fl_3 = HMM_AddVec3(p_fl, (v3){1, 1, 0});
+  v3 p_fl_4 = HMM_AddVec3(p_fl, (v3){0, 0, 1});
+  v3 p_fl_5 = HMM_AddVec3(p_fl, (v3){1, 0, 1});
+  v3 p_fl_6 = HMM_AddVec3(p_fl, (v3){0, 1, 1});
+  v3 p_fl_7 = HMM_AddVec3(p_fl, (v3){1, 1, 1});
+  
+  r32 h0 = pm_hash_v3_to_r32(p_fl_0);
+  r32 h1 = pm_hash_v3_to_r32(p_fl_1);
+  r32 h2 = pm_hash_v3_to_r32(p_fl_2);
+  r32 h3 = pm_hash_v3_to_r32(p_fl_3);
+  r32 h4 = pm_hash_v3_to_r32(p_fl_4);
+  r32 h5 = pm_hash_v3_to_r32(p_fl_5);
+  r32 h6 = pm_hash_v3_to_r32(p_fl_6);
+  r32 h7 = pm_hash_v3_to_r32(p_fl_7);
+  
+  r32 h0_1 = lerp(h0, f.x, h1);
+  r32 h2_3 = lerp(h2, f.x, h3);
+  r32 h4_5 = lerp(h4, f.x, h5);
+  r32 h6_7 = lerp(h6, f.x, h7);
+  r32 h01_23 = lerp(h0_1, f.y, h2_3);
+  r32 h45_67 = lerp(h4_5, f.y, h6_7);
+  // r32 result = lerp( 
+  //   lerp(
+  //     lerp(h0, f.x, h1),
+  //     f.y, 
+  //     lerp(h2, f.x, h3)
+  //   ),
+  //   f.z,
+  //   lerp(
+  //     lerp(h4, f.x, h5),
+  //     f.y,
+  //     lerp(h6, f.x, h7)
+  //   )
+  // );
+  r32 result = lerp(h01_23, f.z, h45_67);
+  
+  assert(result >= 0 && result <= 1);
+  return result;
 }
 
 r32
@@ -247,14 +247,14 @@ pm_fmb_3d(v3 x, r32 h)
   //   t += ns; 
   // }
   // return t;
-
+  
   v3 ts = (v3){h, h, h};
   v3 pp = x;
   r32 f = 0.0;
   
   v3 pp0 = HMM_AddVec3(pp, ts);
   v3 pp1 = HMM_SubtractVec3(pp, ts);
-
+  
   f += 0.500000f * pm_noise_v3_to_r32(pp0); pp = HMM_MultiplyVec3f(pp, 2.02);
   f += 0.300000f * pm_noise_v3_to_r32(pp1); pp = HMM_MultiplyVec3f(pp, 2.03);
   f += 0.125000f * pm_noise_v3_to_r32(pp);  pp = HMM_MultiplyVec3f(pp, 2.01);
@@ -269,10 +269,10 @@ pm_fmb_3d(v3 x, r32 h)
 // pm_voronoise(v2 p, r32 u, r32 v)
 // {
 //     r32 k = 1.0f + 63.0f + powf(1.0f - v, 6.0f);
-    
+
 //     v2 i = pm_floor_v2(p);
 //     v2 f = pm_fract_v2(p);
-    
+
 //     v2 a = (v2){0, 0};
 //     for (s32 y = -2; y <= 2; y++)
 //     {
@@ -289,7 +289,7 @@ pm_fmb_3d(v3 x, r32 h)
 //             a = HMM_AddVec2(a, (v2){o.z * w, w});
 //         }
 //     }
-    
+
 //     return a.x / a.y;
 // }
 
@@ -326,6 +326,7 @@ color_ramp_reverse(Color_Ramp ramp)
 v3
 color_ramp_eval(Color_Ramp ramp, r32 pct)
 {
+  pct = clamp(0, pct, 1);
   // find nearest two anchors
   // TODO: do a binary search and we just have to assume that the anchors
   // are in order from least to greatest
@@ -345,7 +346,7 @@ color_ramp_eval(Color_Ramp ramp, r32 pct)
       dist_above = dist;
     }
   }
-
+  
   // interpolate between them
   r32 anchor_range = nearest_above.pct - nearest_below.pct;
   if (anchor_range == 0) anchor_range = 1;

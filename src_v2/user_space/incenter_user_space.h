@@ -46,7 +46,7 @@ struct Incenter_Data_Row
 };
 
 // TODO(PS): fix this to be the real universe
-#define incenter_secondary_city_universe 128
+#define incenter_secondary_city_universe 33
 #include "incenter_gen_cities.h"
 
 // Data
