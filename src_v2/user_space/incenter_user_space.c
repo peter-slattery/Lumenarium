@@ -1,4 +1,8 @@
 
+#define SECONDARY_CITY_CAP 32
+u32 secondary_strips_len = 0;
+Assembly_Strip* secondary_city_strips[SECONDARY_CITY_CAP];
+
 #include "../user_space/incenter_patterns.c"
 #include "../user_space/incenter_secondary_patterns.c"
 #include "incenter_scenes.h"
@@ -13,7 +17,8 @@ incenter_scenes_init(Incenter_State* ins, u32 cap, Allocator* a)
   incenter_scene_descs_init();
   ins->scenes = incenter_scene_descs;
   ins->scenes_cap = Incenter_Scene_Count;
-  ins->scene_at = Incenter_Scene_Question_LostAccessToResources;
+  ins->scene_at = Incenter_Scene_AnyoneHome;
+  //Incenter_Scene_Question_LostAccessToResources;
 }
 
 internal void
@@ -105,6 +110,27 @@ incenter_get_init_desc()
   return result;
 }
 
+#define INCENTER_RADIUS INCENTER_FEET(10)
+internal Assembly_Strip*
+incenter_add_secondary_city_strip(Assembly_Array* assemblies, Assembly_Handle ah, u32 universe, u32 count, Incenter_City_Id city)
+{
+  Assembly_Strip* s = assembly_add_strip(assemblies, ah, count);
+  s->output_kind = OutputData_NetworkSACN;
+  s->sacn_universe = universe;
+  
+  Incenter_City_Desc d = city_descs[city];
+  v4 city_p = incenter_latlng_to_cartesian(d.lat, d.lon, INCENTER_RADIUS);
+  v4 end_p  = incenter_latlng_to_cartesian(d.lat, d.lon, INCENTER_RADIUS * 2);
+  for (u32 i = 0; i < count; i++)
+  {
+    v4 p = pm_lerp_v4(city_p, (r32)i / (r32)count, end_p);
+    assembly_add_led(assemblies, ah, s, p);
+  }
+  
+  secondary_city_strips[secondary_strips_len++] = s;
+  return s;
+}
+
 internal void
 incenter_init(App_State* state)
 {
@@ -119,13 +145,14 @@ incenter_init(App_State* state)
   u32 primary_city_lights = (city_count + 1) * lights_per_primary_city;
   u32 secondary_city_count = (city_secondary_count - city_secondary_first) + 1;
   u32 secondary_city_lights = secondary_city_count;
-  u32 lights_cap = primary_city_lights + secondary_city_lights;
-  Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("incenter"), lights_cap, city_count + 2);  
+  u32 lights_cap = primary_city_lights + 800;
+  Assembly_Handle ah = assembly_add(&state->assemblies, lit_str("incenter"), lights_cap, city_count + 50);  
   
   scratch_get(scratch);
   Allocator* s = scratch.a;
   
   v3 start_p = (v3){0, 0, 0};
+  
   
   Assembly_Strip* vertical_strip = assembly_add_strip(&state->assemblies, ah, 123);
   assembly_strip_create_leds(
@@ -138,20 +165,97 @@ incenter_init(App_State* state)
   );
   
   // ADDING PRIMARY CITIES
-  r32 radius = INCENTER_FEET(10);
+  r32 radius = INCENTER_RADIUS;
   for (u32 i = 0; i < city_count; i++)
   {
     Incenter_City_Desc city = city_descs[i];
+    if (city.sacn_universe == 0) {
+      printf("skipping %s\n", city_strings[i]);
+      continue;
+    }
+    
     v3 end_p = incenter_latlng_to_cartesian(city.lat, city.lon, radius).xyz;
     
     Assembly_Strip* strip = assembly_add_strip(&state->assemblies, ah, 123);
     strip->output_kind = OutputData_NetworkSACN;
     strip->sacn_universe = city.sacn_universe;
     
-    assembly_strip_create_leds(&state->assemblies, ah, strip, start_p, end_p, 123);
+    assembly_strip_create_leds(&state->assemblies, ah, strip, end_p, start_p, 88);
   }
   
+#define USING_ON_PLAYA_SECONDARY_CITIES 1
+#if USING_ON_PLAYA_SECONDARY_CITIES
   // ADDING SECONDARY CITIES
+  {
+    for (u32 i = 0; i < SECONDARY_CITY_CAP; i++) secondary_city_strips[i] = 0;
+    Assembly_Array* a = &state->assemblies;
+    
+    { // Australia      
+      Assembly_Strip* aus_lef = incenter_add_secondary_city_strip(a, ah, 62, 10, city_brisbane);
+      Assembly_Strip* aus_rig = incenter_add_secondary_city_strip(a, ah, 64, 8,  city_brisbane);
+      Assembly_Strip* aus_cen = incenter_add_secondary_city_strip(a, ah, 34, 6,  city_brisbane);
+    }
+    { // Islands Above Australia 
+      Assembly_Strip* indonesia1 = incenter_add_secondary_city_strip(a, ah, 44, 9, city_jakarta);
+      Assembly_Strip* indonesia2 = incenter_add_secondary_city_strip(a, ah, 36, 9, city_jakarta);
+      Assembly_Strip* north_left_asia = incenter_add_secondary_city_strip(a, ah, 54, 6, city_tokyo);
+      Assembly_Strip* phillipines = incenter_add_secondary_city_strip(a, ah, 56, 10, city_jakarta);
+    }
+    { // East Asia
+      // TODO(PS): update primary cities
+      Assembly_Strip* cen_china_to_thailand = incenter_add_secondary_city_strip(a, ah, 37, 19, city_jakarta);
+      Assembly_Strip* china_coast           = incenter_add_secondary_city_strip(a, ah, 38, 29, city_jakarta);
+      Assembly_Strip* peninsula_below_china = incenter_add_secondary_city_strip(a, ah, 40, 10, city_jakarta);
+      Assembly_Strip* mainland_right_of_japan_north = incenter_add_secondary_city_strip(a, ah, 40, 10, city_tokyo);
+      Assembly_Strip* mainland_right_of_japan_south = incenter_add_secondary_city_strip(a, ah, 58, 9, city_tokyo);
+    }
+    { // Japan
+      Assembly_Strip* japan = incenter_add_secondary_city_strip(a, ah, 60, 10, city_tokyo);
+    }
+    {
+      Assembly_Strip* rig_south_africa = incenter_add_secondary_city_strip(a, ah, 196, 9, city_nairobi);
+      Assembly_Strip* georgia      = incenter_add_secondary_city_strip(a, ah, 198, 10, city_tokyo); // TODO(PS): 
+      Assembly_Strip* ethiopia     = incenter_add_secondary_city_strip(a, ah, 200,  5, city_addis_ababa);
+      Assembly_Strip* turkey       = incenter_add_secondary_city_strip(a, ah, 202, 10, city_ankara);
+      Assembly_Strip* sudan_egypt  = incenter_add_secondary_city_strip(a, ah, 204, 7, city_cairo);
+      Assembly_Strip* iran         = incenter_add_secondary_city_strip(a, ah, 206,  9, city_tehran);
+      Assembly_Strip* west_russia  = incenter_add_secondary_city_strip(a, ah, 208, 25, city_kyiv);
+      Assembly_Strip* saudi_arabia = incenter_add_secondary_city_strip(a, ah, 212, 4, city_ankara);
+      Assembly_Strip* south_africa = incenter_add_secondary_city_strip(a, ah, 214, 25, city_nairobi); // TODO(PS): 
+      Assembly_Strip* right_india  = incenter_add_secondary_city_strip(a, ah, 215, 19, city_mumbai);
+      Assembly_Strip* central_russia_right = incenter_add_secondary_city_strip(a, ah, 218, 7, city_kyiv);
+      Assembly_Strip* left_africa  = incenter_add_secondary_city_strip(a, ah, 220, 7, city_nairobi);
+      Assembly_Strip* the_stans    = incenter_add_secondary_city_strip(a, ah, 221, 19, city_tehran);
+      Assembly_Strip* left_india   = incenter_add_secondary_city_strip(a, ah, 222, 40, city_mumbai);
+    }
+    
+    {
+      Assembly_Strip* italy      = incenter_add_secondary_city_strip(a, ah, 162, 9, city_paris);
+      Assembly_Strip* nigeria_cameroon = incenter_add_secondary_city_strip(a, ah, 164, 6, city_abuja);
+      Assembly_Strip* greece      = incenter_add_secondary_city_strip(a, ah, 166, 9, city_belgrade);
+      Assembly_Strip* israel      = incenter_add_secondary_city_strip(a, ah, 168, 6, city_cairo);
+      Assembly_Strip* central_europe = incenter_add_secondary_city_strip(a, ah, 170, 35, city_berlin);
+      Assembly_Strip* libya = incenter_add_secondary_city_strip(a, ah, 172, 9, city_tunis);
+      Assembly_Strip* peru = incenter_add_secondary_city_strip(a, ah, 182, 9, city_brasilia);
+      Assembly_Strip* right_north_africa = incenter_add_secondary_city_strip(a, ah, 184, 13, city_rabat);
+      Assembly_Strip* france = incenter_add_secondary_city_strip(a, ah, 188, 5, city_paris);
+      Assembly_Strip* uk = incenter_add_secondary_city_strip(a, ah, 190, 6, city_paris);
+      Assembly_Strip* scandanavia = incenter_add_secondary_city_strip(a, ah, 192, 5, city_berlin);
+    }
+    {
+      Assembly_Strip* us_east_coast = incenter_add_secondary_city_strip(a, ah, 1, 20, city_washington);
+      Assembly_Strip* central_americas = incenter_add_secondary_city_strip(a, ah, 2, 19, city_denver);
+      Assembly_Strip* colombia = incenter_add_secondary_city_strip(a, ah, 6, 9, city_bogota);
+      Assembly_Strip* missippi_river = incenter_add_secondary_city_strip(a, ah, 12, 9, city_washington);
+      Assembly_Strip* chile_south = incenter_add_secondary_city_strip(a, ah, 14, 9, city_la_paz);
+      Assembly_Strip* us_west_coast = incenter_add_secondary_city_strip(a, ah, 22, 17, city_san_francisco);
+      Assembly_Strip* venezuela = incenter_add_secondary_city_strip(a, ah, 26, 5, city_bogota);
+      Assembly_Strip* chile_north = incenter_add_secondary_city_strip(a, ah, 28, 10, city_la_paz);
+      Assembly_Strip* left_canada = incenter_add_secondary_city_strip(a, ah, 32, 5, city_san_francisco);
+    }
+  }
+  
+#else
   // TODO: This probably isn't how these lights will be hooked up
   Assembly_Strip* secondary_strip = assembly_add_strip(&state->assemblies, ah, secondary_city_lights);
   secondary_strip->output_kind = OutputData_NetworkSACN;
@@ -162,6 +266,7 @@ incenter_init(App_State* state)
     v4 light_p = incenter_latlng_to_cartesian(city.lat, city.lon, radius);    
     assembly_add_led(&state->assemblies, ah, secondary_strip, light_p);
   }
+#endif
   
   // PATTERN INIT
   pattern_random_fill_prep();
@@ -215,7 +320,7 @@ incenter_frame(App_State* state)
   
   incenter_interface_connection_frame(state, ins);
   
-  ins->scene_time += state->target_seconds_per_frame;
+  ins->scene_time += state->target_seconds_per_frame * 0.2f;
   ins->transition_time += state->target_seconds_per_frame;
   incenter_scene_render(state, ins);
   

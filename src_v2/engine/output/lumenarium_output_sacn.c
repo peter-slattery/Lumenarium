@@ -119,7 +119,7 @@ u8*
 PackB1(u8* ptr, u8 val)
 {
 	*ptr = val;
-    return ptr + sizeof(val);
+  return ptr + sizeof(val);
 }
 
 //Unpacks a u8 from a known big endian buffer
@@ -134,7 +134,7 @@ u8*
 PackL1(u8* ptr, u8 val)
 {
 	*ptr = val;
-    return ptr + sizeof(val);
+  return ptr + sizeof(val);
 }
 
 //Unpacks a u8 from a known little endian buffer
@@ -147,9 +147,9 @@ UpackL1(const u8* ptr)
 u8*
 PackB2(u8* ptr, u16 val)
 {
-    ptr[1] = (u8)(val & 0xff);
+  ptr[1] = (u8)(val & 0xff);
 	ptr[0] = (u8)((val & 0xff00) >> 8);
-    return ptr + sizeof(val);
+  return ptr + sizeof(val);
 }
 
 //Unpacks a u16 from a known big endian buffer
@@ -167,7 +167,7 @@ PackB4(u8* ptr, u32 val)
 	ptr[2] = (u8)((val & 0xff00) >> 8);
 	ptr[1] = (u8)((val & 0xff0000) >> 16);
 	ptr[0] = (u8)((val & 0xff000000) >> 24);
-    return ptr + sizeof(val);
+  return ptr + sizeof(val);
 }
 
 internal void
@@ -227,15 +227,15 @@ VHD_PackLength_(u8* Buffer, u32 Length, b32 IncludeLength)
 
 internal void
 InitStreamHeader (u8* Buffer, s32 BufferSize,
-                  u16 SlotCount,
-                  u8 StartCode,
-                  u16 Universe,
-                  u8 Priority,
-                  u16 Reserved,
-                  u8 Options,
-                  const char* SourceName,
-                  Sacn_Cid CID
-                  )
+  u16 SlotCount,
+  u8 StartCode,
+  u16 Universe,
+  u8 Priority,
+  u16 Reserved,
+  u8 Options,
+  const char* SourceName,
+  Sacn_Cid CID
+)
 {
   // TODO(pjs): Replace packing with gs_memory_cursor
   
@@ -251,8 +251,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
   // TODO(Peter): If you never use this anywhere else, go back and remove the parameters
   VHD_PackFlags_(Cursor, false, false, false);
   Cursor = VHD_PackLength_(Cursor,
-                           SACN_BUFFER_HEADER_SIZE - SACN_RLP_PREAMBLE_SIZE + SlotCount,
-                           false);
+    SACN_BUFFER_HEADER_SIZE - SACN_RLP_PREAMBLE_SIZE + SlotCount,
+    false);
   
   // root vector
   Cursor = PackB4(Cursor, SACN_ROOT_VECTOR); // 22
@@ -265,8 +265,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
   
   VHD_PackFlags_(Cursor, false, false, false);
   Cursor = VHD_PackLength_(Cursor,
-                           SACN_BUFFER_HEADER_SIZE - SACN_FRAMING_FLAGS_AND_LEN_ADDR + SlotCount,
-                           false);
+    SACN_BUFFER_HEADER_SIZE - SACN_FRAMING_FLAGS_AND_LEN_ADDR + SlotCount,
+    false);
   // 40
   // framing vector
   Cursor = PackB4(Cursor, SACN_FRAMING_VECTOR);
@@ -295,8 +295,8 @@ InitStreamHeader (u8* Buffer, s32 BufferSize,
   
   VHD_PackFlags_(Cursor, false, false, false);
   Cursor = VHD_PackLength_(Cursor,
-                           SACN_BUFFER_HEADER_SIZE - SACN_DMP_FLAGS_AND_LEN_ADDR + SlotCount,
-                           false); // 117
+    SACN_BUFFER_HEADER_SIZE - SACN_DMP_FLAGS_AND_LEN_ADDR + SlotCount,
+    false); // 117
   
   // DMP Vector
   Cursor = PackB1(Cursor, SACN_DMP_VECTOR);
@@ -345,12 +345,12 @@ sacn_fill_buffer_header(Output_Data* d, u16 universe, Sacn* sacn)
   dw_put_u32_b(&w, SACN_ROOT_VECTOR);
   
   for (u32 i = 0; i < SACN_CID_BYTES; i++) dw_put_u8(&w, sacn->cid.bytes[i]);
-
+  
   sacn_vhd_pack_flags(&w, false, false, false);
   sacn_vhd_pack_len(&w, SACN_BUFFER_HEADER_SIZE - SACN_FRAMING_FLAGS_AND_LEN_ADDR + slot_count, false);
   
   dw_put_u32_b(&w, SACN_FRAMING_VECTOR);
-
+  
   dw_put_str_min_len_nullterm(&w, sacn->source_name, SACN_SOURCE_NAME_SIZE);
   
   dw_put_u8(&w, priority);
@@ -395,10 +395,27 @@ sacn_string_to_cid(String str)
   return (Sacn_Cid){};
 }
 
+//Unpacks a u32 from a known big endian buffer
+inline u32
+UpackB4(const u8* ptr)
+{
+	return (u32)(ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24));
+}
+
 internal u32
 sacn_universe_to_send_addr(u32 universe)
 {
-  return 0;
+  u8 multicast_address_buffer[4] = {};
+  multicast_address_buffer[0] = 239;
+  multicast_address_buffer[1] = 255;
+  multicast_address_buffer[2] = (u8)((universe & 0xff00) >> 8); // high bit
+  multicast_address_buffer[3] = (u8)((universe & 0x00ff)); // low bit
+  
+  u32 v4_address = (u32)((multicast_address_buffer[3]      ) |
+    (multicast_address_buffer[2] <<  8) |
+    (multicast_address_buffer[1] << 16) |
+    (multicast_address_buffer[0] << 24));
+  return v4_address;
 }
 
 internal u8* 
@@ -406,21 +423,21 @@ output_network_sacn_init()
 {
   Sacn* result = allocator_alloc_struct(permanent, Sacn);
   zero_struct(*result);
-
+  
   result->source_name = string_f(permanent, "lumenarium::incenter");
   
   String cid_str = lit_str("{67F9D986-544E-4abb-8986-D5F79382586C}");
   result->cid = sacn_string_to_cid(cid_str);
-
+  
   s32 ttl = 20;
   result->socket = os_socket_create(AF_INET, SOCK_DGRAM, 0);
   os_socket_set_opt(
-    result->socket, 
+      result->socket, 
     IPPROTO_IP, 
     IP_MULTICAST_TTL, 
     (u8*)&ttl, sizeof(ttl)
   );
-
+  
   return (u8*)result;
 }
 

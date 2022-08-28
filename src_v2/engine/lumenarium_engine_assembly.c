@@ -86,11 +86,11 @@ assembly_add_strip(Assembly_Array* a, Assembly_Handle h, u32 pixels_cap)
 
 void
 assembly_add_led(
-                 Assembly_Array* a, 
-                 Assembly_Handle h, 
-                 Assembly_Strip* strip, 
-                 v4 position
-                 ){
+    Assembly_Array* a, 
+  Assembly_Handle h, 
+  Assembly_Strip* strip, 
+  v4 position
+){
   u32 index = assembly_handle_to_index(h);
   
   Assembly_Pixel_Buffer* pixel_buffer = a->pixel_buffers + index;
@@ -106,7 +106,7 @@ assembly_add_led(
 
 void
 assembly_strip_create_leds(
-  Assembly_Array* a, 
+    Assembly_Array* a, 
   Assembly_Handle h, 
   Assembly_Strip* strip, 
   v3 start, v3 end, 
