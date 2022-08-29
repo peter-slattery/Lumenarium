@@ -1,11 +1,12 @@
 
-#define SECONDARY_CITY_CAP 32
+#define SECONDARY_CITY_CAP 50
 u32 secondary_strips_len = 0;
 Assembly_Strip* secondary_city_strips[SECONDARY_CITY_CAP];
 
+#include "incenter_scenes.h"
 #include "../user_space/incenter_patterns.c"
 #include "../user_space/incenter_secondary_patterns.c"
-#include "incenter_scenes.h"
+#include "incenter_scenes.c"
 #include "incenter_live_answers.c"
 
 ////////////////////////////////////////////////
@@ -22,11 +23,39 @@ incenter_scenes_init(Incenter_State* ins, u32 cap, Allocator* a)
 }
 
 internal void
+incenter_reset_inputs(Incenter_State* ins) 
+{
+  // reset inputs
+  ins->input_pct = 0.5f;
+  ins->input_option = 0;
+  ins->input_advance = false;
+}
+
+internal void
+incenter_go_to_transitioning_in(Incenter_State* ins)
+{
+  if (ins->scene_next != Incenter_Scene_WelcomeHome ||
+      ins->scene_at != Incenter_Scene_AnyoneHome) {
+    ins->transition_time = 0;
+    ins->scene_mode = Incenter_SceneMode_TransitioningIn;
+    ins->scene_time = 0;
+  } else {
+    ins->scene_mode = Incenter_SceneMode_Passive;
+  }
+  ins->scene_at = ins->scene_next;
+  incenter_reset_inputs(ins);
+}
+
+internal void
 incenter_scene_go_to(Incenter_State* ins, u32 index)
 {
   ins->transition_time = 0;
   ins->scene_next = index % ins->scenes_cap;
   ins->scene_mode = Incenter_SceneMode_TransitioningOut;
+  if (ins->scene_at == Incenter_Scene_WelcomeHome) {
+    incenter_go_to_transitioning_in(ins);
+  }
+  
   printf("Switching To: %d:%s\n", ins->scene_next, ins->scenes[ins->scene_next].name);
 }
 
@@ -58,17 +87,13 @@ incenter_scene_render(App_State* state, Incenter_State* ins)
     // Update the transition if necessary
     if (ins->transition_time >= INCENTER_TRANSITION_DURATION) {
       if (ins->scene_mode == Incenter_SceneMode_TransitioningOut) {
-        ins->transition_time = 0;
-        ins->scene_mode = Incenter_SceneMode_TransitioningIn;
-        ins->scene_at = ins->scene_next;
-        ins->scene_time = 0;
-        
-        // reset inputs
-        ins->input_pct = 0.5f;
-        ins->input_option = 0;
-        ins->input_advance = false;
+        incenter_go_to_transitioning_in(ins);
       } else {
         ins->scene_mode = Incenter_SceneMode_Input;
+        if (ins->scene_next == Incenter_Scene_WelcomeHome ||
+            ins->scene_next == Incenter_Scene_AnyoneHome) {
+          ins->scene_mode = Incenter_SceneMode_Passive;
+        }
       }
     }
   }
@@ -154,19 +179,31 @@ incenter_init(App_State* state)
   v3 start_p = (v3){0, 0, 0};
   
   
-  Assembly_Strip* vertical_strip = assembly_add_strip(&state->assemblies, ah, 123);
-  assembly_strip_create_leds(
-      &state->assemblies, 
+  Assembly_Strip* brc = assembly_add_strip(&state->assemblies, ah, 140);
+  brc->output_kind = OutputData_NetworkSACN;
+  brc->sacn_universe = city_descs[city_black_rock].sacn_universe;
+  // Arctic
+  assembly_strip_append_leds(
+    &state->assemblies, 
     ah,
-    vertical_strip, 
+    brc, 
+    (v3){0, INCENTER_RADIUS, 0}, 
     start_p,
-    (v3){0, INCENTER_FEET(-4.5f), 0}, 
-    123
+    90
+  );
+  // BRC
+  assembly_strip_append_leds(
+    &state->assemblies,
+    ah,
+    brc,
+    start_p,
+    (v3){0, INCENTER_FEET(-4.5f), 0},
+    50
   );
   
   // ADDING PRIMARY CITIES
   r32 radius = INCENTER_RADIUS;
-  for (u32 i = 0; i < city_count; i++)
+  for (u32 i = 1; i < city_count; i++)
   {
     Incenter_City_Desc city = city_descs[i];
     if (city.sacn_universe == 0) {
@@ -180,7 +217,7 @@ incenter_init(App_State* state)
     strip->output_kind = OutputData_NetworkSACN;
     strip->sacn_universe = city.sacn_universe;
     
-    assembly_strip_create_leds(&state->assemblies, ah, strip, end_p, start_p, 88);
+    assembly_strip_append_leds(&state->assemblies, ah, strip, end_p, start_p, 88);
   }
   
 #define USING_ON_PLAYA_SECONDARY_CITIES 1
@@ -320,7 +357,7 @@ incenter_frame(App_State* state)
   
   incenter_interface_connection_frame(state, ins);
   
-  ins->scene_time += state->target_seconds_per_frame * 0.2f;
+  ins->scene_time += state->target_seconds_per_frame * 0.5f;
   ins->transition_time += state->target_seconds_per_frame;
   incenter_scene_render(state, ins);
   

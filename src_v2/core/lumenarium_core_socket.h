@@ -6,6 +6,7 @@ struct Socket_Handle { u64 value; };
 
 typedef s32 Socket_Error;
 enum {
+  SocketError_Invalid,
   SocketError_NOERROR,
   SocketError_EAGAIN,
   SocketError_EBADF,
@@ -16,6 +17,21 @@ enum {
   SocketError_ENOMEM,
   SocketError_ENOTCONN,
   SocketError_ENOTSOCK,
+  SocketError_Count,
+};
+
+global char* socket_error_strings[] = {
+  "Invalid",
+  "SocketError_NOERROR",
+  "SocketError_EAGAIN",
+  "SocketError_EBADF",
+  "SocketError_ECONNREFUSED",
+  "SocketError_EFAULT",
+  "SocketError_EINTR",
+  "SocketError_EINVAL",
+  "SocketError_ENOMEM",
+  "SocketError_ENOTCONN",
+  "SocketError_ENOTSOCK",
 };
 
 u16 endian_swap_u16(u16 v);

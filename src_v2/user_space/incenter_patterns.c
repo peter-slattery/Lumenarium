@@ -975,7 +975,7 @@ pattern_add_bar_chart(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips,
       u32 led_index = strip.pixels[led_i];
       
       // Bar Chart
-      r32 pct = 1 - ((r32)led_i / (r32)strip.pixels_len);
+      r32 pct = ((r32)led_i / (r32)strip.pixels_len);
       if (pct < row.prop) {
         r32 cpct = pct / row.prop;
         Assembly_Pixel p = color_ramp_eval_pixel(color_ramp, cpct);
@@ -1048,6 +1048,48 @@ pattern_bar_chart_over_time(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array s
   pattern_add_bar_chart(pixels, strips, ins, scene, year_at, month_at, xray_ramp);
 }
 
+
+void
+pattern_scene_input_pulse(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  r32 pulse_duration = 1;
+  if (ins->scene_time > pulse_duration) return;
+
+  r32 pulse_pct = min(ins->scene_time / pulse_duration, 1);
+  r32 height = (pm_easeout_cubic_r32(pulse_pct) * 1.4f) - 0.2f;
+  r32 brightness = 1 - pulse_pct;
+
+  r32 strip_len = (r32)(BLACK_ROCK_LED_OPL - BLACK_ROCK_LED_FIRST);
+
+  Assembly_Strip brc_strip = strips.strips[city_black_rock];
+  for (u32 i = BLACK_ROCK_LED_FIRST; i < BLACK_ROCK_LED_OPL; i++)
+  {
+    u32 led_i = brc_strip.pixels[i];
+    r32 pct_i = (r32)i / (r32)strip_len;
+    pct_i = 1 - pct_i;
+    r32 pct_d = fabsf(pct_i - height);
+    r32 b = max(0, 0.1f - pct_d) / 0.1f;
+    pixels.pixels[led_i] = color_v3_to_assembly_pixel_faded((v3){0, 0, 1}, b * brightness);
+  }
+}
+
+////////////////////////////////////////
+// ANYBODY HOME?
+
+void
+pattern_anybody_home(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
+{
+  pattern_color(pixels, strips, 0, 0, 0);
+
+  Assembly_Strip strip = strips.strips[city_black_rock];
+  for (u32 i = BLACK_ROCK_LED_FIRST; i < BLACK_ROCK_LED_OPL; i++) 
+  {
+    u32 led_i = strip.pixels[i];
+    pixels.pixels[led_i] = color_v3_to_assembly_pixel((v3){0, 0, 1});
+  }
+}
+
+
 ////////////////////////////////////////
 // Felt Isolated
 
@@ -1085,14 +1127,16 @@ void
 pattern_felt_isolated_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
   Incenter_Scene scene = ins->scenes[ins->scene_at];
-  r32 scene_time = ins->scene_time;
+  r32 scene_speed = 4;
+  r32 scene_time = ins->scene_time * scene_speed;
   
   pattern_color(pixels, strips, 0, 0, 0);
+  pattern_scene_input_pulse(pixels, strips, ins);
   for (u32 row_i = 0; row_i < scene.data_len; row_i++)
   {
     Incenter_Data_Row row = scene.data[row_i];
     Assembly_Strip strip = strips.strips[row.id];
-    u32 pixel_start = row.prop * strip.pixels_len;
+    u32 pixel_start = strip.pixels_len - (row.prop * strip.pixels_len);
     r32 row_offset = (.1439f * row_i);
     r32 b = pm_sinf_01(ins->scene_time + row_offset);
     
@@ -1141,7 +1185,8 @@ pattern_bar_chart_bubbly_intro(Assembly_Pixel_Buffer pixels, Assembly_Strip_Arra
   if (!scene.data) return;
   
   pattern_color(pixels, strips, 0, 0, 0);
-  r32 scene_time = ins->scene_time;
+  r32 scene_speed = 3;
+  r32 scene_time = ins->scene_time * scene_speed;
   
   for (u32 row_i = 0; row_i < scene.data_len; row_i++)
   {
@@ -1230,7 +1275,7 @@ pattern_bar_chart_random_fill(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array
   Assembly_Pixel color = color_v3_to_assembly_pixel((v3){1, .9f, 0});
   assert(color.r != 1);
   
-  r32 scene_time = ins->scene_time;
+  r32 scene_time = ins->scene_time * 8;
   r32 dots_per_second = 5;
   u32 iter_cap = scene_time * dots_per_second;
   for (u32 row_i = 0; row_i < scene.data_len; row_i++)
@@ -1387,13 +1432,19 @@ pattern_sun_transition_shrink(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array
 {
   r32 radius_start = INCENTER_FEET(15);
   r32 radius_end   = INCENTER_FEET(0);
-  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, Incenter_SceneMode_Passive);
+  u32 scene_mode = Incenter_SceneMode_Passive;
+  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, scene_mode);
 }
 
 void
 pattern_sun_transition_grow(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
 {
   r32 radius_start = INCENTER_FEET(0);
-  r32 radius_end   = INCENTER_FEET(15);
-  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, Incenter_SceneMode_Input);
+  r32 radius_end   = INCENTER_FEET(40);
+  u32 scene_mode = Incenter_SceneMode_Input;
+  if (ins->scene_at == Incenter_Scene_WelcomeHome ||
+      ins->scene_at == Incenter_Scene_AnyoneHome) {
+    scene_mode = Incenter_SceneMode_Passive;
+  }
+  pattern_sun_transition(pixels, strips, ins, radius_start, radius_end, scene_mode);
 }

@@ -148,9 +148,17 @@ live_answers_save(Live_Answers_File file, Live_Answers_File_Bucket* new_bucket)
   os_file_close(fh);
 }
 
+#if 0
+#  define MAYBE_SKIP_SAVING_INPUT
+#else
+#  define MAYBE_SKIP_SAVING_INPUT return
+#endif
+
 internal void
 live_answers_input_u32(Incenter_State* ins, Incenter_Scene scene, u32 value)
 {
+  MAYBE_SKIP_SAVING_INPUT;
+
   scratch_get(scratch);
   Live_Answers_File file = live_answers_load(scene, scratch.a);
   if (file.header == 0) {
@@ -186,6 +194,8 @@ live_answers_input_u32(Incenter_State* ins, Incenter_Scene scene, u32 value)
 internal void
 live_answers_input_r32(Incenter_State* ins, Incenter_Scene scene, r32 value)
 {
+  MAYBE_SKIP_SAVING_INPUT;
+
   scratch_get(scratch);
   Live_Answers_File file = live_answers_load(scene, scratch.a);
   if (file.header == 0) {

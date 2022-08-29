@@ -45,12 +45,25 @@ incenter_interface_connection_thread_proc(u8* user_data)
       }
       ins->interface_socket = os_socket_create(AF_INET, SOCK_DGRAM, 0);
     }
+
+    if (err == SocketError_EINTR) {
+      printf("Recvfrom returned EINTR, trying again\n");
+      continue; // retry the same operation, as it was interrupted
+    }
     
     if (err == SocketError_NOERROR) {
       next_msg->base[next_msg->size] = 0;
       // write_next isn't incremented until here because the message
       // is not ready to be read until this point
       ins->interface_messages_write_next = (ins->interface_messages_write_next + 1) % INTERFACE_MESSAGES_CAP;
+    } else {
+      char* errstr = (char*)"Invalid";
+      if (err > SocketError_Invalid && err < SocketError_Count) {
+        errstr = socket_error_strings[err];
+      }
+      // TODO: if you hit an EFAULT, go check how big the buffer
+      // recvfrom was trying to write into
+      printf("Socket Error: %s - code: %d\n", errstr, (s32)err);
     }
   }
   
@@ -115,6 +128,7 @@ incenter_handle_sliding_scale_msg(Incenter_State* ins, Incenter_Scene scene, cha
     case 'C': {
       live_answers_input_r32(ins, scene, ins->input_pct);
       ins->scene_mode = Incenter_SceneMode_Passive;
+      ins->scene_time = 0;
     } break;
   }
   
@@ -143,6 +157,7 @@ incenter_handle_yes_no_msg(Incenter_State* ins, Incenter_Scene scene, char msg)
   
   live_answers_input_u32(ins, scene, ins->input_option);
   ins->scene_mode = Incenter_SceneMode_Passive;
+  ins->scene_time = 0;
 }
 
 internal void
@@ -159,6 +174,7 @@ incenter_handle_three_option_msg(Incenter_State* ins, Incenter_Scene scene, char
   
   live_answers_input_u32(ins, scene, ins->input_option);
   ins->scene_mode = Incenter_SceneMode_Passive;
+  ins->scene_time = 0;
 }
 
 internal void

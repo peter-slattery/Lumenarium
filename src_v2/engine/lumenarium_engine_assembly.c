@@ -105,8 +105,8 @@ assembly_add_led(
 }
 
 void
-assembly_strip_create_leds(
-    Assembly_Array* a, 
+assembly_strip_append_leds(
+  Assembly_Array* a, 
   Assembly_Handle h, 
   Assembly_Strip* strip, 
   v3 start, v3 end, 

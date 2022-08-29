@@ -1,3 +1,20 @@
+- arctic - what do we want to do?
+- (waiting) EFAULT error on receiving a message from the interface
+- FILE IO bugs
+x Timeout to idle
+
+- kids love this thing "THATS THE COOLEST"
+- conversation about "People probably haven't talked about their covid experience yet, this is really good."
+- "This is the most peaceful I've felt in a long time"
+- "Where are you from" - "I'm from the one that's full of light"
+- Rando: "Hey close the door, its way better."
+- "A whole new world"
+- "Want to do it with me?" (goes on to correctly explain the piece without us having told her)
+- "So you're inside the globe, that's why it's inside out, THAT'S SO COOL!"
+- "So that question was about feeling represented in government." "OH WOW - holy shit brazil!" (chorus)
+- "Come do the thing!" "Wait, in front of everybody?"
+- "It's kind of temple-y, with the writing and atmosphere and stuff"
+
 
 TODO:
 

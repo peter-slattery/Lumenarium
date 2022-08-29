@@ -30,6 +30,22 @@ pm_smoothstep_v3(v3 p)
 }
 
 r32
+pm_easein_cubic_r32(r32 v)
+{
+  assert(v >= 0 && v <= 1);
+  return 4 * v * v * v;
+}
+
+r32
+pm_easeout_cubic_r32(r32 v)
+{
+  assert(v >= 0 && v <= 1);
+  r32 a = -2 * v + 2;
+  r32 a3 = a * a * a;
+  return 1 - a3 / 2;
+}
+
+r32
 pm_easeinout_cubic_r32(r32 v)
 {
   assert(v >= 0 && v <= 1);
