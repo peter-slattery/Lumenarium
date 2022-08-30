@@ -105,7 +105,7 @@ incenter_scene_descs_init()
     },
     .data = question_7_data,
     .data_len = question_7_len,
-    .kind = Incenter_SceneKind_SlidingScale,
+    .kind = Incenter_SceneKind_YesOrNo,
   };
   
   incenter_scene_descs[Incenter_Scene_Question_ConnectionFriendsFamily] = (Incenter_Scene){
@@ -186,14 +186,14 @@ incenter_scene_descs_init()
     },
     .data = question_18_data,
     .data_len = question_18_len,
-    .kind = Incenter_SceneKind_YesOrNo,
+    .kind = Incenter_SceneKind_SlidingScale,
   };
   
   incenter_scene_descs[Incenter_Scene_Question_BelieveScienceRenewableTech] = (Incenter_Scene){
     .name = "BelieveScienceRenewableTech",
     .patterns = {
-      [Incenter_SceneMode_Intro] = pattern_bar_chart_random_fill,
-      [Incenter_SceneMode_Passive] = pattern_bar_chart_random_fill,
+      [Incenter_SceneMode_Intro] = pattern_felt_isolated_intro ,
+      [Incenter_SceneMode_Passive] = pattern_felt_isolated_passive,
     },
     .data = question_19_data,
     .data_len = question_19_len,
@@ -203,8 +203,8 @@ incenter_scene_descs_init()
   incenter_scene_descs[Incenter_Scene_Question_StriveMoreEcoFriendly] = (Incenter_Scene){
     .name = "StriveMoreEcoFriendly",
     .patterns = {
-      [Incenter_SceneMode_Intro] = pattern_bar_chart,
-      [Incenter_SceneMode_Passive] = pattern_bar_chart,
+      [Incenter_SceneMode_Intro] = pattern_bar_chart_over_time,
+      [Incenter_SceneMode_Passive] = pattern_bar_chart_over_time,
     },
     //    .data = question_22_data,
     //    .data_len = question_22_len,

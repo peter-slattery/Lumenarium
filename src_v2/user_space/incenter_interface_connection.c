@@ -127,10 +127,11 @@ incenter_handle_sliding_scale_msg(Incenter_State* ins, Incenter_Scene scene, cha
     
     case 'C': {
       live_answers_input_r32(ins, scene, ins->input_pct);
-      ins->scene_mode = Incenter_SceneMode_Passive;
-      ins->scene_time = 0;
     } break;
   }
+
+  ins->scene_mode = Incenter_SceneMode_Passive;
+  ins->scene_time = 0;
   
   ins->input_pct = clamp(0, ins->input_pct, 1);
 }

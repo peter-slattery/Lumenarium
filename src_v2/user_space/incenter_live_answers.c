@@ -71,7 +71,22 @@ live_answers_load(Incenter_Scene scene, Allocator* allocator)
   Live_Answers_File result = {0};
   
   // Read the File
+#define USING_PLATFORM_LAYER 0
+#if !USING_PLATFORM_LAYER
   result.path = string_f(allocator, "data/live_data/%s.incenterdata", scene.name);
+  Data file_data = {0};
+  FILE* file = fopen((const char*)result.path.str, "rb");
+  if (file) {
+    fseek(file, 0, SEEK_END);
+    s32 size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    file_data.base = allocator_alloc(allocator, size);
+    file_data.size = fread((void*)file_data.base, size, 1, file);
+    fclose(file);
+  } else {
+    printf("Creating live data file: %s\n", (char*)result.path.str);
+  }
+#else
   File_Handle file = os_file_open(result.path, FileAccess_Read, FileCreate_OpenExisting);
   Data file_data = {0};
   if (file.value != 0)
@@ -79,6 +94,7 @@ live_answers_load(Incenter_Scene scene, Allocator* allocator)
     file_data = os_file_read_all(file, allocator);
     os_file_close(file);
   }
+#endif
   
   // Obtain structure of file data
   if (file_data.size > 1) {
@@ -114,6 +130,14 @@ live_answers_save(Live_Answers_File file, Live_Answers_File_Bucket* new_bucket)
     return;
   }
   
+#if !USING_PLATFORM_LAYER
+  FILE* fh = fopen((const char*)file.path.str, "wb");
+  if (!fh) {
+    printf("Error: Unable to open live data file for writing\n");
+    printf("  Live Data File: %.*s\n", str_varg(file.path));
+    return;
+  }
+#else
   File_Handle fh = os_file_open(file.path, FileAccess_Write, FileCreate_OpenAlways);
   if (fh.value == 0) {
     printf("Error: Unable to open live data file for writing\n");
@@ -124,31 +148,52 @@ live_answers_save(Live_Answers_File file, Live_Answers_File_Bucket* new_bucket)
     
     return;
   }
-  
+#endif
+
   Data existing_data = {
     .base = (u8*)file.header,
     .size = sizeof(Live_Answers_File_Header) + (sizeof(Live_Answers_File_Bucket) * file.header->buckets_count)
   };
+#if !USING_PLATFORM_LAYER
+  s32 size_written = fwrite((void*)existing_data.base, 1, existing_data.size, fh);
+  if (size_written != existing_data.size) {
+    printf("Unable to write full file: %.*s\n", str_varg(file.path));
+    printf("  Size Needed: %lu, Size Written: %d\n", existing_data.size, size_written);
+  }
+#else
   if (!os_file_write(fh, existing_data)) {
     printf("Error: Could not write existing data to Live Data File\n");
     printf("  Live Data File: %.*s\n", str_varg(file.path));
   }
+#endif
   
   if (new_bucket) {
     Data new_data = {
       .base = (u8*)new_bucket,
       .size = sizeof(Live_Answers_File_Bucket)
     };
+#if !USING_PLATFORM_LAYER
+    size_written = fwrite(new_data.base, 1, new_data.size, fh);
+    if (size_written != new_data.size) {
+      printf("Unable to add new data to file %.*s\n", str_varg(file.path));
+      printf("  Size Needed: %lu, Size Written: %d\n", new_data.size, size_written);
+    }
+#else
     if (!os_file_write(fh, new_data)) {
       printf("Error: Could not write new bucket data to Live Data File\n");
       printf("  Live Data File: %.*s\n", str_varg(file.path));
     }
+#endif
   }
   
+#if !USING_PLATFORM_LAYER
+  fclose(fh);
+#else
   os_file_close(fh);
+#endif
 }
 
-#if 0
+#if 1
 #  define MAYBE_SKIP_SAVING_INPUT
 #else
 #  define MAYBE_SKIP_SAVING_INPUT return
@@ -188,7 +233,7 @@ live_answers_input_u32(Incenter_State* ins, Incenter_Scene scene, u32 value)
   
   live_answers_save(file, new_bucket);
   
-  scratch_release(scratch);
+  4scratch_release(scratch);
 }
 
 internal void

@@ -25,6 +25,14 @@ incenter_scenes_init(Incenter_State* ins, u32 cap, Allocator* a)
 internal void
 incenter_reset_inputs(Incenter_State* ins) 
 {
+  // reset bar chart over time
+  needs_reset = true;
+  year_max = 0;
+  month_max = 0;
+  year_at = 0;
+  month_at = 0;
+  month_start_time = 0;
+  
   // reset inputs
   ins->input_pct = 0.5f;
   ins->input_option = 0;

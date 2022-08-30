@@ -995,6 +995,12 @@ pattern_bar_chart(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Inc
   pattern_add_bar_chart(pixels, strips, ins, scene, scene.data[0].year, scene.data[0].month, xray_ramp);
 }
 
+global bool needs_reset = true;
+global u32 year_max = 0;
+global Incenter_Month_Id month_max = 0;
+global u32 year_at = 0;
+global Incenter_Month_Id month_at = 0;
+global r32 month_start_time = 0;
 
 void
 pattern_bar_chart_over_time(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array strips, Incenter_State* ins)
@@ -1002,15 +1008,9 @@ pattern_bar_chart_over_time(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array s
   Incenter_Scene scene = ins->scenes[ins->scene_at];
   if (!scene.data) return;
   
-  local_persist s32 last_scene_at = -1;
-  local_persist u32 year_max = 0;
-  local_persist Incenter_Month_Id month_max = 0;
-  local_persist u32 year_at = 0;
-  local_persist Incenter_Month_Id month_at = 0;
-  local_persist r32 month_start_time = 0;
-  if (last_scene_at != ins->scene_at) 
+  if (needs_reset) 
   {
-    last_scene_at = ins->scene_at;
+    needs_reset = false;
     
     // Determine what the end of the data set is
     for (u32 row_i = 0; row_i < scene.data_len; row_i++)
@@ -1027,7 +1027,7 @@ pattern_bar_chart_over_time(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array s
     month_start_time = ins->scene_time;
   }
   
-  r32 month_duration = 2;
+  r32 month_duration = 1;
   r32 time_at_month = ins->scene_time - month_start_time;
   if (time_at_month > month_duration) 
   {
@@ -1136,7 +1136,7 @@ pattern_felt_isolated_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array
   {
     Incenter_Data_Row row = scene.data[row_i];
     Assembly_Strip strip = strips.strips[row.id];
-    u32 pixel_start = strip.pixels_len - (row.prop * strip.pixels_len);
+    s32 pixel_start = (row.prop * strip.pixels_len);
     r32 row_offset = (.1439f * row_i);
     r32 b = pm_sinf_01(ins->scene_time + row_offset);
     
@@ -1146,9 +1146,10 @@ pattern_felt_isolated_passive(Assembly_Pixel_Buffer pixels, Assembly_Strip_Array
     
     r32 grow_pct = clamp(0, grow_time, grow_duration) / grow_duration;
     r32 grow_pct_smoothed = pm_easeinout_cubic_r32(grow_pct);
-    u32 pixels_on = (strip.pixels_len - pixel_start) * grow_pct_smoothed;
-    u32 pixel_stop = clamp(pixel_start + 1, pixel_start + pixels_on, strip.pixels_len);
-    for (u32 pixel_i = pixel_start; pixel_i < pixel_stop; pixel_i++)
+    s32 pixels_on = pixel_start * grow_pct_smoothed;
+    s32 pixel_stop = clamp(0, pixel_start - pixels_on, pixel_start - 1);
+    for (u32 pixel_i = 
+    pixel_stop; pixel_i < pixel_start; pixel_i++)
     {
       u32 pixel_index = strip.pixels[pixel_i];
       pixels.pixels[pixel_index] = pattern_felt_isolated_color(
