@@ -1,0 +1,35 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C++ Launch",
+      "type": "cppdbg",
+      "request": "launch",
+      "windows": {
+        "program": "${workspaceRoot}/run_tree/win32/intel/debug/lumenarium",
+      },
+      "osx": {
+        "program": "${workspaceRoot}/run_tree/osx/arm64/debug/lumenarium",
+        "MIMode": "lldb"
+      },
+      "linux": {
+        "program": "${workspaceRoot}/run_tree/raspi/intel/debug/lumenarium",
+      },
+      "internalConsoleOptions": "openOnSessionStart",
+      "logging": {
+        "moduleLoad": false,
+        "programOutput": true,
+        "trace": false
+     },
+     "showDisplayString": false,
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/run_tree",
+      "environment": [],
+      "externalConsole": false, // set true to enable keyboard input
+    }
+  ]
+}
