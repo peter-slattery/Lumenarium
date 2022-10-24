@@ -2,33 +2,31 @@
 ![Lumenarium Banner](./docs/images/splash.png)
 
 ## Build Lumenarium
-Building Lumenarium requires having MSVC installed (sorry, Windows only for now!).
-1. clone the repo onto your computer
-2. Run the appropriate build batch file
-	- for Windows: use `build\build_app_msvc_win32_debug.bat`
-	- other platforms coming soon
-3. Build scripts will output executables into the app_run_tree directory, by platform
+Build Dependencies:
+- clang
+- bash
+  - Note for Windows Users: You can still run bash scripts using git-bash (my recommendation) or WSL
 
-## Run Lumenarium
-Windows - Debug
-1. Run `app_run_tree\win32_msvc\debug\win32_foldhaus.exe`
+To build Lumenarium:
+1. Clone the repo onto your computer
+2. Run `build\build_.sh` with the appropriate platform, architecture, and release mode flags
+  - Example: `build\build_.sh debug osx arm64`
+  - You can see the full list of supported flags by running `build\build_.sh` with no arguments
+3. Build scripts will output executables into the run_tree directory.
+  - The above example will output the following executable: `run_tree\osx\arm64\debug\lumenarium` 
 
-If you want to run in headless mode:
-1. Run `app_run_tree\win32_msvc\debug\win32_foldhaus.exe -headless`
-
-## Debug Lumenarium
-### Windows
-Building in debug mode outputs pdb file info that can be read by Visual Studio or RemedyBG (preferred debugging solution, but ymmv). You can just open the exe in either application and it'll find the pdb file in the same directory
+This repository features a .vscode directory which has been set up with a build task and launch.json to work out of the box. 
+- *Note: I have not been able to test the configuration on Windows or Linux. Feel free to open a PR if you find something is wrong with the vscode setup*
 
 ## What Is Lumenarium?
 Lumenarium is our custom build light and motion control software. It allows us to design light and motion patterns for our sculptures, visualize the output long before the sculpture is built, and iterate in real time to achieve the best visual results quickly.
 
-[Foldhaus can be found here.](https://www.foldhaus.com)
-
-![Image of Lumenarium](./docs/images/hero-0.PNG)
+Lumenarium has been used in several sculptures in museums, permanent installations, and at Burning Man. Lumenarium was developed in collaboration with [Foldhaus](https://www.foldhaus.com). The current iteration of Lumenarium was developed while working on Incenter for Burning Man '22.
 
 ## Features
+*NOTE: These were features from an earlier version of Lumenarium and are still being ported over to the v2 codebase*
 
+![Image of Lumenarium](./docs/images/hero-0.PNG)
 The following features are under active development for integration in Lumenarium
 * [Sculpture File Format](#sculpture-file-format)
 * [DMX Output](#dmx-output)
