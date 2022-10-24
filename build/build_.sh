@@ -95,11 +95,11 @@ Compiler_linux="clang++"
 
 # Platform Entry Points
 
-PlatformEntry_win32="src_v2/platform/win32/lumenarium_first_win32.cpp"
-PlatformEntry_osx="src_v2/platform/osx/lumenarium_first_osx.c"
-PlatformEntry_wasm="src_v2/platform/wasm/lumenarium_first_wasm.cpp"
-PlatformEntry_linux="src_v2/platform/linux/lumenarium_first_linux.cpp"
-PlatformEntry_raspi="src_v2/platform/raspi/lumenarium_first_raspi.c"
+PlatformEntry_win32="src/platform/win32/lumenarium_first_win32.cpp"
+PlatformEntry_osx="src/platform/osx/lumenarium_first_osx.c"
+PlatformEntry_wasm="src/platform/wasm/lumenarium_first_wasm.cpp"
+PlatformEntry_linux="src/platform/linux/lumenarium_first_linux.cpp"
+PlatformEntry_raspi="src/platform/raspi/lumenarium_first_raspi.c"
 
 # Intermediate Outputs
 
@@ -118,7 +118,7 @@ LinkerOutput_linux=""
 LinkerOutput_raspi="lumenarium"
 
 # Wasm Sys Root
-WasmSysRoot="${PROJECT_PATH}/src_v2/platform/wasm/sysroot/"
+WasmSysRoot="${PROJECT_PATH}/src/platform/wasm/sysroot/"
 
 # Compiler Flags
 
@@ -197,7 +197,7 @@ LinkerFlags_PROD=""
 LinkerLibs_win32="user32.lib kernel32.lib gdi32.lib opengl32.lib" 
 # winmm.lib gdi32.lib dsound.lib Ws2_32.lib Comdlg32.lib Winspool.lib"
 
-LinkerLibs_osx="-framework OpenGL -framework Cocoa -framework IOKit ${PROJECT_PATH}/src_v2/libs/glfw_osx/lib-universal/libglfw3.a"
+LinkerLibs_osx="-framework OpenGL -framework Cocoa -framework IOKit ${PROJECT_PATH}/src/libs/glfw_osx/lib-universal/libglfw3.a"
 LinkerLibs_wasm=""
 LinkerLibs_linux=""
 LinkerLibs_raspi=""
@@ -354,13 +354,13 @@ then
     -o $LinkerOutput \
     $EntryPath
   cp \
-    "${PROJECT_PATH}/src_v2/platform/wasm/lumenarium_wasm_imports.js" \
+    "${PROJECT_PATH}/src/platform/wasm/lumenarium_wasm_imports.js" \
     ./lumenarium_wasm_imports.js
 
 else
   
   # Preprocessing Steps
-  ConvertCsvEntry="${PROJECT_PATH}/src_v2/tools/convert_csv.c"
+  ConvertCsvEntry="${PROJECT_PATH}/src/tools/convert_csv.c"
   $Compiler \
     -o convert_csv \
     $CompilerFlags \

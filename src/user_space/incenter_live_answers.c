@@ -158,7 +158,7 @@ live_answers_save(Live_Answers_File file, Live_Answers_File_Bucket* new_bucket)
   s32 size_written = fwrite((void*)existing_data.base, 1, existing_data.size, fh);
   if (size_written != existing_data.size) {
     printf("Unable to write full file: %.*s\n", str_varg(file.path));
-    printf("  Size Needed: %lu, Size Written: %d\n", existing_data.size, size_written);
+    printf("  Size Needed: %llu, Size Written: %d\n", existing_data.size, size_written);
   }
 #else
   if (!os_file_write(fh, existing_data)) {
@@ -176,7 +176,7 @@ live_answers_save(Live_Answers_File file, Live_Answers_File_Bucket* new_bucket)
     size_written = fwrite(new_data.base, 1, new_data.size, fh);
     if (size_written != new_data.size) {
       printf("Unable to add new data to file %.*s\n", str_varg(file.path));
-      printf("  Size Needed: %lu, Size Written: %d\n", new_data.size, size_written);
+      printf("  Size Needed: %llu, Size Written: %d\n", new_data.size, size_written);
     }
 #else
     if (!os_file_write(fh, new_data)) {
@@ -233,7 +233,7 @@ live_answers_input_u32(Incenter_State* ins, Incenter_Scene scene, u32 value)
   
   live_answers_save(file, new_bucket);
   
-  4scratch_release(scratch);
+  scratch_release(scratch);
 }
 
 internal void

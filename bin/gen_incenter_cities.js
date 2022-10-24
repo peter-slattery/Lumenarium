@@ -2,7 +2,7 @@ const fs = require("fs");
 
 const IN_FILE_PATH_PRIMARY   = "../run_tree/data/cities_final.json";
 const IN_FILE_PATH_SECONDARY = "../run_tree/data/cities_secondary_final.json";
-const OUT_FILE_PATH = "../src_v2/user_space/incenter_gen_cities.h"
+const OUT_FILE_PATH = "../src/user_space/incenter_gen_cities.h"
 
 function print_city_desc (city, prefix, dest, gets_own_universe) 
 {

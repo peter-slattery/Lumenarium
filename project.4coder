@@ -16,8 +16,7 @@ blacklist_patterns = {
 load_paths_base = {
     { ".", .relative = true, .recursive = false, },
     { "build", .relative = true, .recursive = false, },
-//    { "src", .relative = true, .recursive = true, },
-    { "src_v2", .relative = true, .recursive = true, },
+    { "src", .relative = true, .recursive = true, },
     { "meta", .relative = true, .recursive = true, },
     { "gs_libs", .relative = true, .recursive = true, },
 };
