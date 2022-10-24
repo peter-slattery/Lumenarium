@@ -14,7 +14,7 @@ sysroot/
 *.dSYM
 run_tree/data/live_data
 run_tree/osx/*
-run_tree/win/*
+run_tree/win32/*
 run_tree/wasm/*
 run_tree/webgl/*
 run_tree/raspi/*

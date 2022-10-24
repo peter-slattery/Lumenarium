@@ -1,1 +1,0 @@
-OpenGL Version: 3.3.0 - Build 27.20.100.9778
