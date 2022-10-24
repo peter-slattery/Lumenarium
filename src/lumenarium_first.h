@@ -6,14 +6,10 @@
 typedef struct App_State App_State;
 
 // Environment
-#include "lumenarium_texture_atlas.c"
-#include "lumenarium_geometry.h"
-
 global Allocator* global_scratch_; // gets reset at frame boundaries
 // TODO make sure all scratch_get's have a release
 #define scratch_get(ident) Allocator_Scratch ident = allocator_scratch_begin(global_scratch_)
 #define scratch_release(ident) allocator_scratch_end(&ident)
-#include "lumenarium_bsp.h"
 
 #include "patterns/patterns_math.h"
 
@@ -27,6 +23,9 @@ typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;
 
 // Editor
 #if defined(PLATFORM_SUPPORTS_EDITOR)
+#  include "editor/lumenarium_editor_texture_atlas.c"
+#  include "editor/lumenarium_editor_bsp.h"
+#  include "editor/graphics/lumenarium_editor_geometry.h"
 #  include "editor/graphics/lumenarium_editor_opengl.h"
 #  include "editor/graphics/lumenarium_editor_graphics.h"
 #  include "editor/lumenarium_editor_ui.h"
@@ -40,7 +39,7 @@ typedef struct Assembly_Pixel_Buffer Assembly_Pixel_Buffer;
 global Allocator* permanent;
 
 #if defined(DEBUG)
-#  include "lumenarium_tests.cpp"
+#  include "lumenarium_tests.c"
 #define lumenarium_env_validate() lumenarium_env_validate_()
 #else
 #  define run_tests()
