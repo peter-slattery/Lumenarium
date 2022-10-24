@@ -1,6 +1,9 @@
 # Lumenarium by Foldhaus
 ![Lumenarium Banner](./docs/images/splash.png)
 
+# THIS VERSION IS DEPRECATED
+Please checkout the master branch to see the latest working version of Lumenarium
+
 ## Build Lumenarium
 Building Lumenarium requires having MSVC installed (sorry, Windows only for now!).
 1. clone the repo onto your computer
