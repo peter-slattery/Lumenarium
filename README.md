@@ -9,9 +9,9 @@ Build Dependencies:
 
 To build Lumenarium:
 1. Clone the repo onto your computer
-2. Run `build\build_.sh` with the appropriate platform, architecture, and release mode flags
-  - Example: `build\build_.sh debug osx arm64`
-  - You can see the full list of supported flags by running `build\build_.sh` with no arguments
+2. Run `build\build.sh` with the appropriate platform, architecture, and release mode flags
+  - Example: `build\build.sh debug osx arm64`
+  - You can see the full list of supported flags by running `build\build.sh` with no arguments
 3. Build scripts will output executables into the run_tree directory.
   - The above example will output the following executable: `run_tree\osx\arm64\debug\lumenarium` 
 
