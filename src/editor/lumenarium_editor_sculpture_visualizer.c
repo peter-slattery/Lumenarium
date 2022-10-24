@@ -85,7 +85,7 @@ ed_sculpture_visualizer(App_State* state)
 {
   Editor* ed = state->editor;
   
-  incenter_sculpture_visualizer_ui(state, ed);
+  if (state->user_space_desc.sculpture_visualizer_ui) state->user_space_desc.sculpture_visualizer_ui(state, ed);
 
 #define SCULPTURE_VIZ_BLOOM 0
 #if SCULPTURE_VIZ_BLOOM

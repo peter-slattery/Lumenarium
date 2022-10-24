@@ -180,6 +180,8 @@ ui_draw_panel(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data)
   
   if (ui->draw_panel_cb) ui->draw_panel_cb(ui->draw_panel_cb_data, id, *node, area);
 
+#define DRAW_PANEL_OUTLINE 0
+#if DRAW_PANEL_OUTLINE
   r32 z = -1;
   v3 l0p0 = (v3){ area.min.x,     area.min.y, z }; // left side
   v3 l0p1 = (v3){ area.min.x + 1, area.max.y, z }; 
@@ -200,6 +202,7 @@ ui_draw_panel(BSP* tree, BSP_Node_Id id, BSP_Node* node, u8* user_data)
   ui_sprite_push_color(ui, l1p0, l1p1, sid, c);
   ui_sprite_push_color(ui, l2p0, l2p1, sid, c);
   ui_sprite_push_color(ui, l3p0, l3p1, sid, c);
+#endif
 }
 
 internal void

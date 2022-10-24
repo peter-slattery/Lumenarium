@@ -1,5 +1,5 @@
 #include "lumenarium_first.h"
-#include "user_space/incenter_user_space.c"
+#include "user_space/demo/demo_user_space.c"
 
 void
 sculpture_updated(App_State* state, r32 scale, r32 led_size)
@@ -18,14 +18,13 @@ lumenarium_init(Editor_Desc* ed_desc)
   global_scratch_ = bump_allocator_create_reserve(GB(1));
   
   run_tests();
-  
-  //cvtcsv_convert(lit_str("./data/incenter_test_data_clean.csv"));  
 
   scratch_get(scratch);
-  App_Init_Desc desc = incenter_get_init_desc();
+  App_Init_Desc desc = user_space_get_init_desc();
   // TODO(PS): make sure the values make sense in desc
   
   state = allocator_alloc_struct(permanent, App_State);
+  state->user_space_desc = desc;
   add_flag(state->flags, AppState_IsRunning);
   
 #if !defined(PLATFORM_raspi)
@@ -69,7 +68,7 @@ lumenarium_init(Editor_Desc* ed_desc)
 #if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_init(state, ed_desc);
 #endif
-  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_init(state);
+  if (has_flag(state->flags, AppState_RunUserSpace) && state->user_space_desc.init) state->user_space_desc.init(state);
   scratch_release(scratch);
   return state;
 }
@@ -85,7 +84,7 @@ lumenarium_frame_prepare(App_State* state)
 #if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_frame_prepare(state);
 #endif
-  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame_prepare(state);
+  if (has_flag(state->flags, AppState_RunUserSpace) && state->user_space_desc.frame_prepare) state->user_space_desc.frame_prepare(state);
   
   file_async_jobs_do_work(&state->file_async_job_system, 4, (u8*)state);
 }
@@ -93,7 +92,7 @@ lumenarium_frame_prepare(App_State* state)
 internal void
 lumenarium_frame(App_State* state)
 {
-  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_frame(state);
+  if (has_flag(state->flags, AppState_RunUserSpace) && state->user_space_desc.frame) state->user_space_desc.frame(state);
   en_frame(state);
 #if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_frame(state);
@@ -147,7 +146,7 @@ lumenarium_event(Window_Event evt, App_State* state)
 internal void
 lumenarium_cleanup(App_State* state)
 {
-  if (has_flag(state->flags, AppState_RunUserSpace)) incenter_cleanup(state);
+  if (has_flag(state->flags, AppState_RunUserSpace) && state->user_space_desc.cleanup) state->user_space_desc.cleanup(state);
   en_cleanup(state);
 #if defined(PLATFORM_SUPPORTS_EDITOR)
   if (has_flag(state->flags, AppState_RunEditor)) ed_cleanup(state);

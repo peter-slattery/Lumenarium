@@ -4,8 +4,8 @@ u32 secondary_strips_len = 0;
 Assembly_Strip* secondary_city_strips[SECONDARY_CITY_CAP];
 
 #include "incenter_scenes.h"
-#include "../user_space/incenter_patterns.c"
-#include "../user_space/incenter_secondary_patterns.c"
+#include "incenter_patterns.c"
+#include "incenter_secondary_patterns.c"
 #include "incenter_scenes.c"
 #include "incenter_live_answers.c"
 
@@ -134,14 +134,6 @@ incenter_scene_render(App_State* state, Incenter_State* ins)
 
 ////////////////////////////////////////////////
 // INCENTER LIFECYCLE
-
-internal App_Init_Desc
-incenter_get_init_desc()
-{
-  App_Init_Desc result = {};
-  result.assembly_cap = 4;
-  return result;
-}
 
 #define INCENTER_RADIUS INCENTER_FEET(10)
 internal Assembly_Strip*
@@ -378,4 +370,20 @@ incenter_cleanup(App_State* state)
   ins->running = false;
   os_thread_end(ins->interface_thread);
   incenter_interface_connection_cleanup(ins);
+}
+
+internal App_Init_Desc
+user_space_get_init_desc()
+{
+  App_Init_Desc result = {
+    .assembly_cap = 4,
+    .init = incenter_init,
+    .frame_prepare = incenter_frame_prepare,
+#if defined(PLATFORM_SUPPORTS_EDITOR)
+    .sculpture_visualizer_ui = incenter_sculpture_visualizer_ui,
+#endif
+    .frame = incenter_frame,
+    .cleanup = incenter_cleanup,
+  };
+  return result;
 }

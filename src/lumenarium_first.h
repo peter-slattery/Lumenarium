@@ -70,16 +70,30 @@ enum
   AppState_RunUserSpace = 4,
 };
 
+typedef struct App_State App_State;
+
+typedef void User_Space_Callback(App_State* state);
+#if defined(PLATFORM_SUPPORTS_EDITOR)
+typedef void User_Space_Editor_Callback(App_State* state, Editor* ed);
+#endif
+
 typedef struct App_Init_Desc App_Init_Desc;
 struct App_Init_Desc
 {
   u32 assembly_cap;
+  User_Space_Callback* init;
+  User_Space_Callback* frame_prepare;
+#if defined(PLATFORM_SUPPORTS_EDITOR)
+  User_Space_Editor_Callback* sculpture_visualizer_ui;
+#endif
+  User_Space_Callback* frame;
+  User_Space_Callback* cleanup;
 };
 
-typedef struct App_State App_State;
 struct App_State
 {
   r64 target_seconds_per_frame;
+  App_Init_Desc user_space_desc;
   App_State_Flags flags;
   File_Async_Job_System file_async_job_system;
   
@@ -104,17 +118,16 @@ struct Editor_Desc
 
 void sculpture_updated(App_State* state, r32 scale, r32 led_size);
 
-#include "user_space/incenter_user_space.h"
-//#include "../run_tree/data/incenter_test_data.c"
+#include "user_space/demo/demo_user_space.h"
 
 #include "engine/lumenarium_engine_assembly.c"
+#include "engine/lumenarium_engine_assembly_pixel.c"
 #include "engine/lumenarium_engine.c"
 #include "engine/lumenarium_engine_output.c"
 #include "engine/output/lumenarium_output_uart.c"
 #include "engine/output/lumenarium_output_sacn.c"
 
 #if defined(PLATFORM_SUPPORTS_EDITOR)
-internal void incenter_sculpture_visualizer_ui(App_State* state, Editor* ed);
 #  include "editor/lumenarium_editor_ui.c"
 #  include "editor/lumenarium_editor_renderer.c"
 #  include "editor/lumenarium_editor_sculpture_visualizer.c"
