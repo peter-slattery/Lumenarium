@@ -43,7 +43,7 @@ Documentation coming soon.
 
 ***
 ### DMX Output
-Lumenarium supports SACN output, and ArtNet is in development, via a DMX system which underlies them both.
+Lumenarium supports sACN output, and ArtNet is in development, via a DMX system which underlies them both.
 
 ***
 ### Live Visualization
