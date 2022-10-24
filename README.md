@@ -1,6 +1,5 @@
 # Lumenarium by Foldhaus
-![Lumenarium Banner](./docs/images/splash_new.jpeg)
-*Photo by Kate Greenberg
+![Lumenarium Banner](./docs/images/splash_new.png)
 
 ## Build Lumenarium
 Build Dependencies:
