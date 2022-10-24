@@ -32,7 +32,7 @@ AnimSerializer_Serialize(animation Anim, animation_pattern_array Patterns, gs_me
         Serializer_OpenStruct(&Serializer, AnimField_Layer);
         {
             Serializer_WriteStringValue(&Serializer, AnimField_LayerName, LayerAt.Name.ConstString);
-            Serializer_WriteStringValue(&Serializer, AnimField_LayerBlendMode, BlendModeStrings[LayerAt.BlendMode]);
+            Serializer_WriteStringValue(&Serializer, AnimField_LayerBlendMode, BlendModeStrings[LayerAt.BlendMode].ConstString);
         }
         Serializer_CloseStruct(&Serializer);
     }
@@ -82,12 +82,10 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
     {
         Result.Name = Parser_ReadStringValue(&Parser, AnimField_AnimName);
         
-        Result.Layers.CountMax = Parser_ReadU32Value(&Parser, AnimField_LayersCount);
-        Result.Layers.Values = PushArray(Arena, anim_layer, Result.Layers.CountMax);
-        
-        Result.Blocks_.CountMax = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
-        Result.Blocks_.Generations = PushArray(Arena, u32, Result.Blocks_.CountMax);
-        Result.Blocks_.Values = PushArray(Arena, animation_block, Result.Blocks_.CountMax);
+        u32 LayersNeeded = Parser_ReadU32Value(&Parser, AnimField_LayersCount);
+        u32 BlocksNeeded = Parser_ReadU32Value(&Parser, AnimField_BlocksCount);
+        Result.Layers = AnimLayerArray_Create(Arena, LayersNeeded);
+        Result.Blocks_ = AnimBlockArray_Create(Arena, BlocksNeeded);
         
         if (Parser_ReadOpenStruct(&Parser, AnimField_PlayableRange))
         {
@@ -116,7 +114,7 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
                     gs_string BlendModeName = Parser_ReadStringValue(&Parser, AnimField_LayerBlendMode);
                     for (u32 i = 0; i < BlendMode_Count; i++)
                     {
-                        if (StringsEqual(BlendModeName.ConstString, BlendModeStrings[i]))
+                        if (StringsEqual(BlendModeName, BlendModeStrings[i]))
                         {
                             Layer.BlendMode = (blend_mode)i;
                             break;
@@ -169,7 +167,7 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
                             break;
                         }
                     }
-                    
+                    Assert(IsValid(Block.AnimationProcHandle));
                     if (Parser_ReadCloseStruct(&Parser))
                     {
                         AnimBlockArray_Push(&Result.Blocks_, Block);
@@ -182,9 +180,28 @@ AnimParser_Parse(gs_string File, gs_memory_arena* Arena, animation_pattern_array
             }
         }
     }
-    
     return Result;
 }
+internal animation
+AnimParser_Parse(gs_data File, gs_memory_arena* Arena, animation_pattern_array AnimPatterns)
+{
+    gs_string FileString = MakeString((char*)File.Memory, File.Size);
+    return AnimParser_Parse(FileString, Arena, AnimPatterns);
+}
 
+internal animation_handle
+AnimationSystem_LoadAnimationFromFile(animation_system* System, animation_pattern_array AnimPatterns, context Context, gs_const_string FilePath)
+{
+    animation_handle NewAnimHandle = InvalidAnimHandle();
+    gs_file AnimFile = ReadEntireFile(Context.ThreadContext.FileHandler, FilePath);
+    if (AnimFile.Size > 0)
+    {
+        animation NewAnim = AnimParser_Parse(AnimFile.Data, System->Storage, AnimPatterns);
+        NewAnim.FileInfo = AnimFile.FileInfo;
+        NewAnim.FileInfo.Path = PushStringF(System->Storage, AnimFile.FileInfo.Path.Length, "%S", AnimFile.FileInfo.Path).ConstString;
+        NewAnimHandle = AnimationArray_Push(&System->Animations, NewAnim);
+    }
+    return NewAnimHandle;
+}
 #define FOLDHAUS_ANIMATION_SERIALIZER_CPP
 #endif // FOLDHAUS_ANIMATION_SERIALIZER_CPP

@@ -42,8 +42,5 @@ PushLogEntry(event_log* Log, gs_string Message, log_entry_type Type)
     NewEntry->Type = Type;
 }
 
-
-
-
 #define FOLDHAUS_LOG_H
 #endif // FOLDHAUS_LOG_H

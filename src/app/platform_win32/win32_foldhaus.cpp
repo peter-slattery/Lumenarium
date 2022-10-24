@@ -332,8 +332,7 @@ DebugPrint (char* Format, ...)
     gs_string StringBuffer = MakeString(Buffer, 256);
     va_list Args;
     va_start(Args, Format);
-    PrintF(&StringBuffer, Format, Args);
-    OutputDebugStringA(Buffer);
+    Log_PrintFVarArgs(GlobalLogBuffer, LogEntry_Message, Format, Args);
     va_end(Args);
 }
 
@@ -354,22 +353,6 @@ SetApplicationLinks (context* Context, win32_dll_refresh DLL, gs_work_queue* Wor
         Context->UpdateAndRender = 0;
         Context->CleanupApplication = 0;
     }
-}
-
-// TODO(Peter): :Redundant remove
-internal u8*
-DEBUGAlloc(s32 ElementSize, s32 ElementCount)
-{
-    return (u8*)Win32Alloc(ElementSize * ElementCount, 0);
-}
-
-// TODO(Peter): :Redundant remove
-internal u8*
-Win32Realloc(u8* Buf, s32 OldSize, s32 NewSize)
-{
-    u8* NewMemory = (u8*)Win32Alloc(NewSize, 0);
-    CopyMemoryTo(Buf, NewMemory, OldSize);
-    return NewMemory;
 }
 
 internal void
@@ -396,7 +379,7 @@ Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* 
         {
             if (BufferAt->ComPort.Length > 0)
             {
-                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1);
+                HANDLE SerialPort = Win32SerialArray_GetOrOpen(BufferAt->ComPort, 2000000, 8, NOPARITY, 1, Context.Transient);
                 if (SerialPort != INVALID_HANDLE_VALUE)
                 {
                     if (Win32SerialPort_Write(SerialPort, BufferAt->Data))
@@ -413,7 +396,8 @@ Win32_SendAddressedDataBuffer(gs_thread_context Context, addressed_data_buffer* 
             else
             {
 #if 0
-                OutputDebugStringA("Skipping data buffer because its COM Port isn't set");
+                Log_Message(GlobalLogBuffer, 
+                            "Skipping data buffer because its COM Port isn't set");
 #endif
             }
         }break;
@@ -430,18 +414,19 @@ Win32_SendAddressedDataBuffer_Job(gs_thread_context Context, gs_data Arg)
 }
 
 internal bool
-ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError)
+ReloadAndLinkDLL(win32_dll_refresh* DLL, context* Context, gs_work_queue* WorkQueue, bool ShouldError, bool AppReady)
 {
     bool Success = false;
     if (HotLoadDLL(DLL))
     {
         SetApplicationLinks(Context, *DLL, WorkQueue);
-        Context->ReloadStaticData(*Context, GlobalDebugServices);
+        Context->ReloadStaticData(*Context, GlobalDebugServices, GlobalLogBuffer, AppReady);
         Success = true;
+        Log_Message(GlobalLogBuffer, "Reloaded DLL\n");
     }
     else if(ShouldError)
     {
-        OutputDebugStringA("Unable to load application DLL at startup.\nAborting\n");
+        Log_Error(GlobalLogBuffer, "Unable to load application DLL at startup.\nAborting\n");
     }
     return Success;
 }
@@ -505,9 +490,9 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
     
     if (WorkingDirectory.Length > 0)
     {
-        OutputDebugStringA("Setting Working Directory\n");
-        OutputDebugStringA(WorkingDirectory.Str);
-        
+        Log_Message(GlobalLogBuffer, 
+                    "Setting Working Directory \n%S \n",
+                    WorkingDirectory.ConstString);
         Result = SetCurrentDirectory(WorkingDirectory.Str);
         if (!Result)
         {
@@ -517,7 +502,75 @@ SetWorkingDirectory(HINSTANCE HInstance, gs_thread_context ThreadContext)
     }
     else
     {
-        OutputDebugStringA("Error, no data folder found\n");
+        Log_Error(GlobalLogBuffer, "Error, no data folder found\n");
+    }
+    
+    return Result;
+}
+
+#include "../../gs_libs/gs_path.h"
+
+internal void
+Win32_SendOutputData(gs_thread_context ThreadContext, addressed_data_buffer_list OutputData)
+{
+    bool Multithread = true;
+    if (Multithread)
+    {
+        for (addressed_data_buffer* At = OutputData.Root;
+             At != 0;
+             At = At->Next)
+        {
+            gs_data ProcArg = {};
+            ProcArg.Memory = (u8*)At;
+            ProcArg.Size = sizeof(addressed_data_buffer);
+            Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
+        }
+    }
+    else
+    {
+        for (addressed_data_buffer* At = OutputData.Root;
+             At != 0;
+             At = At->Next)
+        {
+            gs_data ProcArg = {};
+            ProcArg.Memory = (u8*)At;
+            ProcArg.Size = sizeof(addressed_data_buffer);
+            Win32_SendAddressedDataBuffer_Job(ThreadContext, ProcArg);
+        }
+    }
+    
+}
+
+// Time
+internal system_time
+Win32GetSystemTime()
+{
+    system_time Result = {};
+    
+    SYSTEMTIME WinLocalTime;
+    GetLocalTime(&WinLocalTime);
+    
+    SYSTEMTIME WinSysTime;
+    FILETIME WinSysFileTime;
+    GetSystemTime(&WinSysTime);
+    if (SystemTimeToFileTime((const SYSTEMTIME*)&WinSysTime, &WinSysFileTime))
+    {
+        ULARGE_INTEGER SysTime = {};
+        SysTime.LowPart = WinSysFileTime.dwLowDateTime;
+        SysTime.HighPart = WinSysFileTime.dwHighDateTime;
+        
+        Result.NanosSinceEpoch = SysTime.QuadPart;
+        Result.Year   = WinLocalTime.wYear;
+        Result.Month  = WinLocalTime.wMonth;
+        Result.Day    = WinLocalTime.wDay;
+        Result.Hour   = WinLocalTime.wHour;
+        Result.Minute = WinLocalTime.wMinute;
+        Result.Second = WinLocalTime.wSecond;
+    }
+    else
+    {
+        u32 Error = GetLastError();
+        InvalidCodePath;
     }
     
     return Result;
@@ -533,37 +586,61 @@ WinMain (
 {
     gs_thread_context ThreadContext = Win32CreateThreadContext();
     
+    gs_memory_arena PlatformPermanent = MemoryArenaCreate(MB(4), 
+                                                          Bytes(8), ThreadContext.Allocator,
+                                                          0, 
+                                                          0, 
+                                                          "Platform Memory");
+    
+    GlobalLogBuffer = AllocStruct(ThreadContext.Allocator, log_buffer, "Global Log Buffer");
+    *GlobalLogBuffer = Log_Init(&PlatformPermanent, 32);
+    
     if (!SetWorkingDirectory(HInstance, ThreadContext)) return 1;
-    
-    MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
-    Win32UpdateWindowDimension(&MainWindow);
-    
-    win32_opengl_window_info OpenGLWindowInfo = {};
-    OpenGLWindowInfo.ColorBits = 32;
-    OpenGLWindowInfo.AlphaBits = 8;
-    OpenGLWindowInfo.DepthBits = 0;
-    CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
     
     context Context = {};
     Context.ThreadContext = ThreadContext;
-    Context.MemorySize = MB(64);
-    Context.MemoryBase = (u8*)Win32Alloc(Context.MemorySize, 0);
+    Context.SystemTime_Current = Win32GetSystemTime();
     
-    gs_memory_arena PlatformPermanent = CreateMemoryArena(Context.ThreadContext.Allocator);
+    gs_const_string Args = ConstString((char*)CmdLineArgs);
+    if (StringsEqual(Args, ConstString("-headless")))
+    {
+        Log_Message(GlobalLogBuffer, "Running Headless\n");
+        Context.Headless = true;
+    }
+    
+    if (!Context.Headless)
+    {
+        MainWindow = Win32CreateWindow (HInstance, "Foldhaus", 1440, 768, HandleWindowEvents);
+        Win32UpdateWindowDimension(&MainWindow);
+        
+        win32_opengl_window_info OpenGLWindowInfo = {};
+        OpenGLWindowInfo.ColorBits = 32;
+        OpenGLWindowInfo.AlphaBits = 8;
+        OpenGLWindowInfo.DepthBits = 0;
+        CreateOpenGLWindowContext(OpenGLWindowInfo, &MainWindow);
+    }
     
     s64 PerformanceCountFrequency = GetPerformanceFrequency();
     s64 LastFrameEnd = GetWallClock();
-    r32 TargetSecondsPerFrame = 1 / 60.0f;
+    r32 TargetSecondsPerFrame = 1 / 30.0f;
     r32 LastFrameSecondsElapsed = 0.0f;
     
     GlobalDebugServices = PushStruct(&PlatformPermanent, debug_services);
-    InitDebugServices(GlobalDebugServices,
-                      PerformanceCountFrequency,
-                      DEBUGAlloc,
-                      Win32Realloc,
-                      GetWallClock,
-                      Win32GetThreadId,
-                      PLATFORM_THREAD_COUNT + 1);
+#if DEBUG
+    InitDebugServices_DebugMode(GlobalDebugServices,
+                                PerformanceCountFrequency,
+                                GetWallClock,
+                                Win32GetThreadId,
+                                Context.ThreadContext,
+                                PLATFORM_THREAD_COUNT + 1);
+#else
+    InitDebugServices_OffMode(GlobalDebugServices,
+                              PerformanceCountFrequency,
+                              GetWallClock,
+                              Win32GetThreadId,
+                              Context.ThreadContext,
+                              PLATFORM_THREAD_COUNT + 1);
+#endif
     
     input_queue InputQueue = InputQueue_Create(&PlatformPermanent, 32);
     
@@ -583,19 +660,25 @@ WinMain (
     *Context.SocketManager = CreatePlatformSocketManager(Win32ConnectSocket, Win32CloseSocket, Win32SocketQueryStatus, Win32SocketPeek, Win32SocketReceive, Win32SocketSend);
     
     win32_dll_refresh DLLRefresh = InitializeDLLHotReloading(DLLName, WorkingDLLName, DLLLockFileName);
-    if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true)) { return -1; }
+    if (!ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, true, false)) { return -1; }
     
     Mouse_Init();
     
     Win32SocketSystem_Init(&PlatformPermanent);
     
-    Win32SerialArray_Create(ThreadContext);
+    Win32SerialArray_Create(&PlatformPermanent);
     
-    render_command_buffer RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, Win32Realloc);
+    render_command_buffer RenderBuffer = {};
+    if (!Context.Headless)
+    {
+        RenderBuffer = AllocateRenderCommandBuffer(MB(12), &PlatformPermanent, ThreadContext);
+    }
     
     addressed_data_buffer_list OutputData = AddressedDataBufferList_Create(ThreadContext);
     
-    Context.InitializeApplication(Context);
+    Context.InitializeApplication(&Context);
+    
+    system_time StartTime = Win32GetSystemTime();
     
     Running = true;
     Context.WindowIsVisible = true;
@@ -605,64 +688,72 @@ WinMain (
         {
             EndDebugFrame(GlobalDebugServices);
         }
+        
         DEBUG_TRACK_SCOPE(MainLoop);
+        
+        {
+            Context.SystemTime_Last = Context.SystemTime_Current;
+            Context.SystemTime_Current = Win32GetSystemTime();
+            
+#define PRINT_SYSTEM_TIME 0
+#if PRINT_SYSTEM_TIME
+            gs_string T = PushStringF(Context.ThreadContext.Transient,
+                                      256,
+                                      "%d %d %d - %lld\n",
+                                      Context.SystemTime_Current.Hour,
+                                      Context.SystemTime_Current.Minute,
+                                      Context.SystemTime_Current.Second,
+                                      Context.SystemTime_Current.NanosSinceEpoch);
+            
+            u64 NanosElapsed = Context.SystemTime_Current.NanosSinceEpoch - StartTime.NanosSinceEpoch;
+            r64 SecondsElapsed = (r64)NanosElapsed * NanosToSeconds;
+            
+            Log_Message(GlobalLogBuffer,
+                        "%lld %f Seconds \n",
+                        NanosElapsed,
+                        SecondsElapsed);
+#endif
+        }
         
         ResetInputQueue(&InputQueue);
         
-        ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false);
+        ReloadAndLinkDLL(&DLLRefresh, &Context, &Win32WorkQueue.WorkQueue, false, true);
         
         AddressedDataBufferList_Clear(&OutputData);
         
-        Mouse_Update(MainWindow, &Context);
-        
-        MSG Message;
-        while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
+        if (!Context.Headless)
         {
-            DEBUG_TRACK_SCOPE(PeekWindowsMessages);
-            HandleWindowMessage(Message, &MainWindow, &InputQueue, &Context.Mouse);
+            Mouse_Update(MainWindow, &Context);
+            MSG Message;
+            while (PeekMessageA(&Message, MainWindow.Handle, 0, 0, PM_REMOVE))
+            {
+                DEBUG_TRACK_SCOPE(PeekWindowsMessages);
+                HandleWindowMessage(Message, &MainWindow, &InputQueue, &Context.Mouse);
+            }
+            
+            Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
+            RenderBuffer.ViewWidth = MainWindow.Width;
+            RenderBuffer.ViewHeight = MainWindow.Height;
         }
         
-        Context.WindowBounds = rect2{v2{0, 0}, v2{(r32)MainWindow.Width, (r32)MainWindow.Height}};
-        RenderBuffer.ViewWidth = MainWindow.Width;
-        RenderBuffer.ViewHeight = MainWindow.Height;
         Context.DeltaTime = LastFrameSecondsElapsed;
+        Context.TotalTime += (r64)Context.DeltaTime;
         
         Context.UpdateAndRender(&Context, InputQueue, &RenderBuffer, &OutputData);
         
-        bool Multithread = false;
-        if (Multithread)
+        Win32_SendOutputData(ThreadContext, OutputData);
+        
+        if (!Context.Headless)
         {
-            for (addressed_data_buffer* At = OutputData.Root;
-                 At != 0;
-                 At = At->Next)
-            {
-                gs_data ProcArg = {};
-                ProcArg.Memory = (u8*)At;
-                ProcArg.Size = sizeof(addressed_data_buffer);
-                Win32PushWorkOnQueue(&Win32WorkQueue.WorkQueue, Win32_SendAddressedDataBuffer_Job, ProcArg, ConstString("Send UART Data"));
-            }
+            RenderCommandBuffer(RenderBuffer);
+            ClearRenderBuffer(&RenderBuffer);
+            
+            Mouse_Advance(&Context);
+            
+            HDC DeviceContext = GetDC(MainWindow.Handle);
+            SwapBuffers(DeviceContext);
+            ReleaseDC(MainWindow.Handle, DeviceContext);
         }
-        else
-        {
-            for (addressed_data_buffer* At = OutputData.Root;
-                 At != 0;
-                 At = At->Next)
-            {
-                gs_data ProcArg = {};
-                ProcArg.Memory = (u8*)At;
-                ProcArg.Size = sizeof(addressed_data_buffer);
-                Win32_SendAddressedDataBuffer_Job(ThreadContext, ProcArg);
-            }
-        }
-        
-        RenderCommandBuffer(RenderBuffer);
-        ClearRenderBuffer(&RenderBuffer);
-        
-        Mouse_Advance(&Context);
-        
-        HDC DeviceContext = GetDC(MainWindow.Handle);
-        SwapBuffers(DeviceContext);
-        ReleaseDC(MainWindow.Handle, DeviceContext);
         
         Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
         
@@ -681,11 +772,11 @@ WinMain (
         LastFrameEnd = GetWallClock();
     }
     
-    Context.CleanupApplication(Context);
+    Context.CleanupApplication(Context, &OutputData);
+    Win32_SendOutputData(ThreadContext, OutputData);
+    Win32DoQueueWorkUntilDone(&Win32WorkQueue.WorkQueue, Context.ThreadContext);
     
     Win32WorkQueue_Cleanup();
-    //Win32_TestCode_SocketReading_Cleanup();
-    
     Win32SocketSystem_Cleanup();
     
     return 0;

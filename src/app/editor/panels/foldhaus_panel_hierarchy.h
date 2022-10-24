@@ -30,7 +30,7 @@ PANEL_MODAL_OVERRIDE_CALLBACK(LoadAssemblyCallback)
     file_view_state* FileViewState = Panel_GetStateStruct(ReturningFrom, file_view_state);
     gs_file_info FileInfo = FileViewState->SelectedFile;
     
-    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, FileInfo.Path, State->GlobalLog);
+    LoadAssembly(&State->Assemblies, &State->LedSystem, State->Transient, Context, FileInfo.Path, GlobalLogBuffer);
 }
 
 GSMetaTag(panel_render);
@@ -69,7 +69,7 @@ HierarchyView_Render(panel* Panel, rect2 PanelBounds, render_command_buffer* Ren
         if (ui_Button(&State->Interface, MakeString("+ Add Assembly")))
         {
             panel* FileBrowser = PanelSystem_PushPanel(&State->PanelSystem, PanelType_FileView, State, Context);
-            FileView_SetMode(FileBrowser, FileViewMode_Save);
+            FileView_SetMode(FileBrowser, FileViewMode_Load);
             Panel_PushModalOverride(Panel, FileBrowser, LoadAssemblyCallback);
         }
         ui_EndRow(&State->Interface);

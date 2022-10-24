@@ -1,0 +1,32 @@
+lumenarium_animation_file;
+animation_name: "rainbow";
+layers_count: 3;
+blocks_count: 1;
+playable_range:{
+    min: 0;
+    max: 36000;
+};
+layers:{
+    layer:{
+        name: "Mask";
+        blend: "Add";
+    };
+    layer:{
+        name: "Color";
+        blend: "Add";
+    };
+    layer:{
+        name: "[New Layer]";
+        blend: "Add";
+    };
+};
+blocks:{
+    block:{
+        frame_range:{
+            min: 0;
+            max: 36000;
+        };
+        layer_index: 1;
+        animation_name: "Pattern_Rainbow";
+    };
+};

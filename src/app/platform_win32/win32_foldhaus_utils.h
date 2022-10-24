@@ -43,8 +43,7 @@ Error Code: %d\n
 
 DEBUG_PRINT(Win32DebugPrint)
 {
-    Assert(IsNullTerminated(Message));
-    OutputDebugStringA(Message.Str);
+    Log_Message(GlobalLogBuffer, "%S", Message);
 }
 
 #define PrintLastError() PrintLastError_(__FILE__, __LINE__)
@@ -54,8 +53,7 @@ PrintLastError_(char* File, u32 Line)
     char DebugStringData[256];
     gs_string DebugString = MakeString(DebugStringData, 0, 256);
     u32 Error = GetLastError();
-    PrintF(&DebugString, "%s Line %d: Win32 Error %d\n\0", File, Line, Error);
-    OutputDebugStringA(DebugString.Str);
+    Log_Error(GlobalLogBuffer, "%s Line %d: Win32 Error %d\n\0", File, Line, Error);
 }
 
 

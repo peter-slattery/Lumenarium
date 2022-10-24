@@ -1,0 +1,51 @@
+- arctic - what do we want to do?
+- (waiting) EFAULT error on receiving a message from the interface
+- FILE IO bugs
+x Timeout to idle
+
+LUSIO Light festival
+
+- kids love this thing "THATS THE COOLEST"
+- conversation about "People probably haven't talked about their covid experience yet, this is really good."
+- "This is the most peaceful I've felt in a long time"
+- "Where are you from" - "I'm from the one that's full of light"
+- Rando: "Hey close the door, its way better."
+- "A whole new world"
+- "Want to do it with me?" (goes on to correctly explain the piece without us having told her)
+- "So you're inside the globe, that's why it's inside out, THAT'S SO COOL!"
+- "So that question was about feeling represented in government." "OH WOW - holy shit brazil!" (chorus)
+- "Come do the thing!" "Wait, in front of everybody?"
+- "It's kind of temple-y, with the writing and atmosphere and stuff"
+
+
+TODO:
+
+- Plasma Ray - light from primary city out to secondary splash
+x Connection Pattern - fill part up with light, have the empty space do the data flow pattern
+- Spatially Vertical Rain (not spherical)
+- Something like rain for data viz
+
+- Rendering gifs to the secondary cities
+
+
+Anyone Home
+- some light, but low power mode
+- blues, match screen - guide person towards display
+
+Welcome Home 
+- keep the secondary cities off
+
+Felt Isolated - blues, cooler tones, water?
+
+Nature - gold, pink/purple - drinking champagne - carousel colors
+- bluring the ends of bars is ok, just keep it consistent
+
+For data sets that have really high values everywhere, grow them in one at a time
+- for connection based ones: grow first, ripple out secondary cities to the next nearest primary city, grow that one
+
+QUESTION: Are we showing a statement about the data during the passive mode of each scene?
+- Yes
+
+QUESTION: Can we change the scene ids? Does it matter if two screens have the same sceneId?
+
+TODO: Put together an ending scene

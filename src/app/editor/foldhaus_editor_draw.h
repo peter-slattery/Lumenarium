@@ -6,12 +6,12 @@
 #ifndef FOLDHAUS_EDITOR_DRAW_H
 
 internal void
-Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ClippingBox, v4 Color)
+Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ClippingBox, v4 Color, s32 CursorPosition)
 {
     gs_string Temp = PushString(State->Transient, 256);
     PrintF(&Temp, "%d", Widget.Id.Id);
     render_quad_batch_constructor BatchConstructor = PushRenderTexture2DBatch(RenderBuffer,
-                                                                              Widget.String.Length,
+                                                                              Widget.String.Length + 1,
                                                                               State->Interface.Style.Font->BitmapMemory,
                                                                               State->Interface.Style.Font->BitmapTextureHandle,
                                                                               State->Interface.Style.Font->BitmapWidth,
@@ -25,7 +25,8 @@ Editor_DrawWidgetString(app_state* State, context* Context, render_command_buffe
     {
         case Align_Left:
         {
-            RegisterPosition = DrawStringLeftAligned(&BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, ClippingBox, Color);
+            RegisterPosition = DrawStringLeftAligned(RenderBuffer,
+                                                     &BatchConstructor, StringExpand(Widget.String), RegisterPosition, State->Interface.Style.Font, ClippingBox, Color, CursorPosition, GreenV4);
         }break;
         
         case Align_Right:
@@ -76,12 +77,13 @@ Editor_GetWidgetFillBounds(ui_widget Widget)
     return Result;
 }
 
+internal void Editor_DrawWidgetList(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds);
+
 internal void
-Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 ParentClipBounds)
+Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget Widget, rect2 WidgetParentUnion)
 {
-    rect2 WidgetParentUnion = Widget.Bounds;
-    WidgetParentUnion = Rect2Union(Widget.Bounds, ParentClipBounds);
-    
+    bool IsActiveWidget = ui_WidgetIdsEqual(Widget.Id, State->Interface.ActiveWidget);
+    ;
     if (!Widget.Parent || (Rect2Area(WidgetParentUnion) > 0))
     {
         if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawBackground))
@@ -101,7 +103,13 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
         if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
         {
             v4 Color = State->Interface.Style.TextColor;
-            Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, WidgetParentUnion, Color);
+            s32 CursorPosition = -1;
+            if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_Typable) && IsActiveWidget)
+            {
+                CursorPosition = State->Interface.CursorPosition;
+            }
+            
+            Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, WidgetParentUnion, Color, CursorPosition);
         }
         
         if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawHorizontalFill) ||
@@ -120,13 +128,15 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
             
             if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawString) && Widget.String.Length > 0)
             {
-                // TODO(pjs): add this color to the style
                 v4 TextColor = BlackV4;
-                Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, ClippedFillBounds, TextColor);
+                Editor_DrawWidgetString(State, Context, RenderBuffer, Widget, ClippedFillBounds, TextColor, -1);
             }
         }
         
-        if (ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline))
+        bool DrawOutline = ui_WidgetIsFlagSet(Widget, UIWidgetFlag_DrawOutline);
+        DrawOutline |= ui_WidgetIsFlagSet(Widget, UIWidgetFlag_Typable) && IsActiveWidget;
+        
+        if (DrawOutline)
         {
             // TODO(pjs): replace these with values from the style
             r32 Thickness = 1.0f;
@@ -134,18 +144,27 @@ Editor_DrawWidget(app_state* State, context* Context, render_command_buffer* Ren
             PushRenderBoundingBox2D(RenderBuffer, WidgetParentUnion.Min, WidgetParentUnion.Max, Thickness, Color);
         }
     }
-    
-    if (Widget.ChildrenRoot)
-    {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.ChildrenRoot, WidgetParentUnion);
-    }
-    
-    if (Widget.Next)
-    {
-        Editor_DrawWidget(State, Context, RenderBuffer, *Widget.Next, ParentClipBounds);
-    }
 }
 
+
+internal void Editor_DrawWidgetList(app_state* State, context* Context, render_command_buffer* RenderBuffer, ui_widget* Widget, rect2 ParentClipBounds)
+{
+    ui_widget* WidgetAt = Widget;
+    while (WidgetAt)
+    {
+        rect2 WidgetParentUnion = WidgetAt->Bounds;
+        WidgetParentUnion = Rect2Union(WidgetAt->Bounds, ParentClipBounds);
+        
+        Editor_DrawWidget(State, Context, RenderBuffer, *WidgetAt, WidgetParentUnion);
+        
+        if (WidgetAt->ChildrenRoot)
+        {
+            Editor_DrawWidgetList(State, Context, RenderBuffer, WidgetAt->ChildrenRoot, WidgetParentUnion);
+        }
+        
+        WidgetAt = WidgetAt->Next;
+    }
+}
 
 #define FOLDHAUS_EDITOR_DRAW_H
 #endif // FOLDHAUS_EDITOR_DRAW_H

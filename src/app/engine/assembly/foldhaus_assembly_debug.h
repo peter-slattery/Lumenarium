@@ -16,6 +16,7 @@ enum override_type
     ADS_Override_AllBlue,
     ADS_Override_AllOff,
     ADS_Override_AllWhite,
+    ADS_Override_AllHue,
     ADS_Override_TagWhite,
     ADS_Override_TagStripWhite,
     ADS_Override_ChannelWhite,
@@ -32,6 +33,7 @@ global gs_const_string OverrideTypeStrings[] = {
     LitString("Override_AllBlue" ),
     LitString("ADS_Override_AllOff" ),
     LitString("ADS_Override_AllWhite" ),
+    LitString("ADS_Override_AllHue" ),
     LitString("ADS_Override_TagWhite" ),
     LitString("ADS_Override_TagStripWhite" ),
     LitString("ADS_Override_ChannelWhite," ),
@@ -42,12 +44,14 @@ struct assembly_debug_state
 {
     override_type Override;
     
+    bool AllAssemblies;
     u32 TargetAssembly;
     u32 TargetStrip;
     
     gs_string TagName;
     gs_string TagValue;
     
+    u32 TargetHue;
     pixel TargetColor;
     
     u32 TargetChannel;
@@ -101,12 +105,9 @@ AssemblyDebug_OverrideTagValueWithColor(assembly Assembly, led_buffer LedBuffer,
 }
 
 internal void
-AssemblyDebug_OverrideOutput(assembly_debug_state State, assembly_array Assemblies, led_system LedSystem)
+AssemblyDebug_OverrideOutputForAssembly(assembly_debug_state State,  led_system LedSystem,
+                                        assembly Assembly)
 {
-    if (State.Override == ADS_Override_None) return;
-    State.TargetColor = pixel{255,255,255};
-    
-    assembly Assembly = Assemblies.Values[State.TargetAssembly];
     led_buffer LedBuffer = LedSystem.Buffers[Assembly.LedBufferIndex];
     
     u8 V = State.Brightness;
@@ -160,6 +161,14 @@ AssemblyDebug_OverrideOutput(assembly_debug_state State, assembly_array Assembli
             AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, pixel{V, V, V});
         }break;
         
+        case ADS_Override_AllHue:
+        {
+            v4 HSV = v4{(r32)State.TargetHue, 1, 1, 1};
+            v4 RGB = HSVToRGB(HSV);
+            pixel P = V4ToRGBPixel(RGB);
+            AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, P);
+        }break;
+        
         case ADS_Override_TagWhite:
         {
             AssemblyDebug_OverrideWithColor(Assembly, LedBuffer, pixel{0, 0, 0});
@@ -201,10 +210,26 @@ AssemblyDebug_OverrideOutput(assembly_debug_state State, assembly_array Assembli
         
         InvalidDefaultCase;
     }
+}
+
+internal void
+AssemblyDebug_OverrideOutput(assembly_debug_state State, assembly_array Assemblies, led_system LedSystem)
+{
+    if (State.Override == ADS_Override_None) return;
+    State.TargetColor = pixel{255,255,255};
     
-    if (State.Override )
+    if (State.AllAssemblies)
     {
-        
+        for (u32 i = 0; i < Assemblies.Count; i++)
+        {
+            assembly Assembly = Assemblies.Values[i];
+            AssemblyDebug_OverrideOutputForAssembly(State, LedSystem, Assembly);
+        }
+    }
+    else
+    {
+        assembly Assembly = Assemblies.Values[State.TargetAssembly];
+        AssemblyDebug_OverrideOutputForAssembly(State, LedSystem, Assembly);
     }
 }
 

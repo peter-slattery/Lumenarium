@@ -1,12 +1,11 @@
 /*
 gs_radix_sort.h - An implementation of radix sort for fixed size unsigned 32bit integer buffers
 
-TODO
 */
 
 #ifndef GS_RADIX_SORT_H
 
-#ifdef DEBUG
+#if DEBUG
 #if !defined(GSRad_Assert)
 #define GSRad_Assert(expression) \
 if(!(expression)) { \

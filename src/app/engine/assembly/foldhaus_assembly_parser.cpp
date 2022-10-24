@@ -276,7 +276,7 @@ ParseAssemblyFile(assembly* Assembly, gs_const_string FileName, gs_string FileTe
     
     Assembly->Name = Parser_ReadStringValue(&Parser, AssemblyField_AssemblyName);
     Assembly->Scale = Parser_ReadR32Value(&Parser, AssemblyField_AssemblyScale);
-    Assembly->Center = Parser_ReadV3Value(&Parser, AssemblyField_AssemblyCenter);
+    Assembly->Center = Parser_ReadV3Value(&Parser, AssemblyField_AssemblyCenter) * Assembly->Scale;
     Assembly->StripCount = Parser_ReadU32Value(&Parser, AssemblyField_LedStripCount);
     Assembly->Strips = PushArray(&Assembly->Arena, v2_strip, Assembly->StripCount);
     

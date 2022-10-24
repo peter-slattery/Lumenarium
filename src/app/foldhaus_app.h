@@ -11,13 +11,15 @@
 #include "engine/foldhaus_serializer.h"
 
 #include "../gs_libs/gs_font.h"
-#include "foldhaus_log.h"
 
-#include "interface.h"
+#include "editor/interface.h"
 
 #include "engine/foldhaus_network_ordering.h"
 
 #include "engine/assembly/foldhaus_assembly.h"
+
+#include "ss_blumen_lumen/gfx_math.h"
+
 #include "engine/assembly/foldhaus_assembly_parser.cpp"
 #include "engine/assembly/foldhaus_assembly_debug.h"
 
@@ -42,7 +44,8 @@ typedef struct panel panel;
 #include "engine/animation/foldhaus_animation_renderer.cpp"
 
 #include "engine/user_space.h"
-#include "blumen_lumen.h"
+#include "ss_blumen_lumen/phrase_hue_map.h"
+#include "ss_blumen_lumen/blumen_lumen.h"
 
 struct app_state
 {
@@ -57,7 +60,6 @@ struct app_state
     assembly_array Assemblies;
     assembly_debug_state AssemblyDebugState;
     animation_system AnimationSystem;
-    event_log* GlobalLog;
     animation_pattern_array Patterns;
     
     // Interface
@@ -72,16 +74,32 @@ struct app_state
     panel* HotPanel;
     
     user_space_desc UserSpaceDesc;
+    bool ShowingUserSpaceDebug;
+    
+    bool RunEditor;
+    bool SendEmptyPackets;
 };
 
 internal void OpenColorPicker(app_state* State, v4* Address);
 
 #include "engine/assembly/foldhaus_assembly.cpp"
 
+internal assembly*
+LoadAssembly(gs_const_string Path, app_state* State, context Context)
+{
+    return LoadAssembly(&State->Assemblies, 
+                        &State->LedSystem, 
+                        State->Transient, 
+                        Context, 
+                        Path,
+                        GlobalLogBuffer);
+}
+
 #include "engine/user_space.cpp"
 
+#include "ss_blumen_lumen/sdf.h"
 #include "patterns/blumen_patterns.h"
-#include "blumen_lumen.cpp"
+#include "ss_blumen_lumen/blumen_lumen.cpp"
 
 internal void
 EndCurrentOperationMode(app_state* State)
@@ -98,6 +116,7 @@ EndCurrentOperationMode(app_state* State)
 #include "editor/panels/foldhaus_panel_animation_timeline.h"
 #include "editor/panels/foldhaus_panel_hierarchy.h"
 #include "editor/panels/foldhaus_panel_assembly_debug.h"
+#include "editor/panels/foldhaus_panel_message_log.h"
 
 #include "editor/panels/foldhaus_panel_types.cpp"
 
