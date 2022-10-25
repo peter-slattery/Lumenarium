@@ -50,7 +50,7 @@ done
 if [ "${OPTS[0]}" == "-h" ] || [ "${OPTS[0]}" == "--help" ]
 then
   print_usage
-  exit 1
+  exit 0
 fi
 
 # --------------------------------------------
@@ -333,9 +333,9 @@ fi
 # Compile The Program
 
 printf "\nBeginning Compilation...\n"
-pushd $OUT_PATH
+pushdir $OUT_PATH
 
-find . -name "*" -delete
+find . -name "*" -delete > /dev/null
 
 if [[ -f ${HOOK_PREBUILD} ]]; then
   source "${HOOK_PREBUILD}"
@@ -392,7 +392,7 @@ fi
 LINKER_ARGS="-o ${LINKER_OUTPUT} ${COMPILER_OUTPUT[@]} ${LINKER_FLAGS[@]} ${LINKER_LIBRARIES[@]}"
 
 printf "Linking...\n"
-echo $LINKER $LINKER_ARGS
+# echo $LINKER $LINKER_ARGS
 eval $LINKER $LINKER_ARGS
 if [ $? -eq 0 ]; then
   printf   "  Link: "
@@ -408,4 +408,5 @@ fi
 
 popdir
 
+printf "\n"
 exit 0
