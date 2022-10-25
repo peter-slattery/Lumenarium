@@ -1,56 +1,56 @@
 #!/bin/bash
 
-# Ensure an error makes the script bail
-set -e
-
 # --------------------------------------------
 #            Usage 
 
-print_usage () {
-  echo
-  echo Build Command Syntax:
-  echo "  $0 [mode] [platform] [arch]"
-  echo
-  echo "Release Mode Options:"
-  echo "  debug"
-  echo "  prod"
-  echo
-  echo "Platform Options:"
-  echo "  win32"
-  echo "  osx"
-  echo "  wasm"
-  echo "  raspi"
-  echo
-  echo "Arch Options: (architecture)"
-  echo "  intel (valid with Platform Win32 and OSX) (default)"
-  echo "  arm64 (only valid for Platform OSX)"
+VALID_VALUES_COMPILER=("clang" "clang++" "msvc")
+VALID_VALUES_MODE=("debug" "release")
+VALID_VALUES_PLATFORM=("win32" "osx" "linux" "raspi" "wasm")
+VALID_VALUES_ARCH=("x64" "arm64")
+VALID_VALUES_PACKAGE=("true" "false")
+
+printf_r () {
+  printf "\e[31m$@\e[0m\n"
 }
 
-# --------------------------------------------
-#            Arguments
-MODE=$1
-PLATFORM=$2
-ARCH=$3
-PACKAGE=$4
+printf_g () {
+  printf "\e[32m%s\e[0m\n" "$@"
+}
 
-if [ "${MODE}" == "" ] | [ "${PLATFORM}" == "" ]
+print_usage () {
+  printf "\n"
+  printf "Build Command Syntax:\n"
+  printf_g "  $0 [compiler] [mode] [platform] [arch] [package]"
+  printf "\n"
+  printf "Compiler Options:\n"
+  printf "  \e[32m%s\e[m\n" "${VALID_VALUES_COMPILER[@]}"
+  printf "\n"
+  printf "Release Mode Options:\n"
+  printf "  \e[32m%s\e[m\n" "${VALID_VALUES_MODE[@]}"
+  printf "\n"
+  printf "Platform Options:\n"
+  printf "  \e[32m%s\e[m\n" "${VALID_VALUES_PLATFORM[@]}"
+  printf "\n"
+  printf "Arch Options: \n"
+  printf "  \e[32m%s\e[m\n" "${VALID_VALUES_ARCH[@]}"
+  printf "\n"
+  printf "Package Options:\n"
+  printf_g "  'package' or no flag to omit packaging\n"
+  printf "\n"
+  printf "Examples:\n"
+  printf "  $0 clang debug osx arm64\n"
+  printf "  $0 msvc release win32 x64 package\n"
+}
+
+OPTS=()
+for ((i=1; i<=$#; i+=1)); do
+  OPTS+=(${!i})
+done
+
+if [ "${OPTS[0]}" == "-h" ] || [ "${OPTS[0]}" == "--help" ]
 then
   print_usage
-  exit 0
-fi
-
-# Default to Intel architecture if none provided
-if [ "${ARCH}" == "" ]
-then
-  ARCH="intel"
-fi
-
-if [ "${ARCH}" != "intel" ] && [ "${ARCH}" != "arm64" ]
-then
-  echo "Uknown target architecture: ${ARCH}"
-  print_usage
-  exit 0
-
+  exit 1
 fi
 
 # --------------------------------------------
@@ -64,303 +64,345 @@ popdir () {
   command popd "$@" > /dev/null
 }
 
-add_flag () {
-  local -n ref=$1
-  ref="$ref $2"
-}
-
 # --------------------------------------------
-#         Getting Project Path
-#
-# Project is stored in PROJECT_PATH
+# Project Directory Identification
 
-SCRIPT_REL_DIR=$(dirname "${BASH_SOURCE[0]}")
-pushdir $SCRIPT_REL_DIR
+BUILD_SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+pushdir $BUILD_SCRIPT_DIR
 pushdir ..
 PROJECT_PATH=$(pwd)
 popdir
 popdir
 
+BLD_DIR="${PROJECT_PATH}/build"
+SRC_DIR="${PROJECT_PATH}/src"
+OUT_DIR="${PROJECT_PATH}/run_tree"
+
 # --------------------------------------------
-#         Platform/Mode Specific Variables
+# Input Flag Settings
 
-# Compiler Selection
+INPUT_FLAG_UNSET="unset"
 
-Compiler_win32="cl"
-Compiler_osx="clang"
-Compiler_raspi="clang"
-WasiSdk="/c/drive/apps/wasi-sdk"
-Compiler_wasm="$WasiSdk/bin/clang++"
-Compiler_linux="clang++"
+COMPILER=$INPUT_FLAG_UNSET
+MODE=$INPUT_FLAG_UNSET
+PLATFORM=$INPUT_FLAG_UNSET
+ARCH=$INPUT_FLAG_UNSET
+PACKAGE=$INPUT_FLAG_UNSET
 
-# Platform Entry Points
+# --------------------------------------------
+# Create a local build file if there isn't one
+# using local context to determine defaults
 
-PlatformEntry_win32="src/platform/win32/lumenarium_first_win32.cpp"
-PlatformEntry_osx="src/platform/osx/lumenarium_first_osx.c"
-PlatformEntry_wasm="src/platform/wasm/lumenarium_first_wasm.cpp"
-PlatformEntry_linux="src/platform/linux/lumenarium_first_linux.cpp"
-PlatformEntry_raspi="src/platform/raspi/lumenarium_first_raspi.c"
+BLD_LOCAL_FILE="${BLD_DIR}/build_local.sh"
 
-# Intermediate Outputs
-
-CompilerOutput_win32="lumenarium.o"
-CompilerOutput_osx="lumenarium"
-CompilerOutput_wasm="lumenarium.wasm"
-CompilerOutput_linux=""
-CompilerOutput_raspi="lumenarium"
-
-# Executables
-
-LinkerOutput_win32="lumenarium.exe"
-LinkerOutput_osx="lumenarium"
-LinkerOutput_wasm="lumenarium.wasm"
-LinkerOutput_linux=""
-LinkerOutput_raspi="lumenarium"
-
-# Wasm Sys Root
-WasmSysRoot="${PROJECT_PATH}/src/platform/wasm/sysroot/"
-
-# Compiler Flags
-
-CompilerFlags_win32="-nologo"
-CompilerFlags_win32+=" -FC" # display errors with full path
-CompilerFlags_win32+=" -WX" # treat warnings as errors
-CompilerFlags_win32+=" -W4" # output warning level
-CompilerFlags_win32+=" -Z7" # generate C compatible debug info
-# CompilerFlags_win32+="-Oi" # generate intrinsic functions
-# CompilerFlags_win32+="-MTd" # create a debug multithreaded exe w/ Libcmtd.lib
-# CompilerFlags_win32+="-fp:fast" # fast floating point model
-CompilerFlags_win32+=" -wd4505" # 
-CompilerFlags_win32+=" -wd4100" #
-CompilerFlags_win32+=" -wd4189" #
-CompilerFlags_win32+=" -wd4702" #
-CompilerFlags_win32+=" -wd4996" # _CRT_SECURE_NO_WARNINGS
-
-CompilerFlags_osx=""
-
-CompilerFlags_wasm=""
-CompilerFlags_wasm+=" -Wno-writable-strings" #
-CompilerFlags_wasm+=" --target=wasm32" #
-CompilerFlags_wasm+=" -nostdlib" #
-CompilerFlags_wasm+=" -Wl,--no-entry" #
-CompilerFlags_wasm+=" -Wl,--allow-undefined" #
-CompilerFlags_wasm+=" -Wl,--export-all" #
-
-CompilerFlags_linux=" -pthread"
-
-CompilerFlags_raspi=" -pthread" # "--target=arm-rpi-linux-gnueabihf" # "--target=arm-linux-gnueabihf" #target
-CompilerFlags_raspi+=" -lm" # link with local system math libraries
-
-CompilerFlags_DEBUG_win32=""
-CompilerFlags_DEBUG_win32+=" -Od" #
-CompilerFlags_DEBUG_win32+=" -Zi" #
-CompilerFlags_DEBUG_win32+=" -DDEBUG" #
-# add_flag CompilerFlags_DEBUG_win32 "-DPRINT_ASSERTS"
-
-CompilerFlags_DEBUG="-O0"
-CompilerFlags_DEBUG+=" -g" #
-CompilerFlags_DEBUG+=" -DDEBUG" #
-if [ "${PLATFORM}" != "raspi" ]
+if [ ! -f $BLD_LOCAL_FILE ] 
 then
-  CompilerFlags_DEBUG+=" -fsanitize=address" #address sanitizer
+
+  printf "Creating a build/build_local.sh file for you."
+  printf "  Path: ${BLD_LOCAL_FILE}"
+  printf "This file is excluded in the .gitignore. It is for you to set local compilation targets"
+
+  touch $BLD_LOCAL_FILE
+  printf "#!/bin/bash"        >> $BLD_LOCAL_FILE
+  printf                      >> $BLD_LOCAL_FILE
+  printf "COMPILER=\"clang\"" >> $BLD_LOCAL_FILE
+  printf "MODE=\"debug\""     >> $BLD_LOCAL_FILE
+  printf "PLATFORM=\"osx\""   >> $BLD_LOCAL_FILE
+  printf "ARCH=\"arm64\""     >> $BLD_LOCAL_FILE
+  printf "PACKAGE=\"false\""  >> $BLD_LOCAL_FILE
+  printf "TEST_FILE=\"\""     >> $BLD_LOCAL_FILE
 fi
 
-CompilerFlags_PROD=" -O3"
+# --------------------------------------------
+# Call Local Build File
 
-# Compiler flags that no matter what, we want to define
-# for the most part these pass the build parameters into the executable
-CompilerFlags_common=" -DPLATFORM_${PLATFORM}=1 -DMODE_${MODE}=1 -DARCH_${ARCH}=1"
-
-# Linker Flags
-
-LinkerFlags_win32=" -NOLOGO"
-LinkerFlags_win32+=" -incremental:no" #
-LinkerFlags_win32+=" -subsystem:windows" #
-# add_flag LinkerFlags_win32 "-entry:WinMain" #
-LinkerFlags_win32+=" -opt:ref" # eliminate functions that are never referenced
-
-LinkerFlags_osx=""
-
-LinkerFlags_wasm="--no-entry"
-LinkerFlags_wasm+=" --export-dynamic" #
-LinkerFlags_wasm+=" --unresolved-symbols=import-functions" #
-
-LinkerFlags_linux=""
-LinkerFlags_raspi="-fuse-ld=lld"
-
-LinkerFlags_DEBUG="-debug"
-LinkerFlags_PROD=""
-
-# Linker Libs
-
-LinkerLibs_win32="user32.lib kernel32.lib gdi32.lib opengl32.lib" 
-# winmm.lib gdi32.lib dsound.lib Ws2_32.lib Comdlg32.lib Winspool.lib"
-
-LinkerLibs_osx="-framework OpenGL -framework Cocoa -framework IOKit ${PROJECT_PATH}/src/libs/glfw_osx/lib-universal/libglfw3.a"
-LinkerLibs_wasm=""
-LinkerLibs_linux=""
-LinkerLibs_raspi=""
+source ${BLD_LOCAL_FILE}
 
 # --------------------------------------------
-#         Varible Selection
+# Use command line arguments to override local
+# build file
 
-# Select Platform Variables
+if [ "${#OPTS[@]}" -gt "0" ]; then
+  OPTS_COUNT="${#OPTS[@]}"
+  if [ $OPTS_COUNT -lt "4" ] || [ $OPTS_COUNT -gt "5" ]; then
+    printf_r "Error: Incorrect number of arguments supplied"
+    printf   "       You must either supply all or none of the build script arguments\n"
+    print_usage
+    exit 1
+  fi
+  
+  COMPILER=${OPTS[0]}
+  MODE=${OPTS[1]}
+  PLATFORM=${OPTS[2]}
+  ARCH=${OPTS[3]}
 
-if [ "${PLATFORM}" == "win32" ]
-then
-  Compiler=$Compiler_win32
-  PlatformEntry=$PlatformEntry_win32
-  CompilerFlags=$CompilerFlags_win32
-  CompilerOutput=$CompilerOutput_win32
-  LinkerOutput=$LinkerOutput_win32
-  LinkerFlags=$LinkerFlags_win32
-  LinkerLibs=$LinkerLibs_win32
+  PACkaGE="false"
+  if [ $OPTS_COUNT -eq "5" ]; then
+    if [ "${OPTS[4]}" == "package" ]; then
+      PACKAGE="true"
+    else
+      printf_r "Error: Invalid package command provided: ${PACKAGE}"
+      printf   "  You must either supply the 'package' flag or omit it"
+      exit 1
+    fi
+  fi
+fi
 
-elif [ "${PLATFORM}" == "osx" ]
-then
-  Compiler=$Compiler_osx
-  PlatformEntry=$PlatformEntry_osx
-  CompilerFlags=$CompilerFlags_osx
-  CompilerOutput=$CompilerOutput_osx
-  LinkerOutput=$LinkerOutput_osx
-  LinkerFlags=$LinkerFlags_osx
-  LinkerLibs=$LinkerLibs_osx
+# --------------------------------------------
+# Verify valid values for all inputs
 
-  if [ "${ARCH}" == "arm64" ]
-  then
-    CompilerFlags="${CompilerFlags} -arch arm64"
-  elif [ "${ARCH}" == "intel" ]
-  then
-    CompilerFlags="${CompilerFlags} -arch x86_64"
+ALL_VALID_VALUES="true"
+
+check_valid_flag () {
+  local VALID_VALUES_NAME=$1[@]
+  local VALID_VALUES=("${!VALID_VALUES_NAME}")
+  local VALUE_GIVEN=$2
+  local VALUE_ID=$3
+  
+  if [[ ! " ${VALID_VALUES[*]} " =~ " ${VALUE_GIVEN} " ]]; then
+    printf_r "Error: Invalid ${VALUE_ID} provided: ${VALUE_GIVEN}"
+    printf   "  Must be one of: "
+    printf_g "${VALID_VALUES[*]}\n"
+    ALL_VALID_VALUES="false"
+  fi
+}
+
+check_valid_flag VALID_VALUES_COMPILER $COMPILER "compiler"
+check_valid_flag VALID_VALUES_MODE     $MODE     "mode"
+check_valid_flag VALID_VALUES_PLATFORM $PLATFORM "platform"
+check_valid_flag VALID_VALUES_ARCH     $ARCH     "arch"
+
+if [[ ! " ${VALID_VALUES_PACKAGE[*]} " =~ " ${PACKAGE} " ]]; then
+  printf_r "Error: Invalid package provided: ${PACKAGE}"
+  printf   "  You must either supply the 'package' flag or omit it"
+  ALL_VALID_VALUES="false"
+fi
+
+if [ "${ALL_VALID_VALUES}" != "true" ]; then 
+  exit 1
+fi
+
+if [ "${COMPILER}" == "clang" ] || [ "${COMPILER}" == "clang++" ]; then
+  LINKER=${COMPILER}
+elif [ "${COMPILER}" == "msvc" ]; then
+  LINKER="link"
+fi
+
+printf "Compiler: "
+  printf_g "${COMPILER}"
+printf "Mode:     "
+  printf_g "${MODE}"
+printf "Platform: "
+  printf_g "${PLATFORM}"
+printf "Arch:     "
+  printf_g "${ARCH}"
+printf "Package:  "
+  printf_g "${PACKAGE}"
+
+# --------------------------------------------
+# Hooks Identification
+
+HOOK_PREBUILD="${BLD_DIR}/hook_prebuild.sh"
+HOOK_POSTBUILD="${BLD_DIR}/hook_postbuild.sh"
+HOOK_PRELINK="${BLD_DIR}/hook_prelink.sh"
+HOOK_POSTLINK="${BLD_DIR}/hook_postlink.sh"
+
+printf "\nBuild Hooks:\n"
+if [ -f "${HOOK_PREBUILD}" ]; then
+  printf "  Pre  Build: ${HOOK_PREBUILD##*/}\n"
+else
+  HOOK_PREBUILD=""
+fi
+
+if [ -f "${HOOK_POSTBUILD}" ]; then
+  printf "  Post Build: ${HOOK_POSTBUILD##*/}\n"
+else
+  HOOK_POSTBUILD=""
+fi
+
+if [ -f "${HOOK_PRELINK}" ]; then
+  printf "  Pre  Link: ${HOOK_PRELINK##*/}\n"
+else
+  HOOK_PRELINK=""
+fi
+
+if [ -f "${HOOK_POSTLINK}" ]; then
+  printf "  Post Link: ${HOOK_POSTLINK##*/}\n"
+else
+  HOOK_POSTLINK=""
+fi
+
+# --------------------------------------------
+# File Parsing Helpers
+
+trim() {
+  local var="$*"
+
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+
+  echo "${var}"
+}
+
+load_file_into_lines_array() {
+  FILE=$1
+  local FILE_LINES_RAW=()
+  IFS=$'\r\n'
+  GLOBIGNORE='*'
+  command eval 'FILE_LINES_RAW=($(cat $FILE))'
+
+  FILE_LINES=()
+  for i in "${FILE_LINES_RAW[@]}"; do
+    if [ "${i:0:1}" != "#" ]; then
+      # strip any trailing comments off the end
+      # this lets you do things like:
+      #   "compiler>msvc>-FC # full path error"
+      # where you want to explain a flag
+      local LINE=$i
+      local LINE_NO_TRAILING_COMMENT="${LINE% #*}"
+      FILE_LINES+=($LINE_NO_TRAILING_COMMENT)
+    fi
+  done
+}
+
+parse_flags_from_selectors() {
+  SELECTORS=()
+  for ((i=1; i<=$#; i+=1)); do
+    SELECTORS+=(${!i})
+  done
+  
+  FLAGS=()
+  for i in "${FILE_LINES[@]}"; do
+    LINE=$i
+    FLAG="${LINE##*>}"
+  
+    INCLUDE_FLAG="true"
+    while [ "${LINE}" != "${FLAG}" ]; do
+      NEXT_SELECTOR="${LINE%%>*}"
+      LINE="${LINE#*>}"
+      if [[ ! " ${SELECTORS[@]} " =~ " ${NEXT_SELECTOR} " ]]; then
+        INCLUDE_FLAG="false"
+        break
+      fi
+      
+    done
+
+    if [ "${INCLUDE_FLAG}" == "true" ]; then
+      FLAG=$(trim "${FLAG}")
+      FLAG=$(eval "echo $FLAG")
+      FLAGS+=($FLAG)
+    fi
+  done
+}
+
+load_file_into_lines_array "${BLD_DIR}/build_flags.sh"
+
+# --------------------------------------------
+# Assemble Flags
+
+parse_flags_from_selectors "compiler" $COMPILER $MODE $PLATFORM $ARCH
+COMPILER_FLAGS=(${FLAGS[@]})
+
+parse_flags_from_selectors "compiler" "input" $PLATFORM $ARCH
+COMPILER_INPUTS=(${FLAGS[@]})
+
+parse_flags_from_selectors "linker" $MODE $PLATFORM $ARCH
+LINKER_FLAGS=(${FLAGS[@]})
+
+parse_flags_from_selectors "linker" "libs" $LINKER $MODE $PLATFORM $ARCH
+LINKER_LIBRARIES=(${FLAGS[@]})
+
+parse_flags_from_selectors "linker" "output" $LINKER $MODE $PLATFORM $ARCH
+LINKER_OUTPUT=(${FLAGS[@]})
+
+# --------------------------------------------
+# Create the Run Tree path
+
+OUT_PATH="${OUT_DIR}/${PLATFORM}/${ARCH}/${MODE}"
+
+if [ ! -d $OUT_PATH ]; then
+  mkdir -p $OUT_PATH
+fi
+
+# --------------------------------------------
+# Compile The Program
+
+printf "\nBeginning Compilation...\n"
+pushdir $OUT_PATH
+
+if [[ -f ${HOOK_PREBUILD} ]]; then
+  source "${HOOK_PREBUILD}"
+fi
+
+COMPILATION_SUCCESS="true"
+COMPILER_OUTPUT=()
+FAILED_COMPILES=()
+for i in "${COMPILER_INPUTS[@]}"; do
+  INPUT="${i}"
+  
+  INPUT_FILE="${INPUT##*/}"
+  INPUT_EXTENSION="${INPUT_FILE##*.}"
+  INPUT_NAME="${INPUT_FILE%.*}"
+  OUTPUT_FILE="${INPUT_NAME}_${INPUT_EXTENSION}.o"
+  
+  COMPILER_ARGS="-o ${OUTPUT_FILE} -c ${COMPILER_FLAGS[@]} -DPLATFORM_$PLATFORM=1 -DMODE_$MODE=1 -DARCH_$ARCH=1 $INPUT"
+
+  # echo $COMPILER $COMPILER_ARGS
+  eval $COMPILER $COMPILER_ARGS
+  if [ $? -eq 0 ]; then
+    COMPILER_OUTPUT+=(${OUTPUT_FILE})
   else
-    echo "ERROR: Unrecognized Arch: ${ARCH}"
-    exit 0
+    COMPILATION_SUCCESS="false"
+    FAILED_COMPILES+=(${OUTPUT_FILE})
   fi
 
-elif [ "${PLATFORM}" == "wasm" ]
-then
-  Compiler=$Compiler_wasm
-  PlatformEntry=$PlatformEntry_wasm
-  CompilerFlags=$CompilerFlags_wasm
-  CompilerOutput=$CompilerOutput_wasm
-  LinkerOutput=$LinkerOutput_wasm
-  LinkerFlags=$LinkerFlags_wasm
-  LinkerLibs=$LinkerLibs_wasm
+  # TODO: if the output file was a .dll or .lib we don't want to include
+  # those in the final compilation gather
+done
 
-elif [ "${PLATFORM}" == "linux" ]
-then
-  Compiler=$Compiler_linux
-  PlatformEntry=$PlatformEntry_linux
-  CompilerFlags=$CompilerFlags_linux
-  CompilerOutput=$CompilerOutput_linux
-  LinkerOutput=$LinkerOutput_linux
-  LinkerFlags=$LinkerFlags_linux
-  LinkerLibs=$LinkerLibs_linux
+printf "\nCompiler Output\n"
+if [ ${#COMPILER_OUTPUT[@]} -gt 0 ]; then
+  printf "  %s \e[32m[SUCCESS]\e[0m\n" "${COMPILER_OUTPUT[@]}"
+fi
+if [ ${#FAILED_COMPILES[@]} -gt 0 ]; then
+  printf "  %s \e[31m[FAILED]\e[0m\n" "${FAILED_COMPILES[@]}"
+fi
+printf "\n"
 
-elif [ "${PLATFORM}" == "raspi" ]
-then
-  Compiler=$Compiler_raspi
-  PlatformEntry=$PlatformEntry_raspi
-  CompilerFlags=$CompilerFlags_raspi
-  CompilerOutput=$CompilerOutput_raspi
-  LinkerOutput=$LinkerOutput_raspi
-  LinkerFlags=$LinkerFlags_raspi
-  LinkerLibs=$LinkerLibs_raspi
+if [[ -f ${HOOK_POSTBUILD} ]]; then
+  source "${HOOK_POSTBUILD}"
+fi
+
+if [ $COMPILATION_SUCCESS != "true" ]; then
+  printf "Compilation Failed.\n  Exiting..."
+  exit 1
+fi
+
+if [[ -f ${HOOK_PRELINK} ]]; then
+  source "${HOOK_PRELINK}"
+fi
+
+LINKER_ARGS="-o ${LINKER_OUTPUT} ${COMPILER_OUTPUT[@]} ${LINKER_FLAGS[@]} ${LINKER_LIBRARIES[@]}"
+
+
+printf "Linking...\n"
+# echo $LINKER $LINKER_ARGS
+eval $LINKER $LINKER_ARGS
+if [ $? -eq 0 ]; then
+  printf   "  Link: "
+  printf_g "[SUCCEEDED]"
 else
-  echo "Attempting to build for an unknown platform: ${PLATFORM}"
-  print_usage
-  exit 0
-
+  printf   "\n  Link: "
+  printf_r "[FAILED]"
 fi
 
-# Select Release Mode Variables
-
-if [ "${MODE}" == "debug" ]
-then
-  if [ $PLATFORM == "win32" ]
-  then
-    CompilerFlags="${CompilerFlags} ${CompilerFlags_DEBUG_win32}"
-  else
-    CompilerFlags="${CompilerFlags} ${CompilerFlags_DEBUG}"
-  fi
-
-  LinkerFlags="${LinkerFlags} ${LinkerFlags_DEBUG}"
-
-elif [ "${MODE}" == "prod" ]
-then
-  CompilerFlags="${CompilerFlags} ${CompilerFlags_PROD}"
-  LinkerFlags="${LinkerFlags} ${LinkerFlags_PROD}"
-
-else
-  echo "Attempting to build for an unknown release mode: ${MODE}"
-  print_usage
-  exit 0
-
+if [[ -f ${HOOK_POSTLINK} ]]; then
+  source "${HOOK_POSTLINK}"
 fi
 
-# Common Flags
-CompilerFlags="${CompilerFlags} ${CompilerFlags_common}"
-
-# --------------------------------------------
-#         Build Path Construction
-#
-# This determines where the generated executable will
-# be located. In general, it can be found at
-# project_path/run_tree/platform/arch/release_mode/lumenarium.exe
-# 
-# This section also ensures that the path requested actually exists
-
-BuildDir="${PROJECT_PATH}/run_tree/${PLATFORM}/${ARCH}/${MODE}"
-EntryPath="${PROJECT_PATH}/${PlatformEntry}"
-
-# Exception for wasm, which doesn't care about cpu architecture
-if [ $PLATFORM == "wasm" ]
-then
-  BuildDir="${PROJECT_PATH}/run_tree/${PLATFORM}/${MODE}"
-
-fi
-
-# Make the build directory,
-#   "-p" flag makes it make the entire tree, and not emit errors if it
-#   exists.
-mkdir -p "${BuildDir}"
-
-# --------------------------------------------
-#         Compilation
-
-echo "Building To: ${BuildDir}/${LinkerOutput}"
-echo
-pushdir $BuildDir
-
-echo "Cleaning: ${CompilerOutput} and ${LinkerOutput}"
-rm -rf ${CompilerOutput} ${LinkerOutput}
-
-echo "COMPILING..."
-echo "    COMPILE STRING: $Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs"
-
-if [ $PLATFORM == "win32" ]
-then
-  $Compiler \
-    $CompilerFlags \
-    $EntryPath \
-    -link \
-      $LinkerFlags \
-      $LinkerLibs \
-      -OUT:${LinkerOutput}
-
-elif [ $PLATFORM == "wasm" ]
-then
-  $Compiler \
-    $CompilerFlags \
-    -o $LinkerOutput \
-    $EntryPath
-  cp \
-    "${PROJECT_PATH}/src/platform/wasm/lumenarium_wasm_imports.js" \
-    ./lumenarium_wasm_imports.js
-else
-  $Compiler -o $LinkerOutput $CompilerFlags $EntryPath $LinkerLibs
-fi
-
-echo
-echo "Finished..."
 popdir
+
+exit 0

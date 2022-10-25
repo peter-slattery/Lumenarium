@@ -16,3 +16,4 @@ run_tree/win32/*
 run_tree/wasm/*
 run_tree/webgl/*
 run_tree/raspi/*
+build_local.sh
