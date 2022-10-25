@@ -40,11 +40,11 @@ compiler>debug>msvc>win32>-Zi       #
 compiler>debug>msvc>win32>-DDEBUG=1 #
 # compiler>debug>msvc>win32>-DPRINT_ASSERTS=1
 
-debug>clang>-O0
-debug>clang>-g
-debug>compiler>-DDEBUG=1
+compiler>debug>clang>-O0
+compiler>debug>clang>-g
+compiler>debug>compiler>-DDEBUG=1
 
-debug>clang>-fsanitize=address
+compiler>debug>clang>-fsanitize=address
 
 # Compiler: Prod
 compiler>release>clang>-O3
@@ -66,7 +66,8 @@ linker>wasm>--unresolved-symbols=import-functions
 # TODO: I don't think the build system supports this right now
 linker>raspi>-fuse-ld=lld
 
-linker>debug>-debug
+# linker>flags>debug>-debug
+linker>flags>debug>-fsanitize=address
 
 ################# LIBRARIES #################
 
